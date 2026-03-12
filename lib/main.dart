@@ -48,13 +48,16 @@ void main() async {
       size: Size(1280, 720),
       minimumSize: Size(900, 500),
       center: true,
-      backgroundColor: Platform.isLinux
-          ? const Color(0x00000000)
-          : const Color(0xFF101012),
+      backgroundColor: const Color(0xFF101012),
       titleBarStyle: TitleBarStyle.hidden,
       title: 'LifeOs TV',
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      // macOS: hide native traffic light buttons since we provide our own
+      if (Platform.isMacOS) {
+        await windowManager.setTitleBarStyle(TitleBarStyle.hidden,
+            windowButtonVisibility: false);
+      }
       await windowManager.show();
       await windowManager.focus();
     });
