@@ -3,7 +3,7 @@
 ## English
 
 ## Suggested PR title
-`Add io.github.erkanoz.LifeOsTV`
+`Add io.github._07erkanoz.lifeos-iptv-player`
 
 ## Suggested PR description
 Hello Flathub team,
@@ -23,7 +23,7 @@ This app is only a media player. It does not provide or host media content.
 Users are responsible for their own IPTV sources and legal compliance.
 
 ### Technical notes
-- App ID: `io.github.erkanoz.LifeOsTV`
+- App ID: `io.github._07erkanoz.lifeos-iptv-player`
 - Runtime: `org.freedesktop.Platform//24.08`
 - SDK: `org.freedesktop.Sdk//24.08`
 - Flutter extension: `org.freedesktop.Sdk.Extension.flutter//24.08`
@@ -38,7 +38,7 @@ Thank you.
 ## Türkçe
 
 ## Önerilen PR başlığı
-`Add io.github.erkanoz.LifeOsTV`
+`Add io.github._07erkanoz.lifeos-iptv-player`
 
 ## Önerilen PR açıklaması
 Merhaba Flathub ekibi,
@@ -58,7 +58,7 @@ Bu uygulama yalnızca bir medya oynatıcıdır. İçerik sunmaz veya barındırm
 Kullanıcılar kendi IPTV kaynaklarından ve yasal uygunluktan sorumludur.
 
 ### Teknik notlar
-- App ID: `io.github.erkanoz.LifeOsTV`
+- App ID: `io.github._07erkanoz.lifeos-iptv-player`
 - Runtime: `org.freedesktop.Platform//24.08`
 - SDK: `org.freedesktop.Sdk//24.08`
 - Flutter extension: `org.freedesktop.Sdk.Extension.flutter//24.08`

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.erkanoz.LifeOsTV</id>
+  <id>io.github._07erkanoz.lifeos-iptv-player</id>
   <name>LifeOs TV</name>
   <summary>Modern IPTV player for live TV, movies, and series</summary>
   <summary xml:lang="tr">Canlı TV, film ve diziler için modern IPTV oynatıcı</summary>
@@ -9,7 +9,7 @@
   <project_license>LicenseRef-proprietary</project_license>
   <developer_name>LifeOs Team</developer_name>
 
-  <launchable type="desktop-id">io.github.erkanoz.LifeOsTV.desktop</launchable>
+  <launchable type="desktop-id">io.github._07erkanoz.lifeos-iptv-player.desktop</launchable>
 
   <description>
     <p>

@@ -6,9 +6,9 @@
 This directory contains everything needed to prepare a Flathub submission for LifeOs TV.
 
 Included files:
-- `io.github.erkanoz.LifeOsTV.yml`: Flatpak manifest template.
-- `io.github.erkanoz.LifeOsTV.desktop`: Desktop launcher metadata.
-- `io.github.erkanoz.LifeOsTV.metainfo.xml`: AppStream metadata (store listing).
+- `io.github._07erkanoz.lifeos-iptv-player.yml`: Flatpak manifest template.
+- `io.github._07erkanoz.lifeos-iptv-player.desktop`: Desktop launcher metadata.
+- `io.github._07erkanoz.lifeos-iptv-player.metainfo.xml`: AppStream metadata (store listing).
 - `APP_DESCRIPTION_TR_EN.md`: Full product description + usage guide in English and Turkish.
 - `FLATHUB_PR_TR_EN.md`: Copy-paste PR title/body template for Flathub submission.
 
@@ -34,21 +34,21 @@ flatpak install flathub \
 ```bash
 flatpak-builder --user --install --force-clean \
   --install-deps-from=flathub \
-  build-dir packaging/flatpak/io.github.erkanoz.LifeOsTV.yml
+  build-dir packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.yml
 ```
 
 ### 3) Run app
 ```bash
-flatpak run io.github.erkanoz.LifeOsTV
+flatpak run io.github._07erkanoz.lifeos-iptv-player
 ```
 
 ### 4) Lint checks
 ```bash
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  manifest packaging/flatpak/io.github.erkanoz.LifeOsTV.yml
+  manifest packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.yml
 
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  appstream packaging/flatpak/io.github.erkanoz.LifeOsTV.metainfo.xml
+  appstream packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.metainfo.xml
 ```
 
 ## Submission checklist (Flathub)
@@ -72,9 +72,9 @@ flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
 Bu dizin, LifeOs TV için Flathub gönderimini hazırlamakta gereken temel dosyaları içerir.
 
 İçerik:
-- `io.github.erkanoz.LifeOsTV.yml`: Flatpak manifest şablonu.
-- `io.github.erkanoz.LifeOsTV.desktop`: Masaüstü başlatıcı metadata.
-- `io.github.erkanoz.LifeOsTV.metainfo.xml`: AppStream metadata (mağaza metni).
+- `io.github._07erkanoz.lifeos-iptv-player.yml`: Flatpak manifest şablonu.
+- `io.github._07erkanoz.lifeos-iptv-player.desktop`: Masaüstü başlatıcı metadata.
+- `io.github._07erkanoz.lifeos-iptv-player.metainfo.xml`: AppStream metadata (mağaza metni).
 - `APP_DESCRIPTION_TR_EN.md`: İngilizce + Türkçe detaylı ürün ve kullanım anlatımı.
 - `FLATHUB_PR_TR_EN.md`: Flathub gönderimi için hazır PR başlık/açıklama metni.
 
@@ -100,21 +100,21 @@ flatpak install flathub \
 ```bash
 flatpak-builder --user --install --force-clean \
   --install-deps-from=flathub \
-  build-dir packaging/flatpak/io.github.erkanoz.LifeOsTV.yml
+  build-dir packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.yml
 ```
 
 ### 3) Uygulamayı çalıştır
 ```bash
-flatpak run io.github.erkanoz.LifeOsTV
+flatpak run io.github._07erkanoz.lifeos-iptv-player
 ```
 
 ### 4) Lint kontrolleri
 ```bash
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  manifest packaging/flatpak/io.github.erkanoz.LifeOsTV.yml
+  manifest packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.yml
 
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  appstream packaging/flatpak/io.github.erkanoz.LifeOsTV.metainfo.xml
+  appstream packaging/flatpak/io.github._07erkanoz.lifeos-iptv-player.metainfo.xml
 ```
 
 ## Flathub gönderim kontrol listesi
