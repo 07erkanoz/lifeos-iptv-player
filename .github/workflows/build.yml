@@ -35,8 +35,20 @@ jobs:
       - name: Create .deb package
         run: |
           APP_NAME="lifeostv"
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-1.0.0}"
+          # Debian package version must start with a digit.
+          # For tag runs, use tag version (v1.2.3 -> 1.2.3).
+          # For workflow_dispatch on branches, generate a valid fallback version.
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" =~ ^v?[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="1.0.0+${GITHUB_RUN_NUMBER:-0}"
+          fi
+          # Keep only Debian-safe characters.
+          VERSION="$(echo "$VERSION" | sed 's/[^0-9A-Za-z.+:~-]/-/g')"
+          # Final guard: ensure version starts with a digit.
+          if [[ ! "$VERSION" =~ ^[0-9] ]]; then
+            VERSION="1.0.0+$VERSION"
+          fi
           PKG_DIR="${APP_NAME}_${VERSION}_amd64"
 
           mkdir -p "$PKG_DIR/DEBIAN"
