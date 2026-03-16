@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=LifeOs TV
+Name[tr]=LifeOs TV
+GenericName=IPTV Player
+GenericName[tr]=IPTV Oynatıcı
+Comment=Watch live TV, movies and series with your IPTV provider
+Comment[tr]=IPTV sağlayıcınız ile canlı TV, film ve dizi izleyin
+Exec=lifeostv
+Icon=io.github.erkanoz.LifeOsTV
+Terminal=false
+Categories=AudioVideo;Video;Player;
+StartupNotify=true

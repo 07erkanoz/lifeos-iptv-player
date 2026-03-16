@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.erkanoz.LifeOsTV</id>
+  <name>LifeOs TV</name>
+  <summary>Modern IPTV player for live TV, movies, and series</summary>
+  <summary xml:lang="tr">Canlı TV, film ve diziler için modern IPTV oynatıcı</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <developer_name>LifeOs Team</developer_name>
+
+  <launchable type="desktop-id">io.github.erkanoz.LifeOsTV.desktop</launchable>
+
+  <description>
+    <p>
+      LifeOs TV is a cross-platform IPTV player for users who want to watch their own provider content
+      in a single interface. It supports Xtream Codes and M3U playlists and combines Live TV, Movies,
+      and Series in a TV-style experience.
+    </p>
+    <p>Main capabilities:</p>
+    <ul>
+      <li>Live TV playback with EPG overlays and searchable channel list.</li>
+      <li>Movie and series browsing with metadata-rich detail pages.</li>
+      <li>Season and episode navigation for series.</li>
+      <li>Favorites, watch history, and continue watching flows.</li>
+      <li>YouTube trailer and IMDb shortcuts when metadata is available.</li>
+      <li>Subtitle tools with OpenSubtitles search integration.</li>
+      <li>Desktop-friendly fullscreen and PiP/floating playback controls.</li>
+    </ul>
+    <p>
+      LifeOs TV does not host or provide media content. Users are responsible for their IPTV sources
+      and legal compliance.
+    </p>
+  </description>
+
+  <description xml:lang="tr">
+    <p>
+      LifeOs TV, kendi sağlayıcı içeriğini tek arayüzde izlemek isteyen kullanıcılar için geliştirilmiş
+      çok platformlu bir IPTV oynatıcıdır. Xtream Codes ve M3U playlist destekler; Canlı TV, Film ve
+      Dizileri TV benzeri bir deneyimde birleştirir.
+    </p>
+    <p>Ana yetenekler:</p>
+    <ul>
+      <li>EPG overlay ve arama destekli kanal listesi ile canlı TV oynatma.</li>
+      <li>Metadata ile zenginleştirilmiş film ve dizi detay ekranları.</li>
+      <li>Dizilerde sezon ve bölüm navigasyonu.</li>
+      <li>Favoriler, izleme geçmişi ve izlemeye devam et akışları.</li>
+      <li>Metadata mevcutsa YouTube fragman ve IMDb kısayolları.</li>
+      <li>OpenSubtitles arama entegrasyonu ile altyazı araçları.</li>
+      <li>Masaüstüne uygun tam ekran ve PiP/floating oynatma kontrolleri.</li>
+    </ul>
+    <p>
+      LifeOs TV içerik barındırmaz veya sağlamaz. Kullanıcılar IPTV kaynaklarının yasallığından sorumludur.
+    </p>
+  </description>
+
+  <url type="homepage">https://github.com/07erkanoz/lifeos-iptv-player</url>
+  <url type="bugtracker">https://github.com/07erkanoz/lifeos-iptv-player/issues</url>
+  <url type="vcs-browser">https://github.com/07erkanoz/lifeos-iptv-player</url>
+
+  <releases>
+    <release version="0.1.0" date="2026-03-16"/>
+  </releases>
+
+  <provides>
+    <binary>lifeostv</binary>
+  </provides>
+
+  <content_rating type="oars-1.1"/>
+
+  <keywords>
+    <keyword>iptv</keyword>
+    <keyword>live tv</keyword>
+    <keyword>m3u</keyword>
+    <keyword>xtream</keyword>
+    <keyword>player</keyword>
+    <keyword>epg</keyword>
+    <keyword>movie</keyword>
+    <keyword>series</keyword>
+  </keywords>
+
+  <keywords xml:lang="tr">
+    <keyword>iptv</keyword>
+    <keyword>canlı tv</keyword>
+    <keyword>m3u</keyword>
+    <keyword>xtream</keyword>
+    <keyword>oynatıcı</keyword>
+    <keyword>epg</keyword>
+    <keyword>film</keyword>
+    <keyword>dizi</keyword>
+  </keywords>
+</component>
