@@ -89,7 +89,7 @@ jobs:
           Section: video
           Priority: optional
           Architecture: amd64
-          Depends: libgtk-3-0, libmpv2, libc6
+          Depends: libgtk-3-0, mpv, libc6
           Maintainer: erkanoz <erkanoz07@gmail.com>
           Description: LifeOS IPTV Player
            Full-featured IPTV player with M3U/Xtream Codes support,
