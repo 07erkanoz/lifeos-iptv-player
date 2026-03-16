@@ -89,7 +89,7 @@ jobs:
           Section: video
           Priority: optional
           Architecture: amd64
-          Depends: libgtk-3-0, libmpv2 | libmpv1, libc6
+          Depends: libgtk-3-0, libmpv2, libc6
           Maintainer: erkanoz <erkanoz07@gmail.com>
           Description: LifeOS IPTV Player
            Full-featured IPTV player with M3U/Xtream Codes support,
@@ -131,6 +131,66 @@ jobs:
           name: windows-zip
           path: "*.zip"
 
+  # ─── macOS ───────────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Create macOS zip
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION:-1.0.0}"
+          APP_PATH="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app output found"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "LifeosTV-${VERSION}-macos.zip"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-zip
+          path: "*.zip"
+
+  # ─── iOS (unsigned) ─────────────────────────────────────────
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create iOS unsigned app zip
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION:-1.0.0}"
+          APP_PATH="$(find build/ios/iphoneos -maxdepth 1 -name '*.app' | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No iOS .app output found"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "LifeosTV-${VERSION}-ios-unsigned.zip"
+
+      - name: Upload iOS unsigned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-zip
+          path: "*.zip"
+
   # ─── Android APK ─────────────────────────────────────────────
   build-android:
     runs-on: ubuntu-latest
@@ -145,6 +205,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Setup Android signing (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+          cat > key.properties << EOF
+          storeFile=android/app/release.keystore
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          EOF
 
       - name: Build APK
         run: flutter build apk --release
@@ -164,7 +235,7 @@ jobs:
   # ─── Release ──────────────────────────────────────────────────
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows, build-android]
+    needs: [build-linux, build-windows, build-macos, build-ios, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
