@@ -37,7 +37,6 @@ modules:
       - install -Dm644 packaging/flatpak/io.github.erkanoz.LifeOsTV.metainfo.xml /app/share/metainfo/io.github.erkanoz.LifeOsTV.metainfo.xml
       - install -Dm644 assets/app_icon_256.png /app/share/icons/hicolor/256x256/apps/io.github.erkanoz.LifeOsTV.png
     sources:
-      # Flathub PR'da 'branch' yerine immutable commit/hash pinlemeniz önerilir.
       - type: git
         url: https://github.com/07erkanoz/lifeos-iptv-player.git
-        branch: main
+        commit: 641a91a8f8063a5e0e7cd9b92656cac999d87643
