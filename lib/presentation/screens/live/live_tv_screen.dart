@@ -128,6 +128,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     // Start timeline 1 hour before current time
     _timelineStart = DateTime(now.year, now.month, now.day, now.hour - 1);
 
+    // Auto-select "Favorites" on mobile so the screen isn't blank
+    if (isMobilePlatform) {
+      _selectedCategoryId = _kFavoritesId;
+    }
+
     // Sync vertical scrolling between channel list and EPG grid
     _channelListScrollController.addListener(_onChannelListScroll);
     _epgVerticalScrollController.addListener(_onEpgVerticalScroll);
@@ -268,42 +273,29 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         Expanded(
           child: _selectedCategoryId != null
               ? _buildMobileChannelList(l10n)
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.live_tv,
-                        size: 48,
-                        color: AppColors.textDisabledDark,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        l10n.selectCategory,
-                        style: const TextStyle(
-                          color: AppColors.textTertiaryDark,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: _showMobileCategorySheet,
-                        icon: const Icon(Icons.category, size: 18),
-                        label: Text(l10n.categories),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              : const SizedBox.shrink(),
         ),
       ],
     );
   }
 
   Widget _buildMobileTopBar(AppLocalizations l10n) {
+    String categoryLabel;
+    IconData categoryIcon;
+    if (_selectedCategoryId == _kFavoritesId) {
+      categoryLabel = l10n.favoriteChannels;
+      categoryIcon = Icons.favorite;
+    } else if (_selectedCategoryId == _kHistoryId) {
+      categoryLabel = l10n.watchHistory;
+      categoryIcon = Icons.history;
+    } else if (_selectedCategoryId == '__all__') {
+      categoryLabel = l10n.allChannels;
+      categoryIcon = Icons.grid_view_rounded;
+    } else {
+      categoryLabel = l10n.categories;
+      categoryIcon = Icons.category;
+    }
+
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -328,20 +320,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.category,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
+                  Icon(categoryIcon, size: 16, color: AppColors.primary),
                   const SizedBox(width: 6),
                   Text(
-                    _selectedCategoryId == _kFavoritesId
-                        ? l10n.favoriteChannels
-                        : _selectedCategoryId == _kHistoryId
-                        ? l10n.watchHistory
-                        : _selectedCategoryId == '__all__'
-                        ? l10n.allChannels
-                        : l10n.categories,
+                    categoryLabel,
                     style: const TextStyle(
                       color: AppColors.textDark,
                       fontSize: 13,
@@ -359,7 +341,6 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             ),
           ),
           const Spacer(),
-          // Current time
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -392,127 +373,6 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMobileChannelList(AppLocalizations l10n) {
-    final channelsAsync =
-        _selectedCategoryId == _kFavoritesId ||
-            _selectedCategoryId == _kHistoryId
-        ? null // handled separately
-        : _selectedCategoryId == '__all__'
-        ? ref.watch(_allLiveChannelsProvider)
-        : ref.watch(_liveChannelsProvider(_selectedCategoryId!));
-
-    // Handle favorites
-    if (_selectedCategoryId == _kFavoritesId) {
-      final favIdsAsync = ref.watch(_favLiveIdsProvider);
-      return favIdsAsync.when(
-        data: (ids) {
-          if (ids.isEmpty)
-            return Center(
-              child: Text(
-                l10n.noChannels,
-                style: const TextStyle(color: AppColors.textTertiaryDark),
-              ),
-            );
-          final chAsync = ref.watch(_favLiveChannelsProvider(ids));
-          return chAsync.when(
-            data: (channels) => _buildMobileChannelListView(channels, l10n),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-      );
-    }
-
-    // Handle history
-    if (_selectedCategoryId == _kHistoryId) {
-      final historyAsync = ref.watch(_continueWatchingLiveProvider);
-      return historyAsync.when(
-        data: (channels) {
-          if (channels.isEmpty)
-            return Center(
-              child: Text(
-                l10n.noHistory,
-                style: const TextStyle(color: AppColors.textTertiaryDark),
-              ),
-            );
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => _clearLiveHistory(l10n),
-                      icon: const Icon(
-                        Icons.delete_sweep,
-                        size: 16,
-                        color: Colors.red,
-                      ),
-                      label: Text(
-                        l10n.clearHistory,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        backgroundColor: Colors.red.withValues(alpha: 0.1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: _buildMobileChannelListView(channels, l10n)),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-      );
-    }
-
-    return channelsAsync!.when(
-      data: (channels) {
-        if (channels.isEmpty) {
-          return Center(
-            child: Text(
-              l10n.noChannels,
-              style: const TextStyle(color: AppColors.textTertiaryDark),
-            ),
-          );
-        }
-        return _buildMobileChannelListView(channels, l10n);
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
-    );
-  }
-
-  Widget _buildMobileChannelListView(
-    List<Channel> channels,
-    AppLocalizations l10n,
-  ) {
-    return ListView.separated(
-      itemCount: channels.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, indent: 68, color: AppColors.borderDark),
-      itemBuilder: (context, index) {
-        final ch = channels[index];
-        return _MobileChannelTile(
-          channel: ch,
-          onTap: () => _playChannel(ch, channelList: channels),
-        );
-      },
     );
   }
 
@@ -665,6 +525,127 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         ),
       ),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildMobileChannelList(AppLocalizations l10n) {
+    final channelsAsync =
+        _selectedCategoryId == _kFavoritesId ||
+            _selectedCategoryId == _kHistoryId
+        ? null // handled separately
+        : _selectedCategoryId == '__all__'
+        ? ref.watch(_allLiveChannelsProvider)
+        : ref.watch(_liveChannelsProvider(_selectedCategoryId!));
+
+    // Handle favorites
+    if (_selectedCategoryId == _kFavoritesId) {
+      final favIdsAsync = ref.watch(_favLiveIdsProvider);
+      return favIdsAsync.when(
+        data: (ids) {
+          if (ids.isEmpty)
+            return Center(
+              child: Text(
+                l10n.noChannels,
+                style: const TextStyle(color: AppColors.textTertiaryDark),
+              ),
+            );
+          final chAsync = ref.watch(_favLiveChannelsProvider(ids));
+          return chAsync.when(
+            data: (channels) => _buildMobileChannelListView(channels, l10n),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('$e')),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('$e')),
+      );
+    }
+
+    // Handle history
+    if (_selectedCategoryId == _kHistoryId) {
+      final historyAsync = ref.watch(_continueWatchingLiveProvider);
+      return historyAsync.when(
+        data: (channels) {
+          if (channels.isEmpty)
+            return Center(
+              child: Text(
+                l10n.noHistory,
+                style: const TextStyle(color: AppColors.textTertiaryDark),
+              ),
+            );
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _clearLiveHistory(l10n),
+                      icon: const Icon(
+                        Icons.delete_sweep,
+                        size: 16,
+                        color: Colors.red,
+                      ),
+                      label: Text(
+                        l10n.clearHistory,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: Colors.red.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _buildMobileChannelListView(channels, l10n)),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('$e')),
+      );
+    }
+
+    return channelsAsync!.when(
+      data: (channels) {
+        if (channels.isEmpty) {
+          return Center(
+            child: Text(
+              l10n.noChannels,
+              style: const TextStyle(color: AppColors.textTertiaryDark),
+            ),
+          );
+        }
+        return _buildMobileChannelListView(channels, l10n);
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+    );
+  }
+
+  Widget _buildMobileChannelListView(
+    List<Channel> channels,
+    AppLocalizations l10n,
+  ) {
+    return ListView.separated(
+      itemCount: channels.length,
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, indent: 68, color: AppColors.borderDark),
+      itemBuilder: (context, index) {
+        final ch = channels[index];
+        return _MobileChannelTile(
+          channel: ch,
+          onTap: () => _playChannel(ch, channelList: channels),
+        );
+      },
     );
   }
 
