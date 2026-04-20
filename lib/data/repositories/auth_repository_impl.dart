@@ -1,9 +1,10 @@
+import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/domain/models/account_info.dart';
 import 'package:lifeostv/domain/repositories/auth_repository.dart';
-import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,8 +50,9 @@ class AuthRepositoryImpl implements AuthRepository {
       // Try to authenticate first (but save even if it fails)
       try {
         await _apiService.authenticate(normalizedUrl, xtreamInfo['username']!, xtreamInfo['password']!);
-      } catch (_) {
-        // Server might be temporarily down, still save the account
+      } catch (e) {
+        // Server might be temporarily down, still save the account.
+        debugPrint('[Auth] M3U preflight auth failed (saving anyway): $e');
       }
 
       await _db.into(_db.accounts).insert(
@@ -132,7 +134,8 @@ class AuthRepositoryImpl implements AuthRepository {
       final info = AccountInfo.fromXtreamResponse(data);
       await _saveAccountInfo(account.id, data);
       return info;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Auth] validateAccount(${account.id}) failed: $e');
       return null;
     }
   }
@@ -147,7 +150,9 @@ class AuthRepositoryImpl implements AuthRepository {
       for (final key in keys) {
         await prefs.remove(key);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] deleteAccount prefs cleanup failed: $e');
+    }
   }
 
   @override
@@ -187,7 +192,9 @@ class AuthRepositoryImpl implements AuthRepository {
       for (final e in map.entries) {
         await prefs.setString('acct_info_${accountId}_${e.key}', e.value);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] _saveAccountInfo failed: $e');
+    }
   }
 
   /// Get cached account info (from last authentication)
@@ -201,7 +208,8 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       if (map.isEmpty) return null;
       return AccountInfo.fromMap(map);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Auth] getAccountInfo($accountId) failed: $e');
       return null;
     }
   }

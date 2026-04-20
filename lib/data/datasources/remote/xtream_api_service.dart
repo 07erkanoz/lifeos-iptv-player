@@ -1,9 +1,21 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/data/services/api_queue.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'xtream_api_service.g.dart';
+
+/// Redact username/password query parameters from any URL-ish string so
+/// we never print Xtream credentials into logs or bubble them up in error
+/// messages shown to the user.
+String _sanitize(Object? raw) {
+  if (raw == null) return '';
+  final s = raw.toString();
+  return s
+      .replaceAll(RegExp(r'(username=)[^&\s]+', caseSensitive: false), r'$1***')
+      .replaceAll(RegExp(r'(password=)[^&\s]+', caseSensitive: false), r'$1***');
+}
 
 class XtreamApiService {
   final Dio _dio;
@@ -79,7 +91,7 @@ class XtreamApiService {
       } else if (e.response?.statusCode == 404) {
         throw Exception('Server not found (404): $fullUrl may not be an Xtream server');
       }
-      throw Exception('Connection error: ${e.message}');
+      throw Exception('Connection error: ${_sanitize(e.message)}');
     }
   }
 
@@ -162,7 +174,9 @@ class XtreamApiService {
         _cache.set(cacheKey, result, ApiCache.vodInfoTtl);
       }
       return result;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[XtreamApi] getVODInfo($vodId) failed: ${_sanitize(e)}');
+    }
     return null;
   }
 
@@ -195,7 +209,9 @@ class XtreamApiService {
         _cache.set(cacheKey, result, ApiCache.seriesInfoTtl);
       }
       return result;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[XtreamApi] getSeriesInfo($seriesId) failed: ${_sanitize(e)}');
+    }
     return null;
   }
 
@@ -280,7 +296,8 @@ XtreamApiService xtreamApiService(Ref ref) {
         try {
           final response = await dio.fetch(error.requestOptions);
           return handler.resolve(response);
-        } catch (_) {
+        } catch (e) {
+          debugPrint('[XtreamApi] retry after timeout failed: ${_sanitize(e)}');
           return handler.next(error);
         }
       }

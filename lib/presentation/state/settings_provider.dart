@@ -1,7 +1,6 @@
 import 'package:lifeostv/data/repositories/settings_repository.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'settings_provider.g.dart';
 

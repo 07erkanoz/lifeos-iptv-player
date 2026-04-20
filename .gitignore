@@ -56,3 +56,6 @@ LifeosTV-flutter/
 .flutter-plugins
 .dart_tool/
 .packages
+.archive/
+flathub/
+lifeostv_main_amd64/
