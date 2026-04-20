@@ -34,6 +34,12 @@ class AppSettings {
   final bool subtitleBold;
   final bool subtitleBackgroundEnabled;
 
+  // Remember last chosen audio/subtitle track across episodes.
+  // Stored as the track's language (or title fallback) so it survives
+  // new Player instances where numeric track ids are unstable.
+  final String? lastPlayerAudioLanguage;
+  final String? lastPlayerSubtitleLanguage;
+
   // Account
   final int? defaultAccountId;
 
@@ -52,10 +58,12 @@ class AppSettings {
     this.continueWatchingEnabled = true,
     this.opensubtitlesApiKey,
     this.subtitlePreferredLanguage = 'tr',
-    this.subtitleFontSize = 36,
+    this.subtitleFontSize = 55,
     this.subtitleColor = '#FFFFFF',
     this.subtitleBold = false,
     this.subtitleBackgroundEnabled = false,
+    this.lastPlayerAudioLanguage,
+    this.lastPlayerSubtitleLanguage,
     this.defaultAccountId,
   });
 
@@ -78,6 +86,9 @@ class AppSettings {
     String? subtitleColor,
     bool? subtitleBold,
     bool? subtitleBackgroundEnabled,
+    String? lastPlayerAudioLanguage,
+    String? lastPlayerSubtitleLanguage,
+    bool clearLastPlayerSubtitleLanguage = false,
     int? defaultAccountId,
   }) {
     return AppSettings(
@@ -99,6 +110,10 @@ class AppSettings {
       subtitleColor: subtitleColor ?? this.subtitleColor,
       subtitleBold: subtitleBold ?? this.subtitleBold,
       subtitleBackgroundEnabled: subtitleBackgroundEnabled ?? this.subtitleBackgroundEnabled,
+      lastPlayerAudioLanguage: lastPlayerAudioLanguage ?? this.lastPlayerAudioLanguage,
+      lastPlayerSubtitleLanguage: clearLastPlayerSubtitleLanguage
+          ? null
+          : (lastPlayerSubtitleLanguage ?? this.lastPlayerSubtitleLanguage),
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
     );
   }

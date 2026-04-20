@@ -27,6 +27,8 @@ class SettingsRepository {
   static const _keySubtitleColor = 'subtitle_color';
   static const _keySubtitleBold = 'subtitle_bold';
   static const _keySubtitleBg = 'subtitle_background_enabled';
+  static const _keyLastAudioLang = 'player_last_audio_lang';
+  static const _keyLastSubLang = 'player_last_subtitle_lang';
 
   AppSettings loadSettings() {
     final themeIndex = _prefs.getInt(_keyTheme) ?? 2; // Default dark
@@ -46,10 +48,12 @@ class SettingsRepository {
       parentalPin: _prefs.getString(_keyParentalPin),
       opensubtitlesApiKey: _prefs.getString(_keyOpenSubsApiKey),
       subtitlePreferredLanguage: _prefs.getString(_keySubtitleLang) ?? 'tr',
-      subtitleFontSize: _prefs.getInt(_keySubtitleFontSize) ?? 36,
+      subtitleFontSize: _prefs.getInt(_keySubtitleFontSize) ?? 55,
       subtitleColor: _prefs.getString(_keySubtitleColor) ?? '#FFFFFF',
       subtitleBold: _prefs.getBool(_keySubtitleBold) ?? false,
       subtitleBackgroundEnabled: _prefs.getBool(_keySubtitleBg) ?? false,
+      lastPlayerAudioLanguage: _prefs.getString(_keyLastAudioLang),
+      lastPlayerSubtitleLanguage: _prefs.getString(_keyLastSubLang),
       defaultAccountId: _prefs.getInt(_keyDefaultAccount),
     );
   }
@@ -75,6 +79,16 @@ class SettingsRepository {
     await _prefs.setString(_keySubtitleColor, settings.subtitleColor);
     await _prefs.setBool(_keySubtitleBold, settings.subtitleBold);
     await _prefs.setBool(_keySubtitleBg, settings.subtitleBackgroundEnabled);
+    if (settings.lastPlayerAudioLanguage != null) {
+      await _prefs.setString(_keyLastAudioLang, settings.lastPlayerAudioLanguage!);
+    } else {
+      await _prefs.remove(_keyLastAudioLang);
+    }
+    if (settings.lastPlayerSubtitleLanguage != null) {
+      await _prefs.setString(_keyLastSubLang, settings.lastPlayerSubtitleLanguage!);
+    } else {
+      await _prefs.remove(_keyLastSubLang);
+    }
     if (settings.defaultAccountId != null) {
       await _prefs.setInt(_keyDefaultAccount, settings.defaultAccountId!);
     }

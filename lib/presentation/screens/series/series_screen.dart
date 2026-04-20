@@ -510,9 +510,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       final nextNum = nextEp['episode_num']?.toString() ?? '';
       final nextSeason = nextEp['_season']?.toString() ?? '';
       nextEpTitle = 'S${nextSeason}E$nextNum ${nextEp['title'] ?? ''}';
-      onNextEp = () {
-        // Pop current player first, then push new one
+      onNextEp = () async {
+        // Pop current player, then wait briefly so its native media_kit
+        // resources (SurfaceTexture, decoder) are fully released before the
+        // next Player is created. Pushing immediately on Android can leave
+        // two live Players contending for GPU/decoder slots.
         if (context.canPop()) context.pop();
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        if (!mounted) return;
         _playEpisode(nextId, nextExt);
       };
     }
@@ -525,9 +530,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           ? prevEp['id'] as int
           : int.parse(prevEp['id'].toString());
       final prevExt = prevEp['container_extension']?.toString() ?? 'mp4';
-      onPrevEp = () {
-        // Pop current player first, then push new one
+      onPrevEp = () async {
         if (context.canPop()) context.pop();
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        if (!mounted) return;
         _playEpisode(prevId, prevExt);
       };
     }
@@ -1469,11 +1475,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Poster
-                      Container(
+                  // On narrow/portrait screens stack poster on top of info.
+                  // On wider screens keep the side-by-side layout.
+                  Builder(builder: (context) {
+                    Widget buildPoster(double w, double h) {
+                      return Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
@@ -1489,12 +1495,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                           child: ch.streamIcon != null
                               ? Image.network(
                                   ch.streamIcon!,
-                                  width: 180,
-                                  height: 270,
+                                  width: w,
+                                  height: h,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
-                                    width: 180,
-                                    height: 270,
+                                    width: w,
+                                    height: h,
                                     color: AppColors.surfaceDark,
                                     child: const Center(
                                       child: Icon(
@@ -1506,8 +1512,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   ),
                                 )
                               : Container(
-                                  width: 180,
-                                  height: 270,
+                                  width: w,
+                                  height: h,
                                   color: AppColors.surfaceDark,
                                   child: const Center(
                                     child: Icon(
@@ -1518,18 +1524,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   ),
                                 ),
                         ),
-                      ),
-                      const SizedBox(width: 32),
-                      // Info column
-                      Expanded(
-                        child: _loadingDetail
-                            ? const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.only(top: 60),
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            : Column(
+                      );
+                    }
+
+                    Widget buildInfoBody() {
+                      if (_loadingDetail) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 60),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 20),
@@ -1837,10 +1844,30 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     ),
                                   ),
                                 ],
-                              ),
-                      ),
-                    ],
-                  ),
+                              );
+                    }
+
+                    if (isMobilePlatform) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Center(child: buildPoster(140, 210)),
+                          const SizedBox(height: 12),
+                          buildInfoBody(),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        buildPoster(180, 270),
+                        const SizedBox(width: 32),
+                        Expanded(child: buildInfoBody()),
+                      ],
+                    );
+                  }),
 
                   // Season tabs + Episode list (shown for both mobile & desktop)
                   if (seasonNums.isNotEmpty) ...[

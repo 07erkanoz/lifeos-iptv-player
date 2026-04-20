@@ -40,6 +40,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
+  // Cap Flutter's global image cache so poster/logo/thumbnail accumulation
+  // between episodes can't spiral into OOM on Android.
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 150
+    ..maximumSizeBytes = 60 * 1024 * 1024;
+
   // Desktop window setup (Windows/Linux/macOS)
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();

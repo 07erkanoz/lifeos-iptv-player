@@ -7,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -168,6 +171,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // -- Stream subscriptions -------------------------------------------------
   final List<StreamSubscription> _subs = [];
 
+  // -- PiP native event subscription (Android only) -------------------------
+  StreamSubscription? _pipEventSub;
+
+  // Guards so we only auto-apply remembered audio/subtitle track once per open.
+  bool _autoTrackApplied = false;
+
   // -- Channel switching (live TV only) ------------------------------------
   late int _channelIndex;
   late String _currentTitle;
@@ -205,6 +214,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // -- Fullscreen (desktop only) ---------------------------------------------
   bool _isFullscreen = false;
 
+  // -- Sleep timer ------------------------------------------------------------
+  // null = off, "eoe" = stop at end of episode, else a DateTime deadline.
+  DateTime? _sleepDeadline;
+  bool _sleepAtEpisodeEnd = false;
+  Timer? _sleepTimer;
+
+  // -- Gesture / brightness (mobile) -----------------------------------------
+  double? _initialBrightness;
+  double _gestureBrightness = 0.5;
+  double _gestureVolume = 100;
+  String? _gestureHudText;
+  IconData? _gestureHudIcon;
+  double? _gestureHudValue; // 0..1 for progress bar
+  Timer? _gestureHudTimer;
+
+  // Per-session subtitle vertical offset — bottom padding in logical pixels
+  // inside the SubtitleView. 0 = sitting on the video bottom, larger = higher.
+  double _subtitleYOffset = 24;
+
+  // Series intro skip (only set for VideoType.series with a parentStreamId)
+  bool _showSkipIntro = false;
+  int _skipIntroSeconds = 85; // default guess if nothing stored
+
   // -- Always on top (desktop only) -------------------------------------------
   bool _isAlwaysOnTop = false;
 
@@ -219,6 +251,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Hide status bar & navigation bar on mobile (immersive mode)
     if (isMobilePlatform) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+
+    // Keep the screen awake while the player is on — so users don't have
+    // to tap every few minutes just to keep watching.
+    WakelockPlus.enable();
+
+    // Remember initial brightness so we can restore it on dispose.
+    if (Platform.isAndroid || Platform.isIOS) {
+      _captureInitialBrightness();
+    }
+
+    // Load a previously remembered intro duration for this series.
+    if (widget.type == VideoType.series && widget.parentStreamId != null) {
+      _loadIntroDuration();
     }
 
     // Initialize channel switching state
@@ -278,10 +324,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       s.cancel();
     }
     _epgSub?.cancel();
+    _pipEventSub?.cancel();
+    _pipEventSub = null;
     _posUpdateTimer?.cancel();
     _channelInfoTimer?.cancel();
     if (!_transferredToPip) {
-      // Stop playback immediately, then dispose
+      // Stop playback first so the decoder stops feeding the SurfaceTexture,
+      // then dispose the Player. media_kit registers VideoController cleanup
+      // against Player.dispose(), which releases the Android surface.
       _player.stop();
       _player.dispose();
     }
@@ -295,28 +345,129 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _controlsAnim.dispose();
     _focusNode.dispose();
     _playPauseFocusNode.dispose();
+    _sleepTimer?.cancel();
+    _gestureHudTimer?.cancel();
+    WakelockPlus.disable();
+    if ((Platform.isAndroid || Platform.isIOS) && _initialBrightness != null) {
+      // Fire and forget — don't block dispose.
+      ScreenBrightness.instance.resetApplicationScreenBrightness().catchError(
+        (_) => null,
+      );
+    }
     super.dispose();
+  }
+
+  Future<void> _loadIntroDuration() async {
+    final sid = widget.parentStreamId;
+    if (sid == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getInt('series_intro_$sid');
+      if (stored != null && stored > 0 && mounted) {
+        setState(() => _skipIntroSeconds = stored);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _skipIntroNow() async {
+    final sid = widget.parentStreamId;
+    final target = Duration(seconds: _skipIntroSeconds);
+    _player.seek(target);
+    setState(() => _showSkipIntro = false);
+    if (sid != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('series_intro_$sid', _skipIntroSeconds);
+      } catch (_) {}
+    }
+  }
+
+  Widget _buildSkipIntroButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _skipIntroNow,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.skip_next, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                'Intro\'yu Atla (→${_fmt(Duration(seconds: _skipIntroSeconds))})',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _captureInitialBrightness() async {
+    try {
+      final b = await ScreenBrightness.instance.application;
+      if (!mounted) return;
+      _initialBrightness = b;
+      _gestureBrightness = b;
+    } catch (_) {}
   }
 
   // =========================================================================
   //  Subtitle styling helper
   // =========================================================================
 
-  Future<void> _applySubtitleStyle() async {
-    final mpv = _player.platform;
-    if (mpv is! NativePlayer) return;
-    final settings = ref.read(settingsProvider);
-    // mpv expects color in #AARRGGBB format
-    final subColor = settings.subtitleColor.length == 7
-        ? '#FF${settings.subtitleColor.substring(1)}'
-        : settings.subtitleColor;
-    await mpv.setProperty('sub-font-size', settings.subtitleFontSize.toString());
-    await mpv.setProperty('sub-color', subColor);
-    await mpv.setProperty('sub-bold', settings.subtitleBold ? 'yes' : 'no');
-    await mpv.setProperty(
-      'sub-back-color',
-      settings.subtitleBackgroundEnabled ? '#80000000' : '#00000000',
+  Color _hexToColor(String hex) {
+    var h = hex.replaceFirst('#', '');
+    if (h.length == 6) h = 'FF$h';
+    return Color(int.parse(h, radix: 16));
+  }
+
+  SubtitleViewConfiguration _buildSubtitleViewConfig() {
+    final s = ref.watch(settingsProvider);
+    // Map user's settings.subtitleFontSize (20-110, mpv-like scale where
+    // ~55 is the libmpv default) into Flutter logical pixels. 55 → 32 matches
+    // media_kit's default TextStyle fontSize.
+    final flutterSize = (s.subtitleFontSize * 32.0 / 55.0).clamp(12.0, 80.0);
+    final fg = _hexToColor(s.subtitleColor);
+    return SubtitleViewConfiguration(
+      style: TextStyle(
+        height: 1.4,
+        fontSize: flutterSize,
+        color: fg,
+        fontWeight: s.subtitleBold ? FontWeight.w700 : FontWeight.w400,
+        backgroundColor: s.subtitleBackgroundEnabled
+            ? const Color(0xAA000000)
+            : const Color(0x00000000),
+        shadows: s.subtitleBackgroundEnabled
+            ? const []
+            : const [
+                Shadow(color: Colors.black, blurRadius: 3, offset: Offset(0, 1)),
+                Shadow(color: Colors.black, blurRadius: 6),
+              ],
+      ),
+      textAlign: TextAlign.center,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, _subtitleYOffset),
     );
+  }
+
+  /// Kept as a named hook in case we need to re-sync subtitle styling on
+  /// certain events (e.g. track switch). With the Flutter-widget renderer,
+  /// the SubtitleViewConfiguration in build() is the source of truth; this
+  /// just nudges a rebuild so it picks up any late setting changes.
+  Future<void> _applySubtitleStyle() async {
+    if (mounted) setState(() {});
   }
 
   // =========================================================================
@@ -381,8 +532,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await mpv.setProperty('demuxer-max-back-bytes', '16MiB');
       }
 
-      // Disable subtitles by default — user can enable via track picker
-      await mpv.setProperty('sid', 'no');
+      // Disable subtitles by default only when we have no remembered choice.
+      // If the user previously enabled a subtitle language, _applyRememberedTracks
+      // will pick the matching track as soon as the track list arrives.
+      if (settings.lastPlayerSubtitleLanguage == null) {
+        await mpv.setProperty('sid', 'no');
+      }
 
       // Subtitle appearance from settings
       await _applySubtitleStyle();
@@ -412,6 +567,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _listenPipEvents();
 
     await _player.open(Media(widget.streamUrl));
+    // Re-apply subtitle appearance now that media is loaded — mpv resets
+    // some of these on file open, and our first apply at init was too early
+    // (before the subtitle renderer was wired up).
+    await _applySubtitleStyle();
     if (widget.startPosition != null) {
       _seekWhenReady(widget.startPosition!);
     } else if (widget.type != VideoType.live) {
@@ -434,6 +593,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               !_showNextOverlay &&
               !_nextTriggered) {
             _startNextCountdown();
+          }
+        }
+        // Skip-intro visibility window: only early in the episode and only
+        // until a few seconds past the stored intro length.
+        if (widget.type == VideoType.series && widget.parentStreamId != null) {
+          final shouldShow =
+              p.inSeconds < _skipIntroSeconds + 8 && p.inSeconds > 2;
+          if (shouldShow != _showSkipIntro && mounted) {
+            setState(() => _showSkipIntro = shouldShow);
           }
         }
       }),
@@ -501,6 +669,87 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         if (mounted) setState(() => _volume = v);
       }),
     );
+
+    // Auto-apply the audio/subtitle track the user picked in the previous
+    // episode. Track lists arrive asynchronously after Media is opened.
+    _subs.add(
+      _player.stream.tracks.listen((_) {
+        if (_autoTrackApplied) return;
+        if (widget.type == VideoType.live) return;
+        _applyRememberedTracks();
+      }),
+    );
+  }
+
+  /// Match the remembered audio/subtitle language against the current
+  /// track list and select the best fit. Called once per opened Media.
+  void _applyRememberedTracks() {
+    if (_autoTrackApplied) return;
+    final settings = ref.read(settingsProvider);
+    final tracks = _player.state.tracks;
+    final audios = tracks.audio;
+    final subs = tracks.subtitle;
+    // Wait until real tracks (not just the synthetic auto/no entries) are known.
+    final hasRealAudio = audios.any((t) => t.id != 'auto' && t.id != 'no');
+    final hasRealSub = subs.any((t) => t.id != 'auto' && t.id != 'no');
+    if (!hasRealAudio && !hasRealSub) return;
+
+    final wantAudio = settings.lastPlayerAudioLanguage;
+    if (wantAudio != null && wantAudio.isNotEmpty && hasRealAudio) {
+      final match = _findTrackByLanguage(audios, wantAudio);
+      if (match != null && _player.state.track.audio != match) {
+        _player.setAudioTrack(match as AudioTrack);
+      }
+    }
+
+    final wantSub = settings.lastPlayerSubtitleLanguage;
+    if (wantSub != null && wantSub.isNotEmpty && hasRealSub) {
+      final match = _findTrackByLanguage(subs, wantSub);
+      if (match != null && _player.state.track.subtitle != match) {
+        _player.setSubtitleTrack(match as SubtitleTrack);
+        _applySubtitleStyle();
+      }
+    }
+
+    _autoTrackApplied = true;
+  }
+
+  void _rememberAudioChoice(AudioTrack t) {
+    if (t.id == 'auto') return;
+    final lang = (t.language ?? t.title ?? '').toString();
+    if (lang.isEmpty) return;
+    final notifier = ref.read(settingsProvider.notifier);
+    final cur = ref.read(settingsProvider);
+    notifier.updateSettings(cur.copyWith(lastPlayerAudioLanguage: lang));
+  }
+
+  void _rememberSubtitleChoice(SubtitleTrack t) {
+    final notifier = ref.read(settingsProvider.notifier);
+    final cur = ref.read(settingsProvider);
+    // "Off" choice → clear the remembered subtitle.
+    if (t.id == 'no') {
+      notifier.updateSettings(cur.copyWith(clearLastPlayerSubtitleLanguage: true));
+      return;
+    }
+    if (t.id == 'auto') return;
+    final lang = (t.language ?? t.title ?? '').toString();
+    if (lang.isEmpty) return;
+    notifier.updateSettings(cur.copyWith(lastPlayerSubtitleLanguage: lang));
+  }
+
+  dynamic _findTrackByLanguage(List tracks, String wanted) {
+    final w = wanted.toLowerCase();
+    for (final t in tracks) {
+      final lang = (t.language ?? '').toString().toLowerCase();
+      if (lang.isNotEmpty && (lang == w || lang.startsWith(w) || w.startsWith(lang))) {
+        return t;
+      }
+    }
+    for (final t in tracks) {
+      final title = (t.title ?? '').toString().toLowerCase();
+      if (title.isNotEmpty && title.contains(w)) return t;
+    }
+    return null;
   }
 
   // =========================================================================
@@ -670,6 +919,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (_nextTriggered) return;
     _nextTriggered = true;
     _nextTimer?.cancel();
+    // Sleep timer "stop at end of episode": suppress auto-advance and pause.
+    if (_sleepAtEpisodeEnd) {
+      _onSleepTimerFired();
+      return;
+    }
     widget.onNextEpisode?.call();
   }
 
@@ -732,6 +986,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Just open new URL - player instance stays the same (no recreation)
     _currentUrl = ch.url;
+    _autoTrackApplied = false;
     _player.open(Media(ch.url));
 
     // Save history entry for the new channel
@@ -1010,13 +1265,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.surfaceElevatedDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SizedBox(
-          width: 380,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 420,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -1062,9 +1322,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         onTap: () {
                           if (isAudio) {
                             _player.setAudioTrack(t as AudioTrack);
+                            _rememberAudioChoice(t);
                           } else {
                             _player.setSubtitleTrack(t as SubtitleTrack);
                             _applySubtitleStyle();
+                            _rememberSubtitleChoice(t);
                           }
                           Navigator.pop(ctx);
                         },
@@ -1072,13 +1334,124 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                     },
                   ),
                 ),
+                // Subtitle appearance controls (only in subtitle picker).
+                if (!isAudio) ...[
+                  const Divider(color: Colors.white12, height: 24),
+                  StatefulBuilder(
+                    builder: (context, setLocal) {
+                      final settings = ref.read(settingsProvider);
+                      final fontSize = settings.subtitleFontSize
+                          .toDouble()
+                          .clamp(20.0, 110.0);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.format_size,
+                                  color: AppColors.textTertiaryDark,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Altyazı boyutu',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondaryDark,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${fontSize.round()}',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: fontSize,
+                              min: 20,
+                              max: 110,
+                              divisions: 18,
+                              onChanged: (v) {
+                                ref
+                                    .read(settingsProvider.notifier)
+                                    .updateSettings(
+                                      settings.copyWith(
+                                        subtitleFontSize: v.round(),
+                                      ),
+                                    );
+                                setLocal(() {});
+                                // Force the outer Video widget to rebuild with
+                                // the new SubtitleViewConfiguration.
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.vertical_align_bottom,
+                                  color: AppColors.textTertiaryDark,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Altyazı konumu',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondaryDark,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${_subtitleYOffset.round()}',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: _subtitleYOffset,
+                              min: 0,
+                              max: 300,
+                              divisions: 30,
+                              onChanged: (v) {
+                                _subtitleYOffset = v;
+                                setLocal(() {});
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
+            ),
             ),
           ),
         ),
       ),
     );
   }
+
+  // Subtitle position/style is no longer pushed into mpv — media_kit renders
+  // subtitles with a Flutter widget (see _buildSubtitleViewConfig). The old
+  // mpv `sub-pos` / `sub-font-size` path was a dead end because libass wasn't
+  // doing the drawing.
 
   void _showSpeedPicker() {
     final l10n = AppLocalizations.of(context)!;
@@ -1183,7 +1556,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _listenPipEvents() {
     if (!Platform.isAndroid) return;
-    _pipEventChannel.receiveBroadcastStream().listen((event) {
+    _pipEventSub?.cancel();
+    _pipEventSub = _pipEventChannel.receiveBroadcastStream().listen((event) {
       if (!mounted) return;
       final inPip = event == true;
       if (inPip != _isInPipMode) {
@@ -1204,6 +1578,219 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         'active': active,
       });
     } catch (_) {}
+  }
+
+  // ===========================================================================
+  //  Mobile gesture controls (brightness, volume, double-tap seek)
+  // ===========================================================================
+
+  bool _gestureStartedOnLeft = true;
+
+  void _handleDoubleTapSeek(Offset globalPos) {
+    final size = MediaQuery.of(context).size;
+    final isLeft = globalPos.dx < size.width / 2;
+    final delta = isLeft ? const Duration(seconds: -10) : const Duration(seconds: 10);
+    final target = _rawPos + delta;
+    final clamped = target < Duration.zero
+        ? Duration.zero
+        : (_dur > Duration.zero && target > _dur ? _dur : target);
+    _player.seek(clamped);
+    _showGestureHud(
+      isLeft ? Icons.fast_rewind : Icons.fast_forward,
+      isLeft ? '-10 sn' : '+10 sn',
+      null,
+    );
+  }
+
+  void _onVerticalDragStart(Offset globalPos) {
+    final size = MediaQuery.of(context).size;
+    _gestureStartedOnLeft = globalPos.dx < size.width / 2;
+    // Seed from the most recent known value so gradual drags feel continuous.
+    _gestureVolume = _volume;
+  }
+
+  Future<void> _onVerticalDragUpdate(double dyPrimary) async {
+    final screenH = MediaQuery.of(context).size.height;
+    // Full swipe top-to-bottom = full range. dy > 0 means drag down = decrease.
+    final delta = -(dyPrimary / screenH);
+    if (_gestureStartedOnLeft) {
+      _gestureBrightness = (_gestureBrightness + delta).clamp(0.0, 1.0);
+      try {
+        await ScreenBrightness.instance.setApplicationScreenBrightness(
+          _gestureBrightness,
+        );
+      } catch (_) {}
+      _showGestureHud(
+        _gestureBrightness <= 0.01
+            ? Icons.brightness_low
+            : (_gestureBrightness >= 0.99
+                ? Icons.brightness_high
+                : Icons.brightness_6),
+        '${(_gestureBrightness * 100).round()}%',
+        _gestureBrightness,
+      );
+    } else {
+      _gestureVolume = (_gestureVolume + delta * 100).clamp(0.0, 100.0);
+      _player.setVolume(_gestureVolume);
+      _showGestureHud(
+        _gestureVolume <= 0.5
+            ? Icons.volume_off
+            : (_gestureVolume >= 99.5 ? Icons.volume_up : Icons.volume_down),
+        '${_gestureVolume.round()}%',
+        _gestureVolume / 100,
+      );
+    }
+  }
+
+  void _showGestureHud(IconData icon, String text, double? value) {
+    if (!mounted) return;
+    setState(() {
+      _gestureHudIcon = icon;
+      _gestureHudText = text;
+      _gestureHudValue = value;
+    });
+    _gestureHudTimer?.cancel();
+    _gestureHudTimer = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      setState(() {
+        _gestureHudIcon = null;
+        _gestureHudText = null;
+        _gestureHudValue = null;
+      });
+    });
+  }
+
+  // ===========================================================================
+  //  Sleep timer
+  // ===========================================================================
+
+  bool get _isSleepTimerActive => _sleepDeadline != null || _sleepAtEpisodeEnd;
+
+  IconData _sleepTimerIcon() {
+    return _isSleepTimerActive ? Icons.bedtime : Icons.bedtime_outlined;
+  }
+
+  void _setSleepDuration(Duration d) {
+    _sleepTimer?.cancel();
+    setState(() {
+      _sleepAtEpisodeEnd = false;
+      _sleepDeadline = DateTime.now().add(d);
+    });
+    _sleepTimer = Timer(d, () {
+      if (!mounted) return;
+      _onSleepTimerFired();
+    });
+  }
+
+  void _setSleepAtEpisodeEnd() {
+    _sleepTimer?.cancel();
+    setState(() {
+      _sleepAtEpisodeEnd = true;
+      _sleepDeadline = null;
+    });
+  }
+
+  void _cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _sleepDeadline = null;
+      _sleepAtEpisodeEnd = false;
+    });
+  }
+
+  void _onSleepTimerFired() {
+    _player.pause();
+    setState(() {
+      _sleepDeadline = null;
+      _sleepAtEpisodeEnd = false;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uyku zamanlayıcısı: oynatma duraklatıldı'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showSleepTimerPicker() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surfaceElevatedDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 340,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.bedtime, color: AppColors.primary, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Uyku Zamanlayıcısı',
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                for (final m in const [15, 30, 45, 60])
+                  _FocusableTrackTile(
+                    title: '$m dk',
+                    isSelected:
+                        _sleepDeadline != null &&
+                        _sleepDeadline!
+                                .difference(DateTime.now())
+                                .inMinutes ==
+                            m - 1 ||
+                        (_sleepDeadline != null &&
+                            _sleepDeadline!
+                                    .difference(DateTime.now())
+                                    .inMinutes ==
+                                m),
+                    autofocus: false,
+                    onTap: () {
+                      _setSleepDuration(Duration(minutes: m));
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                if (widget.type == VideoType.series)
+                  _FocusableTrackTile(
+                    title: 'Bölüm bitiminde durdur',
+                    isSelected: _sleepAtEpisodeEnd,
+                    autofocus: false,
+                    onTap: () {
+                      _setSleepAtEpisodeEnd();
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                if (_isSleepTimerActive)
+                  _FocusableTrackTile(
+                    title: 'İptal Et',
+                    isSelected: false,
+                    autofocus: false,
+                    onTap: () {
+                      _cancelSleepTimer();
+                      Navigator.pop(ctx);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _enterPipMode() async {
@@ -1346,6 +1933,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
+    // Live-apply subtitle appearance when the user tweaks font size / color /
+    // bold / background in the Settings screen while the player is open.
+    ref.listen<(int, String, bool, bool)>(
+      settingsProvider.select(
+        (s) => (
+          s.subtitleFontSize,
+          s.subtitleColor,
+          s.subtitleBold,
+          s.subtitleBackgroundEnabled,
+        ),
+      ),
+      (_, __) => _applySubtitleStyle(),
+    );
+
     Widget scaffold = Scaffold(
       backgroundColor: Colors.black,
       body: PopScope(
@@ -1373,9 +1974,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               behavior: HitTestBehavior.opaque,
               onTap: _isPaused ? () => _player.playOrPause() : _toggleControls,
               onDoubleTap: isDesktopPlatform ? _toggleFullscreen : null,
+              // Mobile VOD: double-tap left/right halves → seek -10/+10.
+              onDoubleTapDown:
+                  (isMobilePlatform && widget.type != VideoType.live)
+                  ? (details) => _handleDoubleTapSeek(details.globalPosition)
+                  : null,
               // Desktop: drag window from anywhere; Mobile: swipe channels
               onPanStart: (isDesktopPlatform && !_isFullscreen && !_isInPipMode)
                   ? (_) => _startWindowDrag()
+                  : null,
+              // Mobile VOD: vertical drag on left = brightness, right = volume.
+              onVerticalDragStart:
+                  (isMobilePlatform && widget.type != VideoType.live)
+                  ? (d) => _onVerticalDragStart(d.globalPosition)
+                  : null,
+              onVerticalDragUpdate:
+                  (isMobilePlatform && widget.type != VideoType.live)
+                  ? (d) => _onVerticalDragUpdate(d.primaryDelta ?? 0)
                   : null,
               onVerticalDragEnd:
                   (isMobilePlatform &&
@@ -1400,6 +2015,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       controller: _controller,
                       fill: Colors.black,
                       controls: NoVideoControls,
+                      // media_kit renders subtitles via a Flutter widget by
+                      // default — NOT via mpv/libass. So style/position must
+                      // live here, not in mpv setProperty calls.
+                      subtitleViewConfiguration: _buildSubtitleViewConfig(),
                     ),
                   ),
 
@@ -1409,6 +2028,56 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                         strokeWidth: 3,
+                      ),
+                    ),
+
+                  // -- Gesture HUD (brightness / volume / seek) --------------
+                  if (_gestureHudIcon != null && _gestureHudText != null)
+                    IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_gestureHudIcon, color: Colors.white, size: 36),
+                              const SizedBox(height: 6),
+                              Text(
+                                _gestureHudText!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              if (_gestureHudValue != null) ...[
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: 120,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(2),
+                                    child: LinearProgressIndicator(
+                                      value: _gestureHudValue!,
+                                      minHeight: 3,
+                                      backgroundColor:
+                                          Colors.white.withValues(alpha: 0.2),
+                                      valueColor: const AlwaysStoppedAnimation(
+                                        AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
 
@@ -1526,6 +2195,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       bottom: 110,
                       right: 24,
                       child: _buildNextOverlay(l10n),
+                    ),
+
+                  // -- Skip intro button (series only, early in episode) -----
+                  if (!_isInPipMode &&
+                      _showSkipIntro &&
+                      widget.type == VideoType.series &&
+                      !_showNextOverlay)
+                    Positioned(
+                      bottom: 110,
+                      right: 24,
+                      child: _buildSkipIntroButton(),
                     ),
 
                   // -- Channel list overlay (live TV) --------------------------
@@ -1732,6 +2412,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 ),
               ),
             ),
+
+            // Sleep timer button — shows active countdown in tooltip.
+            _DpadIconBtn(
+              icon: _sleepTimerIcon(),
+              onTap: _showSleepTimerPicker,
+              tint: _isSleepTimerActive ? AppColors.primary : null,
+            ),
+            const SizedBox(width: 8),
 
             // PiP button (supported desktop platforms + Android)
             if (isPipSupported) ...[
@@ -2670,6 +3358,7 @@ class _DpadIconBtn extends StatefulWidget {
   final bool isPrimary;
   final double size;
   final FocusNode? focusNode;
+  final Color? tint;
 
   const _DpadIconBtn({
     required this.icon,
@@ -2678,6 +3367,7 @@ class _DpadIconBtn extends StatefulWidget {
     this.isPrimary = false,
     this.size = 22,
     this.focusNode,
+    this.tint,
   });
 
   @override
@@ -2741,7 +3431,11 @@ class _DpadIconBtnState extends State<_DpadIconBtn> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.icon, color: Colors.white, size: widget.size),
+                Icon(
+                  widget.icon,
+                  color: widget.tint ?? Colors.white,
+                  size: widget.size,
+                ),
                 if (widget.label != null) ...[
                   const SizedBox(width: 6),
                   Text(

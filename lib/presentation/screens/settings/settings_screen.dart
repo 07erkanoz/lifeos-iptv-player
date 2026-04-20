@@ -1050,10 +1050,10 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
             Text('${settings.subtitleFontSize}', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 16)),
           ]),
           Slider(
-            value: settings.subtitleFontSize.toDouble(),
-            min: 16,
-            max: 72,
-            divisions: 28,
+            value: settings.subtitleFontSize.toDouble().clamp(20, 110),
+            min: 20,
+            max: 110,
+            divisions: 18,
             activeColor: AppColors.primary,
             label: '${settings.subtitleFontSize}',
             onChanged: (val) {
@@ -1193,25 +1193,94 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
 }
 
 // Data Section
-class _DataSection extends StatelessWidget {
+class _DataSection extends ConsumerWidget {
   final AppLocalizations l10n;
   const _DataSection({required this.l10n});
+
+  Future<void> _clearCaches(BuildContext context) async {
+    ApiCache.instance.clear();
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.cacheClearedMsg)),
+    );
+  }
+
+  Future<void> _resetContentData(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevatedDark,
+        title: const Text(
+          'İzleme verilerini sıfırla',
+          style: TextStyle(color: AppColors.textDark),
+        ),
+        content: const Text(
+          'Kanallar, kategoriler ve EPG silinecek. Hesap bilgilerin ve favorilerin korunur. Bir sonraki açılışta yeniden senkronize edilir.',
+          style: TextStyle(color: AppColors.textSecondaryDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sıfırla'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final db = ref.read(appDatabaseProvider);
+    await db.delete(db.channels).go();
+    await db.delete(db.categories).go();
+    await db.delete(db.programs).go();
+    ApiCache.instance.clear();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('İçerik verileri sıfırlandı')),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final surfaceColor = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
     return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.dataBackup, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
+      Text(
+        l10n.dataBackup,
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor),
+      ),
       const SizedBox(height: 24),
       ListTile(
-        leading: Icon(Icons.delete_outline, color: AppColors.primary),
-        title: Text(l10n.clearCache, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.clearCacheDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        leading: const Icon(Icons.delete_outline, color: AppColors.primary),
+        title: Text(l10n.clearCache, style: TextStyle(color: textColor)),
+        subtitle: Text(
+          l10n.clearCacheDesc,
+          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        onTap: () {
-          ApiCache.instance.clear();
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.cacheClearedMsg)));
-        },
+        tileColor: surfaceColor,
+        onTap: () => _clearCaches(context),
+      ),
+      const SizedBox(height: 12),
+      ListTile(
+        leading: const Icon(Icons.cleaning_services_outlined, color: Colors.orange),
+        title: Text(
+          'İzleme verilerini sıfırla',
+          style: TextStyle(color: textColor),
+        ),
+        subtitle: const Text(
+          'Kanallar, kategoriler ve EPG tablolarını temizler. Favoriler ve hesap bilgileri korunur.',
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: surfaceColor,
+        onTap: () => _resetContentData(context, ref),
       ),
     ]);
   }

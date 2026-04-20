@@ -60,6 +60,12 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // Shrinking (R8) is disabled — we ship the full classpath because
+            // media_kit + libmpv rely heavily on reflection/JNI and the app
+            // hasn't been end-to-end tested against the keep rules yet.
+            // proguard-rules.pro is checked in and ready when we're.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
