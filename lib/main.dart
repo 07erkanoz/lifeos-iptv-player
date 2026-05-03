@@ -12,6 +12,7 @@ import 'package:lifeostv/config/router.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
+import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/gpu_detector.dart';
@@ -117,18 +118,21 @@ class LifeosApp extends ConsumerWidget {
         ? Locale(settings.language.name)
         : null;
 
+    final pipActive = ref.watch(pipProvider) != null;
+
     return MaterialApp.router(
       routerConfig: router,
       title: 'LifeOs TV',
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        final content = Stack(
-          children: [
-            child ?? const SizedBox.shrink(),
-            if (isDesktopPipSupported) const FloatingPipOverlay(),
-          ],
-        );
-        return _DesktopWindowFrame(child: content);
+        // When PiP is active on desktop we shrink the host window down to
+        // mini-player size and replace the entire app UI with the video
+        // — the user wanted the rest of the app to disappear during PiP,
+        // not stay visible behind a small floating overlay.
+        if (pipUsesWindowMode && pipActive) {
+          return _DesktopWindowFrame(child: const PipOverlay());
+        }
+        return _DesktopWindowFrame(child: child ?? const SizedBox.shrink());
       },
       localizationsDelegates: const [
         AppLocalizations.delegate,

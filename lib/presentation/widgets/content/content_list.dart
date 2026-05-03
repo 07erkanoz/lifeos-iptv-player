@@ -29,6 +29,13 @@ class ContentList extends StatelessWidget {
 
     final hPad = context.horizontalPadding;
     final isMobile = context.isMobileWidth;
+    // Theme-aware text colors — `textDark` was hard-coded before, which
+    // turned the section headings invisible against the light theme's
+    // white background.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headingColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final countColor =
+        isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +51,7 @@ class ContentList extends StatelessWidget {
               Text(
                 title,
                 style: TextStyle(
-                  color: AppColors.textDark,
+                  color: headingColor,
                   fontWeight: FontWeight.w700,
                   fontSize: isMobile ? 16 : 20,
                   letterSpacing: -0.3,
@@ -54,7 +61,7 @@ class ContentList extends StatelessWidget {
               Text(
                 '${channels.length}',
                 style: TextStyle(
-                  color: AppColors.textTertiaryDark,
+                  color: countColor,
                   fontWeight: FontWeight.w500,
                   fontSize: isMobile ? 12 : 14,
                 ),

@@ -512,22 +512,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildNoAccountBanner(BuildContext c, AppLocalizations l10n) {
+    final isDark = Theme.of(c).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final border = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final title = isDark ? AppColors.textDark : AppColors.textLight;
+    final body = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderDark),
+        border: Border.all(color: border),
       ),
       child: Row(children: [
         Icon(Icons.info_outline, color: AppColors.accent, size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l10n.noAccountFound, style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w600)),
+            Text(l10n.noAccountFound, style: TextStyle(color: title, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text(l10n.noAccountWarning, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+            Text(l10n.noAccountWarning, style: TextStyle(color: body, fontSize: 13)),
           ]),
         ),
         TextButton(onPressed: () => c.go('/settings'), child: Text(l10n.goToSettings)),

@@ -5,11 +5,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
-import 'package:lifeostv/utils/platform_utils.dart';
 
 // =============================================================================
-//  PiP Overlay — Full Window Mode (Linux)
-//  Window is resized to PiP dimensions, this widget fills the entire window.
+//  PiP Overlay — Full Window Mode (all desktop platforms)
+//  Host window is resized to PiP dimensions (see PipNotifier), this widget
+//  fills the entire window with the video.
 // =============================================================================
 
 class PipOverlay extends ConsumerStatefulWidget {
@@ -110,148 +110,13 @@ class _PipOverlayState extends ConsumerState<PipOverlay> {
   }
 }
 
-// =============================================================================
-//  Floating PiP Overlay (Windows/macOS)
-//  Small draggable widget floating on top of the app content.
-// =============================================================================
-
-class FloatingPipOverlay extends ConsumerStatefulWidget {
-  const FloatingPipOverlay({super.key});
-
-  @override
-  ConsumerState<FloatingPipOverlay> createState() => _FloatingPipOverlayState();
-}
-
-class _FloatingPipOverlayState extends ConsumerState<FloatingPipOverlay> {
-  Offset _offset = Offset.zero;
-  bool _initialized = false;
-
-  static const double _width = 320;
-  static const double _height = 180;
-  static const double _dragBarHeight = 34;
-
-  void _updateOffset(Offset delta, Size size) {
-    setState(() {
-      _offset += delta;
-      _offset = Offset(
-        _offset.dx.clamp(0, size.width - _width),
-        _offset.dy.clamp(0, size.height - _height),
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pipData = ref.watch(pipProvider);
-
-    if (pipData == null || !isDesktopPipSupported) {
-      return const SizedBox.shrink();
-    }
-
-    // Initialize position to bottom-right on first build
-    if (!_initialized) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          final size = MediaQuery.of(context).size;
-          setState(() {
-            _offset = Offset(size.width - _width - 20, size.height - _height - 20);
-            _initialized = true;
-          });
-        }
-      });
-    }
-
-    return Positioned(
-      left: _offset.dx,
-      top: _offset.dy,
-      child: Material(
-        elevation: 12,
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.transparent,
-        shadowColor: Colors.black54,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: _width,
-            height: _height,
-            child: Stack(
-              children: [
-                // Video
-                Video(
-                  controller: pipData.controller,
-                  fill: Colors.black,
-                ),
-
-                // Gradient overlay
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.5),
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.6),
-                          ],
-                          stops: const [0.0, 0.4, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Drag handle area (top only) to avoid stealing taps from controls
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: _dragBarHeight,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onPanUpdate: (details) => _updateOffset(
-                      details.delta,
-                      MediaQuery.of(context).size,
-                    ),
-                  ),
-                ),
-
-                // Title
-                Positioned(
-                  top: 6,
-                  left: 10,
-                  right: 10,
-                  child: IgnorePointer(
-                    child: Text(
-                      pipData.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-
-                // Bottom controls
-                Positioned(
-                  bottom: 6,
-                  left: 8,
-                  right: 8,
-                  child: _PipControls(pipData: pipData, small: true),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// FloatingPipOverlay was removed. Earlier the Win/macOS PiP path stacked
+// a small draggable widget on top of the running app, but users reported
+// the rest of the app stayed visible behind the overlay — not the
+// "popped out" experience expected from PiP. The replacement (see
+// PipNotifier._shrinkWindowToPip) shrinks the host window itself and
+// renders PipOverlay full-window, so the entire screen is the mini
+// player. Same code path now serves Windows + macOS + Linux.
 
 // =============================================================================
 //  Shared PiP Controls
