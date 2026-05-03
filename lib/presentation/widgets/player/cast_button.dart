@@ -3,6 +3,7 @@ import 'package:cast/device.dart';
 import 'package:flutter/material.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/services/cast_service.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 /// Chromecast icon button for the player bottom bar.
 /// Shows device picker bottom-sheet on tap. Glows when connected.
@@ -32,7 +33,7 @@ class CastButton extends StatelessWidget {
             color: castState.isConnected ? AppColors.primary : Colors.white70,
             size: 20,
           ),
-          tooltip: 'Chromecast',
+          tooltip: AppLocalizations.of(context)!.castDevices,
           padding: const EdgeInsets.all(8),
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           onPressed: () {
@@ -78,43 +79,46 @@ class CastButton extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cast_connected, color: AppColors.primary, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              service.state.device?.name ?? 'Chromecast',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  service.disconnect();
-                  onCastStopped?.call();
-                },
-                icon: const Icon(Icons.close),
-                label: const Text('Bağlantıyı Kes'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade800,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+      builder: (sheetCtx) {
+        final l10n = AppLocalizations.of(sheetCtx)!;
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cast_connected, color: AppColors.primary, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                service.state.device?.name ?? l10n.castDevices,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetCtx).pop();
+                    service.disconnect();
+                    onCastStopped?.call();
+                  },
+                  icon: const Icon(Icons.close),
+                  label: Text(l10n.castDisconnect),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -164,6 +168,7 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       child: Column(
@@ -174,10 +179,10 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
             children: [
               const Icon(Icons.cast, color: Colors.white70, size: 22),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Chromecast Cihazları',
-                  style: TextStyle(
+                  l10n.castDevices,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -188,7 +193,7 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white54, size: 20),
                   onPressed: _search,
-                  tooltip: 'Yeniden Ara',
+                  tooltip: l10n.castSearchAgain,
                 ),
             ],
           ),
@@ -202,24 +207,24 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
               strokeWidth: 2.5,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Cihazlar aranıyor…',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+            Text(
+              l10n.castSearching,
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
             const SizedBox(height: 24),
           ] else if (_devices.isEmpty) ...[
             const SizedBox(height: 24),
             const Icon(Icons.cast, color: Colors.white24, size: 48),
             const SizedBox(height: 12),
-            const Text(
-              'Chromecast cihazı bulunamadı',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+            Text(
+              l10n.castNoDevices,
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: _search,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Tekrar Ara'),
+              label: Text(l10n.castSearchAgain),
               style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             ),
             const SizedBox(height: 16),

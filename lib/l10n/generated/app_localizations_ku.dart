@@ -188,13 +188,13 @@ class AppLocalizationsKu extends AppLocalizations {
   String get accountName => 'Navê hesab';
 
   @override
-  String get accountNameHint => 'mînak: IPTV ya min';
+  String get accountNameHint => 'wek IPTV-ya min';
 
   @override
   String get playlistName => 'Navê lîsteyê';
 
   @override
-  String get playlistNameHint => 'mînak: Lîsteya min';
+  String get playlistNameHint => 'wek lîsteya min';
 
   @override
   String get loadPlaylist => 'Lîsteyê bar bike';
@@ -790,4 +790,69 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get sortByName => 'Li gor Navê';
+
+  @override
+  String get castDevices => 'Amûrên Chromecast';
+
+  @override
+  String get castDisconnect => 'Girêdanê biqetîne';
+
+  @override
+  String get castSearching => 'Li amûran tê gerîn…';
+
+  @override
+  String get castNoDevices => 'Amûra Chromecast nehate dîtin';
+
+  @override
+  String get castSearchAgain => 'Dîsa Bigere';
+
+  @override
+  String get channelList => 'Lîsteya Kanalan';
+
+  @override
+  String get searchChannelsHint => 'Li kanalê bigere...';
+
+  @override
+  String get all => 'Hemû';
+
+  @override
+  String get subtitlePosition => 'Cihê binnivîsê';
+
+  @override
+  String get skipIntroLabel => 'Pêşvebirê Bavêje';
+
+  @override
+  String get accountSaveFailed => 'Hesab nehate tomarkirin';
+
+  @override
+  String get connecting => 'Tê girêdan...';
+
+  @override
+  String get loadingPlaylistData => 'Daneyên lîsteyê tên barkirin...';
+
+  @override
+  String get pleaseWaitDoNotClose =>
+      'Ji kerema xwe bisekine, serîlêdanê negire';
+
+  @override
+  String get pleaseEnterUrl => 'Ji kerema xwe URL binivîse';
+
+  @override
+  String get pleaseEnterUsername => 'Ji kerema xwe navê bikarhêner binivîse';
+
+  @override
+  String get pleaseEnterPassword => 'Ji kerema xwe şîfreyê binivîse';
+
+  @override
+  String get pleaseEnterAUrl => 'Ji kerema xwe URL-ekê binivîse';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Lînkên Xtream M3U (bi navê bikarhêner û şîfreyê) bixweber tê tespît kirin.';
+
+  @override
+  String get searchVodHint => 'Navê fîlm an rêzefîlm...';
+
+  @override
+  String get subtitleNotFound => 'Tu binnivîs nehate dîtin';
 }

@@ -45,7 +45,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
 
   Future<void> _handleLoad() async {
     if (_urlController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please enter a URL');
+      setState(() => _errorMessage = AppLocalizations.of(context)!.pleaseEnterAUrl);
       return;
     }
 
@@ -78,7 +78,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
         if (mounted) {
           setState(() {
             _isSyncing = false;
-            _errorMessage = 'Account was not saved properly';
+            _errorMessage = AppLocalizations.of(context)!.accountSaveFailed;
           });
         }
         return;
@@ -126,14 +126,14 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
                   const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
                   const SizedBox(height: 24),
                   Text(
-                    _syncProgress.step.isNotEmpty ? _syncProgress.step : 'Loading playlist data...',
+                    _syncProgress.step.isNotEmpty ? _syncProgress.step : l10n.loadingPlaylistData,
                     style: const TextStyle(color: AppColors.textDark, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 24),
-                  _buildSyncStats(),
+                  _buildSyncStats(l10n),
                   const SizedBox(height: 16),
                   Text(
-                    'Please wait, do not close the app',
+                    l10n.pleaseWaitDoNotClose,
                     style: TextStyle(color: AppColors.textTertiaryDark, fontSize: 12),
                   ),
                 ],
@@ -200,7 +200,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Xtream M3U links (with username & password) are auto-detected.',
+                          l10n.xtreamM3uAutoDetectInfo,
                           style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
                         ),
                       ),
@@ -212,10 +212,10 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
                 TextField(
                   controller: _nameController,
                   focusNode: _nameFocusNode,
-                  decoration: const InputDecoration(
-                    labelText: 'Playlist Name',
-                    prefixIcon: Icon(Icons.label_outline),
-                    hintText: 'e.g. My Playlist',
+                  decoration: InputDecoration(
+                    labelText: l10n.playlistName,
+                    prefixIcon: const Icon(Icons.label_outline),
+                    hintText: l10n.playlistNameHint,
                   ),
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => _urlFocusNode.requestFocus(),
@@ -252,7 +252,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
                     icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.cloud_download),
                     label: _isLoading
                         ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('Load Playlist', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        : Text(l10n.loadPlaylist, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -264,7 +264,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
     );
   }
 
-  Widget _buildSyncStats() {
+  Widget _buildSyncStats(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -274,13 +274,13 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
       ),
       child: Column(
         children: [
-          _buildStatRow(Icons.category_outlined, 'Categories', _syncProgress.categoryCount),
+          _buildStatRow(Icons.category_outlined, l10n.categories, _syncProgress.categoryCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.live_tv, 'Live Channels', _syncProgress.liveCount),
+          _buildStatRow(Icons.live_tv, l10n.liveTV, _syncProgress.liveCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.movie_outlined, 'Movies', _syncProgress.movieCount),
+          _buildStatRow(Icons.movie_outlined, l10n.movies, _syncProgress.movieCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.tv, 'Series', _syncProgress.seriesCount),
+          _buildStatRow(Icons.tv, l10n.series, _syncProgress.seriesCount),
         ],
       ),
     );

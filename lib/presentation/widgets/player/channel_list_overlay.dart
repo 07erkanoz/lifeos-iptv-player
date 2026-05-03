@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 
 /// Channel list overlay for live TV player.
@@ -227,6 +228,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     final screenWidth = MediaQuery.of(context).size.width;
     final panelWidth = screenWidth < 600 ? screenWidth * 0.85 : 400.0;
     final filtered = _filteredChannels;
+    final l10n = AppLocalizations.of(context)!;
 
     return SlideTransition(
       position: _slideOffset,
@@ -256,10 +258,10 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                         children: [
                           const Icon(Icons.live_tv, color: AppColors.primary, size: 20),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Kanal Listesi',
-                              style: TextStyle(
+                              l10n.channelList,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -285,7 +287,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                         onChanged: _onSearch,
                         style: const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: 'Kanal ara...',
+                          hintText: l10n.searchChannelsHint,
                           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                           prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.35), size: 18),
                           suffixIcon: _searchQuery.isNotEmpty
@@ -318,7 +320,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           children: [
                             _CategoryTab(
-                              label: 'Tümü',
+                              label: l10n.all,
                               isActive: _selectedCategoryId == null,
                               onTap: () => _selectCategory(null),
                             ),
@@ -338,7 +340,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                       child: filtered.isEmpty
                           ? Center(
                               child: Text(
-                                'Kanal bulunamadı',
+                                l10n.noChannels,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
                               ),
                             )

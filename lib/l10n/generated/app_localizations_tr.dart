@@ -189,13 +189,13 @@ class AppLocalizationsTr extends AppLocalizations {
   String get accountName => 'Hesap Adı';
 
   @override
-  String get accountNameHint => 'ör. IPTV\'im';
+  String get accountNameHint => 'ör. IPTV\'m';
 
   @override
   String get playlistName => 'Playlist Adı';
 
   @override
-  String get playlistNameHint => 'ör. Playlist\'im';
+  String get playlistNameHint => 'ör. Listem';
 
   @override
   String get loadPlaylist => 'Playlist Yükle';
@@ -789,4 +789,68 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get sortByName => 'Ada Göre';
+
+  @override
+  String get castDevices => 'Chromecast Cihazları';
+
+  @override
+  String get castDisconnect => 'Bağlantıyı Kes';
+
+  @override
+  String get castSearching => 'Cihazlar aranıyor…';
+
+  @override
+  String get castNoDevices => 'Chromecast cihazı bulunamadı';
+
+  @override
+  String get castSearchAgain => 'Tekrar Ara';
+
+  @override
+  String get channelList => 'Kanal Listesi';
+
+  @override
+  String get searchChannelsHint => 'Kanal ara...';
+
+  @override
+  String get all => 'Tümü';
+
+  @override
+  String get subtitlePosition => 'Altyazı konumu';
+
+  @override
+  String get skipIntroLabel => 'Intro\'yu Atla';
+
+  @override
+  String get accountSaveFailed => 'Hesap kaydedilemedi';
+
+  @override
+  String get connecting => 'Bağlanıyor...';
+
+  @override
+  String get loadingPlaylistData => 'Liste verileri yükleniyor...';
+
+  @override
+  String get pleaseWaitDoNotClose => 'Lütfen bekleyin, uygulamayı kapatmayın';
+
+  @override
+  String get pleaseEnterUrl => 'Lütfen URL girin';
+
+  @override
+  String get pleaseEnterUsername => 'Lütfen kullanıcı adı girin';
+
+  @override
+  String get pleaseEnterPassword => 'Lütfen şifre girin';
+
+  @override
+  String get pleaseEnterAUrl => 'Lütfen bir URL girin';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Xtream M3U bağlantıları (kullanıcı adı ve şifre içeren) otomatik algılanır.';
+
+  @override
+  String get searchVodHint => 'Film veya dizi adı...';
+
+  @override
+  String get subtitleNotFound => 'Altyazı bulunamadı';
 }

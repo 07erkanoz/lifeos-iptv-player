@@ -790,4 +790,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sortByName => 'By Name';
+
+  @override
+  String get castDevices => 'Chromecast Devices';
+
+  @override
+  String get castDisconnect => 'Disconnect';
+
+  @override
+  String get castSearching => 'Searching for devices…';
+
+  @override
+  String get castNoDevices => 'No Chromecast devices found';
+
+  @override
+  String get castSearchAgain => 'Search Again';
+
+  @override
+  String get channelList => 'Channel List';
+
+  @override
+  String get searchChannelsHint => 'Search channels...';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get subtitlePosition => 'Subtitle position';
+
+  @override
+  String get skipIntroLabel => 'Skip Intro';
+
+  @override
+  String get accountSaveFailed => 'Account was not saved properly';
+
+  @override
+  String get connecting => 'Connecting...';
+
+  @override
+  String get loadingPlaylistData => 'Loading playlist data...';
+
+  @override
+  String get pleaseWaitDoNotClose => 'Please wait, do not close the app';
+
+  @override
+  String get pleaseEnterUrl => 'Please enter URL';
+
+  @override
+  String get pleaseEnterUsername => 'Please enter username';
+
+  @override
+  String get pleaseEnterPassword => 'Please enter password';
+
+  @override
+  String get pleaseEnterAUrl => 'Please enter a URL';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Xtream M3U links (with username & password) are auto-detected.';
+
+  @override
+  String get searchVodHint => 'Movie or series name...';
+
+  @override
+  String get subtitleNotFound => 'No subtitles found';
 }

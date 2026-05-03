@@ -188,13 +188,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accountName => 'Nombre de cuenta';
 
   @override
-  String get accountNameHint => 'ej. Mi IPTV';
+  String get accountNameHint => 'p. ej. Mi IPTV';
 
   @override
   String get playlistName => 'Nombre de la lista';
 
   @override
-  String get playlistNameHint => 'ej. Mi Lista';
+  String get playlistNameHint => 'p. ej. Mi lista';
 
   @override
   String get loadPlaylist => 'Cargar lista';
@@ -792,4 +792,68 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sortByName => 'Por nombre';
+
+  @override
+  String get castDevices => 'Dispositivos Chromecast';
+
+  @override
+  String get castDisconnect => 'Desconectar';
+
+  @override
+  String get castSearching => 'Buscando dispositivos…';
+
+  @override
+  String get castNoDevices => 'No se encontraron dispositivos Chromecast';
+
+  @override
+  String get castSearchAgain => 'Buscar de nuevo';
+
+  @override
+  String get channelList => 'Lista de canales';
+
+  @override
+  String get searchChannelsHint => 'Buscar canales...';
+
+  @override
+  String get all => 'Todos';
+
+  @override
+  String get subtitlePosition => 'Posición de subtítulos';
+
+  @override
+  String get skipIntroLabel => 'Saltar intro';
+
+  @override
+  String get accountSaveFailed => 'No se pudo guardar la cuenta';
+
+  @override
+  String get connecting => 'Conectando...';
+
+  @override
+  String get loadingPlaylistData => 'Cargando datos de la lista...';
+
+  @override
+  String get pleaseWaitDoNotClose => 'Espera, no cierres la aplicación';
+
+  @override
+  String get pleaseEnterUrl => 'Por favor introduce la URL';
+
+  @override
+  String get pleaseEnterUsername => 'Por favor introduce el usuario';
+
+  @override
+  String get pleaseEnterPassword => 'Por favor introduce la contraseña';
+
+  @override
+  String get pleaseEnterAUrl => 'Por favor introduce una URL';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Los enlaces M3U de Xtream (con usuario y contraseña) se detectan automáticamente.';
+
+  @override
+  String get searchVodHint => 'Nombre de película o serie...';
+
+  @override
+  String get subtitleNotFound => 'No se encontraron subtítulos';
 }

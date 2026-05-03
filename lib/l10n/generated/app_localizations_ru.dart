@@ -793,4 +793,68 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get sortByName => 'По имени';
+
+  @override
+  String get castDevices => 'Устройства Chromecast';
+
+  @override
+  String get castDisconnect => 'Отключить';
+
+  @override
+  String get castSearching => 'Поиск устройств…';
+
+  @override
+  String get castNoDevices => 'Устройства Chromecast не найдены';
+
+  @override
+  String get castSearchAgain => 'Искать снова';
+
+  @override
+  String get channelList => 'Список каналов';
+
+  @override
+  String get searchChannelsHint => 'Поиск каналов...';
+
+  @override
+  String get all => 'Все';
+
+  @override
+  String get subtitlePosition => 'Положение субтитров';
+
+  @override
+  String get skipIntroLabel => 'Пропустить заставку';
+
+  @override
+  String get accountSaveFailed => 'Не удалось сохранить аккаунт';
+
+  @override
+  String get connecting => 'Подключение...';
+
+  @override
+  String get loadingPlaylistData => 'Загрузка данных плейлиста...';
+
+  @override
+  String get pleaseWaitDoNotClose => 'Пожалуйста, не закрывайте приложение';
+
+  @override
+  String get pleaseEnterUrl => 'Пожалуйста, введите URL';
+
+  @override
+  String get pleaseEnterUsername => 'Пожалуйста, введите имя пользователя';
+
+  @override
+  String get pleaseEnterPassword => 'Пожалуйста, введите пароль';
+
+  @override
+  String get pleaseEnterAUrl => 'Пожалуйста, введите URL';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Ссылки Xtream M3U (с именем пользователя и паролем) определяются автоматически.';
+
+  @override
+  String get searchVodHint => 'Название фильма или сериала...';
+
+  @override
+  String get subtitleNotFound => 'Субтитры не найдены';
 }

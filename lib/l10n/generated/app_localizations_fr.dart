@@ -195,7 +195,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get playlistName => 'Nom de la playlist';
 
   @override
-  String get playlistNameHint => 'ex. Ma Playlist';
+  String get playlistNameHint => 'ex. Ma playlist';
 
   @override
   String get loadPlaylist => 'Charger la playlist';
@@ -793,4 +793,69 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sortByName => 'Par nom';
+
+  @override
+  String get castDevices => 'Appareils Chromecast';
+
+  @override
+  String get castDisconnect => 'Déconnecter';
+
+  @override
+  String get castSearching => 'Recherche d\'appareils…';
+
+  @override
+  String get castNoDevices => 'Aucun appareil Chromecast trouvé';
+
+  @override
+  String get castSearchAgain => 'Rechercher à nouveau';
+
+  @override
+  String get channelList => 'Liste des chaînes';
+
+  @override
+  String get searchChannelsHint => 'Rechercher des chaînes...';
+
+  @override
+  String get all => 'Tous';
+
+  @override
+  String get subtitlePosition => 'Position des sous-titres';
+
+  @override
+  String get skipIntroLabel => 'Passer l\'intro';
+
+  @override
+  String get accountSaveFailed => 'Le compte n\'a pas pu être enregistré';
+
+  @override
+  String get connecting => 'Connexion en cours...';
+
+  @override
+  String get loadingPlaylistData => 'Chargement des données de la playlist...';
+
+  @override
+  String get pleaseWaitDoNotClose =>
+      'Veuillez patienter, ne fermez pas l\'application';
+
+  @override
+  String get pleaseEnterUrl => 'Veuillez entrer l\'URL';
+
+  @override
+  String get pleaseEnterUsername => 'Veuillez entrer le nom d\'utilisateur';
+
+  @override
+  String get pleaseEnterPassword => 'Veuillez entrer le mot de passe';
+
+  @override
+  String get pleaseEnterAUrl => 'Veuillez entrer une URL';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'Les liens Xtream M3U (avec nom d\'utilisateur et mot de passe) sont détectés automatiquement.';
+
+  @override
+  String get searchVodHint => 'Nom de film ou série...';
+
+  @override
+  String get subtitleNotFound => 'Aucun sous-titre trouvé';
 }

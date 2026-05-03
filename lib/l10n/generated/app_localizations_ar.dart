@@ -188,7 +188,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get accountName => 'اسم الحساب';
 
   @override
-  String get accountNameHint => 'مثال: IPTV الخاص بي';
+  String get accountNameHint => 'مثال: حسابي';
 
   @override
   String get playlistName => 'اسم القائمة';
@@ -790,4 +790,68 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get sortByName => 'حسب الاسم';
+
+  @override
+  String get castDevices => 'أجهزة Chromecast';
+
+  @override
+  String get castDisconnect => 'قطع الاتصال';
+
+  @override
+  String get castSearching => 'جاري البحث عن أجهزة…';
+
+  @override
+  String get castNoDevices => 'لم يتم العثور على أجهزة Chromecast';
+
+  @override
+  String get castSearchAgain => 'بحث مرة أخرى';
+
+  @override
+  String get channelList => 'قائمة القنوات';
+
+  @override
+  String get searchChannelsHint => 'ابحث عن قناة...';
+
+  @override
+  String get all => 'الكل';
+
+  @override
+  String get subtitlePosition => 'موضع الترجمة';
+
+  @override
+  String get skipIntroLabel => 'تخطي المقدمة';
+
+  @override
+  String get accountSaveFailed => 'لم يتم حفظ الحساب';
+
+  @override
+  String get connecting => 'جاري الاتصال...';
+
+  @override
+  String get loadingPlaylistData => 'جاري تحميل بيانات القائمة...';
+
+  @override
+  String get pleaseWaitDoNotClose => 'يرجى الانتظار، لا تغلق التطبيق';
+
+  @override
+  String get pleaseEnterUrl => 'يرجى إدخال الرابط';
+
+  @override
+  String get pleaseEnterUsername => 'يرجى إدخال اسم المستخدم';
+
+  @override
+  String get pleaseEnterPassword => 'يرجى إدخال كلمة المرور';
+
+  @override
+  String get pleaseEnterAUrl => 'يرجى إدخال رابط';
+
+  @override
+  String get xtreamM3uAutoDetectInfo =>
+      'روابط Xtream M3U (مع اسم المستخدم وكلمة المرور) تُكتشف تلقائيًا.';
+
+  @override
+  String get searchVodHint => 'اسم فيلم أو مسلسل...';
+
+  @override
+  String get subtitleNotFound => 'لم يتم العثور على ترجمات';
 }

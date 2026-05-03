@@ -467,7 +467,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountNameHint.
   ///
   /// In tr, this message translates to:
-  /// **'ör. IPTV\'im'**
+  /// **'ör. IPTV\'m'**
   String get accountNameHint;
 
   /// No description provided for @playlistName.
@@ -479,7 +479,7 @@ abstract class AppLocalizations {
   /// No description provided for @playlistNameHint.
   ///
   /// In tr, this message translates to:
-  /// **'ör. Playlist\'im'**
+  /// **'ör. Listem'**
   String get playlistNameHint;
 
   /// No description provided for @loadPlaylist.
@@ -1597,6 +1597,132 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Ada Göre'**
   String get sortByName;
+
+  /// No description provided for @castDevices.
+  ///
+  /// In tr, this message translates to:
+  /// **'Chromecast Cihazları'**
+  String get castDevices;
+
+  /// No description provided for @castDisconnect.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlantıyı Kes'**
+  String get castDisconnect;
+
+  /// No description provided for @castSearching.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cihazlar aranıyor…'**
+  String get castSearching;
+
+  /// No description provided for @castNoDevices.
+  ///
+  /// In tr, this message translates to:
+  /// **'Chromecast cihazı bulunamadı'**
+  String get castNoDevices;
+
+  /// No description provided for @castSearchAgain.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tekrar Ara'**
+  String get castSearchAgain;
+
+  /// No description provided for @channelList.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kanal Listesi'**
+  String get channelList;
+
+  /// No description provided for @searchChannelsHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kanal ara...'**
+  String get searchChannelsHint;
+
+  /// No description provided for @all.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tümü'**
+  String get all;
+
+  /// No description provided for @subtitlePosition.
+  ///
+  /// In tr, this message translates to:
+  /// **'Altyazı konumu'**
+  String get subtitlePosition;
+
+  /// No description provided for @skipIntroLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Intro\'yu Atla'**
+  String get skipIntroLabel;
+
+  /// No description provided for @accountSaveFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesap kaydedilemedi'**
+  String get accountSaveFailed;
+
+  /// No description provided for @connecting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlanıyor...'**
+  String get connecting;
+
+  /// No description provided for @loadingPlaylistData.
+  ///
+  /// In tr, this message translates to:
+  /// **'Liste verileri yükleniyor...'**
+  String get loadingPlaylistData;
+
+  /// No description provided for @pleaseWaitDoNotClose.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lütfen bekleyin, uygulamayı kapatmayın'**
+  String get pleaseWaitDoNotClose;
+
+  /// No description provided for @pleaseEnterUrl.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lütfen URL girin'**
+  String get pleaseEnterUrl;
+
+  /// No description provided for @pleaseEnterUsername.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lütfen kullanıcı adı girin'**
+  String get pleaseEnterUsername;
+
+  /// No description provided for @pleaseEnterPassword.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lütfen şifre girin'**
+  String get pleaseEnterPassword;
+
+  /// No description provided for @pleaseEnterAUrl.
+  ///
+  /// In tr, this message translates to:
+  /// **'Lütfen bir URL girin'**
+  String get pleaseEnterAUrl;
+
+  /// No description provided for @xtreamM3uAutoDetectInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Xtream M3U bağlantıları (kullanıcı adı ve şifre içeren) otomatik algılanır.'**
+  String get xtreamM3uAutoDetectInfo;
+
+  /// No description provided for @searchVodHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Film veya dizi adı...'**
+  String get searchVodHint;
+
+  /// No description provided for @subtitleNotFound.
+  ///
+  /// In tr, this message translates to:
+  /// **'Altyazı bulunamadı'**
+  String get subtitleNotFound;
 }
 
 class _AppLocalizationsDelegate

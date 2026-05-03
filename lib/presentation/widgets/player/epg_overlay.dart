@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 /// EPG program guide overlay for live TV player.
 /// Shows current + upcoming programs for the active channel.
@@ -158,10 +159,10 @@ class _EpgOverlayState extends State<EpgOverlay>
                             // Program list
                             Expanded(
                               child: widget.programs.isEmpty
-                                  ? const Center(
+                                  ? Center(
                                       child: Text(
-                                        'Program bilgisi bulunamadı',
-                                        style: TextStyle(
+                                        AppLocalizations.of(context)!.noProgramInfo,
+                                        style: const TextStyle(
                                           color: Colors.white30,
                                           fontSize: 14,
                                         ),
@@ -240,9 +241,9 @@ class _EpgOverlayState extends State<EpgOverlay>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const Text(
-                  'Program Rehberi',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context)!.programGuide,
+                  style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -361,14 +362,14 @@ class _EpgOverlayState extends State<EpgOverlay>
                       color: Colors.red.shade700,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, color: Colors.white, size: 5),
-                        SizedBox(width: 3),
+                        const Icon(Icons.circle, color: Colors.white, size: 5),
+                        const SizedBox(width: 3),
                         Text(
-                          'CANLI',
-                          style: TextStyle(
+                          AppLocalizations.of(context)!.live,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 8,
                             fontWeight: FontWeight.w800,

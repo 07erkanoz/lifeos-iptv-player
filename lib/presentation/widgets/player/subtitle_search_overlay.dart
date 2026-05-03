@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/services/opensubtitles_service.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 /// OpenSubtitles search overlay for the video player.
 /// Shows search results, allows downloading and loading subtitles.
@@ -251,7 +252,7 @@ class _SubtitleSearchOverlayState extends State<SubtitleSearchOverlay>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Film veya dizi adı...',
+                hintText: AppLocalizations.of(context)!.searchVodHint,
                 hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.08),
@@ -310,10 +311,10 @@ class _SubtitleSearchOverlayState extends State<SubtitleSearchOverlay>
     }
 
     if (_results.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Altyazı bulunamadı',
-          style: TextStyle(color: Colors.white30, fontSize: 14),
+          AppLocalizations.of(context)!.subtitleNotFound,
+          style: const TextStyle(color: Colors.white30, fontSize: 14),
         ),
       );
     }

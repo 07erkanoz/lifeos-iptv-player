@@ -89,7 +89,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
       if (account == null) {
         setState(() {
           _isSyncing = false;
-          _errorMessage = 'Account was not saved properly';
+          _errorMessage = AppLocalizations.of(context)!.accountSaveFailed;
         });
         return;
       }
@@ -137,14 +137,14 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                   const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
                   const SizedBox(height: 24),
                   Text(
-                    _syncProgress.step.isNotEmpty ? _syncProgress.step : 'Connecting...',
+                    _syncProgress.step.isNotEmpty ? _syncProgress.step : l10n.connecting,
                     style: const TextStyle(color: AppColors.textDark, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 24),
-                  _buildSyncStats(),
+                  _buildSyncStats(l10n),
                   const SizedBox(height: 16),
                   Text(
-                    'Please wait, do not close the app',
+                    l10n.pleaseWaitDoNotClose,
                     style: TextStyle(color: AppColors.textTertiaryDark, fontSize: 12),
                   ),
                 ],
@@ -205,10 +205,10 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                    TextFormField(
                      controller: _nameController,
                      focusNode: _nameFocusNode,
-                     decoration: const InputDecoration(
-                       labelText: 'Account Name',
-                       prefixIcon: Icon(Icons.label_outline),
-                       hintText: 'e.g. My IPTV',
+                     decoration: InputDecoration(
+                       labelText: l10n.accountName,
+                       prefixIcon: const Icon(Icons.label_outline),
+                       hintText: l10n.accountNameHint,
                      ),
                      textInputAction: TextInputAction.next,
                      onFieldSubmitted: (_) => _urlFocusNode.requestFocus(),
@@ -226,7 +226,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                      ),
                      validator: (value) {
                        if (value == null || value.trim().isEmpty) {
-                         return 'Please enter URL';
+                         return l10n.pleaseEnterUrl;
                        }
                        return null;
                      },
@@ -246,7 +246,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                      ),
                      validator: (value) {
                        if (value == null || value.trim().isEmpty) {
-                         return 'Please enter username';
+                         return l10n.pleaseEnterUsername;
                        }
                        return null;
                      },
@@ -270,7 +270,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                      ),
                      validator: (value) {
                        if (value == null || value.trim().isEmpty) {
-                         return 'Please enter password';
+                         return l10n.pleaseEnterPassword;
                        }
                        return null;
                      },
@@ -311,7 +311,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
     );
   }
 
-  Widget _buildSyncStats() {
+  Widget _buildSyncStats(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -321,13 +321,13 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
       ),
       child: Column(
         children: [
-          _buildStatRow(Icons.category_outlined, 'Categories', _syncProgress.categoryCount),
+          _buildStatRow(Icons.category_outlined, l10n.categories, _syncProgress.categoryCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.live_tv, 'Live Channels', _syncProgress.liveCount),
+          _buildStatRow(Icons.live_tv, l10n.liveTV, _syncProgress.liveCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.movie_outlined, 'Movies', _syncProgress.movieCount),
+          _buildStatRow(Icons.movie_outlined, l10n.movies, _syncProgress.movieCount),
           const SizedBox(height: 12),
-          _buildStatRow(Icons.tv, 'Series', _syncProgress.seriesCount),
+          _buildStatRow(Icons.tv, l10n.series, _syncProgress.seriesCount),
         ],
       ),
     );

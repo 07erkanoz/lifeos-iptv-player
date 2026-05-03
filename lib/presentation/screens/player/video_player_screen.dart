@@ -383,6 +383,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Widget _buildSkipIntroButton() {
+    final l10n = AppLocalizations.of(context)!;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -401,7 +402,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               const Icon(Icons.skip_next, color: Colors.white, size: 18),
               const SizedBox(width: 6),
               Text(
-                'Intro\'yu Atla (→${_fmt(Duration(seconds: _skipIntroSeconds))})',
+                '${l10n.skipIntroLabel} (→${_fmt(Duration(seconds: _skipIntroSeconds))})',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -1362,9 +1363,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   size: 16,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Altyazı boyutu',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.subtitleFontSize,
+                                  style: const TextStyle(
                                     color: AppColors.textSecondaryDark,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1409,9 +1410,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   size: 16,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Altyazı konumu',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.subtitlePosition,
+                                  style: const TextStyle(
                                     color: AppColors.textSecondaryDark,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
