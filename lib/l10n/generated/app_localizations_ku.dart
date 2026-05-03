@@ -854,4 +854,7 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get subtitleNotFound => 'Tu binnivîs nehate dîtin';
+
+  @override
+  String get trialBadge => 'Ceribandin';
 }

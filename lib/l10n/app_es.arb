@@ -298,5 +298,6 @@
   "subtitleColor": "Color de fuente",
   "subtitleBold": "Negrita",
   "subtitleBackground": "Fondo",
-  "subtitleBackgroundDesc": "Fondo semitransparente detrás de los subtítulos"
+  "subtitleBackgroundDesc": "Fondo semitransparente detrás de los subtítulos",
+  "trialBadge": "Prueba"
 }

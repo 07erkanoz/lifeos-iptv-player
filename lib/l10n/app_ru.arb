@@ -298,5 +298,6 @@
   "subtitleColor": "Цвет шрифта",
   "subtitleBold": "Жирный",
   "subtitleBackground": "Фон",
-  "subtitleBackgroundDesc": "Полупрозрачный фон под субтитрами"
+  "subtitleBackgroundDesc": "Полупрозрачный фон под субтитрами",
+  "trialBadge": "Пробная"
 }

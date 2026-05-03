@@ -854,4 +854,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get subtitleNotFound => 'No subtitles found';
+
+  @override
+  String get trialBadge => 'Trial';
 }

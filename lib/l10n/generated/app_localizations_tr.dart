@@ -853,4 +853,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get subtitleNotFound => 'Altyazı bulunamadı';
+
+  @override
+  String get trialBadge => 'Deneme';
 }

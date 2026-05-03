@@ -1723,6 +1723,12 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Altyazı bulunamadı'**
   String get subtitleNotFound;
+
+  /// No description provided for @trialBadge.
+  ///
+  /// In tr, this message translates to:
+  /// **'Deneme'**
+  String get trialBadge;
 }
 
 class _AppLocalizationsDelegate

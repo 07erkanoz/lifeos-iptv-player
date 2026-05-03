@@ -853,4 +853,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get subtitleNotFound => 'لم يتم العثور على ترجمات';
+
+  @override
+  String get trialBadge => 'تجريبي';
 }

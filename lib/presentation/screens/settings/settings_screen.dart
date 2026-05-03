@@ -497,7 +497,7 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
                 if (_info!.isTrial)
                   _InfoChip(
                     icon: Icons.star_outline,
-                    label: 'Trial',
+                    label: l10n.trialBadge,
                     value: l10n.yes,
                     color: Colors.amber,
                   ),

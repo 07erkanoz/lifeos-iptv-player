@@ -298,5 +298,6 @@
   "subtitleColor": "لون الخط",
   "subtitleBold": "عريض",
   "subtitleBackground": "الخلفية",
-  "subtitleBackgroundDesc": "خلفية شبه شفافة خلف الترجمة"
+  "subtitleBackgroundDesc": "خلفية شبه شفافة خلف الترجمة",
+  "trialBadge": "تجريبي"
 }

@@ -298,5 +298,6 @@
   "subtitleColor": "Schriftfarbe",
   "subtitleBold": "Fett",
   "subtitleBackground": "Hintergrund",
-  "subtitleBackgroundDesc": "Halbtransparenter Hintergrund hinter Untertiteln"
+  "subtitleBackgroundDesc": "Halbtransparenter Hintergrund hinter Untertiteln",
+  "trialBadge": "Test"
 }

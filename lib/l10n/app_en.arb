@@ -288,5 +288,6 @@
   "pleaseEnterAUrl": "Please enter a URL",
   "xtreamM3uAutoDetectInfo": "Xtream M3U links (with username & password) are auto-detected.",
   "searchVodHint": "Movie or series name...",
-  "subtitleNotFound": "No subtitles found"
+  "subtitleNotFound": "No subtitles found",
+  "trialBadge": "Trial"
 }

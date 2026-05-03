@@ -306,5 +306,6 @@
   "pleaseEnterAUrl": "Lütfen bir URL girin",
   "xtreamM3uAutoDetectInfo": "Xtream M3U bağlantıları (kullanıcı adı ve şifre içeren) otomatik algılanır.",
   "searchVodHint": "Film veya dizi adı...",
-  "subtitleNotFound": "Altyazı bulunamadı"
+  "subtitleNotFound": "Altyazı bulunamadı",
+  "trialBadge": "Deneme"
 }

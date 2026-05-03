@@ -298,5 +298,6 @@
   "subtitleColor": "Couleur de police",
   "subtitleBold": "Gras",
   "subtitleBackground": "Arrière-plan",
-  "subtitleBackgroundDesc": "Arrière-plan semi-transparent derrière les sous-titres"
+  "subtitleBackgroundDesc": "Arrière-plan semi-transparent derrière les sous-titres",
+  "trialBadge": "Essai"
 }

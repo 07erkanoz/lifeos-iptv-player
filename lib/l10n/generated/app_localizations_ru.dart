@@ -856,4 +856,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get subtitleNotFound => 'Субтитры не найдены';
+
+  @override
+  String get trialBadge => 'Пробная';
 }
