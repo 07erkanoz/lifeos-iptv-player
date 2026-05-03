@@ -4,14 +4,46 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  # ─── Unit tests — gate every other job ────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        # Fail on any "error -" line; info/warning are fine and noisy.
+        run: |
+          set -o pipefail
+          flutter analyze --no-pub | tee analyze.log
+          if grep -q "error -" analyze.log; then
+            echo "::error::flutter analyze reported errors"
+            exit 1
+          fi
+
+      - name: flutter test
+        run: flutter test --reporter=compact
+
   # ─── Linux .deb ───────────────────────────────────────────────
   build-linux:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,6 +139,7 @@ jobs:
 
   # ─── Windows ──────────────────────────────────────────────────
   build-windows:
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,6 +166,7 @@ jobs:
 
   # ─── macOS ───────────────────────────────────────────────────
   build-macos:
+    needs: test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,6 +197,7 @@ jobs:
 
   # ─── iOS (unsigned) ─────────────────────────────────────────
   build-ios:
+    needs: test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -193,6 +228,7 @@ jobs:
 
   # ─── Android APK ─────────────────────────────────────────────
   build-android:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
