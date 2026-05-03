@@ -60,6 +60,13 @@
 -keep class com.google.android.gms.cast.** { *; }
 -dontwarn com.google.android.gms.cast.**
 
+# ─── Play Feature Delivery (deferred components) ───────────────────────────
+# Flutter's PlayStoreDeferredComponentManager references these classes for
+# split-install support, but we ship a single monolithic APK and don't pull
+# in com.google.android.play:core. Suppress the missing-class warnings R8
+# would otherwise raise — runtime never reaches that code path.
+-dontwarn com.google.android.play.core.**
+
 # ─── window_manager / screen_brightness / wakelock_plus ────────────────────
 -keep class com.example.window_manager.** { *; }
 -keep class jp.kawamuray.wasabeef.screen_brightness.** { *; }
