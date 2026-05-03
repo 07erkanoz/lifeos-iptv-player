@@ -179,9 +179,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     _lastBackPress = now;
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Uygulamadan çıkmak için tekrar basın'),
+        content: Text(l10n.exitConfirm),
         duration: const Duration(seconds: 2),
         backgroundColor: AppColors.surfaceElevatedDark,
         behavior: SnackBarBehavior.floating,

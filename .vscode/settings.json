@@ -1,3 +1,9 @@
 {
-    "cmake.sourceDirectory": "/home/erkanoz/İndirilenler/flutter/build/linux/x64/debug/mimalloc/mimalloc-2.1.2/test"
+    "dart.previewFlutterUiGuides": true,
+    "dart.lineLength": 100,
+    "[dart]": {
+        "editor.rulers": [100],
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2
+    }
 }

@@ -1,5 +1,5 @@
 name: lifeostv
-description: "A new Flutter project."
+description: "LifeOS IPTV Player — Flutter + libmpv tabanlı, çapraz platform IPTV oynatıcı (Xtream Codes / M3U / EPG)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -58,7 +58,12 @@ dependencies:
   url_launcher: ^6.3.1
   xml: ^6.6.1
   cached_network_image: ^3.4.1
+  file_picker: ^8.0.0
   cast: ^2.1.0
+  # bonsoir is imported directly in lib/data/services/cast_service.dart for
+  # Chromecast mDNS discovery. It is also a transitive dep of `cast`, but we
+  # declare it explicitly so a future `cast` upgrade can't silently drop it.
+  bonsoir: ^6.0.0
   wakelock_plus: ^1.3.2
   screen_brightness: ^2.1.2
 

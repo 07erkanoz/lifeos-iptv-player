@@ -6,6 +6,7 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 class LandingScreen extends ConsumerWidget {
   const LandingScreen({super.key});
@@ -42,14 +43,20 @@ class LandingScreen extends ConsumerWidget {
                 if (accounts.isEmpty) return const SizedBox.shrink();
                 return Column(
                   children: [
-                    Text('Select Account', style: Theme.of(context).textTheme.titleMedium),
+                    Text(l10n.selectAccount, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 16),
                     ...accounts.map((account) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _AuthOptionCard(
                         title: account.name,
-                        icon: Icons.person_pin, 
-                        onTap: () => context.go('/dashboard'), // TODO: Set active account
+                        icon: Icons.person_pin,
+                        onTap: () {
+                          // Persist as the default and let dependent providers
+                          // (currentAccountProvider) refresh before navigating.
+                          ref.read(settingsProvider.notifier).setDefaultAccount(account.id);
+                          ref.invalidate(currentAccountProvider);
+                          context.go('/dashboard');
+                        },
                       ),
                     )),
                     const SizedBox(height: 32),
@@ -59,7 +66,7 @@ class LandingScreen extends ConsumerWidget {
                 );
               },
               loading: () => const CircularProgressIndicator(),
-              error: (err, stack) => Text('Error loading accounts: $err'),
+              error: (err, stack) => Text('${l10n.error}: $err'),
             ),
             
             // Options
