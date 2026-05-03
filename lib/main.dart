@@ -125,14 +125,30 @@ class LifeosApp extends ConsumerWidget {
       title: 'LifeOs TV',
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        // When PiP is active on desktop we shrink the host window down to
-        // mini-player size and replace the entire app UI with the video
-        // — the user wanted the rest of the app to disappear during PiP,
-        // not stay visible behind a small floating overlay.
-        if (pipUsesWindowMode && pipActive) {
-          return _DesktopWindowFrame(child: const PipOverlay());
-        }
-        return _DesktopWindowFrame(child: child ?? const SizedBox.shrink());
+        // PiP overlay floats ON TOP of the router subtree instead of
+        // replacing it. We tried the swap approach earlier (return
+        // PipOverlay instead of `child`) but it orphaned the entire
+        // navigator: any pending Navigator.pop() got swallowed because
+        // the route's State unmounted mid-call, the pushed /player
+        // route on expand never mounted because the router subtree was
+        // hidden, and on close the router would re-render with stale
+        // routes still on its stack — producing the "frozen gray"
+        // screen the user reported.
+        //
+        // Stacking keeps the navigator alive and rendering normally;
+        // PiP just paints over it. Since the host window is shrunk to
+        // 380x230 in window-mode PiP, the underlying router child is
+        // entirely covered anyway, so visually it still feels like the
+        // app "disappears" behind the mini player.
+        return _DesktopWindowFrame(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              child ?? const SizedBox.shrink(),
+              if (pipUsesWindowMode && pipActive) const PipOverlay(),
+            ],
+          ),
+        );
       },
       localizationsDelegates: const [
         AppLocalizations.delegate,
