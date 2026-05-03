@@ -754,4 +754,40 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'تمت الإزالة من قائمتي';
+
+  @override
+  String get streamStats => 'إحصائيات البث';
+
+  @override
+  String get resolution => 'الدقة';
+
+  @override
+  String get videoCodec => 'ترميز الفيديو';
+
+  @override
+  String get audioCodec => 'ترميز الصوت';
+
+  @override
+  String get bitrate => 'معدل البت';
+
+  @override
+  String get frameRate => 'معدل الإطارات';
+
+  @override
+  String get audioChannels => 'قنوات الصوت';
+
+  @override
+  String get droppedFrames => 'الإطارات المفقودة';
+
+  @override
+  String get sortBy => 'فرز';
+
+  @override
+  String get sortByRecent => 'الأحدث';
+
+  @override
+  String get sortByRating => 'حسب التقييم';
+
+  @override
+  String get sortByName => 'حسب الاسم';
 }

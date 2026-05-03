@@ -19,7 +19,9 @@ import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
+import 'package:lifeostv/utils/sort_mode.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
+import 'package:lifeostv/presentation/widgets/content/sort_dropdown.dart';
 
 // ─── Special virtual category IDs ────────────────────────────────────────────
 const _kFavoritesId = '__favorites__';
@@ -561,6 +563,15 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 onClear: _searchQuery.isNotEmpty
                     ? () => setState(() => _searchQuery = '')
                     : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Sort picker (newest / rating / name)
+            Consumer(
+              builder: (context, ref, _) => SortDropdown(
+                value: ref.watch(movieSortModeProvider),
+                onChanged: (m) =>
+                    ref.read(movieSortModeProvider.notifier).set(m),
               ),
             ),
           ]),
@@ -1671,7 +1682,8 @@ class _MovieGridView extends ConsumerWidget {
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
-        return _PosterGrid(channels: filtered, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+        return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -1695,7 +1707,8 @@ class _AllMoviesGridView extends ConsumerWidget {
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
-        return _PosterGrid(channels: filtered, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+        return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -1723,7 +1736,8 @@ class _FavoritesGridView extends ConsumerWidget {
           data: (channels) {
             final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
             if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiaryDark)));
-            return _PosterGrid(channels: filtered, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+            final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+            return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),

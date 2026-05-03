@@ -271,5 +271,17 @@
   "addToWatchlist": "Listeme Ekle",
   "removeFromWatchlist": "Listemden Çıkar",
   "addedToWatchlist": "Listeme eklendi",
-  "removedFromWatchlist": "Listemden çıkarıldı"
+  "removedFromWatchlist": "Listemden çıkarıldı",
+  "streamStats": "Akış Bilgileri",
+  "resolution": "Çözünürlük",
+  "videoCodec": "Video Codec",
+  "audioCodec": "Ses Codec",
+  "bitrate": "Bit Hızı",
+  "frameRate": "Kare Hızı",
+  "audioChannels": "Ses Kanalları",
+  "droppedFrames": "Düşen Kareler",
+  "sortBy": "Sırala",
+  "sortByRecent": "En Yeni",
+  "sortByRating": "Puana Göre",
+  "sortByName": "Ada Göre"
 }

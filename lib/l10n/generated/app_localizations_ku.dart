@@ -754,4 +754,40 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'Ji lîsteya min hate rakirin';
+
+  @override
+  String get streamStats => 'Agahiyên Streamê';
+
+  @override
+  String get resolution => 'Xêzkirin';
+
+  @override
+  String get videoCodec => 'Codeka Vîdyoyê';
+
+  @override
+  String get audioCodec => 'Codeka Dengê';
+
+  @override
+  String get bitrate => 'Lezê Bîtê';
+
+  @override
+  String get frameRate => 'Lezê Çarçoveyê';
+
+  @override
+  String get audioChannels => 'Kanalên Dengê';
+
+  @override
+  String get droppedFrames => 'Çarçoveyên Wenda';
+
+  @override
+  String get sortBy => 'Rêz Bike';
+
+  @override
+  String get sortByRecent => 'Nûtirîn';
+
+  @override
+  String get sortByRating => 'Li gor Nirxandinê';
+
+  @override
+  String get sortByName => 'Li gor Navê';
 }

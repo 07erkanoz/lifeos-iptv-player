@@ -757,4 +757,40 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'Retiré de Ma Liste';
+
+  @override
+  String get streamStats => 'Statistiques du flux';
+
+  @override
+  String get resolution => 'Résolution';
+
+  @override
+  String get videoCodec => 'Codec vidéo';
+
+  @override
+  String get audioCodec => 'Codec audio';
+
+  @override
+  String get bitrate => 'Débit binaire';
+
+  @override
+  String get frameRate => 'Images par seconde';
+
+  @override
+  String get audioChannels => 'Canaux audio';
+
+  @override
+  String get droppedFrames => 'Images perdues';
+
+  @override
+  String get sortBy => 'Trier';
+
+  @override
+  String get sortByRecent => 'Plus récents';
+
+  @override
+  String get sortByRating => 'Par note';
+
+  @override
+  String get sortByName => 'Par nom';
 }

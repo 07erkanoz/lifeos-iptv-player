@@ -257,5 +257,17 @@
   "addToWatchlist": "Zur Liste hinzufügen",
   "removeFromWatchlist": "Aus Liste entfernen",
   "addedToWatchlist": "Zur Liste hinzugefügt",
-  "removedFromWatchlist": "Aus Liste entfernt"
+  "removedFromWatchlist": "Aus Liste entfernt",
+  "streamStats": "Stream-Statistik",
+  "resolution": "Auflösung",
+  "videoCodec": "Video-Codec",
+  "audioCodec": "Audio-Codec",
+  "bitrate": "Bitrate",
+  "frameRate": "Bildrate",
+  "audioChannels": "Audiokanäle",
+  "droppedFrames": "Verworfene Frames",
+  "sortBy": "Sortieren",
+  "sortByRecent": "Neueste",
+  "sortByRating": "Nach Bewertung",
+  "sortByName": "Nach Name"
 }

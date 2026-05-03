@@ -257,5 +257,17 @@
   "addToWatchlist": "Añadir a Mi Lista",
   "removeFromWatchlist": "Quitar de Mi Lista",
   "addedToWatchlist": "Añadido a Mi Lista",
-  "removedFromWatchlist": "Quitado de Mi Lista"
+  "removedFromWatchlist": "Quitado de Mi Lista",
+  "streamStats": "Estadísticas del flujo",
+  "resolution": "Resolución",
+  "videoCodec": "Códec de vídeo",
+  "audioCodec": "Códec de audio",
+  "bitrate": "Tasa de bits",
+  "frameRate": "Cuadros por segundo",
+  "audioChannels": "Canales de audio",
+  "droppedFrames": "Cuadros perdidos",
+  "sortBy": "Ordenar",
+  "sortByRecent": "Más recientes",
+  "sortByRating": "Por valoración",
+  "sortByName": "Por nombre"
 }

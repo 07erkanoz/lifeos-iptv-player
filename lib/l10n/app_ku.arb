@@ -257,5 +257,17 @@
   "addToWatchlist": "Li Lîsteya Min Zêde Bike",
   "removeFromWatchlist": "Ji Lîsteya Min Rake",
   "addedToWatchlist": "Li lîsteya min hate zêdekirin",
-  "removedFromWatchlist": "Ji lîsteya min hate rakirin"
+  "removedFromWatchlist": "Ji lîsteya min hate rakirin",
+  "streamStats": "Agahiyên Streamê",
+  "resolution": "Xêzkirin",
+  "videoCodec": "Codeka Vîdyoyê",
+  "audioCodec": "Codeka Dengê",
+  "bitrate": "Lezê Bîtê",
+  "frameRate": "Lezê Çarçoveyê",
+  "audioChannels": "Kanalên Dengê",
+  "droppedFrames": "Çarçoveyên Wenda",
+  "sortBy": "Rêz Bike",
+  "sortByRecent": "Nûtirîn",
+  "sortByRating": "Li gor Nirxandinê",
+  "sortByName": "Li gor Navê"
 }

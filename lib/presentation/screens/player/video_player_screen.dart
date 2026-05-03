@@ -1225,6 +1225,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       return KeyEventResult.handled;
     }
 
+    // Stream stats (I key — like mpv)
+    if (k == LogicalKeyboardKey.keyI) {
+      _showStreamStatsDialog();
+      return KeyEventResult.handled;
+    }
+
     // Any other key → show controls
     _showControlsBriefly();
     return KeyEventResult.ignored;
@@ -1791,6 +1797,131 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  //  Stream stats overlay — codec / resolution / bitrate / dropped frames
+  //  Pulled live from libmpv properties; one-shot snapshot dialog (no polling).
+  // =========================================================================
+
+  Future<void> _showStreamStatsDialog() async {
+    if (_player.platform is! NativePlayer) return;
+    final mpv = _player.platform! as NativePlayer;
+
+    Future<String?> get(String prop) async {
+      try {
+        final v = await mpv.getProperty(prop);
+        if (v.toString().isEmpty) return null;
+        return v.toString();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final width = await get('width');
+    final height = await get('height');
+    final vCodec = await get('video-codec');
+    final vBitrate = await get('video-bitrate');
+    final aCodec = await get('audio-codec');
+    final aBitrate = await get('audio-bitrate');
+    final fps = await get('estimated-vf-fps');
+    final dropped = await get('decoder-frame-drop-count');
+    final aChannels = await get('audio-params/channel-count');
+
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    String formatBitrate(String? bps) {
+      final n = double.tryParse(bps ?? '');
+      if (n == null || n <= 0) return '—';
+      if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)} Mbps';
+      if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)} kbps';
+      return '${n.toInt()} bps';
+    }
+
+    String formatFps(String? raw) {
+      final n = double.tryParse(raw ?? '');
+      if (n == null || n <= 0) return '—';
+      return '${n.toStringAsFixed(1)} fps';
+    }
+
+    final res = (width != null && height != null) ? '$width × $height' : '—';
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surfaceElevatedDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 380,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    l10n.streamStats,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _statRow(l10n.resolution, res),
+                _statRow(l10n.videoCodec, vCodec ?? '—'),
+                _statRow(l10n.frameRate, formatFps(fps)),
+                _statRow(l10n.bitrate, formatBitrate(vBitrate)),
+                const Divider(color: Colors.white12, height: 24),
+                _statRow(l10n.audioCodec, aCodec ?? '—'),
+                _statRow(l10n.audioChannels, aChannels ?? '—'),
+                _statRow(l10n.bitrate, formatBitrate(aBitrate)),
+                const Divider(color: Colors.white12, height: 24),
+                _statRow(l10n.droppedFrames, dropped ?? '0'),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(l10n.close),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2788,6 +2919,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 _DpadIconBtn(icon: Icons.speed, onTap: _showSpeedPicker),
                 const SizedBox(width: 6),
               ],
+
+              // Stream stats (codec / resolution / bitrate / dropped frames)
+              _DpadIconBtn(icon: Icons.info_outline, onTap: _showStreamStatsDialog),
+              const SizedBox(width: 6),
 
               // Channel list button (live TV only)
               if (widget.type == VideoType.live &&

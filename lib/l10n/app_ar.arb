@@ -257,5 +257,17 @@
   "addToWatchlist": "إضافة إلى قائمتي",
   "removeFromWatchlist": "إزالة من قائمتي",
   "addedToWatchlist": "تمت الإضافة إلى قائمتي",
-  "removedFromWatchlist": "تمت الإزالة من قائمتي"
+  "removedFromWatchlist": "تمت الإزالة من قائمتي",
+  "streamStats": "إحصائيات البث",
+  "resolution": "الدقة",
+  "videoCodec": "ترميز الفيديو",
+  "audioCodec": "ترميز الصوت",
+  "bitrate": "معدل البت",
+  "frameRate": "معدل الإطارات",
+  "audioChannels": "قنوات الصوت",
+  "droppedFrames": "الإطارات المفقودة",
+  "sortBy": "فرز",
+  "sortByRecent": "الأحدث",
+  "sortByRating": "حسب التقييم",
+  "sortByName": "حسب الاسم"
 }

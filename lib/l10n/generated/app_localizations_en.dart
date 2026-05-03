@@ -754,4 +754,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'Removed from My List';
+
+  @override
+  String get streamStats => 'Stream Stats';
+
+  @override
+  String get resolution => 'Resolution';
+
+  @override
+  String get videoCodec => 'Video Codec';
+
+  @override
+  String get audioCodec => 'Audio Codec';
+
+  @override
+  String get bitrate => 'Bitrate';
+
+  @override
+  String get frameRate => 'Frame Rate';
+
+  @override
+  String get audioChannels => 'Audio Channels';
+
+  @override
+  String get droppedFrames => 'Dropped Frames';
+
+  @override
+  String get sortBy => 'Sort';
+
+  @override
+  String get sortByRecent => 'Newest';
+
+  @override
+  String get sortByRating => 'By Rating';
+
+  @override
+  String get sortByName => 'By Name';
 }

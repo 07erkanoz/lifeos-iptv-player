@@ -1525,6 +1525,78 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Listemden çıkarıldı'**
   String get removedFromWatchlist;
+
+  /// No description provided for @streamStats.
+  ///
+  /// In tr, this message translates to:
+  /// **'Akış Bilgileri'**
+  String get streamStats;
+
+  /// No description provided for @resolution.
+  ///
+  /// In tr, this message translates to:
+  /// **'Çözünürlük'**
+  String get resolution;
+
+  /// No description provided for @videoCodec.
+  ///
+  /// In tr, this message translates to:
+  /// **'Video Codec'**
+  String get videoCodec;
+
+  /// No description provided for @audioCodec.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ses Codec'**
+  String get audioCodec;
+
+  /// No description provided for @bitrate.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bit Hızı'**
+  String get bitrate;
+
+  /// No description provided for @frameRate.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kare Hızı'**
+  String get frameRate;
+
+  /// No description provided for @audioChannels.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ses Kanalları'**
+  String get audioChannels;
+
+  /// No description provided for @droppedFrames.
+  ///
+  /// In tr, this message translates to:
+  /// **'Düşen Kareler'**
+  String get droppedFrames;
+
+  /// No description provided for @sortBy.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sırala'**
+  String get sortBy;
+
+  /// No description provided for @sortByRecent.
+  ///
+  /// In tr, this message translates to:
+  /// **'En Yeni'**
+  String get sortByRecent;
+
+  /// No description provided for @sortByRating.
+  ///
+  /// In tr, this message translates to:
+  /// **'Puana Göre'**
+  String get sortByRating;
+
+  /// No description provided for @sortByName.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ada Göre'**
+  String get sortByName;
 }
 
 class _AppLocalizationsDelegate

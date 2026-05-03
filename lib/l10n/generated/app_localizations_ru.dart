@@ -757,4 +757,40 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'Удалено из Моего списка';
+
+  @override
+  String get streamStats => 'Статистика потока';
+
+  @override
+  String get resolution => 'Разрешение';
+
+  @override
+  String get videoCodec => 'Видеокодек';
+
+  @override
+  String get audioCodec => 'Аудиокодек';
+
+  @override
+  String get bitrate => 'Битрейт';
+
+  @override
+  String get frameRate => 'Частота кадров';
+
+  @override
+  String get audioChannels => 'Аудиоканалы';
+
+  @override
+  String get droppedFrames => 'Потерянные кадры';
+
+  @override
+  String get sortBy => 'Сортировка';
+
+  @override
+  String get sortByRecent => 'Сначала новые';
+
+  @override
+  String get sortByRating => 'По рейтингу';
+
+  @override
+  String get sortByName => 'По имени';
 }

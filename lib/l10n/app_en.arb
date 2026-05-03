@@ -253,5 +253,17 @@
   "addToWatchlist": "Add to My List",
   "removeFromWatchlist": "Remove from My List",
   "addedToWatchlist": "Added to My List",
-  "removedFromWatchlist": "Removed from My List"
+  "removedFromWatchlist": "Removed from My List",
+  "streamStats": "Stream Stats",
+  "resolution": "Resolution",
+  "videoCodec": "Video Codec",
+  "audioCodec": "Audio Codec",
+  "bitrate": "Bitrate",
+  "frameRate": "Frame Rate",
+  "audioChannels": "Audio Channels",
+  "droppedFrames": "Dropped Frames",
+  "sortBy": "Sort",
+  "sortByRecent": "Newest",
+  "sortByRating": "By Rating",
+  "sortByName": "By Name"
 }

@@ -753,4 +753,40 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get removedFromWatchlist => 'Listemden çıkarıldı';
+
+  @override
+  String get streamStats => 'Akış Bilgileri';
+
+  @override
+  String get resolution => 'Çözünürlük';
+
+  @override
+  String get videoCodec => 'Video Codec';
+
+  @override
+  String get audioCodec => 'Ses Codec';
+
+  @override
+  String get bitrate => 'Bit Hızı';
+
+  @override
+  String get frameRate => 'Kare Hızı';
+
+  @override
+  String get audioChannels => 'Ses Kanalları';
+
+  @override
+  String get droppedFrames => 'Düşen Kareler';
+
+  @override
+  String get sortBy => 'Sırala';
+
+  @override
+  String get sortByRecent => 'En Yeni';
+
+  @override
+  String get sortByRating => 'Puana Göre';
+
+  @override
+  String get sortByName => 'Ada Göre';
 }

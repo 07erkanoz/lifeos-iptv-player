@@ -257,5 +257,17 @@
   "addToWatchlist": "Добавить в Мой список",
   "removeFromWatchlist": "Удалить из Моего списка",
   "addedToWatchlist": "Добавлено в Мой список",
-  "removedFromWatchlist": "Удалено из Моего списка"
+  "removedFromWatchlist": "Удалено из Моего списка",
+  "streamStats": "Статистика потока",
+  "resolution": "Разрешение",
+  "videoCodec": "Видеокодек",
+  "audioCodec": "Аудиокодек",
+  "bitrate": "Битрейт",
+  "frameRate": "Частота кадров",
+  "audioChannels": "Аудиоканалы",
+  "droppedFrames": "Потерянные кадры",
+  "sortBy": "Сортировка",
+  "sortByRecent": "Сначала новые",
+  "sortByRating": "По рейтингу",
+  "sortByName": "По имени"
 }

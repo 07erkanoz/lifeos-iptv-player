@@ -19,7 +19,9 @@ import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
+import 'package:lifeostv/utils/sort_mode.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
+import 'package:lifeostv/presentation/widgets/content/sort_dropdown.dart';
 
 // ─── Special virtual category IDs ────────────────────────────────────────────
 const _kFavoritesId = '__favorites__';
@@ -1010,6 +1012,15 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     onClear: _searchQuery.isNotEmpty
                         ? () => setState(() => _searchQuery = '')
                         : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Sort picker (newest / rating / name)
+                Consumer(
+                  builder: (context, ref, _) => SortDropdown(
+                    value: ref.watch(seriesSortModeProvider),
+                    onChanged: (m) =>
+                        ref.read(seriesSortModeProvider.notifier).set(m),
                   ),
                 ),
               ],
@@ -2741,7 +2752,7 @@ class _SeriesGridView extends ConsumerWidget {
             ),
           );
         return _PosterGrid(
-          channels: filtered,
+          channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
@@ -2785,7 +2796,7 @@ class _AllSeriesGridView extends ConsumerWidget {
             ),
           );
         return _PosterGrid(
-          channels: filtered,
+          channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
@@ -2839,7 +2850,7 @@ class _FavoritesGridView extends ConsumerWidget {
                 ),
               );
             return _PosterGrid(
-              channels: filtered,
+              channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
               onHover: onHover,
               onTap: onTap,
               onLeftEdge: onLeftEdge,
@@ -2983,7 +2994,7 @@ class _HistoryGridView extends ConsumerWidget {
             ),
             Expanded(
               child: _PosterGrid(
-                channels: filtered,
+                channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
                 onHover: onHover,
                 onTap: onTap,
                 onLeftEdge: onLeftEdge,
