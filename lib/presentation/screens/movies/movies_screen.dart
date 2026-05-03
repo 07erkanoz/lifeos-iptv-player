@@ -12,6 +12,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/watchlist_button.dart';
@@ -844,12 +845,17 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       backgroundColor: AppColors.background(context),
       body: Stack(
         children: [
-          // Backdrop
-          if (backdrop.toString().isNotEmpty)
-            Positioned.fill(
-              child: Image.network(backdrop.toString(), fit: BoxFit.cover, alignment: Alignment.topCenter,
-                errorBuilder: (_, _, _) => Container(color: AppColors.surface(context))),
+          // Backdrop + autoplay YouTube trailer overlay (Netflix billboard
+          // moment — fades in on top of the still image after ~1.5s).
+          Positioned.fill(
+            child: BackdropTrailer(
+              backdropUrl: backdrop.toString().isNotEmpty ? backdrop.toString() : null,
+              directTrailerRef: ch.youtubeTrailer,
+              searchTitle: ch.name,
+              searchYear: year.isNotEmpty ? year : ch.year,
+              channelType: ch.type,
             ),
+          ),
           // Gradients
           Positioned.fill(child: Container(
             decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
