@@ -178,6 +178,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
     // Clear user data
     await _db.delete(_db.favorites).go();
+    await _db.delete(_db.watchlist).go();
     await _db.delete(_db.playbackProgress).go();
     await _db.delete(_db.seriesTracking).go();
   }

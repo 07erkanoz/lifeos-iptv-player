@@ -1706,16 +1706,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _sleepAtEpisodeEnd = false;
     });
     if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Uyku zamanlayıcısı: oynatma duraklatıldı'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(l10n.sleepTimerFired),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
   }
 
   void _showSleepTimerPicker() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierColor: Colors.black87,
@@ -1731,12 +1733,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.bedtime, color: AppColors.primary, size: 20),
-                    SizedBox(width: 10),
+                  children: [
+                    const Icon(Icons.bedtime, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 10),
                     Text(
-                      'Uyku Zamanlayıcısı',
-                      style: TextStyle(
+                      l10n.sleepTimer,
+                      style: const TextStyle(
                         color: AppColors.textDark,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -1747,7 +1749,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 const SizedBox(height: 16),
                 for (final m in const [15, 30, 45, 60])
                   _FocusableTrackTile(
-                    title: '$m dk',
+                    title: l10n.minutesShort(m),
                     isSelected:
                         _sleepDeadline != null &&
                         _sleepDeadline!
@@ -1767,7 +1769,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   ),
                 if (widget.type == VideoType.series)
                   _FocusableTrackTile(
-                    title: 'Bölüm bitiminde durdur',
+                    title: l10n.sleepTimerStopAtEpisodeEnd,
                     isSelected: _sleepAtEpisodeEnd,
                     autofocus: false,
                     onTap: () {
@@ -1777,7 +1779,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   ),
                 if (_isSleepTimerActive)
                   _FocusableTrackTile(
-                    title: 'İptal Et',
+                    title: l10n.sleepTimerCancelAction,
                     isSelected: false,
                     autofocus: false,
                     onTap: () {

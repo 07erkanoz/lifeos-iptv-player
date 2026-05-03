@@ -14,10 +14,12 @@ import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
+import 'package:lifeostv/presentation/widgets/content/watchlist_button.dart';
 import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
+import 'package:lifeostv/utils/youtube_trailer.dart';
 
 // ─── Special virtual category IDs ────────────────────────────────────────────
 const _kFavoritesId = '__favorites__';
@@ -768,7 +770,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final releaseDate = info?['release_date']?.toString() ?? '';
     final year = releaseDate.length >= 4 ? releaseDate.substring(0, 4) : (ch.year ?? '');
     final duration = info?['duration'] ?? '';
-    final trailerUrl = _extractTrailerUrl(info, fallback: ch.youtubeTrailer, raw: _vodInfo);
+    // Server / DB cache first; if neither has a real URL fall back to a
+    // YouTube search query so every movie has a working trailer button.
+    final trailerUrl = _extractTrailerUrl(info, fallback: ch.youtubeTrailer, raw: _vodInfo)
+        ?? youtubeSearchTrailerUrl(ch.name, year: year.isNotEmpty ? year : ch.year);
     final backdrop = (info?['backdrop_path'] is List && (info!['backdrop_path'] as List).isNotEmpty)
         ? info['backdrop_path'][0] : info?['movie_image'] ?? ch.backdropPath ?? ch.streamIcon ?? '';
 
@@ -835,8 +840,17 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             onTap: _closeDetail,
             focusNode: _detailBackFocusNode,
           )),
-          Positioned(top: 16, right: 16, child: FavoriteButton(
-            streamId: ch.streamId, type: 'movie', name: ch.name, thumbnail: ch.streamIcon,
+          Positioned(top: 16, right: 16, child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WatchlistButton(
+                streamId: ch.streamId, type: 'movie', name: ch.name, thumbnail: ch.streamIcon,
+              ),
+              const SizedBox(width: 8),
+              FavoriteButton(
+                streamId: ch.streamId, type: 'movie', name: ch.name, thumbnail: ch.streamIcon,
+              ),
+            ],
           )),
 
           // Content
@@ -1411,8 +1425,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   Widget _buildSimilarSection(List<Channel> items) {
-    final locale = Localizations.localeOf(context).languageCode;
-    final title = locale == 'tr' ? 'Benzer İçerikler' : 'More Like This';
+    final title = AppLocalizations.of(context)!.similarContent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

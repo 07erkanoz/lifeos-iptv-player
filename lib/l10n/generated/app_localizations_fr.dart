@@ -666,4 +666,95 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get licenseText =>
       'Le code source, la conception et les algorithmes de ce logiciel appartiennent à Erkan ÖZ. La copie, la reproduction, la modification, la distribution ou l\'ingénierie inverse non autorisées de ce logiciel sont strictement interdites. Ce logiciel ne peut être utilisé à des fins commerciales ou non commerciales sans autorisation écrite préalable. Aucun droit d\'utilisation ne peut être transféré ou sous-licencié sauf mention expresse.';
+
+  @override
+  String get exitConfirm => 'Appuyez à nouveau pour quitter';
+
+  @override
+  String get noProgramInfo => 'Aucune information de programme disponible';
+
+  @override
+  String get backupNow => 'Créer une sauvegarde';
+
+  @override
+  String get backupNowDesc =>
+      'Exporter les comptes, favoris, historique et paramètres en JSON';
+
+  @override
+  String get restoreFromBackup => 'Restaurer la sauvegarde';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Importer depuis un fichier de sauvegarde précédemment exporté';
+
+  @override
+  String get backupSaved => 'Sauvegarde enregistrée';
+
+  @override
+  String get backupRestored => 'Sauvegarde restaurée avec succès';
+
+  @override
+  String get backupFailed => 'Échec de la sauvegarde';
+
+  @override
+  String get backupInvalidFormat => 'Fichier de sauvegarde invalide';
+
+  @override
+  String get restoreConfirm =>
+      'Les comptes, favoris et historique existants seront remplacés par le contenu de la sauvegarde. Continuer ?';
+
+  @override
+  String get similarContent => 'Contenu similaire';
+
+  @override
+  String get similarSeries => 'Séries similaires';
+
+  @override
+  String get resetContentData => 'Réinitialiser les données de contenu';
+
+  @override
+  String get resetContentDataDesc =>
+      'Efface les chaînes, catégories et tables EPG. Les favoris et informations de compte sont conservés.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Les chaînes, catégories et EPG seront supprimés. Vos informations de compte et favoris sont conservés. Ils seront resynchronisés au prochain lancement.';
+
+  @override
+  String get resetContentDataDone => 'Données de contenu réinitialisées';
+
+  @override
+  String get reset => 'Réinitialiser';
+
+  @override
+  String get sleepTimer => 'Minuteur de veille';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Arrêter à la fin de l\'épisode';
+
+  @override
+  String get sleepTimerCancelAction => 'Annuler le minuteur';
+
+  @override
+  String get sleepTimerFired => 'Minuteur de veille : lecture en pause';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get watchlist => 'Ma Liste';
+
+  @override
+  String get addToWatchlist => 'Ajouter à Ma Liste';
+
+  @override
+  String get removeFromWatchlist => 'Retirer de Ma Liste';
+
+  @override
+  String get addedToWatchlist => 'Ajouté à Ma Liste';
+
+  @override
+  String get removedFromWatchlist => 'Retiré de Ma Liste';
 }

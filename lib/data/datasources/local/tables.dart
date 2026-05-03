@@ -80,6 +80,20 @@ class PlaybackProgress extends Table {
   Set<Column> get primaryKey => {streamId, type};
 }
 
+/// "Save for later" list — distinct from Favorites which is "things I love
+/// and want quick access to". Watchlist is "things I plan to watch but
+/// haven't yet". Mirrors Favorites' shape so the UI can reuse PosterCard.
+class Watchlist extends Table {
+  IntColumn get streamId => integer()();
+  TextColumn get streamType => text()(); // 'movie' or 'series' (live makes no sense here)
+  TextColumn get name => text()();
+  TextColumn get thumbnail => text().nullable()();
+  DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, streamType};
+}
+
 /// Tracks episode counts for watched series to detect new episodes
 class SeriesTracking extends Table {
   IntColumn get seriesId => integer()(); // References Channels.streamId

@@ -666,4 +666,95 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get licenseText =>
       'Der Quellcode, das Design und die Algorithmen dieser Software gehören Erkan ÖZ. Das unbefugte Kopieren, Vervielfältigen, Ändern, Verteilen oder Reverse Engineering dieser Software ist strengstens untersagt. Diese Software darf ohne vorherige schriftliche Genehmigung nicht für kommerzielle oder nichtkommerzielle Zwecke verwendet werden. Nutzungsrechte dürfen nicht übertragen oder unterlizenziert werden, sofern nicht ausdrücklich angegeben.';
+
+  @override
+  String get exitConfirm => 'Erneut drücken, um die App zu beenden';
+
+  @override
+  String get noProgramInfo => 'Keine Programminformationen verfügbar';
+
+  @override
+  String get backupNow => 'Backup erstellen';
+
+  @override
+  String get backupNowDesc =>
+      'Konten, Favoriten, Wiedergabeverlauf und Einstellungen als JSON exportieren';
+
+  @override
+  String get restoreFromBackup => 'Backup wiederherstellen';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Aus einer zuvor exportierten Sicherungsdatei importieren';
+
+  @override
+  String get backupSaved => 'Backup gespeichert';
+
+  @override
+  String get backupRestored => 'Backup erfolgreich wiederhergestellt';
+
+  @override
+  String get backupFailed => 'Backup fehlgeschlagen';
+
+  @override
+  String get backupInvalidFormat => 'Ungültige Sicherungsdatei';
+
+  @override
+  String get restoreConfirm =>
+      'Bestehende Konten, Favoriten und Verlauf werden durch den Sicherungsinhalt ersetzt. Fortfahren?';
+
+  @override
+  String get similarContent => 'Ähnliche Inhalte';
+
+  @override
+  String get similarSeries => 'Ähnliche Serien';
+
+  @override
+  String get resetContentData => 'Inhaltsdaten zurücksetzen';
+
+  @override
+  String get resetContentDataDesc =>
+      'Löscht Kanäle, Kategorien und EPG-Tabellen. Favoriten und Kontoinformationen bleiben erhalten.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Kanäle, Kategorien und EPG werden gelöscht. Kontoinformationen und Favoriten bleiben erhalten. Sie werden beim nächsten Start neu synchronisiert.';
+
+  @override
+  String get resetContentDataDone => 'Inhaltsdaten zurückgesetzt';
+
+  @override
+  String get reset => 'Zurücksetzen';
+
+  @override
+  String get sleepTimer => 'Sleep-Timer';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Am Ende der Episode anhalten';
+
+  @override
+  String get sleepTimerCancelAction => 'Timer abbrechen';
+
+  @override
+  String get sleepTimerFired => 'Sleep-Timer: Wiedergabe pausiert';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes Min.';
+  }
+
+  @override
+  String get watchlist => 'Meine Liste';
+
+  @override
+  String get addToWatchlist => 'Zur Liste hinzufügen';
+
+  @override
+  String get removeFromWatchlist => 'Aus Liste entfernen';
+
+  @override
+  String get addedToWatchlist => 'Zur Liste hinzugefügt';
+
+  @override
+  String get removedFromWatchlist => 'Aus Liste entfernt';
 }

@@ -2892,6 +2892,373 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
   }
 }
 
+class $WatchlistTable extends Watchlist
+    with TableInfo<$WatchlistTable, WatchlistData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WatchlistTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamTypeMeta = const VerificationMeta(
+    'streamType',
+  );
+  @override
+  late final GeneratedColumn<String> streamType = GeneratedColumn<String>(
+    'stream_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _thumbnailMeta = const VerificationMeta(
+    'thumbnail',
+  );
+  @override
+  late final GeneratedColumn<String> thumbnail = GeneratedColumn<String>(
+    'thumbnail',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    streamType,
+    name,
+    thumbnail,
+    addedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'watchlist';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WatchlistData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('stream_type')) {
+      context.handle(
+        _streamTypeMeta,
+        streamType.isAcceptableOrUnknown(data['stream_type']!, _streamTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamTypeMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('thumbnail')) {
+      context.handle(
+        _thumbnailMeta,
+        thumbnail.isAcceptableOrUnknown(data['thumbnail']!, _thumbnailMeta),
+      );
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, streamType};
+  @override
+  WatchlistData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WatchlistData(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      streamType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_type'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      thumbnail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumbnail'],
+      ),
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WatchlistTable createAlias(String alias) {
+    return $WatchlistTable(attachedDatabase, alias);
+  }
+}
+
+class WatchlistData extends DataClass implements Insertable<WatchlistData> {
+  final int streamId;
+  final String streamType;
+  final String name;
+  final String? thumbnail;
+  final DateTime addedAt;
+  const WatchlistData({
+    required this.streamId,
+    required this.streamType,
+    required this.name,
+    this.thumbnail,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['stream_type'] = Variable<String>(streamType);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || thumbnail != null) {
+      map['thumbnail'] = Variable<String>(thumbnail);
+    }
+    map['added_at'] = Variable<DateTime>(addedAt);
+    return map;
+  }
+
+  WatchlistCompanion toCompanion(bool nullToAbsent) {
+    return WatchlistCompanion(
+      streamId: Value(streamId),
+      streamType: Value(streamType),
+      name: Value(name),
+      thumbnail: thumbnail == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbnail),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory WatchlistData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WatchlistData(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      streamType: serializer.fromJson<String>(json['streamType']),
+      name: serializer.fromJson<String>(json['name']),
+      thumbnail: serializer.fromJson<String?>(json['thumbnail']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'streamType': serializer.toJson<String>(streamType),
+      'name': serializer.toJson<String>(name),
+      'thumbnail': serializer.toJson<String?>(thumbnail),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+    };
+  }
+
+  WatchlistData copyWith({
+    int? streamId,
+    String? streamType,
+    String? name,
+    Value<String?> thumbnail = const Value.absent(),
+    DateTime? addedAt,
+  }) => WatchlistData(
+    streamId: streamId ?? this.streamId,
+    streamType: streamType ?? this.streamType,
+    name: name ?? this.name,
+    thumbnail: thumbnail.present ? thumbnail.value : this.thumbnail,
+    addedAt: addedAt ?? this.addedAt,
+  );
+  WatchlistData copyWithCompanion(WatchlistCompanion data) {
+    return WatchlistData(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      streamType: data.streamType.present
+          ? data.streamType.value
+          : this.streamType,
+      name: data.name.present ? data.name.value : this.name,
+      thumbnail: data.thumbnail.present ? data.thumbnail.value : this.thumbnail,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WatchlistData(')
+          ..write('streamId: $streamId, ')
+          ..write('streamType: $streamType, ')
+          ..write('name: $name, ')
+          ..write('thumbnail: $thumbnail, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(streamId, streamType, name, thumbnail, addedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WatchlistData &&
+          other.streamId == this.streamId &&
+          other.streamType == this.streamType &&
+          other.name == this.name &&
+          other.thumbnail == this.thumbnail &&
+          other.addedAt == this.addedAt);
+}
+
+class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
+  final Value<int> streamId;
+  final Value<String> streamType;
+  final Value<String> name;
+  final Value<String?> thumbnail;
+  final Value<DateTime> addedAt;
+  final Value<int> rowid;
+  const WatchlistCompanion({
+    this.streamId = const Value.absent(),
+    this.streamType = const Value.absent(),
+    this.name = const Value.absent(),
+    this.thumbnail = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WatchlistCompanion.insert({
+    required int streamId,
+    required String streamType,
+    required String name,
+    this.thumbnail = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       streamType = Value(streamType),
+       name = Value(name);
+  static Insertable<WatchlistData> custom({
+    Expression<int>? streamId,
+    Expression<String>? streamType,
+    Expression<String>? name,
+    Expression<String>? thumbnail,
+    Expression<DateTime>? addedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (streamType != null) 'stream_type': streamType,
+      if (name != null) 'name': name,
+      if (thumbnail != null) 'thumbnail': thumbnail,
+      if (addedAt != null) 'added_at': addedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WatchlistCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? streamType,
+    Value<String>? name,
+    Value<String?>? thumbnail,
+    Value<DateTime>? addedAt,
+    Value<int>? rowid,
+  }) {
+    return WatchlistCompanion(
+      streamId: streamId ?? this.streamId,
+      streamType: streamType ?? this.streamType,
+      name: name ?? this.name,
+      thumbnail: thumbnail ?? this.thumbnail,
+      addedAt: addedAt ?? this.addedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (streamType.present) {
+      map['stream_type'] = Variable<String>(streamType.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (thumbnail.present) {
+      map['thumbnail'] = Variable<String>(thumbnail.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WatchlistCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('streamType: $streamType, ')
+          ..write('name: $name, ')
+          ..write('thumbnail: $thumbnail, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SeriesTrackingTable extends SeriesTracking
     with TableInfo<$SeriesTrackingTable, SeriesTrackingData> {
   @override
@@ -3281,6 +3648,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $FavoritesTable favorites = $FavoritesTable(this);
+  late final $WatchlistTable watchlist = $WatchlistTable(this);
   late final $SeriesTrackingTable seriesTracking = $SeriesTrackingTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -3293,6 +3661,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     programs,
     playbackProgress,
     favorites,
+    watchlist,
     seriesTracking,
   ];
 }
@@ -5207,6 +5576,208 @@ typedef $$FavoritesTableProcessedTableManager =
       Favorite,
       PrefetchHooks Function()
     >;
+typedef $$WatchlistTableCreateCompanionBuilder =
+    WatchlistCompanion Function({
+      required int streamId,
+      required String streamType,
+      required String name,
+      Value<String?> thumbnail,
+      Value<DateTime> addedAt,
+      Value<int> rowid,
+    });
+typedef $$WatchlistTableUpdateCompanionBuilder =
+    WatchlistCompanion Function({
+      Value<int> streamId,
+      Value<String> streamType,
+      Value<String> name,
+      Value<String?> thumbnail,
+      Value<DateTime> addedAt,
+      Value<int> rowid,
+    });
+
+class $$WatchlistTableFilterComposer
+    extends Composer<_$AppDatabase, $WatchlistTable> {
+  $$WatchlistTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbnail => $composableBuilder(
+    column: $table.thumbnail,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WatchlistTableOrderingComposer
+    extends Composer<_$AppDatabase, $WatchlistTable> {
+  $$WatchlistTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thumbnail => $composableBuilder(
+    column: $table.thumbnail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WatchlistTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WatchlistTable> {
+  $$WatchlistTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbnail =>
+      $composableBuilder(column: $table.thumbnail, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+}
+
+class $$WatchlistTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WatchlistTable,
+          WatchlistData,
+          $$WatchlistTableFilterComposer,
+          $$WatchlistTableOrderingComposer,
+          $$WatchlistTableAnnotationComposer,
+          $$WatchlistTableCreateCompanionBuilder,
+          $$WatchlistTableUpdateCompanionBuilder,
+          (
+            WatchlistData,
+            BaseReferences<_$AppDatabase, $WatchlistTable, WatchlistData>,
+          ),
+          WatchlistData,
+          PrefetchHooks Function()
+        > {
+  $$WatchlistTableTableManager(_$AppDatabase db, $WatchlistTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WatchlistTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WatchlistTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WatchlistTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> streamType = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> thumbnail = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WatchlistCompanion(
+                streamId: streamId,
+                streamType: streamType,
+                name: name,
+                thumbnail: thumbnail,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String streamType,
+                required String name,
+                Value<String?> thumbnail = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WatchlistCompanion.insert(
+                streamId: streamId,
+                streamType: streamType,
+                name: name,
+                thumbnail: thumbnail,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WatchlistTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WatchlistTable,
+      WatchlistData,
+      $$WatchlistTableFilterComposer,
+      $$WatchlistTableOrderingComposer,
+      $$WatchlistTableAnnotationComposer,
+      $$WatchlistTableCreateCompanionBuilder,
+      $$WatchlistTableUpdateCompanionBuilder,
+      (
+        WatchlistData,
+        BaseReferences<_$AppDatabase, $WatchlistTable, WatchlistData>,
+      ),
+      WatchlistData,
+      PrefetchHooks Function()
+    >;
 typedef $$SeriesTrackingTableCreateCompanionBuilder =
     SeriesTrackingCompanion Function({
       Value<int> seriesId,
@@ -5431,6 +6002,8 @@ class $AppDatabaseManager {
       $$PlaybackProgressTableTableManager(_db, _db.playbackProgress);
   $$FavoritesTableTableManager get favorites =>
       $$FavoritesTableTableManager(_db, _db.favorites);
+  $$WatchlistTableTableManager get watchlist =>
+      $$WatchlistTableTableManager(_db, _db.watchlist);
   $$SeriesTrackingTableTableManager get seriesTracking =>
       $$SeriesTrackingTableTableManager(_db, _db.seriesTracking);
 }

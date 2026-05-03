@@ -663,4 +663,94 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get licenseText =>
       'Bu yazılımın kaynak kodları, tasarımı ve algoritmaları Erkan ÖZ\'e aittir. Yazılımın izinsiz kopyalanması, çoğaltılması, değiştirilmesi, dağıtılması veya tersine mühendislik (reverse engineering) işlemlerine tabi tutulması kesinlikle yasaktır. Bu yazılım önceden yazılı izin alınmaksızın ticari veya ticari olmayan amaçlarla kullanılamaz. Açıkça belirtilmedikçe hiçbir kullanım hakkı devredilemez veya alt lisanslanamaz.';
+
+  @override
+  String get exitConfirm => 'Uygulamadan çıkmak için tekrar basın';
+
+  @override
+  String get noProgramInfo => 'Yayın akışı bilgisi bulunamadı';
+
+  @override
+  String get backupNow => 'Yedek Al';
+
+  @override
+  String get backupNowDesc =>
+      'Hesaplar, favoriler, izleme geçmişi ve ayarları JSON olarak dışa aktar';
+
+  @override
+  String get restoreFromBackup => 'Yedeği Yükle';
+
+  @override
+  String get restoreFromBackupDesc => 'Önceki yedek dosyasından içe aktar';
+
+  @override
+  String get backupSaved => 'Yedek kaydedildi';
+
+  @override
+  String get backupRestored => 'Yedek başarıyla yüklendi';
+
+  @override
+  String get backupFailed => 'Yedekleme başarısız';
+
+  @override
+  String get backupInvalidFormat => 'Geçersiz yedek dosyası';
+
+  @override
+  String get restoreConfirm =>
+      'Mevcut hesaplar, favoriler ve geçmiş yedek içeriğiyle değiştirilecek. Devam edilsin mi?';
+
+  @override
+  String get similarContent => 'Benzer İçerikler';
+
+  @override
+  String get similarSeries => 'Benzer Diziler';
+
+  @override
+  String get resetContentData => 'İzleme verilerini sıfırla';
+
+  @override
+  String get resetContentDataDesc =>
+      'Kanallar, kategoriler ve EPG tablolarını temizler. Favoriler ve hesap bilgileri korunur.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Kanallar, kategoriler ve EPG silinecek. Hesap bilgilerin ve favorilerin korunur. Bir sonraki açılışta yeniden senkronize edilir.';
+
+  @override
+  String get resetContentDataDone => 'İçerik verileri sıfırlandı';
+
+  @override
+  String get reset => 'Sıfırla';
+
+  @override
+  String get sleepTimer => 'Uyku Zamanlayıcısı';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Bölüm bitiminde durdur';
+
+  @override
+  String get sleepTimerCancelAction => 'İptal Et';
+
+  @override
+  String get sleepTimerFired => 'Uyku zamanlayıcısı: oynatma duraklatıldı';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes dk';
+  }
+
+  @override
+  String get watchlist => 'Listem';
+
+  @override
+  String get addToWatchlist => 'Listeme Ekle';
+
+  @override
+  String get removeFromWatchlist => 'Listemden Çıkar';
+
+  @override
+  String get addedToWatchlist => 'Listeme eklendi';
+
+  @override
+  String get removedFromWatchlist => 'Listemden çıkarıldı';
 }

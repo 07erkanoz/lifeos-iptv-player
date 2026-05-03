@@ -663,4 +663,95 @@ class AppLocalizationsKu extends AppLocalizations {
   @override
   String get licenseText =>
       'Koda çavkaniyê, sêwiran û algorîtmayên vê nermalavê aîdî Erkan ÖZ e. Kopîkirin, hilberîn, guhertin, belavkirin an endezyariya berevajî ya bê destûr a vê nermalavê bi tundî qedexe ye. Ev nermalav bêyî destûra nivîskî ya pêşîn ji bo mebestên bazirganî an ne-bazirganî nayê bikaranîn. Tu mafên bikaranînê nayên veguheztin an jêr-lîsanskirin heya ku bi eşkereyî neyê gotin.';
+
+  @override
+  String get exitConfirm => 'Ji bo derketinê ji nû ve bitikîne';
+
+  @override
+  String get noProgramInfo => 'Agahdariya bernameyê tune';
+
+  @override
+  String get backupNow => 'Paşvedanê Çêbike';
+
+  @override
+  String get backupNowDesc =>
+      'Hesab, bijartî, dîroka temaşekirinê û mîhengan wek JSON derxe';
+
+  @override
+  String get restoreFromBackup => 'Ji Paşvedanê Vegerîne';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Ji pelê paşvedanê yê berê hatî derxistin têxe';
+
+  @override
+  String get backupSaved => 'Paşveda hate tomarkirin';
+
+  @override
+  String get backupRestored => 'Paşveda bi serkeftî hate vegerandin';
+
+  @override
+  String get backupFailed => 'Paşvedan têk çû';
+
+  @override
+  String get backupInvalidFormat => 'Pela paşvedanê ne derbasdar';
+
+  @override
+  String get restoreConfirm =>
+      'Hesab, bijartî û dîroka heyî dê bi naveroka paşvedanê biguhere. Berdewam bike?';
+
+  @override
+  String get similarContent => 'Naveroka Hevşibe';
+
+  @override
+  String get similarSeries => 'Rêzefîlmên Hevşibe';
+
+  @override
+  String get resetContentData => 'Daneyên Naverokê Sifir Bike';
+
+  @override
+  String get resetContentDataDesc =>
+      'Tabloyên kanal, kategorî û EPG paqij dike. Bijartî û agahiyên hesabê têne parastin.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Kanal, kategorî û EPG dê werin jêbirin. Agahiyên hesabê û bijartiyên we têne parastin. Ew ê di destpêka pêş de ji nû ve werin senkronîzekirin.';
+
+  @override
+  String get resetContentDataDone => 'Daneyên naverokê hatin sifirkirin';
+
+  @override
+  String get reset => 'Sifir Bike';
+
+  @override
+  String get sleepTimer => 'Demjimêra Razanê';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Di dawiya beşê de raweste';
+
+  @override
+  String get sleepTimerCancelAction => 'Demjimêrê betal bike';
+
+  @override
+  String get sleepTimerFired => 'Demjimêra razanê: lêxistin hate rawestandin';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes dq';
+  }
+
+  @override
+  String get watchlist => 'Lîsteya Min';
+
+  @override
+  String get addToWatchlist => 'Li Lîsteya Min Zêde Bike';
+
+  @override
+  String get removeFromWatchlist => 'Ji Lîsteya Min Rake';
+
+  @override
+  String get addedToWatchlist => 'Li lîsteya min hate zêdekirin';
+
+  @override
+  String get removedFromWatchlist => 'Ji lîsteya min hate rakirin';
 }

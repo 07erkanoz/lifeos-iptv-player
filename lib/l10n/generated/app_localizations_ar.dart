@@ -663,4 +663,95 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get licenseText =>
       'الكود المصدري والتصميم والخوارزميات الخاصة بهذا البرنامج ملك لـ Erkan ÖZ. يُحظر تمامًا النسخ أو الاستنساخ أو التعديل أو التوزيع أو الهندسة العكسية غير المصرح بها لهذا البرنامج. لا يجوز استخدام هذا البرنامج لأغراض تجارية أو غير تجارية دون إذن كتابي مسبق. لا يجوز نقل أو ترخيص حقوق الاستخدام من الباطن ما لم يُنص على ذلك صراحة.';
+
+  @override
+  String get exitConfirm => 'اضغط على رجوع مرة أخرى للخروج';
+
+  @override
+  String get noProgramInfo => 'لا تتوفر معلومات البرنامج';
+
+  @override
+  String get backupNow => 'إنشاء نسخة احتياطية';
+
+  @override
+  String get backupNowDesc =>
+      'تصدير الحسابات والمفضلة وسجل المشاهدة والإعدادات كـ JSON';
+
+  @override
+  String get restoreFromBackup => 'استعادة نسخة احتياطية';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'استيراد من ملف نسخة احتياطية تم تصديره مسبقًا';
+
+  @override
+  String get backupSaved => 'تم حفظ النسخة الاحتياطية';
+
+  @override
+  String get backupRestored => 'تم استعادة النسخة الاحتياطية بنجاح';
+
+  @override
+  String get backupFailed => 'فشل النسخ الاحتياطي';
+
+  @override
+  String get backupInvalidFormat => 'ملف نسخة احتياطية غير صالح';
+
+  @override
+  String get restoreConfirm =>
+      'سيتم استبدال الحسابات والمفضلة والسجل الحالي بمحتوى النسخة الاحتياطية. هل تريد المتابعة؟';
+
+  @override
+  String get similarContent => 'محتوى مشابه';
+
+  @override
+  String get similarSeries => 'مسلسلات مشابهة';
+
+  @override
+  String get resetContentData => 'إعادة تعيين بيانات المحتوى';
+
+  @override
+  String get resetContentDataDesc =>
+      'يمسح الجداول الخاصة بالقنوات والفئات و EPG. يتم الاحتفاظ بالمفضلة ومعلومات الحساب.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'سيتم حذف القنوات والفئات و EPG. يتم الاحتفاظ بمعلومات حسابك والمفضلة. ستتم إعادة المزامنة في التشغيل التالي.';
+
+  @override
+  String get resetContentDataDone => 'تم إعادة تعيين بيانات المحتوى';
+
+  @override
+  String get reset => 'إعادة تعيين';
+
+  @override
+  String get sleepTimer => 'مؤقت النوم';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'إيقاف في نهاية الحلقة';
+
+  @override
+  String get sleepTimerCancelAction => 'إلغاء المؤقت';
+
+  @override
+  String get sleepTimerFired => 'مؤقت النوم: تم إيقاف التشغيل مؤقتًا';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes د';
+  }
+
+  @override
+  String get watchlist => 'قائمتي';
+
+  @override
+  String get addToWatchlist => 'إضافة إلى قائمتي';
+
+  @override
+  String get removeFromWatchlist => 'إزالة من قائمتي';
+
+  @override
+  String get addedToWatchlist => 'تمت الإضافة إلى قائمتي';
+
+  @override
+  String get removedFromWatchlist => 'تمت الإزالة من قائمتي';
 }

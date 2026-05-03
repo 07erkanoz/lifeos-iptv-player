@@ -663,4 +663,95 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get licenseText =>
       'The source code, design, and algorithms of this software belong to Erkan ÖZ. Unauthorized copying, reproduction, modification, distribution, or reverse engineering of this software is strictly prohibited. This software may not be used for commercial or non-commercial purposes without prior written permission. No usage rights may be transferred or sublicensed unless explicitly stated.';
+
+  @override
+  String get exitConfirm => 'Press back again to exit';
+
+  @override
+  String get noProgramInfo => 'No program info available';
+
+  @override
+  String get backupNow => 'Create Backup';
+
+  @override
+  String get backupNowDesc =>
+      'Export accounts, favorites, watch history and settings as JSON';
+
+  @override
+  String get restoreFromBackup => 'Restore Backup';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Import from a previously exported backup file';
+
+  @override
+  String get backupSaved => 'Backup saved';
+
+  @override
+  String get backupRestored => 'Backup restored successfully';
+
+  @override
+  String get backupFailed => 'Backup failed';
+
+  @override
+  String get backupInvalidFormat => 'Invalid backup file';
+
+  @override
+  String get restoreConfirm =>
+      'Existing accounts, favorites and history will be replaced by the backup contents. Continue?';
+
+  @override
+  String get similarContent => 'More Like This';
+
+  @override
+  String get similarSeries => 'Similar Series';
+
+  @override
+  String get resetContentData => 'Reset content data';
+
+  @override
+  String get resetContentDataDesc =>
+      'Clears channels, categories and EPG tables. Favorites and account info are kept.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Channels, categories and EPG will be deleted. Your account info and favorites are kept. They will be re-synced on next launch.';
+
+  @override
+  String get resetContentDataDone => 'Content data reset';
+
+  @override
+  String get reset => 'Reset';
+
+  @override
+  String get sleepTimer => 'Sleep Timer';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Stop at end of episode';
+
+  @override
+  String get sleepTimerCancelAction => 'Cancel Timer';
+
+  @override
+  String get sleepTimerFired => 'Sleep timer: playback paused';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get watchlist => 'My List';
+
+  @override
+  String get addToWatchlist => 'Add to My List';
+
+  @override
+  String get removeFromWatchlist => 'Remove from My List';
+
+  @override
+  String get addedToWatchlist => 'Added to My List';
+
+  @override
+  String get removedFromWatchlist => 'Removed from My List';
 }

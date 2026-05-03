@@ -1357,6 +1357,174 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Bu yazılımın kaynak kodları, tasarımı ve algoritmaları Erkan ÖZ\'e aittir. Yazılımın izinsiz kopyalanması, çoğaltılması, değiştirilmesi, dağıtılması veya tersine mühendislik (reverse engineering) işlemlerine tabi tutulması kesinlikle yasaktır. Bu yazılım önceden yazılı izin alınmaksızın ticari veya ticari olmayan amaçlarla kullanılamaz. Açıkça belirtilmedikçe hiçbir kullanım hakkı devredilemez veya alt lisanslanamaz.'**
   String get licenseText;
+
+  /// No description provided for @exitConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Uygulamadan çıkmak için tekrar basın'**
+  String get exitConfirm;
+
+  /// No description provided for @noProgramInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yayın akışı bilgisi bulunamadı'**
+  String get noProgramInfo;
+
+  /// No description provided for @backupNow.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yedek Al'**
+  String get backupNow;
+
+  /// No description provided for @backupNowDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesaplar, favoriler, izleme geçmişi ve ayarları JSON olarak dışa aktar'**
+  String get backupNowDesc;
+
+  /// No description provided for @restoreFromBackup.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yedeği Yükle'**
+  String get restoreFromBackup;
+
+  /// No description provided for @restoreFromBackupDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Önceki yedek dosyasından içe aktar'**
+  String get restoreFromBackupDesc;
+
+  /// No description provided for @backupSaved.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yedek kaydedildi'**
+  String get backupSaved;
+
+  /// No description provided for @backupRestored.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yedek başarıyla yüklendi'**
+  String get backupRestored;
+
+  /// No description provided for @backupFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yedekleme başarısız'**
+  String get backupFailed;
+
+  /// No description provided for @backupInvalidFormat.
+  ///
+  /// In tr, this message translates to:
+  /// **'Geçersiz yedek dosyası'**
+  String get backupInvalidFormat;
+
+  /// No description provided for @restoreConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mevcut hesaplar, favoriler ve geçmiş yedek içeriğiyle değiştirilecek. Devam edilsin mi?'**
+  String get restoreConfirm;
+
+  /// No description provided for @similarContent.
+  ///
+  /// In tr, this message translates to:
+  /// **'Benzer İçerikler'**
+  String get similarContent;
+
+  /// No description provided for @similarSeries.
+  ///
+  /// In tr, this message translates to:
+  /// **'Benzer Diziler'**
+  String get similarSeries;
+
+  /// No description provided for @resetContentData.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleme verilerini sıfırla'**
+  String get resetContentData;
+
+  /// No description provided for @resetContentDataDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kanallar, kategoriler ve EPG tablolarını temizler. Favoriler ve hesap bilgileri korunur.'**
+  String get resetContentDataDesc;
+
+  /// No description provided for @resetContentDataConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kanallar, kategoriler ve EPG silinecek. Hesap bilgilerin ve favorilerin korunur. Bir sonraki açılışta yeniden senkronize edilir.'**
+  String get resetContentDataConfirm;
+
+  /// No description provided for @resetContentDataDone.
+  ///
+  /// In tr, this message translates to:
+  /// **'İçerik verileri sıfırlandı'**
+  String get resetContentDataDone;
+
+  /// No description provided for @reset.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sıfırla'**
+  String get reset;
+
+  /// No description provided for @sleepTimer.
+  ///
+  /// In tr, this message translates to:
+  /// **'Uyku Zamanlayıcısı'**
+  String get sleepTimer;
+
+  /// No description provided for @sleepTimerStopAtEpisodeEnd.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bölüm bitiminde durdur'**
+  String get sleepTimerStopAtEpisodeEnd;
+
+  /// No description provided for @sleepTimerCancelAction.
+  ///
+  /// In tr, this message translates to:
+  /// **'İptal Et'**
+  String get sleepTimerCancelAction;
+
+  /// No description provided for @sleepTimerFired.
+  ///
+  /// In tr, this message translates to:
+  /// **'Uyku zamanlayıcısı: oynatma duraklatıldı'**
+  String get sleepTimerFired;
+
+  /// No description provided for @minutesShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'{minutes} dk'**
+  String minutesShort(int minutes);
+
+  /// No description provided for @watchlist.
+  ///
+  /// In tr, this message translates to:
+  /// **'Listem'**
+  String get watchlist;
+
+  /// No description provided for @addToWatchlist.
+  ///
+  /// In tr, this message translates to:
+  /// **'Listeme Ekle'**
+  String get addToWatchlist;
+
+  /// No description provided for @removeFromWatchlist.
+  ///
+  /// In tr, this message translates to:
+  /// **'Listemden Çıkar'**
+  String get removeFromWatchlist;
+
+  /// No description provided for @addedToWatchlist.
+  ///
+  /// In tr, this message translates to:
+  /// **'Listeme eklendi'**
+  String get addedToWatchlist;
+
+  /// No description provided for @removedFromWatchlist.
+  ///
+  /// In tr, this message translates to:
+  /// **'Listemden çıkarıldı'**
+  String get removedFromWatchlist;
 }
 
 class _AppLocalizationsDelegate

@@ -665,4 +665,95 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get licenseText =>
       'El código fuente, el diseño y los algoritmos de este software pertenecen a Erkan ÖZ. Queda estrictamente prohibida la copia, reproducción, modificación, distribución o ingeniería inversa no autorizada de este software. Este software no puede utilizarse con fines comerciales o no comerciales sin permiso previo por escrito. No se pueden transferir ni sublicenciar derechos de uso a menos que se indique expresamente.';
+
+  @override
+  String get exitConfirm => 'Pulsa atrás de nuevo para salir';
+
+  @override
+  String get noProgramInfo => 'No hay información de programación disponible';
+
+  @override
+  String get backupNow => 'Crear copia de seguridad';
+
+  @override
+  String get backupNowDesc =>
+      'Exportar cuentas, favoritos, historial y ajustes como JSON';
+
+  @override
+  String get restoreFromBackup => 'Restaurar copia de seguridad';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Importar desde un archivo de copia de seguridad exportado anteriormente';
+
+  @override
+  String get backupSaved => 'Copia de seguridad guardada';
+
+  @override
+  String get backupRestored => 'Copia de seguridad restaurada correctamente';
+
+  @override
+  String get backupFailed => 'Error en la copia de seguridad';
+
+  @override
+  String get backupInvalidFormat => 'Archivo de copia de seguridad inválido';
+
+  @override
+  String get restoreConfirm =>
+      'Las cuentas, favoritos e historial existentes serán reemplazados por el contenido de la copia. ¿Continuar?';
+
+  @override
+  String get similarContent => 'Contenido similar';
+
+  @override
+  String get similarSeries => 'Series similares';
+
+  @override
+  String get resetContentData => 'Restablecer datos de contenido';
+
+  @override
+  String get resetContentDataDesc =>
+      'Borra canales, categorías y tablas EPG. Los favoritos e información de cuenta se conservan.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Los canales, categorías y EPG se eliminarán. La información de su cuenta y favoritos se conservan. Se resincronizarán en el próximo inicio.';
+
+  @override
+  String get resetContentDataDone => 'Datos de contenido restablecidos';
+
+  @override
+  String get reset => 'Restablecer';
+
+  @override
+  String get sleepTimer => 'Temporizador de apagado';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Detener al final del episodio';
+
+  @override
+  String get sleepTimerCancelAction => 'Cancelar temporizador';
+
+  @override
+  String get sleepTimerFired => 'Temporizador: reproducción en pausa';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get watchlist => 'Mi Lista';
+
+  @override
+  String get addToWatchlist => 'Añadir a Mi Lista';
+
+  @override
+  String get removeFromWatchlist => 'Quitar de Mi Lista';
+
+  @override
+  String get addedToWatchlist => 'Añadido a Mi Lista';
+
+  @override
+  String get removedFromWatchlist => 'Quitado de Mi Lista';
 }

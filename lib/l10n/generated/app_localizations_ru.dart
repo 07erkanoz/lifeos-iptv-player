@@ -666,4 +666,95 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get licenseText =>
       'Исходный код, дизайн и алгоритмы данного программного обеспечения принадлежат Erkan ÖZ. Несанкционированное копирование, воспроизведение, модификация, распространение или обратная разработка данного программного обеспечения строго запрещены. Данное программное обеспечение не может использоваться в коммерческих или некоммерческих целях без предварительного письменного разрешения. Права на использование не могут быть переданы или сублицензированы, если это прямо не указано.';
+
+  @override
+  String get exitConfirm => 'Нажмите ещё раз для выхода';
+
+  @override
+  String get noProgramInfo => 'Информация о программе недоступна';
+
+  @override
+  String get backupNow => 'Создать резервную копию';
+
+  @override
+  String get backupNowDesc =>
+      'Экспорт аккаунтов, избранного, истории просмотров и настроек в JSON';
+
+  @override
+  String get restoreFromBackup => 'Восстановить из резервной копии';
+
+  @override
+  String get restoreFromBackupDesc =>
+      'Импортировать из ранее экспортированного файла резервной копии';
+
+  @override
+  String get backupSaved => 'Резервная копия сохранена';
+
+  @override
+  String get backupRestored => 'Резервная копия успешно восстановлена';
+
+  @override
+  String get backupFailed => 'Сбой резервного копирования';
+
+  @override
+  String get backupInvalidFormat => 'Недопустимый файл резервной копии';
+
+  @override
+  String get restoreConfirm =>
+      'Существующие аккаунты, избранное и история будут заменены содержимым резервной копии. Продолжить?';
+
+  @override
+  String get similarContent => 'Похожее';
+
+  @override
+  String get similarSeries => 'Похожие сериалы';
+
+  @override
+  String get resetContentData => 'Сбросить данные контента';
+
+  @override
+  String get resetContentDataDesc =>
+      'Очищает таблицы каналов, категорий и EPG. Избранное и информация об аккаунте сохраняются.';
+
+  @override
+  String get resetContentDataConfirm =>
+      'Каналы, категории и EPG будут удалены. Информация об аккаунте и избранное сохранятся. Они будут пересинхронизированы при следующем запуске.';
+
+  @override
+  String get resetContentDataDone => 'Данные контента сброшены';
+
+  @override
+  String get reset => 'Сбросить';
+
+  @override
+  String get sleepTimer => 'Таймер сна';
+
+  @override
+  String get sleepTimerStopAtEpisodeEnd => 'Остановить в конце эпизода';
+
+  @override
+  String get sleepTimerCancelAction => 'Отменить таймер';
+
+  @override
+  String get sleepTimerFired => 'Таймер сна: воспроизведение приостановлено';
+
+  @override
+  String minutesShort(int minutes) {
+    return '$minutes мин';
+  }
+
+  @override
+  String get watchlist => 'Мой список';
+
+  @override
+  String get addToWatchlist => 'Добавить в Мой список';
+
+  @override
+  String get removeFromWatchlist => 'Удалить из Моего списка';
+
+  @override
+  String get addedToWatchlist => 'Добавлено в Мой список';
+
+  @override
+  String get removedFromWatchlist => 'Удалено из Моего списка';
 }
