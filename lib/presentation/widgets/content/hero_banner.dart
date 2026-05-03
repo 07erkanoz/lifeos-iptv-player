@@ -74,6 +74,15 @@ class _HeroBannerState extends State<HeroBanner> {
   int _trailerRequestId = 0; // bumped on every change to invalidate stale requests
   bool _trailerVisible = false;
 
+  // Debug status — temporarily painted in the corner of the hero so we
+  // can see why the trailer isn't firing without a console attached.
+  // Remove once the pipeline is verified end-to-end on the user's machine.
+  String _trailerDebug = '';
+  void _setDebug(String s) {
+    if (!mounted) return;
+    setState(() => _trailerDebug = s);
+  }
+
   bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
 
   @override
@@ -169,37 +178,65 @@ class _HeroBannerState extends State<HeroBanner> {
     _disposeTrailerPlayer();
     setState(() => _trailerVisible = false);
 
-    // Live channels don't have trailers; mobile is too small / data
-    // sensitive to autoplay, skip there too.
-    if (channel.type == 'live') return;
-    if (_isMobile(context)) return;
+    if (channel.type == 'live') {
+      _setDebug('skip:live');
+      return;
+    }
+    if (_isMobile(context)) {
+      _setDebug('skip:mobile');
+      return;
+    }
 
     final fromApi = widget.vodInfo?.youtubeTrailer;
     final fromDb = channel.youtubeTrailer;
-    final raw = (fromApi != null && fromApi.trim().isNotEmpty) ? fromApi : fromDb;
-    if (raw == null || raw.trim().isEmpty) return;
+    final directRef = (fromApi != null && fromApi.trim().isNotEmpty) ? fromApi : fromDb;
 
+    // If we don't have a direct YouTube id, fall back to searching
+    // YouTube for "<name> [year] trailer" — most IPTV providers leave
+    // the youtube_trailer field empty, so this is the path that
+    // actually fires for the average library.
+    _setDebug(directRef != null ? 'queued: $directRef' : 'queued: search');
     final reqId = ++_trailerRequestId;
     _trailerScheduleTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (mounted) _startTrailer(channel, raw, reqId);
+      if (mounted) _startTrailer(channel, directRef, reqId);
     });
   }
 
-  Future<void> _startTrailer(Channel channel, String trailerRef, int reqId) async {
-    final streamUrl =
-        await YouTubeTrailerService.instance.extractStreamUrl(trailerRef);
+  Future<void> _startTrailer(Channel channel, String? directRef, int reqId) async {
+    String? streamUrl;
+    try {
+      if (directRef != null && directRef.trim().isNotEmpty) {
+        _setDebug('extracting: $directRef');
+        streamUrl =
+            await YouTubeTrailerService.instance.extractStreamUrl(directRef);
+      } else {
+        _setDebug('searching: ${channel.name}');
+        streamUrl = await YouTubeTrailerService.instance
+            .extractStreamUrlForQuery(channel.name, year: channel.year);
+      }
+    } catch (e) {
+      _setDebug('extract threw: $e');
+      return;
+    }
     if (!mounted) return;
-    // Stale: user moved on to another hero item or we got disposed.
-    if (reqId != _trailerRequestId) return;
-    if (streamUrl == null) return;
+    if (reqId != _trailerRequestId) {
+      _setDebug('stale req $reqId vs $_trailerRequestId');
+      return;
+    }
+    if (streamUrl == null) {
+      _setDebug('extract null (region/embed?)');
+      return;
+    }
 
+    _setDebug('opening media...');
     final player = Player();
     final controller = VideoController(player);
     try {
       await player.setVolume(0);
       await player.setPlaylistMode(PlaylistMode.loop);
       await player.open(Media(streamUrl), play: true);
-    } catch (_) {
+    } catch (e) {
+      _setDebug('player.open failed: $e');
       player.dispose();
       return;
     }
@@ -209,6 +246,7 @@ class _HeroBannerState extends State<HeroBanner> {
       return;
     }
 
+    _setDebug('playing');
     setState(() {
       _trailerPlayer = player;
       _trailerController = controller;
@@ -298,6 +336,29 @@ class _HeroBannerState extends State<HeroBanner> {
                 fill: Colors.black,
                 controls: NoVideoControls,
                 fit: BoxFit.cover,
+              ),
+            ),
+
+          // ── DEBUG ── trailer pipeline status (temporary, remove after verify)
+          if (_trailerDebug.isNotEmpty)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.amber, width: 1),
+                ),
+                child: Text(
+                  'YT: $_trailerDebug',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
 

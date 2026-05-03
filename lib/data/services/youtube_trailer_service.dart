@@ -18,6 +18,13 @@ class YouTubeTrailerService {
   static const Duration _ttl = Duration(hours: 1);
   final Map<String, _CachedUrl> _cache = {};
 
+  // Search query → resolved video id, cached for the session. Search is
+  // expensive (full HTML page from YouTube + parse) and the result for
+  // a given title doesn't change minute to minute. Negative results
+  // also cached so missing trailers don't get retried every slide.
+  static const Duration _searchTtl = Duration(hours: 6);
+  final Map<String, _CachedSearch> _searchCache = {};
+
   /// Returns a direct stream URL for [videoIdOrUrl], or null if the
   /// video can't be extracted (region lock, embed disabled, deleted,
   /// network error). Negative results are also cached so we don't
@@ -66,6 +73,53 @@ class YouTubeTrailerService {
     }
   }
 
+  /// Resolve a stream URL by searching YouTube for [title] (+ optional
+  /// [year]) + the literal "trailer" — used as a fallback when the
+  /// IPTV provider doesn't ship a youtube_trailer field for the VOD.
+  /// Most providers don't, so this is the path that actually lights
+  /// the hero billboard up for the average library.
+  ///
+  /// Picks the FIRST search result (YouTube's relevance ranking is
+  /// already good enough for "<movie> trailer") and runs it through
+  /// the normal extractStreamUrl path.
+  Future<String?> extractStreamUrlForQuery(String title, {String? year}) async {
+    final yearPart = (year != null && year.isNotEmpty) ? ' $year' : '';
+    final query = '$title$yearPart trailer'.trim();
+
+    final cached = _searchCache[query];
+    if (cached != null && DateTime.now().difference(cached.fetchedAt) < _searchTtl) {
+      if (cached.videoId == null) return null;
+      return extractStreamUrl(cached.videoId!);
+    }
+
+    try {
+      final results = await _yt.search.search(query);
+      // Find the first result that's actually a Video (search can
+      // return playlists / channels too — those don't have an id we
+      // can stream).
+      String? videoId;
+      for (final r in results) {
+        final id = r.id.value;
+        if (id.isNotEmpty) {
+          videoId = id;
+          break;
+        }
+      }
+      _searchCache[query] = _CachedSearch(
+        videoId: videoId,
+        fetchedAt: DateTime.now(),
+      );
+      if (videoId == null) return null;
+      return extractStreamUrl(videoId);
+    } catch (_) {
+      _searchCache[query] = _CachedSearch(
+        videoId: null,
+        fetchedAt: DateTime.now(),
+      );
+      return null;
+    }
+  }
+
   /// Normalize input into a canonical 11-char video id.
   /// Accepts: bare id, watch URL, youtu.be short URL, embed URL.
   /// Returns null for search URLs and other non-video inputs.
@@ -95,4 +149,10 @@ class _CachedUrl {
   final String? url;
   final DateTime fetchedAt;
   _CachedUrl({required this.url, required this.fetchedAt});
+}
+
+class _CachedSearch {
+  final String? videoId;
+  final DateTime fetchedAt;
+  _CachedSearch({required this.videoId, required this.fetchedAt});
 }
