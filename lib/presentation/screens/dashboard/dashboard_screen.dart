@@ -9,11 +9,13 @@ import 'package:lifeostv/presentation/widgets/content/content_list.dart';
 import 'package:lifeostv/presentation/widgets/content/hero_banner.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
+import 'package:lifeostv/data/repositories/watchlist_repository.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/utils/youtube_trailer.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/utils/responsive.dart';
@@ -171,6 +173,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final recentSeriesAsync = ref.watch(recentChannelsProvider('series'));
     final recentLiveAsync = ref.watch(recentChannelsProvider('live'));
     final favoritesAsync = ref.watch(dashboardFavoritesProvider);
+    final watchlistAsync = ref.watch(dashboardWatchlistProvider);
     final continueWatchingAsync = ref.watch(dashboardContinueWatchingProvider);
     final account = ref.watch(currentAccountProvider);
 
@@ -316,6 +319,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             ),
+                          )
+                        : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+
+                  // Watchlist ("My List") — items the user saved for later.
+                  watchlistAsync.when(
+                    data: (channels) => channels.isNotEmpty
+                        ? ContentList(
+                            title: l10n.watchlist,
+                            icon: Icons.bookmark_outlined,
+                            channels: channels,
+                            onChannelTap: (ch) => _openDetail(ch),
+                            onChannelFocus: (_) {},
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
@@ -477,16 +495,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  /// Open YouTube trailer
+  /// Open YouTube trailer.
+  /// Falls back to a YouTube search query for "<name> <year> trailer" when
+  /// the server (or our DB cache) didn't supply a canonical trailer URL —
+  /// guarantees every VOD has a working trailer affordance.
   void _openTrailer(Channel channel) {
-    final trailer = _heroVodInfo?.youtubeTrailer ?? channel.youtubeTrailer;
-    if (trailer == null || trailer.isEmpty) return;
-
-    final url = trailer.startsWith('http')
-        ? trailer
-        : 'https://www.youtube.com/watch?v=$trailer';
-
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    final apiTrailer = _heroVodInfo?.youtubeTrailer;
+    if (apiTrailer != null && apiTrailer.trim().isNotEmpty) {
+      final url = apiTrailer.startsWith('http')
+          ? apiTrailer
+          : 'https://www.youtube.com/watch?v=$apiTrailer';
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+    openTrailerForChannel(channel);
   }
 
   Widget _buildNoAccountBanner(BuildContext c, AppLocalizations l10n) {
@@ -541,6 +563,48 @@ final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
 /// Combined continue watching provider: movies + series with unfinished progress, sorted by updatedAt
 final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(contentRepositoryProvider).watchAllContinueWatching();
+});
+
+/// Combined watchlist provider: movies + series the user saved for later,
+/// joined with the channel rows so PosterCard can render them. Mirrors the
+/// favorites pattern (asyncMap over the watchlist stream → channel lookup).
+final dashboardWatchlistProvider = StreamProvider<List<Channel>>((ref) {
+  final wlRepo = ref.watch(watchlistRepositoryProvider);
+  final contentRepo = ref.watch(contentRepositoryProvider);
+
+  return wlRepo.watchAll().asyncMap((items) async {
+    if (items.isEmpty) return <Channel>[];
+
+    final movieIds =
+        items.where((w) => w.streamType == 'movie').map((w) => w.streamId).toList();
+    final seriesIds =
+        items.where((w) => w.streamType == 'series').map((w) => w.streamId).toList();
+
+    final chunks = await Future.wait([
+      if (movieIds.isNotEmpty)
+        contentRepo.watchFavoriteChannels('movie', movieIds).first
+      else
+        Future.value(<Channel>[]),
+      if (seriesIds.isNotEmpty)
+        contentRepo.watchFavoriteChannels('series', seriesIds).first
+      else
+        Future.value(<Channel>[]),
+    ]);
+
+    final channels = <Channel>[...chunks[0], ...chunks[1]];
+
+    // Preserve watchlist order (newest-first).
+    final order = <String, int>{
+      for (var i = 0; i < items.length; i++) '${items[i].streamType}:${items[i].streamId}': i,
+    };
+    channels.sort((a, b) {
+      final ai = order['${a.type}:${a.streamId}'] ?? 1 << 20;
+      final bi = order['${b.type}:${b.streamId}'] ?? 1 << 20;
+      return ai.compareTo(bi);
+    });
+
+    return channels;
+  });
 });
 
 /// Combined favorites provider: watches all favorites, then joins with channels for full data

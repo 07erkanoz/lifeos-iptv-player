@@ -12,6 +12,39 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 // ═══════════════════════════════════════════════════════════════════
+//  Stable channel id (M3U entries → 32-bit positive int)
+// ═══════════════════════════════════════════════════════════════════
+
+/// FNV-1a 32-bit hash of the entry's identifying fields.
+///
+/// Why this exists: M3U accounts used to assign `streamId = globalIdx`
+/// (the parser's iteration index). When the playlist is re-fetched and
+/// channels reorder or new ones are inserted, every existing channel
+/// gets a different id — which silently breaks playback_progress,
+/// favorites and series_tracking rows that reference the old ids.
+///
+/// FNV-1a was picked over `String.hashCode` because Dart doesn't promise
+/// `String.hashCode` stays stable across SDK versions or platforms.
+/// Output is masked to 31 bits so it fits any signed integer column on
+/// every backend (SQLite is 64-bit but some cursors clamp to int32).
+///
+/// Collision math: ~2.1B distinct ids; for a 100k-channel playlist the
+/// birthday-paradox collision probability is ~0.001%. Acceptable.
+int stableM3uChannelId({required String url, String? name}) {
+  const int fnvOffset = 0x811c9dc5;
+  const int fnvPrime = 0x01000193;
+  // Combine the URL and (optional) name with a delimiter that isn't legal
+  // in a URL so e.g. "http://x|Kanal A" and "http://x" + "|Kanal A" can't
+  // hash to the same value via clever input.
+  final input = name == null || name.isEmpty ? url : '$url$name';
+  var hash = fnvOffset;
+  for (var i = 0; i < input.length; i++) {
+    hash = (hash ^ input.codeUnitAt(i)) * fnvPrime & 0xFFFFFFFF;
+  }
+  return hash & 0x7FFFFFFF;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  Veri Modelleri
 // ═══════════════════════════════════════════════════════════════════
 

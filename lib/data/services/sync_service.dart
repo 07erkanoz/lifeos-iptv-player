@@ -299,10 +299,14 @@ class SyncService {
           }
           if (channelName.isEmpty) channelName = 'Kanal ${globalIdx + 1}';
 
+          // Deterministic id derived from url+name so re-syncing the playlist
+          // (or reordering entries) keeps history / favorites references valid.
+          final streamId = stableM3uChannelId(url: entry.url, name: channelName);
+
           batch.insert(
             _db.channels,
             ChannelsCompanion.insert(
-              streamId: globalIdx,
+              streamId: streamId,
               name: channelName,
               type: streamType,
               categoryId: entry.groupTitle ?? 'Diğer',
@@ -359,10 +363,13 @@ class SyncService {
           );
           var channelName = entry.name.isNotEmpty ? entry.name : (entry.tvgName ?? 'Kanal ${globalIdx + 1}');
 
+          // See stableM3uChannelId() — keeps history rows valid across re-syncs.
+          final streamId = stableM3uChannelId(url: entry.url, name: channelName);
+
           batch.insert(
             _db.channels,
             ChannelsCompanion.insert(
-              streamId: globalIdx,
+              streamId: streamId,
               name: channelName,
               type: streamType,
               categoryId: entry.groupTitle ?? 'Diğer',

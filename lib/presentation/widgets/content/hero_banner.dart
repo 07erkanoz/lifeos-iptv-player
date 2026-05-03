@@ -354,9 +354,12 @@ class _HeroBannerState extends State<HeroBanner> {
     return '${text.substring(0, cutoff > 0 ? cutoff : maxLen)}…';
   }
 
+  /// Trailer button is shown for every VOD (movie / series). Even when the
+  /// server didn't supply a YouTube id we now fall back to a YouTube search
+  /// at the call site (see dashboard_screen._openTrailer + youtube_trailer.dart),
+  /// so the affordance is always actionable. Live channels still hide it.
   bool get _hasTrailer {
-    final t = widget.vodInfo?.youtubeTrailer ?? widget.channels[_currentIndex].youtubeTrailer;
-    return t != null && t.isNotEmpty;
+    return widget.channels[_currentIndex].type != 'live';
   }
 
   /// Hero image — same approach as movies/series hero: Image.network + BoxFit.cover

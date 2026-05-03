@@ -60,13 +60,25 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
-            // Shrinking (R8) is disabled — we ship the full classpath because
-            // media_kit + libmpv rely heavily on reflection/JNI and the app
-            // hasn't been end-to-end tested against the keep rules yet.
-            // proguard-rules.pro is checked in and ready when we're.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 enabled — keep rules in proguard-rules.pro cover media_kit,
+            // libmpv JNI, drift, bonsoir, dio/okio, Cast SDK, Flutter embedding.
+            // Cuts a fat APK with libmpv from ~80MB to ~30MB.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
+    }
+
+    // Play Store delivery: split AAB by language / density / ABI so users
+    // download only what their device needs (universal APK stays an option
+    // via `flutter build apk`).
+    bundle {
+        language { enableSplit = true }
+        density { enableSplit = true }
+        abi { enableSplit = true }
     }
 }
 

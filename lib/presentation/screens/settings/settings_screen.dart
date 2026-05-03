@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
+import 'package:lifeostv/data/services/backup_service.dart';
 import 'package:lifeostv/domain/models/account_info.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -1212,23 +1214,23 @@ class _DataSection extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceElevatedDark,
-        title: const Text(
-          'İzleme verilerini sıfırla',
-          style: TextStyle(color: AppColors.textDark),
+        title: Text(
+          l10n.resetContentData,
+          style: const TextStyle(color: AppColors.textDark),
         ),
-        content: const Text(
-          'Kanallar, kategoriler ve EPG silinecek. Hesap bilgilerin ve favorilerin korunur. Bir sonraki açılışta yeniden senkronize edilir.',
-          style: TextStyle(color: AppColors.textSecondaryDark),
+        content: Text(
+          l10n.resetContentDataConfirm,
+          style: const TextStyle(color: AppColors.textSecondaryDark),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Vazgeç'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sıfırla'),
+            child: Text(l10n.reset),
           ),
         ],
       ),
@@ -1241,8 +1243,86 @@ class _DataSection extends ConsumerWidget {
     ApiCache.instance.clear();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('İçerik verileri sıfırlandı')),
+      SnackBar(content: Text(l10n.resetContentDataDone)),
     );
+  }
+
+  Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
+    try {
+      final path = await ref.read(backupServiceProvider).exportToFile();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${l10n.backupSaved}\n$path'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l10n.backupFailed}: $e')),
+      );
+    }
+  }
+
+  Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: false,
+    );
+    final filePath = pick?.files.single.path;
+    if (filePath == null) return;
+    if (!context.mounted) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevatedDark,
+        title: Text(
+          l10n.restoreFromBackup,
+          style: const TextStyle(color: AppColors.textDark),
+        ),
+        content: Text(
+          l10n.restoreConfirm,
+          style: const TextStyle(color: AppColors.textSecondaryDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.restoreFromBackup),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(backupServiceProvider).importFromFile(filePath);
+      // Force every account/settings provider to re-read from the new state.
+      ref.invalidate(savedAccountsProvider);
+      ref.invalidate(currentAccountProvider);
+      ref.invalidate(settingsProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.backupRestored)),
+      );
+    } on FormatException {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.backupInvalidFormat)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l10n.backupFailed}: $e')),
+      );
+    }
   }
 
   @override
@@ -1256,6 +1336,32 @@ class _DataSection extends ConsumerWidget {
         style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor),
       ),
       const SizedBox(height: 24),
+      ListTile(
+        leading: const Icon(Icons.cloud_upload_outlined, color: AppColors.primary),
+        title: Text(l10n.backupNow, style: TextStyle(color: textColor)),
+        subtitle: Text(
+          l10n.backupNowDesc,
+          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: surfaceColor,
+        onTap: () => _exportBackup(context, ref),
+      ),
+      const SizedBox(height: 12),
+      ListTile(
+        leading: const Icon(Icons.restore, color: AppColors.primary),
+        title: Text(l10n.restoreFromBackup, style: TextStyle(color: textColor)),
+        subtitle: Text(
+          l10n.restoreFromBackupDesc,
+          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: surfaceColor,
+        onTap: () => _importBackup(context, ref),
+      ),
+      const SizedBox(height: 24),
+      Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+      const SizedBox(height: 12),
       ListTile(
         leading: const Icon(Icons.delete_outline, color: AppColors.primary),
         title: Text(l10n.clearCache, style: TextStyle(color: textColor)),
@@ -1271,12 +1377,12 @@ class _DataSection extends ConsumerWidget {
       ListTile(
         leading: const Icon(Icons.cleaning_services_outlined, color: Colors.orange),
         title: Text(
-          'İzleme verilerini sıfırla',
+          l10n.resetContentData,
           style: TextStyle(color: textColor),
         ),
-        subtitle: const Text(
-          'Kanallar, kategoriler ve EPG tablolarını temizler. Favoriler ve hesap bilgileri korunur.',
-          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        subtitle: Text(
+          l10n.resetContentDataDesc,
+          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: surfaceColor,
