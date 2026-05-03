@@ -42,7 +42,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Widget _buildDesktopLayout() {
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.background(context),
       body: Stack(
         children: [
           Column(
@@ -75,13 +75,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     final currentIndex = widget.navigationShell.currentIndex;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.background(context),
       body: SafeArea(child: widget.navigationShell),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.sidebarBgDark,
+        decoration: BoxDecoration(
+          color: AppColors.sidebarBg(context),
           border: Border(
-            top: BorderSide(color: AppColors.sidebarBorderDark, width: 0.5),
+            top: BorderSide(color: AppColors.sidebarBorder(context), width: 0.5),
           ),
         ),
         child: SafeArea(
@@ -225,14 +225,18 @@ class _MobileNavItem extends StatelessWidget {
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              color: isSelected ? AppColors.primary : AppColors.textSecondaryDark,
+              color: isSelected
+                  ? AppColors.primary
+                  : AppColors.textSecondary(context),
               size: 22,
             ),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? AppColors.primary : AppColors.textTertiaryDark,
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.textTertiary(context),
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),

@@ -6,6 +6,7 @@
 /// - Kanal ID normalizasyonu (lowercase, noktalama kaldır, .tr/.com.tr suffix strip)
 /// - 4 aşamalı eşleştirme: exact → case-insensitive → prefix → normalized
 /// - 6 saat TTL ile cache
+library;
 
 import 'dart:convert';
 import 'package:dio/dio.dart';

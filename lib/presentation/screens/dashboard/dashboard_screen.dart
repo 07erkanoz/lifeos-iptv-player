@@ -203,13 +203,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Container(
                       height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
-                      color: AppColors.backgroundDark,
+                      color: AppColors.background(context),
                       child: Row(
                         children: [
-                          const Text(
+                          Text(
                             'Life',
                             style: TextStyle(
-                              color: AppColors.textDark,
+                              color: AppColors.text(context),
                               fontWeight: FontWeight.w300,
                               fontSize: 18,
                               letterSpacing: 0.5,
@@ -275,7 +275,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const SizedBox(width: 10),
                           Text(
                             l10n.syncContent,
-                            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -299,7 +302,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   // Continue Watching (movies + series with unfinished progress)
@@ -314,7 +317,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             trailing: IconButton(
                               onPressed: _clearContinueWatching,
                               icon: const Icon(Icons.delete_sweep, size: 18),
-                              color: AppColors.textTertiaryDark,
+                              color: AppColors.textTertiary(context),
                               tooltip: l10n.clearHistory,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -322,7 +325,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   // Watchlist ("My List") — items the user saved for later.
@@ -337,7 +340,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   // Recently Added Movies → tap opens detail page
@@ -350,7 +353,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onChannelFocus: (_) {},
                     ),
                     loading: () => _buildLoadingRow(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   const SizedBox(height: 14),
@@ -365,7 +368,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onChannelFocus: (_) {},
                     ),
                     loading: () => _buildLoadingRow(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   const SizedBox(height: 14),
@@ -380,7 +383,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onChannelFocus: (_) {},
                     ),
                     loading: () => _buildLoadingRow(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
                   const SizedBox(height: 60),
@@ -471,9 +474,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevatedDark,
-        title: Text(l10n.clearHistory, style: const TextStyle(color: AppColors.textDark)),
-        content: Text(l10n.clearHistoryConfirm, style: const TextStyle(color: AppColors.textSecondaryDark)),
+        backgroundColor: AppColors.surfaceElevated(ctx),
+        title: Text(l10n.clearHistory, style: TextStyle(color: AppColors.text(ctx))),
+        content: Text(
+          l10n.clearHistoryConfirm,
+          style: TextStyle(color: AppColors.textSecondary(ctx)),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           TextButton(
@@ -549,12 +555,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding > 12 ? 24 : 12),
         scrollDirection: Axis.horizontal,
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (_, __) => Container(
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (_, _) => Container(
           width: 140,
           height: 210,
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
+            color: AppColors.surface(context),
             borderRadius: BorderRadius.circular(10),
           ),
         ),

@@ -104,11 +104,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       PageRouteBuilder(
         opaque: false,
         barrierDismissible: true,
-        pageBuilder: (_, __, ___) => SearchDialog(
+        pageBuilder: (_, _, _) => SearchDialog(
           hintText: l10n.searchMovies,
           initialQuery: _searchQuery,
         ),
-        transitionsBuilder: (_, anim, __, child) =>
+        transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 200),
       ),
@@ -294,7 +294,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceLight,
+      backgroundColor: isDark ? AppColors.surfaceElevated(context) : AppColors.surfaceLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -309,7 +309,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               width: 40, height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.textTertiaryDark,
+                color: AppColors.textTertiary(context),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -318,7 +318,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               child: Row(children: [
                 Icon(Icons.movie_outlined, color: AppColors.primary, size: 18),
                 const SizedBox(width: 8),
-                Text(l10n.categories, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.textDark : AppColors.textLight)),
+                Text(l10n.categories, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.text(context) : AppColors.textLight)),
               ]),
             ),
             const Divider(height: 1),
@@ -362,7 +362,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       selected: isSelected,
       selectedColor: AppColors.primary,
       selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-      leading: isSelected ? const Icon(Icons.check_circle, size: 18) : const Icon(Icons.circle_outlined, size: 18, color: AppColors.textTertiaryDark),
+      leading: isSelected ? const Icon(Icons.check_circle, size: 18) : Icon(Icons.circle_outlined, size: 18, color: AppColors.textTertiary(context)),
       title: Text(name, style: TextStyle(
         fontSize: 14,
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -489,8 +489,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-          border: Border(right: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
+          color: isDark ? AppColors.background(context) : AppColors.backgroundLight,
+          border: Border(right: BorderSide(color: isDark ? AppColors.border(context) : AppColors.borderLight)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,7 +500,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             child: Row(children: [
               Icon(Icons.movie_outlined, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
-              Text(l10n.movies, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.textDark : AppColors.textLight)),
+              Text(l10n.movies, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.text(context) : AppColors.textLight)),
             ]),
           ),
           // ⭐ Favorites
@@ -509,7 +509,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           _buildCatItem('📺 ${l10n.watchHistory}', _selectedCategoryId == _kHistoryId, () => _selectCategory(_kHistoryId), isDark),
           // All movies
           _buildCatItem(l10n.allMovies, _selectedCategoryId == null, () => _selectCategory(null), isDark),
-          Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight, height: 1, indent: 12, endIndent: 12),
+          Divider(color: isDark ? AppColors.border(context) : AppColors.borderLight, height: 1, indent: 12, endIndent: 12),
           Expanded(
             child: categoriesAsync.when(
               data: (cats) => ListView.builder(
@@ -518,7 +518,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 itemBuilder: (_, i) => _buildCatItem(cats[i].name, cats[i].id == _selectedCategoryId, () => _selectCategory(cats[i].id), isDark),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12))),
+              error: (e, _) => Center(child: Text('$e', style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12))),
             ),
           ),
         ],
@@ -630,15 +630,15 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             if (imgUrl != null)
               Image.network(imgUrl, fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.3),
-                errorBuilder: (_, __, ___) => Container(color: AppColors.surfaceDark)),
+                errorBuilder: (_, _, _) => Container(color: AppColors.surface(context))),
 
             // Left gradient for text readability (lighter to show more poster)
             Container(decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.centerLeft, end: Alignment.centerRight,
                 colors: [
-                  AppColors.backgroundDark.withValues(alpha: 0.85),
-                  AppColors.backgroundDark.withValues(alpha: 0.4),
+                  AppColors.background(context).withValues(alpha: 0.85),
+                  AppColors.background(context).withValues(alpha: 0.4),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.3, 0.7],
@@ -649,8 +649,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter, end: Alignment.topCenter,
                 colors: [
-                  AppColors.backgroundDark,
-                  AppColors.backgroundDark.withValues(alpha: 0.5),
+                  AppColors.background(context),
+                  AppColors.background(context).withValues(alpha: 0.5),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.2, 0.5],
@@ -688,7 +688,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(ch.year!, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+                        child: Text(ch.year!, style: TextStyle(color: AppColors.textSecondary(context), fontSize: 11)),
                       ),
                     ],
                   ]),
@@ -709,7 +709,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                         ),
-                        child: Text(g.trim(), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 10)),
+                        child: Text(g.trim(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 10)),
                       )).toList(),
                     ),
                   ],
@@ -718,7 +718,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                     const SizedBox(height: 8),
                     Text(
                       ch.plot!.length > 150 ? '${ch.plot!.substring(0, 150)}...' : ch.plot!,
-                      style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12, height: 1.4),
+                      style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12, height: 1.4),
                       maxLines: 2, overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -775,7 +775,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(ch.streamIcon!, width: 100, height: 150, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                    errorBuilder: (_, _, _) => const SizedBox.shrink()),
                 ),
               ),
           ],
@@ -808,23 +808,23 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
     // Get playback progress
     final progressAsync = ref.watch(_playbackProgressProvider((streamId: ch.streamId, type: 'movie')));
-    final progress = progressAsync.when(data: (p) => p, loading: () => null, error: (_, __) => null);
+    final progress = progressAsync.when(data: (p) => p, loading: () => null, error: (_, _) => null);
     final favIds = ref.watch(_favMovieIdsProvider).when(
       data: (v) => v,
       loading: () => const <int>[],
-      error: (_, __) => const <int>[],
+      error: (_, _) => const <int>[],
     );
     final favoriteMovies = favIds.isEmpty
         ? const <Channel>[]
         : ref.watch(_favChannelsProvider(favIds)).when(
               data: (v) => v,
               loading: () => const <Channel>[],
-              error: (_, __) => const <Channel>[],
+              error: (_, _) => const <Channel>[],
             );
     final historyMovies = ref.watch(_continueWatchingMoviesProvider).when(
       data: (v) => v,
       loading: () => const <Channel>[],
-      error: (_, __) => const <Channel>[],
+      error: (_, _) => const <Channel>[],
     );
     final allMoviesAsync = ref.watch(_allMoviesProvider);
     final similarMovies = allMoviesAsync.when(
@@ -837,27 +837,27 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         personalizationSeed: [...favoriteMovies, ...historyMovies],
       ),
       loading: () => const <Channel>[],
-      error: (_, __) => const <Channel>[],
+      error: (_, _) => const <Channel>[],
     );
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.background(context),
       body: Stack(
         children: [
           // Backdrop
           if (backdrop.toString().isNotEmpty)
             Positioned.fill(
               child: Image.network(backdrop.toString(), fit: BoxFit.cover, alignment: Alignment.topCenter,
-                errorBuilder: (_, __, ___) => Container(color: AppColors.surfaceDark)),
+                errorBuilder: (_, _, _) => Container(color: AppColors.surface(context))),
             ),
           // Gradients
           Positioned.fill(child: Container(
             decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-              colors: [Colors.transparent, AppColors.backgroundDark.withValues(alpha: 0.6), AppColors.backgroundDark], stops: const [0.0, 0.35, 0.65])),
+              colors: [Colors.transparent, AppColors.background(context).withValues(alpha: 0.6), AppColors.background(context)], stops: const [0.0, 0.35, 0.65])),
           )),
           Positioned.fill(child: Container(
             decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight,
-              colors: [AppColors.backgroundDark.withValues(alpha: 0.85), Colors.transparent], stops: const [0.0, 0.5])),
+              colors: [AppColors.background(context).withValues(alpha: 0.85), Colors.transparent], stops: const [0.0, 0.5])),
           )),
 
           // Back button + Favorite button
@@ -904,10 +904,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: ch.streamIcon != null
                         ? Image.network(ch.streamIcon!, width: 180, height: 270, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(width: 180, height: 270, color: AppColors.surfaceDark,
-                              child: Center(child: Icon(Icons.movie, color: AppColors.textTertiaryDark, size: 48))))
-                        : Container(width: 180, height: 270, color: AppColors.surfaceDark,
-                            child: Center(child: Icon(Icons.movie, color: AppColors.textTertiaryDark, size: 48))),
+                            errorBuilder: (_, _, _) => Container(width: 180, height: 270, color: AppColors.surface(context),
+                              child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))))
+                        : Container(width: 180, height: 270, color: AppColors.surface(context),
+                            child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))),
                   ),
                 ),
                 const SizedBox(width: 32),
@@ -971,14 +971,13 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                 focusNode: _detailPlayFocusNode,
                                 onTap: () => _playMovie(ch),
                               ),
-                            if (trailerUrl != null)
-                              _FocusableActionButton(
-                                icon: Icons.play_circle_outline,
-                                label: l10n.watchTrailer,
-                                isPrimary: false,
-                                backgroundColor: Colors.red.shade900.withValues(alpha: 0.3),
-                                onTap: () => _openTrailer(trailerUrl),
-                              ),
+                            _FocusableActionButton(
+                              icon: Icons.play_circle_outline,
+                              label: l10n.watchTrailer,
+                              isPrimary: false,
+                              backgroundColor: Colors.red.shade900.withValues(alpha: 0.3),
+                              onTap: () => _openTrailer(trailerUrl),
+                            ),
                             _FocusableActionButton(
                               icon: Icons.open_in_new,
                               label: 'IMDB',
@@ -1007,8 +1006,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                           if (plot.toString().isNotEmpty)
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 600),
-                              child: Text(plot.toString(), style: const TextStyle(
-                                color: AppColors.textSecondaryDark, fontSize: 14, height: 1.6,
+                              child: Text(plot.toString(), style: TextStyle(
+                                color: AppColors.textSecondary(context), fontSize: 14, height: 1.6,
                               )),
                             ),
                           const SizedBox(height: 20),
@@ -1026,9 +1025,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                       children: [
                                         SizedBox(
                                           width: 80,
-                                          child: Text(l10n.director, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 13, fontWeight: FontWeight.w700)),
+                                          child: Text(l10n.director, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
                                         ),
-                                        Expanded(child: Text(director.toString(), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13, height: 1.4))),
+                                        Expanded(child: Text(director.toString(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4))),
                                       ],
                                     ),
                                   ),
@@ -1040,11 +1039,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                       children: [
                                         SizedBox(
                                           width: 80,
-                                          child: Text(l10n.cast, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 13, fontWeight: FontWeight.w700)),
+                                          child: Text(l10n.cast, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
                                         ),
                                         Expanded(child: Text(
                                           cast.toString().length > 100 ? '${cast.toString().substring(0, 100)}...' : cast.toString(),
-                                          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13, height: 1.4),
+                                          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4),
                                         )),
                                       ],
                                     ),
@@ -1057,9 +1056,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                       children: [
                                         SizedBox(
                                           width: 80,
-                                          child: Text(l10n.genre, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 13, fontWeight: FontWeight.w700)),
+                                          child: Text(l10n.genre, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
                                         ),
-                                        Expanded(child: Text(genre.toString(), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13, height: 1.4))),
+                                        Expanded(child: Text(genre.toString(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4))),
                                       ],
                                     ),
                                   ),
@@ -1116,8 +1115,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(ch.streamIcon!, width: 120, height: 180, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(width: 120, height: 180, color: AppColors.surfaceDark,
-                    child: const Center(child: Icon(Icons.movie, color: AppColors.textTertiaryDark, size: 36)))),
+                  errorBuilder: (_, _, _) => Container(width: 120, height: 180, color: AppColors.surface(context),
+                    child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 36)))),
               ),
             ),
           ),
@@ -1182,8 +1181,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         const SizedBox(height: 16),
         // Plot
         if (plot.toString().isNotEmpty)
-          Text(plot.toString(), style: const TextStyle(
-            color: AppColors.textSecondaryDark, fontSize: 13, height: 1.6,
+          Text(plot.toString(), style: TextStyle(
+            color: AppColors.textSecondary(context), fontSize: 13, height: 1.6,
           )),
         const SizedBox(height: 12),
         // Credits
@@ -1210,9 +1209,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         children: [
           SizedBox(
             width: 70,
-            child: Text(label, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 12, fontWeight: FontWeight.w700)),
+            child: Text(label, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12, fontWeight: FontWeight.w700)),
           ),
-          Expanded(child: Text(value, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12, height: 1.4))),
+          Expanded(child: Text(value, style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12, height: 1.4))),
         ],
       ),
     );
@@ -1222,8 +1221,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     final s = d.inSeconds.remainder(60);
-    if (h > 0) return '${h}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    return '${m}:${s.toString().padLeft(2, '0')}';
+    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   Widget _buildMetaRow(String year, String genre, String duration) {
@@ -1238,10 +1237,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         for (int i = 0; i < items.length; i++) ...[
           if (i > 0) Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('·', style: TextStyle(color: AppColors.textTertiaryDark, fontSize: 16, fontWeight: FontWeight.w700)),
+            child: Text('·', style: TextStyle(color: AppColors.textTertiary(context), fontSize: 16, fontWeight: FontWeight.w700)),
           ),
           Flexible(
-            child: Text(items[i], style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.w500),
+            child: Text(items[i], style: TextStyle(color: AppColors.textSecondary(context), fontSize: 14, fontWeight: FontWeight.w500),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -1473,7 +1472,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (_, index) {
               final channel = items[index];
               return _buildSimilarCard(channel);
@@ -1503,16 +1502,16 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                         channel.streamIcon!,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        errorBuilder: (_, __, ___) => Container(color: AppColors.surfaceDark),
+                        errorBuilder: (_, _, _) => Container(color: AppColors.surface(context)),
                       )
-                    : Container(color: AppColors.surfaceDark),
+                    : Container(color: AppColors.surface(context)),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               channel.name,
-              style: const TextStyle(
-                color: AppColors.textSecondaryDark,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -1588,7 +1587,7 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
               ),
             ),
             child: Text(widget.name, style: TextStyle(
-              color: isActive ? AppColors.primary : (widget.isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+              color: isActive ? AppColors.primary : (widget.isDark ? AppColors.textSecondary(context) : AppColors.textSecondaryLight),
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400, fontSize: 13,
             ), maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
@@ -1699,7 +1698,7 @@ class _MovieGridView extends ConsumerWidget {
     return channelsAsync.when(
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
+        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
         return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
@@ -1725,7 +1724,7 @@ class _AllMoviesGridView extends ConsumerWidget {
     return channelsAsync.when(
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
+        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
         return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
@@ -1750,12 +1749,12 @@ class _FavoritesGridView extends ConsumerWidget {
     final favIdsAsync = ref.watch(_favMovieIdsProvider);
     return favIdsAsync.when(
       data: (ids) {
-        if (ids.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiaryDark)));
+        if (ids.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiary(context))));
         final channelsAsync = ref.watch(_favChannelsProvider(ids));
         return channelsAsync.when(
           data: (channels) {
             final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-            if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiaryDark)));
+            if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiary(context))));
             final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
             final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
             return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
@@ -1783,9 +1782,9 @@ class _HistoryGridView extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevatedDark,
-        title: Text(l10n.clearHistory, style: const TextStyle(color: AppColors.textDark)),
-        content: Text(l10n.clearHistoryConfirm, style: const TextStyle(color: AppColors.textSecondaryDark)),
+        backgroundColor: AppColors.surfaceElevated(context),
+        title: Text(l10n.clearHistory, style: TextStyle(color: AppColors.text(context))),
+        content: Text(l10n.clearHistoryConfirm, style: TextStyle(color: AppColors.textSecondary(context))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           TextButton(
@@ -1811,9 +1810,9 @@ class _HistoryGridView extends ConsumerWidget {
     final channelsAsync = ref.watch(_continueWatchingMoviesProvider);
     return channelsAsync.when(
       data: (channels) {
-        if (channels.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiaryDark)));
+        if (channels.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiary(context))));
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiaryDark)));
+        if (filtered.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiary(context))));
         return Column(
           children: [
             // Clear history button bar
@@ -1981,7 +1980,7 @@ class _PosterCardState extends State<_PosterCard> with SingleTickerProviderState
               ),
               child: ClipRRect(borderRadius: BorderRadius.circular(7), child: Stack(fit: StackFit.expand, children: [
                 widget.channel.streamIcon != null
-                    ? Image.network(widget.channel.streamIcon!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _ph())
+                    ? Image.network(widget.channel.streamIcon!, fit: BoxFit.cover, errorBuilder: (_, _, _) => _ph())
                     : _ph(),
                 Positioned.fill(child: Container(decoration: BoxDecoration(
                   gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
@@ -2020,7 +2019,7 @@ class _PosterCardState extends State<_PosterCard> with SingleTickerProviderState
 
   Widget _ph() {
     final i = widget.channel.name.isNotEmpty ? widget.channel.name.substring(0, widget.channel.name.length.clamp(0, 2)).toUpperCase() : '?';
-    return Container(color: AppColors.surfaceElevatedDark, child: Center(child: Text(i, style: TextStyle(color: AppColors.textTertiaryDark, fontSize: 22, fontWeight: FontWeight.w800))));
+    return Container(color: AppColors.surfaceElevated(context), child: Center(child: Text(i, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 22, fontWeight: FontWeight.w800))));
   }
 }
 
@@ -2095,11 +2094,11 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isActive ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceDark,
+                color: isActive ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surface(context),
                 borderRadius: BorderRadius.circular(10),
                 border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
               ),
-              child: Icon(widget.icon, color: isActive ? AppColors.primary : AppColors.textSecondaryDark, size: 22),
+              child: Icon(widget.icon, color: isActive ? AppColors.primary : AppColors.textSecondary(context), size: 22),
             ),
           ),
         ),
@@ -2142,19 +2141,19 @@ class _SearchButtonState extends State<_SearchButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.surfaceElevatedDark : AppColors.surfaceDark,
+            color: _isFocused ? AppColors.surfaceElevated(context) : AppColors.surface(context),
             borderRadius: BorderRadius.circular(10),
             border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
           ),
           child: Row(
             children: [
-              Icon(Icons.search, color: widget.isActive ? AppColors.primary : AppColors.textTertiaryDark, size: 20),
+              Icon(Icons.search, color: widget.isActive ? AppColors.primary : AppColors.textTertiary(context), size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.hintText,
                   style: TextStyle(
-                    color: widget.isActive ? AppColors.textDark : AppColors.textTertiaryDark,
+                    color: widget.isActive ? AppColors.text(context) : AppColors.textTertiary(context),
                     fontSize: 14,
                     fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -2165,7 +2164,7 @@ class _SearchButtonState extends State<_SearchButton> {
               if (widget.onClear != null)
                 GestureDetector(
                   onTap: widget.onClear,
-                  child: const Icon(Icons.close, color: AppColors.textTertiaryDark, size: 18),
+                  child: Icon(Icons.close, color: AppColors.textTertiary(context), size: 18),
                 ),
             ],
           ),

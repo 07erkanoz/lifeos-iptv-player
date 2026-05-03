@@ -288,7 +288,7 @@ class _CategoryTile extends ConsumerWidget {
             ref.read(contentRepositoryProvider).toggleCategoryHidden(category.id, category.type, !visible);
             ref.invalidate(_allCategoriesProvider(category.type));
           },
-          activeColor: AppColors.primary,
+          activeThumbColor: AppColors.primary,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,

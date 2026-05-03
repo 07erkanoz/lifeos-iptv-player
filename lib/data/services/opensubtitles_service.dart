@@ -6,6 +6,7 @@
 /// - Download with SRT → VTT conversion
 /// - In-memory cache (10 min TTL)
 /// - Rate limiting awareness
+library;
 
 import 'dart:convert';
 import 'package:dio/dio.dart';

@@ -38,7 +38,7 @@ class ProgramGuide extends ConsumerWidget {
                   width: 80,
                   height: 80,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) =>
+                  errorBuilder: (_, _, _) =>
                       const Icon(Icons.tv, size: 80, color: Colors.white24),
                 ),
               const SizedBox(width: 16),

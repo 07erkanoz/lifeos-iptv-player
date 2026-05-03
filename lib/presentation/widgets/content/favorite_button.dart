@@ -24,7 +24,7 @@ class FavoriteButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavStream = ref.watch(_isFavoriteProvider((streamId: streamId, type: type)));
-    final isFav = isFavStream.when(data: (v) => v, loading: () => false, error: (_, __) => false);
+    final isFav = isFavStream.when(data: (v) => v, loading: () => false, error: (_, _) => false);
     final l10n = AppLocalizations.of(context)!;
 
     return _FavoriteIconButton(

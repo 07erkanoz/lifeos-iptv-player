@@ -7,6 +7,7 @@
 /// - #EXTGRP directive (Kodi pvr.iptvsimple standardı)
 /// - Sticky group-title davranışı
 /// - 7 protokol: http, https, rtsp, rtmp, udp, rtp, mms
+library;
 
 import 'dart:convert';
 import 'package:dio/dio.dart';
@@ -350,7 +351,7 @@ M3URawResult parseM3URaw(String content) {
             tvgName: info.tvgName,
             tvgLogo: info.tvgLogo,
             tvgType: info.tvgType,
-            groupTitle: groupTitle?.isNotEmpty == true ? groupTitle : null,
+            groupTitle: groupTitle.isNotEmpty == true ? groupTitle : null,
             url: url,
             extras: info.extras,
           ));

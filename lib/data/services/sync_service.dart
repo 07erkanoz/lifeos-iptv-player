@@ -626,9 +626,7 @@ class SyncService {
       }
 
       // Priority 2: channel name
-      if (xmltvChannelId == null) {
-        xmltvChannelId = findXmltvChannelId(channel.name, xmltv);
-      }
+      xmltvChannelId ??= findXmltvChannelId(channel.name, xmltv);
 
       if (xmltvChannelId == null) continue;
 
@@ -688,9 +686,7 @@ class SyncService {
     if (channel.epgChannelId != null && channel.epgChannelId!.isNotEmpty) {
       xmltvChannelId = findXmltvChannelId(channel.epgChannelId!, xmltv);
     }
-    if (xmltvChannelId == null) {
-      xmltvChannelId = findXmltvChannelId(channel.name, xmltv);
-    }
+    xmltvChannelId ??= findXmltvChannelId(channel.name, xmltv);
     if (xmltvChannelId == null) return false;
 
     final programs = xmltv.programsByChannel[xmltvChannelId];

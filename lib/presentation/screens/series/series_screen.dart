@@ -111,11 +111,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       PageRouteBuilder(
         opaque: false,
         barrierDismissible: true,
-        pageBuilder: (_, __, ___) => SearchDialog(
+        pageBuilder: (_, _, _) => SearchDialog(
           hintText: l10n.searchSeries,
           initialQuery: _searchQuery,
         ),
-        transitionsBuilder: (_, anim, __, child) =>
+        transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 200),
       ),
@@ -636,7 +636,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark
-          ? AppColors.surfaceElevatedDark
+          ? AppColors.surfaceElevated(context)
           : AppColors.surfaceLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -654,7 +654,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.textTertiaryDark,
+                color: AppColors.textTertiary(context),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -669,7 +669,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: isDark ? AppColors.textDark : AppColors.textLight,
+                      color: isDark ? AppColors.text(context) : AppColors.textLight,
                     ),
                   ),
                 ],
@@ -750,10 +750,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
       leading: isSelected
           ? const Icon(Icons.check_circle, size: 18)
-          : const Icon(
+          : Icon(
               Icons.circle_outlined,
               size: 18,
-              color: AppColors.textTertiaryDark,
+              color: AppColors.textTertiary(context),
             ),
       title: Text(
         name,
@@ -872,10 +872,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+          color: isDark ? AppColors.background(context) : AppColors.backgroundLight,
           border: Border(
             right: BorderSide(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              color: isDark ? AppColors.border(context) : AppColors.borderLight,
             ),
           ),
         ),
@@ -893,7 +893,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: isDark ? AppColors.textDark : AppColors.textLight,
+                      color: isDark ? AppColors.text(context) : AppColors.textLight,
                     ),
                   ),
                 ],
@@ -921,7 +921,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               isDark,
             ),
             Divider(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              color: isDark ? AppColors.border(context) : AppColors.borderLight,
               height: 1,
               indent: 12,
               endIndent: 12,
@@ -946,7 +946,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   child: Text(
                     '$e',
                     style: TextStyle(
-                      color: AppColors.textSecondaryDark,
+                      color: AppColors.textSecondary(context),
                       fontSize: 12,
                     ),
                   ),
@@ -1092,7 +1092,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
     return GestureDetector(
       onTap: () => _openDetail(ch),
-      child: Container(
+      child: SizedBox(
         height: isMobilePlatform ? 200 : 280,
         child: Stack(
           fit: StackFit.expand,
@@ -1102,8 +1102,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 imgUrl,
                 fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.3),
-                errorBuilder: (_, __, ___) =>
-                    Container(color: AppColors.surfaceDark),
+                errorBuilder: (_, _, _) =>
+                    Container(color: AppColors.surface(context)),
               ),
             // Left gradient (lighter to show more poster)
             Container(
@@ -1112,8 +1112,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    AppColors.backgroundDark.withValues(alpha: 0.85),
-                    AppColors.backgroundDark.withValues(alpha: 0.4),
+                    AppColors.background(context).withValues(alpha: 0.85),
+                    AppColors.background(context).withValues(alpha: 0.4),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.3, 0.7],
@@ -1127,8 +1127,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    AppColors.backgroundDark,
-                    AppColors.backgroundDark.withValues(alpha: 0.5),
+                    AppColors.background(context),
+                    AppColors.background(context).withValues(alpha: 0.5),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.2, 0.5],
@@ -1209,8 +1209,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                           ),
                           child: Text(
                             ch.year!,
-                            style: const TextStyle(
-                              color: AppColors.textSecondaryDark,
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
                               fontSize: 11,
                             ),
                           ),
@@ -1252,8 +1252,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                               ),
                               child: Text(
                                 g.trim(),
-                                style: const TextStyle(
-                                  color: AppColors.textSecondaryDark,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
                                   fontSize: 10,
                                 ),
                               ),
@@ -1268,8 +1268,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       ch.plot!.length > 150
                           ? '${ch.plot!.substring(0, 150)}...'
                           : ch.plot!,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
+                      style: TextStyle(
+                        color: AppColors.textSecondary(context),
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -1338,7 +1338,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     width: 100,
                     height: 150,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
               ),
@@ -1390,7 +1390,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         .when(
           data: (v) => v,
           loading: () => const <int>[],
-          error: (_, __) => const <int>[],
+          error: (_, _) => const <int>[],
         );
     final favoriteSeries = favIds.isEmpty
         ? const <Channel>[]
@@ -1399,14 +1399,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               .when(
                 data: (v) => v,
                 loading: () => const <Channel>[],
-                error: (_, __) => const <Channel>[],
+                error: (_, _) => const <Channel>[],
               );
     final historySeries = ref
         .watch(_continueWatchingSeriesProvider)
         .when(
           data: (v) => v,
           loading: () => const <Channel>[],
-          error: (_, __) => const <Channel>[],
+          error: (_, _) => const <Channel>[],
         );
     final allSeriesAsync = ref.watch(_allSeriesProvider);
     final similarSeries = allSeriesAsync.when(
@@ -1421,11 +1421,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         personalizationSeed: [...favoriteSeries, ...historySeries],
       ),
       loading: () => const <Channel>[],
-      error: (_, __) => const <Channel>[],
+      error: (_, _) => const <Channel>[],
     );
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.background(context),
       body: Stack(
         children: [
           // Backdrop
@@ -1435,8 +1435,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 backdrop.toString(),
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
-                errorBuilder: (_, __, ___) =>
-                    Container(color: AppColors.surfaceDark),
+                errorBuilder: (_, _, _) =>
+                    Container(color: AppColors.surface(context)),
               ),
             ),
           // Gradients
@@ -1448,8 +1448,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    AppColors.backgroundDark.withValues(alpha: 0.6),
-                    AppColors.backgroundDark,
+                    AppColors.background(context).withValues(alpha: 0.6),
+                    AppColors.background(context),
                   ],
                   stops: const [0.0, 0.35, 0.65],
                 ),
@@ -1463,7 +1463,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    AppColors.backgroundDark.withValues(alpha: 0.85),
+                    AppColors.background(context).withValues(alpha: 0.85),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5],
@@ -1541,14 +1541,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   width: w,
                                   height: h,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorBuilder: (_, _, _) => Container(
                                     width: w,
                                     height: h,
-                                    color: AppColors.surfaceDark,
-                                    child: const Center(
+                                    color: AppColors.surface(context),
+                                    child: Center(
                                       child: Icon(
                                         Icons.tv,
-                                        color: AppColors.textTertiaryDark,
+                                        color: AppColors.textTertiary(context),
                                         size: 48,
                                       ),
                                     ),
@@ -1557,11 +1557,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                               : Container(
                                   width: w,
                                   height: h,
-                                  color: AppColors.surfaceDark,
-                                  child: const Center(
+                                  color: AppColors.surface(context),
+                                  child: Center(
                                     child: Icon(
                                       Icons.tv,
-                                      color: AppColors.textTertiaryDark,
+                                      color: AppColors.textTertiary(context),
                                       size: 48,
                                     ),
                                   ),
@@ -1729,15 +1729,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             _playEpisode(epId, ext);
                                           },
                                         ),
-                                      if (trailerUrl != null)
-                                        _FocusableActionButton(
-                                          icon: Icons.play_circle_outline,
-                                          label: l10n.watchTrailer,
-                                          isPrimary: false,
-                                          backgroundColor: Colors.red.shade900
-                                              .withValues(alpha: 0.3),
-                                          onTap: () => _openTrailer(trailerUrl),
-                                        ),
+                                      _FocusableActionButton(
+                                        icon: Icons.play_circle_outline,
+                                        label: l10n.watchTrailer,
+                                        isPrimary: false,
+                                        backgroundColor: Colors.red.shade900
+                                            .withValues(alpha: 0.3),
+                                        onTap: () => _openTrailer(trailerUrl),
+                                      ),
                                       _FocusableActionButton(
                                         icon: Icons.open_in_new,
                                         label: 'IMDB',
@@ -1756,8 +1755,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       ),
                                       child: Text(
                                         plot.toString(),
-                                        style: const TextStyle(
-                                          color: AppColors.textSecondaryDark,
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary(context),
                                           fontSize: 14,
                                           height: 1.6,
                                         ),
@@ -1959,7 +1958,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               child: Text(
                 '·',
                 style: TextStyle(
-                  color: AppColors.textTertiaryDark,
+                  color: AppColors.textTertiary(context),
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1968,8 +1967,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           Flexible(
             child: Text(
               items[i],
-              style: const TextStyle(
-                color: AppColors.textSecondaryDark,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
                 fontSize: 13,
               ),
               maxLines: 1,
@@ -2009,8 +2008,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     final s = d.inSeconds.remainder(60);
-    if (h > 0)
+    if (h > 0) {
       return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
@@ -2249,7 +2249,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (_, index) {
               final channel = items[index];
               return _buildSimilarCard(channel);
@@ -2279,17 +2279,17 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         channel.streamIcon!,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        errorBuilder: (_, __, ___) =>
-                            Container(color: AppColors.surfaceDark),
+                        errorBuilder: (_, _, _) =>
+                            Container(color: AppColors.surface(context)),
                       )
-                    : Container(color: AppColors.surfaceDark),
+                    : Container(color: AppColors.surface(context)),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               channel.name,
-              style: const TextStyle(
-                color: AppColors.textSecondaryDark,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -2358,8 +2358,8 @@ class _EpisodeCardState extends State<_EpisodeCard> {
               duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(
                 color: isActive
-                    ? AppColors.surfaceElevatedDark
-                    : AppColors.surfaceDark,
+                    ? AppColors.surfaceElevated(context)
+                    : AppColors.surface(context),
                 borderRadius: BorderRadius.circular(10),
                 border: _isFocused
                     ? Border.all(color: AppColors.primary, width: 2)
@@ -2374,12 +2374,12 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                       child: Container(
                         width: 120,
                         height: 70,
-                        color: AppColors.surfaceElevatedDark,
+                        color: AppColors.surfaceElevated(context),
                         child: widget.thumbnail.isNotEmpty
                             ? Image.network(
                                 widget.thumbnail,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
+                                errorBuilder: (_, _, _) => const Center(
                                   child: Icon(
                                     Icons.play_circle_outline,
                                     color: Colors.white24,
@@ -2406,7 +2406,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                           Text(
                             '${widget.l10n.episode.substring(0, 1)}${widget.epNum}',
                             style: TextStyle(
-                              color: AppColors.textTertiaryDark,
+                              color: AppColors.textTertiary(context),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2429,7 +2429,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                                   ? '${widget.plot.substring(0, 100)}...'
                                   : widget.plot,
                               style: TextStyle(
-                                color: AppColors.textSecondaryDark,
+                                color: AppColors.textSecondary(context),
                                 fontSize: 11,
                               ),
                               maxLines: 2,
@@ -2442,14 +2442,14 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                               children: [
                                 Icon(
                                   Icons.access_time,
-                                  color: AppColors.textTertiaryDark,
+                                  color: AppColors.textTertiary(context),
                                   size: 12,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   widget.duration,
                                   style: TextStyle(
-                                    color: AppColors.textTertiaryDark,
+                                    color: AppColors.textTertiary(context),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -2611,21 +2611,21 @@ class _FocusableSeasonTabState extends State<_FocusableSeasonTab> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: widget.isActive ? AppColors.primary : AppColors.surfaceDark,
+            color: widget.isActive ? AppColors.primary : AppColors.surface(context),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _isFocused
                   ? AppColors.primary
                   : (widget.isActive
                         ? AppColors.primary
-                        : AppColors.borderDark),
+                        : AppColors.border(context)),
               width: _isFocused ? 2 : 1,
             ),
           ),
           child: Text(
             widget.label,
             style: TextStyle(
-              color: highlight ? Colors.white : AppColors.textSecondaryDark,
+              color: highlight ? Colors.white : AppColors.textSecondary(context),
               fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
               fontSize: 13,
             ),
@@ -2716,7 +2716,7 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
                 color: isActive
                     ? AppColors.primary
                     : (widget.isDark
-                          ? AppColors.textSecondaryDark
+                          ? AppColors.textSecondary(context)
                           : AppColors.textSecondaryLight),
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 fontSize: 13,
@@ -2759,13 +2759,14 @@ class _SeriesGridView extends ConsumerWidget {
             : channels
                   .where((c) => c.name.toLowerCase().contains(searchQuery))
                   .toList();
-        if (filtered.isEmpty)
+        if (filtered.isEmpty) {
           return Center(
             child: Text(
               l10n.noSeriesFound,
-              style: TextStyle(color: AppColors.textTertiaryDark),
+              style: TextStyle(color: AppColors.textTertiary(context)),
             ),
           );
+        }
         return _PosterGrid(
           channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
@@ -2806,13 +2807,14 @@ class _AllSeriesGridView extends ConsumerWidget {
             : channels
                   .where((c) => c.name.toLowerCase().contains(searchQuery))
                   .toList();
-        if (filtered.isEmpty)
+        if (filtered.isEmpty) {
           return Center(
             child: Text(
               l10n.noSeriesFound,
-              style: TextStyle(color: AppColors.textTertiaryDark),
+              style: TextStyle(color: AppColors.textTertiary(context)),
             ),
           );
+        }
         return _PosterGrid(
           channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
@@ -2848,13 +2850,14 @@ class _FavoritesGridView extends ConsumerWidget {
     final favIdsAsync = ref.watch(_favSeriesIdsProvider);
     return favIdsAsync.when(
       data: (ids) {
-        if (ids.isEmpty)
+        if (ids.isEmpty) {
           return Center(
             child: Text(
               l10n.noFavorites,
-              style: TextStyle(color: AppColors.textTertiaryDark),
+              style: TextStyle(color: AppColors.textTertiary(context)),
             ),
           );
+        }
         final channelsAsync = ref.watch(_favChannelsProvider(ids));
         return channelsAsync.when(
           data: (channels) {
@@ -2863,13 +2866,14 @@ class _FavoritesGridView extends ConsumerWidget {
                 : channels
                       .where((c) => c.name.toLowerCase().contains(searchQuery))
                       .toList();
-            if (filtered.isEmpty)
+            if (filtered.isEmpty) {
               return Center(
                 child: Text(
                   l10n.noFavorites,
-                  style: TextStyle(color: AppColors.textTertiaryDark),
+                  style: TextStyle(color: AppColors.textTertiary(context)),
                 ),
               );
+            }
             return _PosterGrid(
               channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
@@ -2908,14 +2912,14 @@ class _HistoryGridView extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevatedDark,
+        backgroundColor: AppColors.surfaceElevated(context),
         title: Text(
           l10n.clearHistory,
-          style: const TextStyle(color: AppColors.textDark),
+          style: TextStyle(color: AppColors.text(context)),
         ),
         content: Text(
           l10n.clearHistoryConfirm,
-          style: const TextStyle(color: AppColors.textSecondaryDark),
+          style: TextStyle(color: AppColors.textSecondary(context)),
         ),
         actions: [
           TextButton(
@@ -2964,25 +2968,27 @@ class _HistoryGridView extends ConsumerWidget {
     final channelsAsync = ref.watch(_continueWatchingSeriesProvider);
     return channelsAsync.when(
       data: (channels) {
-        if (channels.isEmpty)
+        if (channels.isEmpty) {
           return Center(
             child: Text(
               l10n.noHistory,
-              style: TextStyle(color: AppColors.textTertiaryDark),
+              style: TextStyle(color: AppColors.textTertiary(context)),
             ),
           );
+        }
         final filtered = searchQuery.isEmpty
             ? channels
             : channels
                   .where((c) => c.name.toLowerCase().contains(searchQuery))
                   .toList();
-        if (filtered.isEmpty)
+        if (filtered.isEmpty) {
           return Center(
             child: Text(
               l10n.noHistory,
-              style: TextStyle(color: AppColors.textTertiaryDark),
+              style: TextStyle(color: AppColors.textTertiary(context)),
             ),
           );
+        }
         return Column(
           children: [
             // Clear history button bar
@@ -3239,7 +3245,7 @@ class _PosterCardState extends State<_PosterCard>
                         ? Image.network(
                             widget.channel.streamIcon!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _ph(),
+                            errorBuilder: (_, _, _) => _ph(),
                           )
                         : _ph(),
                     Positioned.fill(
@@ -3411,12 +3417,12 @@ class _PosterCardState extends State<_PosterCard>
               .toUpperCase()
         : '?';
     return Container(
-      color: AppColors.surfaceElevatedDark,
+      color: AppColors.surfaceElevated(context),
       child: Center(
         child: Text(
           i,
           style: TextStyle(
-            color: AppColors.textTertiaryDark,
+            color: AppColors.textTertiary(context),
             fontSize: 22,
             fontWeight: FontWeight.w800,
           ),
@@ -3519,7 +3525,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
               decoration: BoxDecoration(
                 color: isActive
                     ? AppColors.primary.withValues(alpha: 0.15)
-                    : AppColors.surfaceDark,
+                    : AppColors.surface(context),
                 borderRadius: BorderRadius.circular(10),
                 border: _isFocused
                     ? Border.all(color: AppColors.primary, width: 2)
@@ -3529,7 +3535,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
                 widget.icon,
                 color: isActive
                     ? AppColors.primary
-                    : AppColors.textSecondaryDark,
+                    : AppColors.textSecondary(context),
                 size: 22,
               ),
             ),
@@ -3580,8 +3586,8 @@ class _SearchButtonState extends State<_SearchButton> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: _isFocused
-                ? AppColors.surfaceElevatedDark
-                : AppColors.surfaceDark,
+                ? AppColors.surfaceElevated(context)
+                : AppColors.surface(context),
             borderRadius: BorderRadius.circular(10),
             border: _isFocused
                 ? Border.all(color: AppColors.primary, width: 2)
@@ -3593,7 +3599,7 @@ class _SearchButtonState extends State<_SearchButton> {
                 Icons.search,
                 color: widget.isActive
                     ? AppColors.primary
-                    : AppColors.textTertiaryDark,
+                    : AppColors.textTertiary(context),
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -3602,8 +3608,8 @@ class _SearchButtonState extends State<_SearchButton> {
                   widget.hintText,
                   style: TextStyle(
                     color: widget.isActive
-                        ? AppColors.textDark
-                        : AppColors.textTertiaryDark,
+                        ? AppColors.text(context)
+                        : AppColors.textTertiary(context),
                     fontSize: 14,
                     fontWeight: widget.isActive
                         ? FontWeight.w600
@@ -3616,9 +3622,9 @@ class _SearchButtonState extends State<_SearchButton> {
               if (widget.onClear != null)
                 GestureDetector(
                   onTap: widget.onClear,
-                  child: const Icon(
+                  child: Icon(
                     Icons.close,
-                    color: AppColors.textTertiaryDark,
+                    color: AppColors.textTertiary(context),
                     size: 18,
                   ),
                 ),

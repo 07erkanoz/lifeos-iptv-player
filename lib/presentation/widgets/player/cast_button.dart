@@ -71,7 +71,7 @@ class CastButton extends StatelessWidget {
       builder: (context, castState, _) {
         return ValueListenableBuilder<DlnaState>(
           valueListenable: dlna.stateNotifier,
-          builder: (context, dlnaState, __) {
+          builder: (context, dlnaState, _) {
             final connected = castState.isConnected || dlnaState.isConnected;
             return IconButton(
               icon: Icon(
@@ -304,7 +304,7 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _entries.length,
-                separatorBuilder: (_, __) =>
+                separatorBuilder: (_, _) =>
                     const Divider(color: Colors.white12, height: 1),
                 itemBuilder: (context, index) {
                   final entry = _entries[index];

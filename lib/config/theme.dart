@@ -31,11 +31,70 @@ class AppColors {
   static const Color backgroundElevatedLight = Color(0xFFFFFFFF);
   static const Color surfaceLight = Color(0xFFFFFFFF);
   static const Color surfaceElevatedLight = Color(0xFFF5F5FA);
+  static const Color surfaceHoverLight = Color(0xFFEDEDF2);
   static const Color borderLight = Color(0xFFE0E0E5);
+  static const Color borderLightLight = Color(0xFFD0D0D5);
   static const Color textLight = Color(0xFF1C1C1E);
   static const Color textSecondaryLight = Color(0xFF6C6C70);
   static const Color textTertiaryLight = Color(0xFF9A9A9E);
+  static const Color textDisabledLight = Color(0xFFC0C0C5);
   static const Color sidebarBgLight = Color(0xFFE8E8ED);
+  static const Color sidebarBorderLight = Color(0xFFD8D8DD);
+
+  // ─── Theme-adaptive helpers ────────────────────────────────────────
+  // Use these instead of the raw *Dark constants when a widget should
+  // follow the active theme. Reading `Theme.of(context).brightness` keeps
+  // them rebuilt-on-theme-change for free.
+
+  static Color background(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? backgroundDark : backgroundLight;
+
+  static Color backgroundElevated(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? backgroundElevatedDark
+          : backgroundElevatedLight;
+
+  static Color surface(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? surfaceDark : surfaceLight;
+
+  static Color surfaceElevated(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? surfaceElevatedDark
+          : surfaceElevatedLight;
+
+  static Color surfaceHover(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? surfaceHoverDark
+          : surfaceHoverLight;
+
+  static Color border(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? borderDark : borderLight;
+
+  static Color text(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? textDark : textLight;
+
+  static Color textSecondary(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? textSecondaryDark
+          : textSecondaryLight;
+
+  static Color textTertiary(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? textTertiaryDark
+          : textTertiaryLight;
+
+  static Color textDisabled(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? textDisabledDark
+          : textDisabledLight;
+
+  static Color sidebarBg(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? sidebarBgDark : sidebarBgLight;
+
+  static Color sidebarBorder(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
+          ? sidebarBorderDark
+          : sidebarBorderLight;
 }
 
 class AppTheme {

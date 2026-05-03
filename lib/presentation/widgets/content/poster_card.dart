@@ -119,8 +119,8 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
                 ? CachedNetworkImage(
                     imageUrl: widget.channel.streamIcon!,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => _buildShimmer(),
-                    errorWidget: (_, __, ___) => _buildPlaceholder(),
+                    placeholder: (_, _) => _buildShimmer(),
+                    errorWidget: (_, _, _) => _buildPlaceholder(),
                   )
                 : _buildPlaceholder(),
 

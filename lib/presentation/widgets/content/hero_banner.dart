@@ -373,7 +373,7 @@ class _HeroBannerState extends State<HeroBanner> {
         alignment: const Alignment(0, -0.3),
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, __, ___) => _buildPosterBackground(channel),
+        errorBuilder: (_, _, _) => _buildPosterBackground(channel),
       );
     }
     return _buildPosterBackground(channel);
@@ -400,7 +400,7 @@ class _HeroBannerState extends State<HeroBanner> {
             child: CachedNetworkImage(
               imageUrl: channel.streamIcon!,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(color: AppColors.surfaceDark),
+              errorWidget: (_, _, _) => Container(color: AppColors.surfaceDark),
             ),
           ),
         ),

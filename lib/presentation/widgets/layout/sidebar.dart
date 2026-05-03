@@ -168,19 +168,19 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
             return Container(
               width: _widthAnimation.value,
               decoration: BoxDecoration(
-                color: AppColors.sidebarBgDark,
+                color: AppColors.sidebarBg(context),
                 border: Border(
-                  right: BorderSide(color: AppColors.sidebarBorderDark, width: 1),
+                  right: BorderSide(color: AppColors.sidebarBorder(context), width: 1),
                 ),
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 24),
-                  _buildLogo(),
+                  _buildLogo(context),
                   const SizedBox(height: 32),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(color: AppColors.borderDark, height: 1),
+                    child: Divider(color: AppColors.border(context), height: 1),
                   ),
                   const SizedBox(height: 16),
                   Expanded(
@@ -216,17 +216,17 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         mainAxisAlignment: _isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
         children: [
           if (_isExpanded) ...[
-            const Text(
+            Text(
               'Life',
               style: TextStyle(
-                color: AppColors.textDark,
+                color: AppColors.text(context),
                 fontWeight: FontWeight.w300,
                 fontSize: 18,
                 letterSpacing: 0.5,
@@ -295,6 +295,14 @@ class _SidebarItemState extends State<_SidebarItem> {
   @override
   Widget build(BuildContext context) {
     final isActive = widget.isSelected || _isFocused || _isHovered;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Hover wash differs by theme: a translucent white reads on dark bg,
+    // a translucent black reads on light bg.
+    final hoverWash = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.05);
+    final inactiveText = AppColors.textSecondary(context);
+    final activeText = AppColors.text(context);
 
     return Focus(
       focusNode: widget.focusNode,
@@ -329,7 +337,7 @@ class _SidebarItemState extends State<_SidebarItem> {
               color: widget.isSelected
                   ? AppColors.primary.withValues(alpha: 0.12)
                   : isActive
-                      ? Colors.white.withValues(alpha: 0.06)
+                      ? hoverWash
                       : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: _isFocused
@@ -346,8 +354,8 @@ class _SidebarItemState extends State<_SidebarItem> {
                   color: widget.isSelected
                       ? AppColors.primary
                       : isActive
-                          ? AppColors.textDark
-                          : AppColors.textSecondaryDark,
+                          ? activeText
+                          : inactiveText,
                   size: 22,
                 ),
                 if (widget.isExpanded) ...[
@@ -359,8 +367,8 @@ class _SidebarItemState extends State<_SidebarItem> {
                         color: widget.isSelected
                             ? AppColors.primary
                             : isActive
-                                ? AppColors.textDark
-                                : AppColors.textSecondaryDark,
+                                ? activeText
+                                : inactiveText,
                         fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
                         fontSize: 14,
                       ),

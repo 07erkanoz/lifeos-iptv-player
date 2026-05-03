@@ -83,7 +83,7 @@ class ContentList extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: hPad),
               scrollDirection: Axis.horizontal,
               itemCount: channels.length,
-              separatorBuilder: (_, __) => SizedBox(width: isMobile ? 8 : 12),
+              separatorBuilder: (_, _) => SizedBox(width: isMobile ? 8 : 12),
               itemBuilder: (context, index) {
                 return Center(
                   child: PosterCard(

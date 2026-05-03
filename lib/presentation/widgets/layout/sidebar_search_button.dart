@@ -67,7 +67,7 @@ class _SidebarSearchButtonState extends State<SidebarSearchButton> {
               children: [
                 Icon(
                   Icons.search,
-                  color: isActive ? AppColors.primary : AppColors.textSecondaryDark,
+                  color: isActive ? AppColors.primary : AppColors.textSecondary(context),
                   size: 22,
                 ),
                 if (widget.isExpanded) ...[
@@ -75,7 +75,7 @@ class _SidebarSearchButtonState extends State<SidebarSearchButton> {
                   Text(
                     l10n.search,
                     style: TextStyle(
-                      color: isActive ? AppColors.primary : AppColors.textSecondaryDark,
+                      color: isActive ? AppColors.primary : AppColors.textSecondary(context),
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                     ),

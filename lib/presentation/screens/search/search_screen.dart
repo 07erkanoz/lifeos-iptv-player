@@ -402,7 +402,7 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                         ? Image.network(
                             ch.streamIcon!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholderIcon(),
+                            errorBuilder: (_, _, _) => _placeholderIcon(),
                           )
                         : _placeholderIcon(),
                   ),

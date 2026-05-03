@@ -44,7 +44,7 @@ class _SkeletonLoaderState extends State<SkeletonLoader> with SingleTickerProvid
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _shimmer,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
@@ -107,8 +107,8 @@ class SkeletonRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: count,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (_, __) => SkeletonLoader(width: itemWidth, height: itemHeight),
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (_, _) => SkeletonLoader(width: itemWidth, height: itemHeight),
       ),
     );
   }

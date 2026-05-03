@@ -238,7 +238,9 @@ class ContentRepository {
     String? castInfo,
   }) async {
     if (backdropPath == null && youtubeTrailer == null &&
-        genre == null && plot == null && director == null && castInfo == null) return;
+        genre == null && plot == null && director == null && castInfo == null) {
+      return;
+    }
     await (_db.update(_db.channels)
       ..where((tbl) => tbl.streamId.equals(streamId) & tbl.type.equals(type))
     ).write(ChannelsCompanion(

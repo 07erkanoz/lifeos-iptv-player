@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -542,13 +541,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       final favIdsAsync = ref.watch(_favLiveIdsProvider);
       return favIdsAsync.when(
         data: (ids) {
-          if (ids.isEmpty)
+          if (ids.isEmpty) {
             return Center(
               child: Text(
                 l10n.noChannels,
                 style: const TextStyle(color: AppColors.textTertiaryDark),
               ),
             );
+          }
           final chAsync = ref.watch(_favLiveChannelsProvider(ids));
           return chAsync.when(
             data: (channels) => _buildMobileChannelListView(channels, l10n),
@@ -566,13 +566,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       final historyAsync = ref.watch(_continueWatchingLiveProvider);
       return historyAsync.when(
         data: (channels) {
-          if (channels.isEmpty)
+          if (channels.isEmpty) {
             return Center(
               child: Text(
                 l10n.noHistory,
                 style: const TextStyle(color: AppColors.textTertiaryDark),
               ),
             );
+          }
           return Column(
             children: [
               Padding(
@@ -637,7 +638,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   ) {
     return ListView.separated(
       itemCount: channels.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           const Divider(height: 1, indent: 68, color: AppColors.borderDark),
       itemBuilder: (context, index) {
         final ch = channels[index];
@@ -1781,7 +1782,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
     final isFavorite = isFavoriteAsync.when(
       data: (v) => v,
       loading: () => false,
-      error: (_, __) => false,
+      error: (_, _) => false,
     );
 
     String? currentProgramTitle;
@@ -1844,7 +1845,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
                       ? Image.network(
                           widget.channel.streamIcon!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _channelPlaceholder(),
+                          errorBuilder: (_, _, _) => _channelPlaceholder(),
                         )
                       : _channelPlaceholder(),
                 ),
@@ -2271,7 +2272,7 @@ class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
             ),
           ),
         ),
-        error: (_, __) => const SizedBox.shrink(),
+        error: (_, _) => const SizedBox.shrink(),
       ),
     );
   }
@@ -2594,7 +2595,7 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
     final isFavorite = isFavoriteAsync.when(
       data: (v) => v,
       loading: () => false,
-      error: (_, __) => false,
+      error: (_, _) => false,
     );
     final now = DateTime.now();
 
@@ -2628,7 +2629,7 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
                     ? Image.network(
                         widget.channel.streamIcon!,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: AppColors.surfaceElevatedDark,
                           child: const Icon(
                             Icons.tv,

@@ -56,27 +56,29 @@ class _DesktopTitleBarState extends State<DesktopTitleBar> with WindowListener {
       },
       child: Container(
         height: 36,
-        decoration: const BoxDecoration(
-          color: AppColors.backgroundDark,
-          border: Border(bottom: BorderSide(color: AppColors.borderDark, width: 1)),
+        decoration: BoxDecoration(
+          color: AppColors.background(context),
+          border: Border(
+            bottom: BorderSide(color: AppColors.border(context), width: 1),
+          ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Stack(
           children: [
-            const Align(
+            Align(
               alignment: Alignment.center,
               child: IgnorePointer(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: _windowControlsWidth + 20),
+                  padding: const EdgeInsets.symmetric(horizontal: _windowControlsWidth + 20),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.tv, size: 14, color: AppColors.primary),
-                      SizedBox(width: 8),
+                      const Icon(Icons.tv, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 8),
                       Text(
                         'LifeOs TV',
                         style: TextStyle(
-                          color: AppColors.textSecondaryDark,
+                          color: AppColors.textSecondary(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.2,
@@ -157,14 +159,15 @@ class _WindowActionButtonState extends State<_WindowActionButton> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             color: _hovering
-                ? (widget.hoverColor ?? AppColors.surfaceHoverDark).withValues(alpha: 0.9)
+                ? (widget.hoverColor ?? AppColors.surfaceHover(context))
+                    .withValues(alpha: 0.9)
                 : Colors.transparent,
           ),
           alignment: Alignment.center,
           child: Icon(
             widget.icon,
             size: 14,
-            color: AppColors.textSecondaryDark,
+            color: AppColors.textSecondary(context),
           ),
         ),
       ),

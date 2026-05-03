@@ -31,7 +31,7 @@ class WatchlistButton extends ConsumerWidget {
     final inList = inListStream.when(
       data: (v) => v,
       loading: () => false,
-      error: (_, __) => false,
+      error: (_, _) => false,
     );
     final l10n = AppLocalizations.of(context)!;
 

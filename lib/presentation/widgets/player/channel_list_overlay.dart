@@ -501,7 +501,7 @@ class _ChannelItemState extends State<_ChannelItem> {
                     width: 32,
                     height: 22,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox(width: 32, height: 22),
+                    errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 22),
                   ),
                 )
               else

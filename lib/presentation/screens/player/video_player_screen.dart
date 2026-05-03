@@ -659,8 +659,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             });
           } else {
             _bufferingTimeoutTimer?.cancel();
-            if (_showBufferingError)
+            if (_showBufferingError) {
               setState(() => _showBufferingError = false);
+            }
           }
         }
       }),
@@ -2085,7 +2086,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           s.subtitleBackgroundEnabled,
         ),
       ),
-      (_, __) => _applySubtitleStyle(),
+      (_, _) => _applySubtitleStyle(),
     );
 
     Widget scaffold = Scaffold(
@@ -2412,7 +2413,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               onClose: () =>
                                   setState(() => _showEpgGuide = false),
                             ),
-                            error: (_, __) => EpgOverlay(
+                            error: (_, _) => EpgOverlay(
                               programs: const [],
                               channelName: _currentTitle,
                               channelLogo: _currentLogo,
@@ -2513,7 +2514,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   _currentLogo!,
                   width: 30,
                   height: 30,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
             if (_currentLogo != null && _currentLogo!.isNotEmpty)
@@ -2684,7 +2685,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           width: 80,
                           height: 120,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     if (widget.logo != null && widget.logo!.isNotEmpty)
@@ -3172,7 +3173,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               width: 52,
                               height: 52,
                               decoration: BoxDecoration(
