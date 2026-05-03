@@ -20,8 +20,10 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
 import 'package:lifeostv/utils/sort_mode.dart';
+import 'package:lifeostv/utils/genre_filter.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/sort_dropdown.dart';
+import 'package:lifeostv/presentation/widgets/content/genre_dropdown.dart';
 
 // ─── Special virtual category IDs ────────────────────────────────────────────
 const _kFavoritesId = '__favorites__';
@@ -564,6 +566,22 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                     ? () => setState(() => _searchQuery = '')
                     : null,
               ),
+            ),
+            const SizedBox(width: 8),
+            // Genre filter (only renders when there are genres in DB).
+            // Uses the currently-loaded movie list to populate the picker
+            // so the dropdown only ever shows genres that actually have
+            // matching content.
+            Consumer(
+              builder: (context, ref, _) {
+                final all = ref.watch(_allMoviesProvider).value ?? const [];
+                return GenreDropdown(
+                  value: ref.watch(movieGenreFilterProvider),
+                  genres: extractGenres(all),
+                  onChanged: (g) =>
+                      ref.read(movieGenreFilterProvider.notifier).set(g),
+                );
+              },
             ),
             const SizedBox(width: 8),
             // Sort picker (newest / rating / name)
@@ -1682,7 +1700,8 @@ class _MovieGridView extends ConsumerWidget {
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
-        final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+        final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
+        final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
         return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1707,7 +1726,8 @@ class _AllMoviesGridView extends ConsumerWidget {
       data: (channels) {
         final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiaryDark)));
-        final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+        final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
+        final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
         return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1736,7 +1756,8 @@ class _FavoritesGridView extends ConsumerWidget {
           data: (channels) {
             final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
             if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiaryDark)));
-            final sorted = sortChannels(filtered, ref.watch(movieSortModeProvider));
+            final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
+            final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
             return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
           },
           loading: () => const Center(child: CircularProgressIndicator()),

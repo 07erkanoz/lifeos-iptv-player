@@ -20,8 +20,10 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
 import 'package:lifeostv/utils/sort_mode.dart';
+import 'package:lifeostv/utils/genre_filter.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/sort_dropdown.dart';
+import 'package:lifeostv/presentation/widgets/content/genre_dropdown.dart';
 
 // ─── Special virtual category IDs ────────────────────────────────────────────
 const _kFavoritesId = '__favorites__';
@@ -1013,6 +1015,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         ? () => setState(() => _searchQuery = '')
                         : null,
                   ),
+                ),
+                const SizedBox(width: 8),
+                // Genre filter (only renders when there are genres in DB)
+                Consumer(
+                  builder: (context, ref, _) {
+                    final all = ref.watch(_allSeriesProvider).value ?? const [];
+                    return GenreDropdown(
+                      value: ref.watch(seriesGenreFilterProvider),
+                      genres: extractGenres(all),
+                      onChanged: (g) =>
+                          ref.read(seriesGenreFilterProvider.notifier).set(g),
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
                 // Sort picker (newest / rating / name)
@@ -2752,7 +2767,10 @@ class _SeriesGridView extends ConsumerWidget {
             ),
           );
         return _PosterGrid(
-          channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
+          channels: sortChannels(
+            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+            ref.watch(seriesSortModeProvider),
+          ),
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
@@ -2796,7 +2814,10 @@ class _AllSeriesGridView extends ConsumerWidget {
             ),
           );
         return _PosterGrid(
-          channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
+          channels: sortChannels(
+            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+            ref.watch(seriesSortModeProvider),
+          ),
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
@@ -2850,7 +2871,10 @@ class _FavoritesGridView extends ConsumerWidget {
                 ),
               );
             return _PosterGrid(
-              channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
+              channels: sortChannels(
+            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+            ref.watch(seriesSortModeProvider),
+          ),
               onHover: onHover,
               onTap: onTap,
               onLeftEdge: onLeftEdge,
@@ -2994,7 +3018,10 @@ class _HistoryGridView extends ConsumerWidget {
             ),
             Expanded(
               child: _PosterGrid(
-                channels: sortChannels(filtered, ref.watch(seriesSortModeProvider)),
+                channels: sortChannels(
+            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+            ref.watch(seriesSortModeProvider),
+          ),
                 onHover: onHover,
                 onTap: onTap,
                 onLeftEdge: onLeftEdge,
