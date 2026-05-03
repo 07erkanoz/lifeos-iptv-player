@@ -3,8 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 /// Data class for hero VOD info (fetched from API)
@@ -61,6 +64,16 @@ class _HeroBannerState extends State<HeroBanner> {
   Timer? _autoSlideTimer;
   int _lastChannelCount = 0;
 
+  // ── Trailer preview state ──
+  // We extract the YouTube stream URL into a media_kit Player so the
+  // hero plays a muted, looping trailer behind the title overlay
+  // (Netflix billboard pattern). Reset on every hero item change.
+  Player? _trailerPlayer;
+  VideoController? _trailerController;
+  Timer? _trailerScheduleTimer;
+  int _trailerRequestId = 0; // bumped on every change to invalidate stale requests
+  bool _trailerVisible = false;
+
   bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
 
   @override
@@ -71,7 +84,9 @@ class _HeroBannerState extends State<HeroBanner> {
     // Notify parent of initial item
     if (widget.channels.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         widget.onItemChanged?.call(widget.channels[0]);
+        _scheduleTrailer(widget.channels[0]);
       });
     }
   }
@@ -90,6 +105,7 @@ class _HeroBannerState extends State<HeroBanner> {
       // Notify parent of current item after channels changed
       if (widget.channels.isNotEmpty) {
         widget.onItemChanged?.call(widget.channels[_currentIndex]);
+        _scheduleTrailer(widget.channels[_currentIndex]);
       }
     }
   }
@@ -97,17 +113,20 @@ class _HeroBannerState extends State<HeroBanner> {
   @override
   void dispose() {
     _autoSlideTimer?.cancel();
+    _trailerScheduleTimer?.cancel();
+    _disposeTrailerPlayer();
     super.dispose();
   }
 
   void _startAutoSlide() {
     _autoSlideTimer?.cancel();
     if (widget.channels.length > 1) {
-      _autoSlideTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _autoSlideTimer = Timer.periodic(const Duration(seconds: 12), (_) {
         if (mounted) {
           final newIndex = (_currentIndex + 1) % widget.channels.length;
           setState(() => _currentIndex = newIndex);
           widget.onItemChanged?.call(widget.channels[newIndex]);
+          _scheduleTrailer(widget.channels[newIndex]);
         }
       });
     }
@@ -117,7 +136,70 @@ class _HeroBannerState extends State<HeroBanner> {
     if (index == _currentIndex || index < 0 || index >= widget.channels.length) return;
     setState(() => _currentIndex = index);
     widget.onItemChanged?.call(widget.channels[index]);
+    _scheduleTrailer(widget.channels[index]);
     _startAutoSlide(); // Reset timer
+  }
+
+  // ───────────────────────── Trailer preview ─────────────────────────
+
+  /// Tear down the previous preview and queue extraction for [channel]
+  /// after a short delay (so rapid swipes don't burn YouTube requests
+  /// and the user gets time to see the still backdrop first).
+  void _scheduleTrailer(Channel channel) {
+    _trailerScheduleTimer?.cancel();
+    _disposeTrailerPlayer();
+    setState(() => _trailerVisible = false);
+
+    // Live channels don't have trailers; mobile is too small / data
+    // sensitive to autoplay, skip there too.
+    if (channel.type == 'live') return;
+    if (_isMobile(context)) return;
+
+    final raw = channel.youtubeTrailer;
+    if (raw == null || raw.trim().isEmpty) return;
+
+    final reqId = ++_trailerRequestId;
+    _trailerScheduleTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) _startTrailer(channel, raw, reqId);
+    });
+  }
+
+  Future<void> _startTrailer(Channel channel, String trailerRef, int reqId) async {
+    final streamUrl =
+        await YouTubeTrailerService.instance.extractStreamUrl(trailerRef);
+    if (!mounted) return;
+    // Stale: user moved on to another hero item or we got disposed.
+    if (reqId != _trailerRequestId) return;
+    if (streamUrl == null) return;
+
+    final player = Player();
+    final controller = VideoController(player);
+    try {
+      await player.setVolume(0);
+      await player.setPlaylistMode(PlaylistMode.loop);
+      await player.open(Media(streamUrl), play: true);
+    } catch (_) {
+      player.dispose();
+      return;
+    }
+
+    if (!mounted || reqId != _trailerRequestId) {
+      player.dispose();
+      return;
+    }
+
+    setState(() {
+      _trailerPlayer = player;
+      _trailerController = controller;
+      _trailerVisible = true;
+    });
+  }
+
+  void _disposeTrailerPlayer() {
+    final p = _trailerPlayer;
+    _trailerPlayer = null;
+    _trailerController = null;
+    p?.dispose();
   }
 
   void _goNext() {
@@ -184,6 +266,19 @@ class _HeroBannerState extends State<HeroBanner> {
             duration: const Duration(milliseconds: 800),
             child: _buildHeroImage(channel, backdropUrl, hasBackdrop),
           ),
+
+          // ── Trailer overlay (fades in once YouTube extraction completes) ──
+          if (_trailerController != null)
+            AnimatedOpacity(
+              opacity: _trailerVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 600),
+              child: Video(
+                controller: _trailerController!,
+                fill: Colors.black,
+                controls: NoVideoControls,
+                fit: BoxFit.cover,
+              ),
+            ),
 
           // ── Left gradient (same as movies hero) ──
           Container(decoration: BoxDecoration(
