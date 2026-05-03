@@ -90,10 +90,6 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   /// Category ID → Name map for channel list overlay
   final Map<String, String>? categoryNames;
 
-  /// Existing player/controller from PiP expansion (reuse instead of creating new)
-  final Player? existingPlayer;
-  final VideoController? existingController;
-
   const VideoPlayerScreen({
     super.key,
     required this.streamUrl,
@@ -118,8 +114,6 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.channels,
     this.currentChannelIndex,
     this.categoryNames,
-    this.existingPlayer,
-    this.existingController,
   });
 
   @override
@@ -185,8 +179,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   bool _showChannelInfo = false;
   Timer? _channelInfoTimer;
 
-  // PiP transfer flag – when true, dispose() won't destroy the player
-  bool _transferredToPip = false;
   bool _pipTransitioning = false;
   late String _currentUrl;
 
@@ -329,13 +321,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _pipEventSub = null;
     _posUpdateTimer?.cancel();
     _channelInfoTimer?.cancel();
-    if (!_transferredToPip) {
-      // Stop playback first so the decoder stops feeding the SurfaceTexture,
-      // then dispose the Player. media_kit registers VideoController cleanup
-      // against Player.dispose(), which releases the Android surface.
-      _player.stop();
-      _player.dispose();
-    }
+    // Stop playback first so the decoder stops feeding the SurfaceTexture,
+    // then dispose the Player. media_kit registers VideoController cleanup
+    // against Player.dispose(), which releases the Android surface.
+    _player.stop();
+    _player.dispose();
     _setPlayerActive(false);
     _hideTimer?.cancel();
     _progressTimer?.cancel();
@@ -478,17 +468,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   Future<void> _initPlayer() async {
     final settings = ref.read(settingsProvider);
-
-    // Reuse existing player from PiP expansion
-    if (widget.existingPlayer != null && widget.existingController != null) {
-      ref.read(pipProvider.notifier).detachPip();
-      _player = widget.existingPlayer!;
-      _controller = widget.existingController!;
-      // Skip configuration and media open – player is already running
-      _attachStreamListeners();
-      _resetHideTimer();
-      return;
-    }
 
     // Platform-specific video output config
     // Linux: do NOT set vo — media_kit handles rendering via its own OpenGL render context.
@@ -1944,7 +1923,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       if (!isDesktopPipSupported) return;
 
-      _transferredToPip = true;
       _saveProgress();
 
       // Restore fullscreen/always-on-top before entering PiP (PiP manages its own window state)
@@ -1957,41 +1935,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _isAlwaysOnTop = false;
       }
 
-      // Cancel all subscriptions so this State doesn't fight with PiP
-      for (final s in _subs) {
-        s.cancel();
-      }
-      _subs.clear();
-      _epgSub?.cancel();
-      _posUpdateTimer?.cancel();
-
-      // Capture the player + controller refs locally — once we pop,
-      // dispose() runs and `this.mounted` becomes false. We still need
-      // these handles to hand off to PiP after the pop completes.
-      final player = _player;
-      final controller = _controller;
-      final title = _currentTitle;
-      final logo = _currentLogo;
-      final url = _currentUrl;
-      final typeName = widget.type.name;
-      final notifier = ref.read(pipProvider.notifier);
-
-      // Pop FIRST so the navigator returns to whatever was below the
-      // player route. If we entered PiP first, MaterialApp would swap to
-      // PipOverlay and unmount this screen — `mounted` would flip to
-      // false and the pop would silently no-op, leaving the orphan
-      // player route on the stack. On PiP close that orphan would render
-      // a stale player surface (the gray frame the user reported).
-      if (mounted) Navigator.of(context).pop();
-
-      await notifier.enterPip(
-        player: player,
-        controller: controller,
-        title: title,
-        logo: logo,
-        url: url,
-        typeName: typeName,
-      );
+      // Don't pop the /player route. With main.dart's Stack-layered
+      // PipOverlay this screen stays mounted under the overlay; its
+      // build() reacts to pipProvider and hides the local Video so
+      // there's no double texture binding. Expand becomes "clear PiP
+      // state" (Video re-appears, user is back to fullscreen). Close
+      // pops /player from PipOverlay's button.
+      await ref.read(pipProvider.notifier).enterPip(
+            player: _player,
+            controller: _controller,
+            title: _currentTitle,
+            logo: _currentLogo,
+            url: _currentUrl,
+            typeName: widget.type.name,
+          );
     } finally {
       _pipTransitioning = false;
     }
@@ -2166,17 +2123,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               child: Stack(
                 children: [
                   // -- Video layer (no native controls - we use custom overlay) --
-                  Center(
-                    child: Video(
-                      controller: _controller,
-                      fill: Colors.black,
-                      controls: NoVideoControls,
-                      // media_kit renders subtitles via a Flutter widget by
-                      // default — NOT via mpv/libass. So style/position must
-                      // live here, not in mpv setProperty calls.
-                      subtitleViewConfiguration: _buildSubtitleViewConfig(),
+                  // Hidden while PiP is active so PipOverlay's Video has
+                  // the only binding to _controller — two simultaneous
+                  // Video widgets bound to the same controller cause
+                  // texture conflicts on media_kit (frozen / gray frame).
+                  if (ref.watch(pipProvider) == null)
+                    Center(
+                      child: Video(
+                        controller: _controller,
+                        fill: Colors.black,
+                        controls: NoVideoControls,
+                        // media_kit renders subtitles via a Flutter widget by
+                        // default — NOT via mpv/libass. So style/position must
+                        // live here, not in mpv setProperty calls.
+                        subtitleViewConfiguration: _buildSubtitleViewConfig(),
+                      ),
                     ),
-                  ),
 
                   // -- Buffering indicator -----------------------------------
                   if (_isBuffering && !_showBufferingError)

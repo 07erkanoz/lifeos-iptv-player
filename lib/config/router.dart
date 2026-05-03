@@ -1,6 +1,4 @@
 import 'package:go_router/go_router.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/presentation/widgets/layout/app_shell.dart';
 import 'package:lifeostv/presentation/screens/settings/settings_screen.dart';
 import 'package:lifeostv/presentation/screens/live/live_tv_screen.dart';
@@ -104,8 +102,6 @@ GoRouter router(Ref ref) {
             channels: extras['channels'] as List<PlayerChannel>?,
             currentChannelIndex: extras['currentChannelIndex'] as int?,
             categoryNames: extras['categoryNames'] as Map<String, String>?,
-            existingPlayer: extras['existingPlayer'] as Player?,
-            existingController: extras['existingController'] as VideoController?,
           );
         },
       ),

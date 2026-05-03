@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
-import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 
 // =============================================================================
 //  PiP Overlay — Full Window Mode (all desktop platforms)
@@ -164,41 +163,28 @@ class _PipControlsState extends ConsumerState<_PipControls> {
           icon: Icons.close,
           size: btnSize,
           iconSize: iconSize,
-          onTap: () {
-            ref.read(pipProvider.notifier).closePip();
-          },
+          onTap: _closePip,
         ),
       ],
     );
   }
 
+  /// Expand back to the fullscreen player. Because the /player route
+  /// stayed mounted under the PiP overlay (main.dart Stacks PipOverlay
+  /// over the router), all we need to do is clear PiP state — the
+  /// player screen sees pipProvider become null, re-shows its Video,
+  /// and the user is back to fullscreen instantly.
   void _expandToFullscreen() async {
-    final router = GoRouter.of(context);
-    final data = await ref.read(pipProvider.notifier).expandToFullscreen();
-    if (data == null) return;
-
-    await router.push(
-      '/player',
-      extra: {
-        'url': data.url,
-        'title': data.title,
-        'type': _videoTypeFromName(data.typeName),
-        'logo': data.logo,
-        'existingPlayer': data.player,
-        'existingController': data.controller,
-      },
-    );
+    await ref.read(pipProvider.notifier).expandToFullscreen();
   }
 
-  VideoType _videoTypeFromName(String typeName) {
-    switch (typeName.toLowerCase()) {
-      case 'movie':
-        return VideoType.movie;
-      case 'series':
-        return VideoType.series;
-      default:
-        return VideoType.live;
-    }
+  /// Close PiP and return to whatever was below the player route.
+  /// closePip() clears state + restores window size; we then pop
+  /// /player so the player screen disposes the Player.
+  void _closePip() async {
+    final router = GoRouter.of(context);
+    await ref.read(pipProvider.notifier).closePip();
+    if (router.canPop()) router.pop();
   }
 }
 

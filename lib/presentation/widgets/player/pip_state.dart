@@ -74,24 +74,22 @@ class PipNotifier extends Notifier<PipData?> {
     }
   }
 
-  /// Close PiP — disposes the player, clears state, restores the host
-  /// window back to its previous size/position.
+  /// Close PiP — clears state and restores the host window. The player
+  /// itself is owned by the /player screen mounted underneath; whoever
+  /// calls closePip() should also pop that route so the player screen's
+  /// dispose() can stop & dispose the Player.
   Future<void> closePip() async {
-    state?.player.dispose();
     state = null;
     if (pipUsesWindowMode) {
       await _restoreWindow();
     }
   }
 
-  /// Expand PiP back to full-screen player — returns the data without
-  /// disposing the player so the caller can rehydrate the player route.
-  /// Window is restored to its pre-PiP size/position.
-  ///
-  /// State is cleared BEFORE returning so the MaterialApp builder stops
-  /// showing PipOverlay and unhides the router child — otherwise the
-  /// pushed /player route would mount inside an orphaned subtree and the
-  /// user would stay stuck on the mini player.
+  /// Expand PiP back to fullscreen — just clears state and restores
+  /// window size. The /player screen is still mounted under PipOverlay
+  /// (main.dart Stacks the overlay over the router), so as soon as
+  /// state goes null its build() re-renders the local Video widget
+  /// and the user is back to fullscreen.
   Future<PipData?> expandToFullscreen() async {
     final data = state;
     state = null;
@@ -101,14 +99,12 @@ class PipNotifier extends Notifier<PipData?> {
     return data;
   }
 
-  /// Detaches the in-app PiP overlay without disposing the shared player.
-  /// Used when the user manually re-opens the player while PiP is still
-  /// floating — we want to hand the player back, not destroy it.
+  /// Clears PiP state without restoring the window. Currently unused —
+  /// kept for backwards compatibility while older code paths are still
+  /// being migrated. New code should call expandToFullscreen() or
+  /// closePip() depending on intent.
   void detachPip() {
     state = null;
-    // Caller is the player route — they'll restore the window themselves
-    // by setting their own size on init. We don't restore here so the
-    // expansion animation can stay smooth.
   }
 
   // ─── Window-mode helpers ───────────────────────────────────────────
