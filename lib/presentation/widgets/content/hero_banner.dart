@@ -108,6 +108,20 @@ class _HeroBannerState extends State<HeroBanner> {
         _scheduleTrailer(widget.channels[_currentIndex]);
       }
     }
+
+    // VOD info arrived asynchronously after the parent fetched it from
+    // the Xtream API — that's where most YouTube trailer ids actually
+    // live (DB cache is usually empty until the user opens detail).
+    // Trigger trailer scheduling now that we finally have a non-null
+    // trailer reference.
+    final newTrailer = widget.vodInfo?.youtubeTrailer;
+    final oldTrailer = oldWidget.vodInfo?.youtubeTrailer;
+    if (newTrailer != oldTrailer &&
+        newTrailer != null &&
+        newTrailer.trim().isNotEmpty &&
+        widget.channels.isNotEmpty) {
+      _scheduleTrailer(widget.channels[_currentIndex]);
+    }
   }
 
   @override
@@ -145,6 +159,11 @@ class _HeroBannerState extends State<HeroBanner> {
   /// Tear down the previous preview and queue extraction for [channel]
   /// after a short delay (so rapid swipes don't burn YouTube requests
   /// and the user gets time to see the still backdrop first).
+  ///
+  /// Pulls the trailer reference from widget.vodInfo first (freshest —
+  /// the parent fetches it asynchronously from the Xtream API on every
+  /// hero change), then falls back to channel.youtubeTrailer (DB
+  /// cache from a previous detail-page open).
   void _scheduleTrailer(Channel channel) {
     _trailerScheduleTimer?.cancel();
     _disposeTrailerPlayer();
@@ -155,7 +174,9 @@ class _HeroBannerState extends State<HeroBanner> {
     if (channel.type == 'live') return;
     if (_isMobile(context)) return;
 
-    final raw = channel.youtubeTrailer;
+    final fromApi = widget.vodInfo?.youtubeTrailer;
+    final fromDb = channel.youtubeTrailer;
+    final raw = (fromApi != null && fromApi.trim().isNotEmpty) ? fromApi : fromDb;
     if (raw == null || raw.trim().isEmpty) return;
 
     final reqId = ++_trailerRequestId;
