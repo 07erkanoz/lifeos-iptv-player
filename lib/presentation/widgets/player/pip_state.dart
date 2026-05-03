@@ -87,8 +87,14 @@ class PipNotifier extends Notifier<PipData?> {
   /// Expand PiP back to full-screen player — returns the data without
   /// disposing the player so the caller can rehydrate the player route.
   /// Window is restored to its pre-PiP size/position.
+  ///
+  /// State is cleared BEFORE returning so the MaterialApp builder stops
+  /// showing PipOverlay and unhides the router child — otherwise the
+  /// pushed /player route would mount inside an orphaned subtree and the
+  /// user would stay stuck on the mini player.
   Future<PipData?> expandToFullscreen() async {
     final data = state;
+    state = null;
     if (pipUsesWindowMode) {
       await _restoreWindow();
     }

@@ -1965,19 +1965,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _epgSub?.cancel();
       _posUpdateTimer?.cancel();
 
-      await ref
-          .read(pipProvider.notifier)
-          .enterPip(
-            player: _player,
-            controller: _controller,
-            title: _currentTitle,
-            logo: _currentLogo,
-            url: _currentUrl,
-            typeName: widget.type.name,
-          );
+      // Capture the player + controller refs locally — once we pop,
+      // dispose() runs and `this.mounted` becomes false. We still need
+      // these handles to hand off to PiP after the pop completes.
+      final player = _player;
+      final controller = _controller;
+      final title = _currentTitle;
+      final logo = _currentLogo;
+      final url = _currentUrl;
+      final typeName = widget.type.name;
+      final notifier = ref.read(pipProvider.notifier);
 
-      // Pop back to previous screen (use Navigator directly to bypass GoRouter issues)
+      // Pop FIRST so the navigator returns to whatever was below the
+      // player route. If we entered PiP first, MaterialApp would swap to
+      // PipOverlay and unmount this screen — `mounted` would flip to
+      // false and the pop would silently no-op, leaving the orphan
+      // player route on the stack. On PiP close that orphan would render
+      // a stale player surface (the gray frame the user reported).
       if (mounted) Navigator.of(context).pop();
+
+      await notifier.enterPip(
+        player: player,
+        controller: controller,
+        title: title,
+        logo: logo,
+        url: url,
+        typeName: typeName,
+      );
     } finally {
       _pipTransitioning = false;
     }
