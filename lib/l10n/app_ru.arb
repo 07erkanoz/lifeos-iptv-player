@@ -270,7 +270,7 @@
   "sortByRecent": "Сначала новые",
   "sortByRating": "По рейтингу",
   "sortByName": "По имени",
-  "castDevices": "Устройства Chromecast",
+  "castDevices": "Устройства трансляции",
   "castDisconnect": "Отключить",
   "castSearching": "Поиск устройств…",
   "castNoDevices": "Устройства Chromecast не найдены",

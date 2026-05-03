@@ -1601,7 +1601,7 @@ abstract class AppLocalizations {
   /// No description provided for @castDevices.
   ///
   /// In tr, this message translates to:
-  /// **'Chromecast Cihazları'**
+  /// **'Yayın Cihazları'**
   String get castDevices;
 
   /// No description provided for @castDisconnect.

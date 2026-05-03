@@ -29,6 +29,7 @@ import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/gpu_detector.dart';
 import 'package:lifeostv/utils/mpv_config.dart';
 import 'package:lifeostv/data/services/cast_service.dart';
+import 'package:lifeostv/data/services/dlna_service.dart';
 import 'package:lifeostv/presentation/widgets/player/cast_button.dart';
 
 // ---------------------------------------------------------------------------
@@ -1982,29 +1983,35 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   // =========================================================================
-  //  Chromecast callbacks
+  //  Chromecast / DLNA callbacks
   // =========================================================================
 
-  /// Called when cast session starts — pause local player, send media to cast.
+  /// Called when EITHER a Chromecast session OR a DLNA session has just
+  /// started — pause local playback and push the current media URL to the
+  /// remote receiver. We dispatch on whichever transport reports itself
+  /// connected (the cast button picker only enables one at a time).
   void _onCastStarted() {
-    // Pause local playback
     _player.pause();
 
-    // Send the current media URL to the cast device
-    final castService = CastService.instance;
-    final streamType = widget.type == VideoType.live
-        ? CastStreamType.live
-        : CastStreamType.buffered;
-
-    castService.loadMedia(
-      url: _currentUrl,
-      title: _currentTitle,
-      imageUrl: _currentLogo,
-      streamType: streamType,
-    );
+    if (CastService.instance.state.isConnected) {
+      final streamType = widget.type == VideoType.live
+          ? CastStreamType.live
+          : CastStreamType.buffered;
+      CastService.instance.loadMedia(
+        url: _currentUrl,
+        title: _currentTitle,
+        imageUrl: _currentLogo,
+        streamType: streamType,
+      );
+    } else if (DlnaService.instance.state.isConnected) {
+      DlnaService.instance.loadMedia(
+        url: _currentUrl,
+        title: _currentTitle,
+      );
+    }
   }
 
-  /// Called when cast session ends — resume local player.
+  /// Called when the remote session ends — resume local playback.
   void _onCastStopped() {
     _player.play();
   }

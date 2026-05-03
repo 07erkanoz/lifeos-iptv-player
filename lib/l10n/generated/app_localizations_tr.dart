@@ -791,7 +791,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get sortByName => 'Ada Göre';
 
   @override
-  String get castDevices => 'Chromecast Cihazları';
+  String get castDevices => 'Yayın Cihazları';
 
   @override
   String get castDisconnect => 'Bağlantıyı Kes';

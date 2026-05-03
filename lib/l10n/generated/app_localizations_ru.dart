@@ -794,7 +794,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sortByName => 'По имени';
 
   @override
-  String get castDevices => 'Устройства Chromecast';
+  String get castDevices => 'Устройства трансляции';
 
   @override
   String get castDisconnect => 'Отключить';

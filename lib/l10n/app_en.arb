@@ -266,7 +266,7 @@
   "sortByRecent": "Newest",
   "sortByRating": "By Rating",
   "sortByName": "By Name",
-  "castDevices": "Chromecast Devices",
+  "castDevices": "Cast & Smart TV",
   "castDisconnect": "Disconnect",
   "castSearching": "Searching for devices…",
   "castNoDevices": "No Chromecast devices found",

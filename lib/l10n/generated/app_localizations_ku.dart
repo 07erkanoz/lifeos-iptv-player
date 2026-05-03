@@ -791,7 +791,7 @@ class AppLocalizationsKu extends AppLocalizations {
   String get sortByName => 'Li gor Navê';
 
   @override
-  String get castDevices => 'Amûrên Chromecast';
+  String get castDevices => 'Amûrên Weşandinê';
 
   @override
   String get castDisconnect => 'Girêdanê biqetîne';

@@ -791,7 +791,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sortByName => 'حسب الاسم';
 
   @override
-  String get castDevices => 'أجهزة Chromecast';
+  String get castDevices => 'أجهزة البث';
 
   @override
   String get castDisconnect => 'قطع الاتصال';
