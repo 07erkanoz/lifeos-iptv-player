@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 class PosterCard extends StatefulWidget {
@@ -28,15 +32,25 @@ class PosterCard extends StatefulWidget {
 }
 
 class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateMixin {
-  static const double _hoverScale = 1.02;
-  static const double _hoverLift = -6;
-  static const double _hoverInset = 8;
+  // Bumped from 1.02 → 1.08: subtle Netflix-style lift without
+  // overlapping siblings. _hoverInset 12 leaves room for the bigger
+  // bounding box.
+  static const double _hoverScale = 1.08;
+  static const double _hoverLift = -8;
+  static const double _hoverInset = 12;
 
   bool _isFocused = false;
   bool _isHovered = false;
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _liftAnimation;
+
+  // ── Hover/focus trailer preview state ──
+  Timer? _trailerScheduleTimer;
+  Player? _trailerPlayer;
+  VideoController? _trailerController;
+  int _trailerRequestId = 0;
+  bool _trailerVisible = false;
 
   @override
   void initState() {
@@ -55,8 +69,88 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _trailerScheduleTimer?.cancel();
+    _disposeTrailerPlayer();
     _scaleController.dispose();
     super.dispose();
+  }
+
+  // ─────────────── Trailer preview ───────────────
+
+  /// Start the 600ms debounce. If the user keeps hovering past that
+  /// window, extraction kicks in. Short hovers (mouse passing through)
+  /// never burn a YouTube request.
+  void _scheduleTrailerPreview() {
+    _trailerScheduleTimer?.cancel();
+    if (widget.channel.type == 'live') return; // no trailers for live TV
+
+    final reqId = ++_trailerRequestId;
+    _trailerScheduleTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      if (!(_isHovered || _isFocused)) return;
+      _startTrailerPreview(reqId);
+    });
+  }
+
+  Future<void> _startTrailerPreview(int reqId) async {
+    final ch = widget.channel;
+    final directRef = ch.youtubeTrailer;
+
+    String? streamUrl;
+    try {
+      if (directRef != null && directRef.trim().isNotEmpty) {
+        streamUrl =
+            await YouTubeTrailerService.instance.extractStreamUrl(directRef);
+      } else {
+        streamUrl = await YouTubeTrailerService.instance
+            .extractStreamUrlForQuery(ch.name, year: ch.year);
+      }
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    if (reqId != _trailerRequestId) return;
+    if (!(_isHovered || _isFocused)) return;
+    if (streamUrl == null) return;
+
+    final player = Player();
+    final controller = VideoController(player);
+    try {
+      await player.setVolume(0);
+      await player.setPlaylistMode(PlaylistMode.loop);
+      await player.open(Media(streamUrl), play: true);
+    } catch (_) {
+      player.dispose();
+      return;
+    }
+
+    if (!mounted ||
+        reqId != _trailerRequestId ||
+        !(_isHovered || _isFocused)) {
+      player.dispose();
+      return;
+    }
+
+    setState(() {
+      _trailerPlayer = player;
+      _trailerController = controller;
+      _trailerVisible = true;
+    });
+  }
+
+  void _stopTrailerPreview() {
+    _trailerScheduleTimer?.cancel();
+    if (mounted && _trailerVisible) {
+      setState(() => _trailerVisible = false);
+    }
+    _disposeTrailerPlayer();
+  }
+
+  void _disposeTrailerPlayer() {
+    final p = _trailerPlayer;
+    _trailerPlayer = null;
+    _trailerController = null;
+    p?.dispose();
   }
 
   void _setActive(bool active) {
@@ -123,6 +217,19 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
                     errorWidget: (_, _, _) => _buildPlaceholder(),
                   )
                 : _buildPlaceholder(),
+
+            // Hover/focus trailer preview (fades in once extracted)
+            if (_trailerController != null)
+              AnimatedOpacity(
+                opacity: _trailerVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 350),
+                child: Video(
+                  controller: _trailerController!,
+                  fill: Colors.black,
+                  controls: NoVideoControls,
+                  fit: BoxFit.cover,
+                ),
+              ),
 
             // Bottom gradient
             Positioned.fill(
@@ -252,6 +359,7 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
         _setActive(focused || _isHovered);
         if (focused) {
           widget.onFocus?.call();
+          _scheduleTrailerPreview();
           // Auto-scroll to show focused card (D-pad/keyboard navigation)
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -262,6 +370,8 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
               );
             }
           });
+        } else if (!_isHovered) {
+          _stopTrailerPreview();
         }
       },
       onKeyEvent: (node, event) {
@@ -280,11 +390,13 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
           setState(() => _isHovered = true);
           _setActive(true);
           widget.onFocus?.call();
+          _scheduleTrailerPreview();
         },
         onExit: (_) {
           if (!_isHovered) return;
           setState(() => _isHovered = false);
           _setActive(_isFocused);
+          if (!_isFocused) _stopTrailerPreview();
         },
         child: GestureDetector(
           onTap: widget.onTap,
