@@ -292,5 +292,11 @@
   "pleaseEnterAUrl": "Ji kerema xwe URL-ekê binivîse",
   "xtreamM3uAutoDetectInfo": "Lînkên Xtream M3U (bi navê bikarhêner û şîfreyê) bixweber tê tespît kirin.",
   "searchVodHint": "Navê fîlm an rêzefîlm...",
-  "subtitleNotFound": "Tu binnivîs nehate dîtin"
+  "subtitleNotFound": "Tu binnivîs nehate dîtin",
+  "subtitleAppearance": "Xuyabûna binnivîsê",
+  "subtitleFontSize": "Mezinahiya Tîpê",
+  "subtitleColor": "Rengê Tîpê",
+  "subtitleBold": "Stûr",
+  "subtitleBackground": "Paşxane",
+  "subtitleBackgroundDesc": "Paşxaneya nîvşeffaf li pişt binnivîsê"
 }

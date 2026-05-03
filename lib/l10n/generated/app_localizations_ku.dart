@@ -583,23 +583,22 @@ class AppLocalizationsKu extends AppLocalizations {
   String get apiKeyCleared => 'Kilîla API hat jêbirin';
 
   @override
-  String get subtitleFontSize => 'Yazı Boyutu';
+  String get subtitleFontSize => 'Mezinahiya Tîpê';
 
   @override
-  String get subtitleColor => 'Yazı Rengi';
+  String get subtitleColor => 'Rengê Tîpê';
 
   @override
-  String get subtitleBold => 'Kalın Yazı';
+  String get subtitleBold => 'Stûr';
 
   @override
-  String get subtitleBackground => 'Arka Plan';
+  String get subtitleBackground => 'Paşxane';
 
   @override
-  String get subtitleBackgroundDesc =>
-      'Altyazının arkasında yarı saydam arka plan';
+  String get subtitleBackgroundDesc => 'Paşxaneya nîvşeffaf li pişt binnivîsê';
 
   @override
-  String get subtitleAppearance => 'Altyazı Görünümü';
+  String get subtitleAppearance => 'Xuyabûna binnivîsê';
 
   @override
   String daysRemaining(int count) {

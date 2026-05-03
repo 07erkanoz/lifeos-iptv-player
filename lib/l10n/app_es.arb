@@ -292,5 +292,11 @@
   "pleaseEnterAUrl": "Por favor introduce una URL",
   "xtreamM3uAutoDetectInfo": "Los enlaces M3U de Xtream (con usuario y contraseña) se detectan automáticamente.",
   "searchVodHint": "Nombre de película o serie...",
-  "subtitleNotFound": "No se encontraron subtítulos"
+  "subtitleNotFound": "No se encontraron subtítulos",
+  "subtitleAppearance": "Apariencia de subtítulos",
+  "subtitleFontSize": "Tamaño de fuente",
+  "subtitleColor": "Color de fuente",
+  "subtitleBold": "Negrita",
+  "subtitleBackground": "Fondo",
+  "subtitleBackgroundDesc": "Fondo semitransparente detrás de los subtítulos"
 }

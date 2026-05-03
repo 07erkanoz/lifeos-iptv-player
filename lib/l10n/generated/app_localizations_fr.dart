@@ -585,23 +585,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get apiKeyCleared => 'Clé API supprimée';
 
   @override
-  String get subtitleFontSize => 'Yazı Boyutu';
+  String get subtitleFontSize => 'Taille de police';
 
   @override
-  String get subtitleColor => 'Yazı Rengi';
+  String get subtitleColor => 'Couleur de police';
 
   @override
-  String get subtitleBold => 'Kalın Yazı';
+  String get subtitleBold => 'Gras';
 
   @override
-  String get subtitleBackground => 'Arka Plan';
+  String get subtitleBackground => 'Arrière-plan';
 
   @override
   String get subtitleBackgroundDesc =>
-      'Altyazının arkasında yarı saydam arka plan';
+      'Arrière-plan semi-transparent derrière les sous-titres';
 
   @override
-  String get subtitleAppearance => 'Altyazı Görünümü';
+  String get subtitleAppearance => 'Apparence des sous-titres';
 
   @override
   String daysRemaining(int count) {

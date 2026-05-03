@@ -292,5 +292,11 @@
   "pleaseEnterAUrl": "يرجى إدخال رابط",
   "xtreamM3uAutoDetectInfo": "روابط Xtream M3U (مع اسم المستخدم وكلمة المرور) تُكتشف تلقائيًا.",
   "searchVodHint": "اسم فيلم أو مسلسل...",
-  "subtitleNotFound": "لم يتم العثور على ترجمات"
+  "subtitleNotFound": "لم يتم العثور على ترجمات",
+  "subtitleAppearance": "مظهر الترجمة",
+  "subtitleFontSize": "حجم الخط",
+  "subtitleColor": "لون الخط",
+  "subtitleBold": "عريض",
+  "subtitleBackground": "الخلفية",
+  "subtitleBackgroundDesc": "خلفية شبه شفافة خلف الترجمة"
 }

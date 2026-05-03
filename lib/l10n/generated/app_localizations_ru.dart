@@ -585,23 +585,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get apiKeyCleared => 'API-ключ удалён';
 
   @override
-  String get subtitleFontSize => 'Yazı Boyutu';
+  String get subtitleFontSize => 'Размер шрифта';
 
   @override
-  String get subtitleColor => 'Yazı Rengi';
+  String get subtitleColor => 'Цвет шрифта';
 
   @override
-  String get subtitleBold => 'Kalın Yazı';
+  String get subtitleBold => 'Жирный';
 
   @override
-  String get subtitleBackground => 'Arka Plan';
+  String get subtitleBackground => 'Фон';
 
   @override
-  String get subtitleBackgroundDesc =>
-      'Altyazının arkasında yarı saydam arka plan';
+  String get subtitleBackgroundDesc => 'Полупрозрачный фон под субтитрами';
 
   @override
-  String get subtitleAppearance => 'Altyazı Görünümü';
+  String get subtitleAppearance => 'Внешний вид субтитров';
 
   @override
   String daysRemaining(int count) {

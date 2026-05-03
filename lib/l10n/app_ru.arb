@@ -292,5 +292,11 @@
   "pleaseEnterAUrl": "Пожалуйста, введите URL",
   "xtreamM3uAutoDetectInfo": "Ссылки Xtream M3U (с именем пользователя и паролем) определяются автоматически.",
   "searchVodHint": "Название фильма или сериала...",
-  "subtitleNotFound": "Субтитры не найдены"
+  "subtitleNotFound": "Субтитры не найдены",
+  "subtitleAppearance": "Внешний вид субтитров",
+  "subtitleFontSize": "Размер шрифта",
+  "subtitleColor": "Цвет шрифта",
+  "subtitleBold": "Жирный",
+  "subtitleBackground": "Фон",
+  "subtitleBackgroundDesc": "Полупрозрачный фон под субтитрами"
 }
