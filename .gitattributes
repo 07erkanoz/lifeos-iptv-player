@@ -1,0 +1,68 @@
+# Normalize line endings across the team. Without this, Windows checkouts
+# (which Git rewrites to CRLF on autocrlf=true) round-trip noisy diffs every
+# time a Dart / Kotlin / Swift / shell file is touched.
+
+# Default: detect text vs binary, store with LF in the repo.
+* text=auto eol=lf
+
+# Source code — always LF, regardless of platform.
+*.dart    text eol=lf
+*.kt      text eol=lf
+*.swift   text eol=lf
+*.c       text eol=lf
+*.cc      text eol=lf
+*.cpp     text eol=lf
+*.h       text eol=lf
+*.m       text eol=lf
+*.mm      text eol=lf
+
+# Build / config — always LF.
+*.gradle      text eol=lf
+*.gradle.kts  text eol=lf
+*.cmake       text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.json        text eol=lf
+*.toml        text eol=lf
+*.arb         text eol=lf
+*.xml         text eol=lf
+*.plist       text eol=lf
+*.entitlements text eol=lf
+*.podspec     text eol=lf
+
+# Docs — always LF.
+*.md          text eol=lf
+*.txt         text eol=lf
+
+# Shell scripts — LF (POSIX requires it; CRLF breaks `bash script.sh`).
+*.sh          text eol=lf
+
+# Windows batch / PowerShell — keep CRLF (cmd.exe expects it).
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binary assets — never touched by Git's text filter.
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.icns        binary
+*.webp        binary
+*.svg         text eol=lf
+*.ttf         binary
+*.otf         binary
+*.woff        binary
+*.woff2       binary
+*.zip         binary
+*.gz          binary
+*.tar         binary
+*.jar         binary
+*.aar         binary
+*.so          binary
+*.dll         binary
+*.dylib       binary
+*.exe         binary
+*.keystore    binary
+*.jks         binary
