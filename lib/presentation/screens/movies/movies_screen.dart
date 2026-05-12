@@ -13,6 +13,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
+import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/watchlist_button.dart';
@@ -845,16 +846,17 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       backgroundColor: AppColors.background(context),
       body: Stack(
         children: [
-          // Backdrop + autoplay YouTube trailer overlay (Netflix billboard
-          // moment — fades in on top of the still image after ~1.5s).
+          // Static backdrop fills the page as the base visual layer.
           Positioned.fill(
-            child: BackdropTrailer(
-              backdropUrl: backdrop.toString().isNotEmpty ? backdrop.toString() : null,
-              directTrailerRef: ch.youtubeTrailer,
-              searchTitle: ch.name,
-              searchYear: year.isNotEmpty ? year : ch.year,
-              channelType: ch.type,
-            ),
+            child: backdrop.toString().isNotEmpty
+                ? Image.network(
+                    backdrop.toString(),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                    errorBuilder: (_, _, _) =>
+                        const ColoredBox(color: Colors.black),
+                  )
+                : const ColoredBox(color: Colors.black),
           ),
           // Gradients
           Positioned.fill(child: Container(
@@ -1082,6 +1084,57 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               ],
             ),
           )),
+
+          // Compact picture-in-picture YouTube trailer in the upper-right
+          // empty area. Placed LAST in the Stack so it sits on top of
+          // the content scroll view for hit-testing — otherwise the
+          // scroll view's gesture arena swallows taps inside the PiP
+          // rect. Tap opens it fullscreen with sound.
+          Positioned(
+            top: 88,
+            right: 32,
+            child: SizedBox(
+              width: 384,
+              height: 216,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black54,
+                        child: BackdropTrailer(
+                          backdropUrl: null,
+                          directTrailerRef: ch.youtubeTrailer,
+                          searchTitle: ch.name,
+                          searchYear: year.isNotEmpty ? year : ch.year,
+                          channelType: ch.type,
+                          showBackdrop: false,
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showExpandedTrailer(
+                            context,
+                            directTrailerRef: ch.youtubeTrailer,
+                            searchTitle: ch.name,
+                            searchYear:
+                                year.isNotEmpty ? year : ch.year,
+                            channelType: ch.type,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

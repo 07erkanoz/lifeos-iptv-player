@@ -102,9 +102,15 @@ class _HeroBannerState extends State<HeroBanner> {
         _currentIndex = 0;
       }
       _startAutoSlide();
-      // Notify parent of current item after channels changed
+      // Notify parent of current item after channels changed.
+      // Deferred to post-frame because didUpdateWidget runs inside the
+      // parent's build; calling setState on the parent synchronously
+      // here would throw "setState during build".
       if (widget.channels.isNotEmpty) {
-        widget.onItemChanged?.call(widget.channels[_currentIndex]);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          widget.onItemChanged?.call(widget.channels[_currentIndex]);
+        });
         _scheduleTrailer(widget.channels[_currentIndex]);
       }
     }

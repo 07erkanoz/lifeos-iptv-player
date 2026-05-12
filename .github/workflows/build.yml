@@ -160,68 +160,6 @@ jobs:
           name: windows-zip
           path: "*.zip"
 
-  # ─── macOS ───────────────────────────────────────────────────
-  build-macos:
-    needs: test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Create macOS zip
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-1.0.0}"
-          APP_PATH="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -n 1)"
-          if [ -z "$APP_PATH" ]; then
-            echo "No .app output found"
-            exit 1
-          fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "LifeosTV-${VERSION}-macos.zip"
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-zip
-          path: "*.zip"
-
-  # ─── iOS (unsigned) ─────────────────────────────────────────
-  build-ios:
-    needs: test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Create iOS unsigned app zip
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-1.0.0}"
-          APP_PATH="$(find build/ios/iphoneos -maxdepth 1 -name '*.app' | head -n 1)"
-          if [ -z "$APP_PATH" ]; then
-            echo "No iOS .app output found"
-            exit 1
-          fi
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "LifeosTV-${VERSION}-ios-unsigned.zip"
-
-      - name: Upload iOS unsigned artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-unsigned-zip
-          path: "*.zip"
-
   # ─── Android APK ─────────────────────────────────────────────
   build-android:
     needs: test
@@ -273,7 +211,7 @@ jobs:
   # ─── Release ──────────────────────────────────────────────────
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows, build-macos, build-ios, build-android]
+    needs: [build-linux, build-windows, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts

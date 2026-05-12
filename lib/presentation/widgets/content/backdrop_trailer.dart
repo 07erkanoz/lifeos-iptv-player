@@ -43,6 +43,16 @@ class BackdropTrailer extends StatefulWidget {
   /// concept of a trailer for live TV).
   final String channelType;
 
+  /// When false, only the trailer video is rendered (no still backdrop
+  /// fallback). Used by compact "picture-in-picture" placements where
+  /// the caller owns its own visual fallback or wants the box to be
+  /// blank until the trailer extracts.
+  final bool showBackdrop;
+
+  /// Whether to start muted. PiP previews stay muted to avoid surprise
+  /// audio; the expanded fullscreen dialog opens with sound on.
+  final bool muted;
+
   const BackdropTrailer({
     super.key,
     required this.backdropUrl,
@@ -51,6 +61,8 @@ class BackdropTrailer extends StatefulWidget {
     required this.searchYear,
     required this.channelType,
     this.delay = const Duration(milliseconds: 1500),
+    this.showBackdrop = true,
+    this.muted = true,
   });
 
   @override
@@ -108,7 +120,12 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
       if (ref != null && ref.trim().isNotEmpty) {
         streamUrl =
             await YouTubeTrailerService.instance.extractStreamUrl(ref);
-      } else {
+      }
+      // Fallback: providers often ship garbage (empty, "N/A", broken
+      // ids) in youtube_trailer. If direct extraction yielded nothing,
+      // try the title-based search so VODs with no usable trailer
+      // field still light up the billboard.
+      if (streamUrl == null && widget.searchTitle.trim().isNotEmpty) {
         streamUrl = await YouTubeTrailerService.instance
             .extractStreamUrlForQuery(widget.searchTitle,
                 year: widget.searchYear);
@@ -121,7 +138,7 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
     final player = Player();
     final controller = VideoController(player);
     try {
-      await player.setVolume(0);
+      await player.setVolume(widget.muted ? 0 : 100);
       await player.setPlaylistMode(PlaylistMode.loop);
       await player.open(Media(streamUrl), play: true);
     } catch (_) {
@@ -154,16 +171,19 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
       children: [
         // Static backdrop — always present as the base layer so even
         // when the trailer hasn't loaded (or never will) the screen
-        // never goes blank.
-        if (url != null && url.isNotEmpty)
-          Image.network(
-            url,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
-          )
-        else
-          const ColoredBox(color: Colors.black),
+        // never goes blank. Skipped when showBackdrop=false (compact
+        // PiP mode where the caller owns the fallback visual).
+        if (widget.showBackdrop) ...[
+          if (url != null && url.isNotEmpty)
+            Image.network(
+              url,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
+            )
+          else
+            const ColoredBox(color: Colors.black),
+        ],
 
         // Trailer fades in once extraction succeeds.
         if (_controller != null)
