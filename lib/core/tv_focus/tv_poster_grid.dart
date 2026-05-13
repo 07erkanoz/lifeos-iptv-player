@@ -38,6 +38,12 @@ class TvPosterGrid<T> extends StatefulWidget {
   final VoidCallback? onLeftEdge;
   final VoidCallback? onTopEdge;
 
+  /// Fired when an item gains focus (mouse hover or D-pad navigation).
+  /// Lets screens drive a hero banner / preview from focus changes so
+  /// the same state update happens regardless of input modality — the
+  /// "hover" concept is replaced by focus on TV.
+  final void Function(T item)? onFocusGained;
+
   const TvPosterGrid({
     super.key,
     required this.controller,
@@ -52,6 +58,7 @@ class TvPosterGrid<T> extends StatefulWidget {
     this.padding = EdgeInsets.zero,
     this.onLeftEdge,
     this.onTopEdge,
+    this.onFocusGained,
   });
 
   @override
@@ -117,6 +124,9 @@ class _TvPosterGridState<T> extends State<TvPosterGrid<T>> {
               onActivate: () => widget.onActivate(item),
               onLeftEdge: widget.onLeftEdge,
               onTopEdge: widget.onTopEdge,
+              onFocusGained: widget.onFocusGained == null
+                  ? null
+                  : () => widget.onFocusGained!(item),
             );
           },
         );
@@ -135,6 +145,7 @@ class _TvPosterItem<T> extends StatefulWidget {
   final VoidCallback onActivate;
   final VoidCallback? onLeftEdge;
   final VoidCallback? onTopEdge;
+  final VoidCallback? onFocusGained;
 
   const _TvPosterItem({
     super.key,
@@ -147,6 +158,7 @@ class _TvPosterItem<T> extends StatefulWidget {
     required this.onActivate,
     this.onLeftEdge,
     this.onTopEdge,
+    this.onFocusGained,
   });
 
   @override
@@ -174,6 +186,7 @@ class _TvPosterItemState<T> extends State<_TvPosterItem<T>> {
   void _onFocusChange(bool focused) {
     if (focused) {
       widget.controller.notifyFocused(widget.streamId);
+      widget.onFocusGained?.call();
       // Center the tile precisely after layout settles. The controller's
       // approximate jumpTo got us into the viewport; this aligns it for
       // a clean focus ring.

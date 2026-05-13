@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
+import 'package:lifeostv/core/tv_focus/tv_poster_grid.dart';
+import 'package:lifeostv/core/tv_focus/tv_poster_grid_controller.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
@@ -17,7 +22,6 @@ import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.da
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/watchlist_button.dart';
-import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
@@ -50,8 +54,6 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Map<String, dynamic>? _vodInfo;
   bool _loadingDetail = false;
 
-  // Focus node for content area (to receive focus after sidebar collapse)
-  final FocusNode _contentFocusNode = FocusNode();
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
   // Focus node for detail view back button
@@ -59,17 +61,41 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   // Focus node for detail view play button (primary action)
   final FocusNode _detailPlayFocusNode = FocusNode();
 
+  /// Controls index-based D-pad navigation and lazy-mount-safe focus
+  /// restore for the poster grid. Outlives detail open/close so the
+  /// previously focused streamId can be re-focused on detail dismiss.
+  final TvPosterGridController _gridController = TvPosterGridController();
+
+  /// Stable closures kept for register/unregister identity matching
+  /// with [TvFocusRegistry].
+  late final VoidFocusCallback _branchPrimaryCb;
+  VoidFocusCallback? _detailOverlayCb;
+
   @override
   void initState() {
     super.initState();
+    _branchPrimaryCb = _focusGrid;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _registerBackHandler();
+      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
+            TvBranchIndex.movies,
+            _branchPrimaryCb,
+          );
     });
   }
 
   @override
   void dispose() {
-    _contentFocusNode.dispose();
+    // De-register before nodes disappear so registry callbacks can't
+    // race a dispose. Identity-checked: a stale callback (from a hot
+    // reload) can't wipe a freshly-registered live one.
+    ref.read(tvFocusRegistryProvider)
+        .unregisterBranchPrimary(TvBranchIndex.movies, _branchPrimaryCb);
+    final overlay = _detailOverlayCb;
+    if (overlay != null) {
+      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+    }
     _categorySidebarScope.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
@@ -78,8 +104,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   /// Register a back handler that handles all focus levels:
   /// Detail open → close detail
-  /// Category sidebar focused → move to content
-  /// Content focused → move to main sidebar
+  /// Category sidebar focused → move to grid
+  /// Otherwise (focus is somewhere in the grid) → move to main sidebar
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
       // Level 2: Detail is open → close it
@@ -87,17 +113,15 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         _closeDetail();
         return true;
       }
-      // Level 1b: Category sidebar is focused → move to content
+      // Level 1b: Category sidebar is focused → move to grid
       if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        _focusContent();
+        _focusGrid();
         return true;
       }
-      // Level 1a: Content area is focused → move to main sidebar
-      if (_contentFocusNode.hasFocus) {
-        _focusMainSidebar();
-        return true;
-      }
-      return false; // Let AppShell handle it
+      // Level 1a: Grid (or anywhere else inside this branch) is focused
+      // → hand back to the main sidebar via the registry.
+      _focusMainSidebar();
+      return true;
     });
   }
 
@@ -126,8 +150,13 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _openDetail(Channel ch) async {
-    // Disable content area focus so grid can't steal focus from detail
-    _contentFocusNode.canRequestFocus = false;
+    // Push the detail's primary action as the active overlay focus
+    // target. While present this takes precedence over the grid in
+    // TvFocusRegistry, so any sidebar/back jump lands on the play
+    // button instead of the grid behind the detail panel.
+    final cb = _focusDetailPlayCallback;
+    _detailOverlayCb = cb;
+    ref.read(tvFocusRegistryProvider).pushOverlayPrimary(cb);
     _categorySidebarScope.canRequestFocus = false;
     // Show DB-cached data immediately if available (no loading spinner)
     final hasCachedInfo = ch.genre != null || ch.plot != null || ch.backdropPath != null;
@@ -274,13 +303,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
     setState(() => _categoriesCollapsed = !_categoriesCollapsed);
     if (_categoriesCollapsed) {
+      // Sidebar collapsed → focus a poster (preferred: the one the user
+      // was last on, otherwise the first). The controller handles
+      // unmounted / scrolled-off-screen items with scroll-then-retry.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _contentFocusNode.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.down);
-          });
-        }
+        if (mounted) _gridController.focusCurrentOrFirst();
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -373,21 +400,28 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     );
   }
 
-  /// Move focus to content area (D-pad right from category sidebar)
-  void _focusContent() {
+  /// Move focus to the poster grid (D-pad right from category sidebar
+  /// or right-arrow from the main sidebar via [TvFocusRegistry]).
+  ///
+  /// Prefers the previously focused poster (so detail dismiss / sidebar
+  /// jumps don't lose the user's place); falls back to the first poster
+  /// if the controller has nothing to restore.
+  void _focusGrid() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _contentFocusNode.requestFocus();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.down);
-        });
-      }
+      if (!mounted) return;
+      _gridController.focusCurrentOrFirst();
     });
   }
 
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
-    if (!_categoriesCollapsed) return;
+    if (!_categoriesCollapsed) {
+      // Already open — just focus the category scope.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _categorySidebarScope.requestFocus();
+      });
+      return;
+    }
     _toggleCategorySidebar();
   }
 
@@ -395,38 +429,47 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   void _focusDetailBackButton() {
     FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _detailPlayFocusNode.requestFocus();
+      if (mounted) _focusDetailPlayCallback();
     });
   }
 
-  /// Focus the main AppSidebar (called from category item left press)
+  /// Stable callback used for the registry overlay slot. Captured once
+  /// in [_openDetail] so push/pop identity matches.
+  void _focusDetailPlayCallback() {
+    if (_detailPlayFocusNode.canRequestFocus) {
+      _detailPlayFocusNode.requestFocus();
+    }
+  }
+
+  /// Focus the main AppSidebar via [TvFocusRegistry] — no
+  /// findAncestorStateOfType (the sidebar lives in a sibling subtree
+  /// under StatefulShellRoute.indexedStack so the ancestor lookup
+  /// never finds it anyway).
   void _focusMainSidebar() {
-    final sidebarState = context.findAncestorStateOfType<AppSidebarState>();
-    if (sidebarState != null) {
-      sidebarState.requestFocus();
-    } else {
-      FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.left);
+    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    if (!ok) {
+      // First-frame fallback before the sidebar finished registering.
+      FocusManager.instance.primaryFocus
+          ?.focusInDirection(TraversalDirection.left);
     }
   }
 
   void _closeDetail() {
     setState(() { _detailChannel = null; _vodInfo = null; });
-    // Re-enable content area focus
-    _contentFocusNode.canRequestFocus = true;
+    // Pop the overlay focus target so subsequent sidebar/back jumps go
+    // back to the grid rather than a disposed detail button.
+    final overlay = _detailOverlayCb;
+    if (overlay != null) {
+      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _detailOverlayCb = null;
+    }
     _categorySidebarScope.canRequestFocus = true;
-    // Restore focus to content area — only on desktop/TV
-    // On mobile: Offstage preserves scroll position, focus manipulation
-    // would scroll the grid to a random item
+    // Restore focus to the previously focused poster — only on
+    // desktop/TV. On mobile: Offstage preserves scroll position;
+    // imperatively requesting focus would scroll the grid.
     if (!isMobilePlatform) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _contentFocusNode.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.down);
-            }
-          });
-        }
+        if (mounted) _gridController.focusCurrentOrFirst();
       });
     }
   }
@@ -532,14 +575,16 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Widget _buildCatItem(String name, bool isSelected, VoidCallback onTap, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, onTap: onTap, onRightPressed: _focusContent, onLeftPressed: _focusMainSidebar),
+      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
     );
   }
 
   Widget _buildContentArea(bool isDark, AppLocalizations l10n) {
-    return Focus(
-      focusNode: _contentFocusNode,
-      child: Column(
+    // No parent Focus wrapper anymore — the poster grid items in
+    // TvPosterGrid own their own FocusNodes and report up through the
+    // controller. A parent Focus would intercept D-pad before the
+    // items could handle row/column math.
+    return Column(
       children: [
         // Hero banner (Tauri style: backdrop + info)
         if (_hoveredChannel != null && (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) != null)
@@ -599,21 +644,20 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         // Grid
         Expanded(child: _buildGrid(l10n)),
       ],
-    ),
     );
   }
 
   Widget _buildGrid(AppLocalizations l10n) {
     if (_selectedCategoryId == _kFavoritesId) {
-      return _FavoritesGridView(searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _FavoritesGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
     }
     if (_selectedCategoryId == _kHistoryId) {
-      return _HistoryGridView(searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _HistoryGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
     }
     if (_selectedCategoryId != null) {
-      return _MovieGridView(categoryId: _selectedCategoryId!, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _MovieGridView(gridController: _gridController, categoryId: _selectedCategoryId!, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
     }
-    return _AllMoviesGridView(searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+    return _AllMoviesGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
   }
 
   Widget _buildHeroBanner(Channel ch, bool isDark, AppLocalizations l10n) {
@@ -1742,6 +1786,7 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
 // ─── Movie Grid Views ───────────────────────────────────────────────────────
 
 class _MovieGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String categoryId;
   final String searchQuery;
   final Function(Channel, {Duration? startPosition}) onPlay;
@@ -1749,7 +1794,7 @@ class _MovieGridView extends ConsumerWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _MovieGridView({required this.categoryId, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _MovieGridView({required this.gridController, required this.categoryId, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1760,7 +1805,7 @@ class _MovieGridView extends ConsumerWidget {
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -1769,13 +1814,14 @@ class _MovieGridView extends ConsumerWidget {
 }
 
 class _AllMoviesGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel, {Duration? startPosition}) onPlay;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _AllMoviesGridView({required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _AllMoviesGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1786,7 +1832,7 @@ class _AllMoviesGridView extends ConsumerWidget {
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -1795,13 +1841,14 @@ class _AllMoviesGridView extends ConsumerWidget {
 }
 
 class _FavoritesGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel, {Duration? startPosition}) onPlay;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _FavoritesGridView({required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _FavoritesGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1816,7 +1863,7 @@ class _FavoritesGridView extends ConsumerWidget {
             if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiary(context))));
             final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
             final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-            return _PosterGrid(channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+            return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),
@@ -1829,13 +1876,14 @@ class _FavoritesGridView extends ConsumerWidget {
 }
 
 class _HistoryGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel, {Duration? startPosition}) onPlay;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _HistoryGridView({required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _HistoryGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
 
   void _clearAllHistory(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -1895,6 +1943,7 @@ class _HistoryGridView extends ConsumerWidget {
             ),
             Expanded(
               child: _PosterGrid(
+                controller: gridController,
                 channels: filtered,
                 onPlay: (ch) => onPlay(ch),
                 onHover: onHover,
@@ -1912,14 +1961,20 @@ class _HistoryGridView extends ConsumerWidget {
   }
 }
 
+/// Thin wrapper around [TvPosterGrid] that hooks the auto-hover-first
+/// behavior (so the hero banner shows something before the user has
+/// focused a tile) and the unmuted poster visual ([_PosterCardVisual]).
+/// The actual focus/D-pad work lives in [TvPosterGrid] and the
+/// controller passed in.
 class _PosterGrid extends StatefulWidget {
+  final TvPosterGridController controller;
   final List<Channel> channels;
   final Function(Channel) onPlay;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final Function(Channel)? onLongPress;
-  const _PosterGrid({required this.channels, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, this.onLongPress});
+  const _PosterGrid({required this.controller, required this.channels, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, this.onLongPress});
 
   @override
   State<_PosterGrid> createState() => _PosterGridState();
@@ -1931,66 +1986,84 @@ class _PosterGridState extends State<_PosterGrid> {
   @override
   void initState() {
     super.initState();
-    // Auto-select first channel for hero display on initial load
-    if (widget.channels.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_autoHovered) {
-          _autoHovered = true;
-          widget.onHover(widget.channels.first);
-        }
-      });
-    }
+    _maybeAutoHover();
   }
 
   @override
   void didUpdateWidget(covariant _PosterGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If channels changed from empty to non-empty, auto-hover first
     if (!_autoHovered && widget.channels.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_autoHovered) {
-          _autoHovered = true;
-          widget.onHover(widget.channels.first);
-        }
-      });
+      _maybeAutoHover();
     }
+  }
+
+  /// Auto-select the first channel for hero display on initial load so
+  /// the banner isn't blank before the user has moved focus. Separate
+  /// from focus: the hero updates on hover too, and focus is delivered
+  /// later when the registry fires (or never on mobile).
+  void _maybeAutoHover() {
+    if (widget.channels.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _autoHovered) return;
+      _autoHovered = true;
+      widget.onHover(widget.channels.first);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final cols = context.gridColumns;
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(context.horizontalPadding, 4, context.horizontalPadding, 60),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, childAspectRatio: 0.65, crossAxisSpacing: 10, mainAxisSpacing: 10),
-      itemCount: widget.channels.length,
-      itemBuilder: (_, i) => _PosterCard(
-        channel: widget.channels[i],
-        onPlay: () => widget.onPlay(widget.channels[i]),
-        onHover: () => widget.onHover(widget.channels[i]),
-        onTap: () => widget.onTap(widget.channels[i]),
-        isLeftEdge: i % cols == 0,
-        onLeftEdge: widget.onLeftEdge,
-        onLongPress: widget.onLongPress != null ? () => widget.onLongPress!(widget.channels[i]) : null,
+    return TvPosterGrid<Channel>(
+      controller: widget.controller,
+      items: widget.channels,
+      streamIdOf: (ch) => ch.streamId,
+      columns: context.gridColumns,
+      childAspectRatio: 0.65,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      padding: EdgeInsets.fromLTRB(
+          context.horizontalPadding, 4, context.horizontalPadding, 60),
+      onActivate: (ch) => widget.onTap(ch),
+      onLeftEdge: widget.onLeftEdge,
+      // Mirror hover state on focus changes — drives the hero banner
+      // when D-pad moves between tiles.
+      onFocusGained: (ch) => widget.onHover(ch),
+      itemBuilder: (ctx, ch, isFocused) => _PosterCardVisual(
+        channel: ch,
+        isFocused: isFocused,
+        onTap: () => widget.onTap(ch),
+        onHover: () => widget.onHover(ch),
+        onLongPress: widget.onLongPress == null
+            ? null
+            : () => widget.onLongPress!(ch),
       ),
     );
   }
 }
 
-class _PosterCard extends StatefulWidget {
+/// Pure visual for a poster tile. Owns mouse-hover state for desktop
+/// (the focus state arrives from [TvPosterGrid] via [isFocused]); the
+/// active "lit up" look is `isFocused || isHovered`.
+class _PosterCardVisual extends StatefulWidget {
   final Channel channel;
-  final VoidCallback onPlay;
-  final VoidCallback onHover;
+  final bool isFocused;
   final VoidCallback onTap;
-  final bool isLeftEdge;
-  final VoidCallback? onLeftEdge;
+  final VoidCallback onHover;
   final VoidCallback? onLongPress;
-  const _PosterCard({required this.channel, required this.onPlay, required this.onHover, required this.onTap, this.isLeftEdge = false, this.onLeftEdge, this.onLongPress});
+
+  const _PosterCardVisual({
+    required this.channel,
+    required this.isFocused,
+    required this.onTap,
+    required this.onHover,
+    this.onLongPress,
+  });
+
   @override
-  State<_PosterCard> createState() => _PosterCardState();
+  State<_PosterCardVisual> createState() => _PosterCardVisualState();
 }
 
-class _PosterCardState extends State<_PosterCard> with SingleTickerProviderStateMixin {
-  bool _isFocused = false;
+class _PosterCardVisualState extends State<_PosterCardVisual>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
@@ -1998,77 +2071,152 @@ class _PosterCardState extends State<_PosterCard> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
-    _scale = Tween(begin: 1.0, end: 1.05).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 180));
+    _scale = Tween(begin: 1.0, end: 1.05)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _syncAnim();
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void didUpdateWidget(covariant _PosterCardVisual old) {
+    super.didUpdateWidget(old);
+    if (widget.isFocused != old.isFocused) _syncAnim();
+  }
 
-  void _update() { (_isFocused || _isHovered) ? _ctrl.forward() : _ctrl.reverse(); }
+  void _syncAnim() {
+    if (widget.isFocused || _isHovered) {
+      _ctrl.forward();
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final active = _isFocused || _isHovered;
-    return Focus(
-      onFocusChange: (f) { setState(() => _isFocused = f); _update(); if (f) widget.onHover(); },
-      onKeyEvent: (_, e) {
-        if (e is KeyDownEvent) {
-          if (e.logicalKey == LogicalKeyboardKey.select || e.logicalKey == LogicalKeyboardKey.enter) { widget.onTap(); return KeyEventResult.handled; }
-          // D-pad Left on leftmost column → open category sidebar
-          if (e.logicalKey == LogicalKeyboardKey.arrowLeft && widget.isLeftEdge && widget.onLeftEdge != null) {
-            widget.onLeftEdge!();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
+    final active = widget.isFocused || _isHovered;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        if (!mounted) return;
+        setState(() => _isHovered = true);
+        _syncAnim();
+        widget.onHover();
       },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) { setState(() => _isHovered = true); _update(); widget.onHover(); },
-        onExit: (_) { setState(() => _isHovered = false); _update(); },
-        child: GestureDetector(
-          onTap: () { widget.onHover(); widget.onTap(); },
-          onLongPress: widget.onLongPress,
-          child: AnimatedBuilder(animation: _scale, builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: active ? AppColors.primary : Colors.transparent, width: active ? 2 : 0),
-                boxShadow: active ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 14)] : [],
+      onExit: (_) {
+        if (!mounted) return;
+        setState(() => _isHovered = false);
+        _syncAnim();
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: AnimatedBuilder(
+          animation: _scale,
+          builder: (_, child) =>
+              Transform.scale(scale: _scale.value, child: child),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: active ? AppColors.primary : Colors.transparent,
+                  width: active ? 2 : 0),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                          blurRadius: 14)
+                    ]
+                  : [],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  widget.channel.streamIcon != null
+                      ? Image.network(widget.channel.streamIcon!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _placeholder(context, widget.channel))
+                      : _placeholder(context, widget.channel),
+                  Positioned.fill(
+                      child: Container(
+                          decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.85)
+                              ],
+                                  stops: const [0.55, 1.0])))),
+                  if (active)
+                    Center(
+                        child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.85),
+                          shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow,
+                          color: Colors.white, size: 22),
+                    )),
+                  if (widget.channel.rating != null &&
+                      widget.channel.rating! > 0)
+                    Positioned(
+                        top: 5,
+                        right: 5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(3)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.star,
+                                color: AppColors.gold, size: 10),
+                            const SizedBox(width: 2),
+                            Text(widget.channel.rating!.toStringAsFixed(1),
+                                style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                        )),
+                  if (widget.channel.year != null)
+                    Positioned(
+                        top: 5,
+                        left: 5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(3)),
+                          child: Text(widget.channel.year!,
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 9)),
+                        )),
+                  Positioned(
+                      bottom: 6,
+                      left: 6,
+                      right: 6,
+                      child: Text(widget.channel.name,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis)),
+                ],
               ),
-              child: ClipRRect(borderRadius: BorderRadius.circular(7), child: Stack(fit: StackFit.expand, children: [
-                widget.channel.streamIcon != null
-                    ? Image.network(widget.channel.streamIcon!, fit: BoxFit.cover, errorBuilder: (_, _, _) => _ph())
-                    : _ph(),
-                Positioned.fill(child: Container(decoration: BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)], stops: const [0.55, 1.0])))),
-                // Play overlay on hover
-                if (active)
-                  Center(child: Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.85), shape: BoxShape.circle),
-                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 22),
-                  )),
-                if (widget.channel.rating != null && widget.channel.rating! > 0)
-                  Positioned(top: 5, right: 5, child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(3)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.star, color: AppColors.gold, size: 10), const SizedBox(width: 2),
-                      Text(widget.channel.rating!.toStringAsFixed(1), style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w700)),
-                    ]),
-                  )),
-                if (widget.channel.year != null)
-                  Positioned(top: 5, left: 5, child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(3)),
-                    child: Text(widget.channel.year!, style: const TextStyle(color: Colors.white70, fontSize: 9)),
-                  )),
-                Positioned(bottom: 6, left: 6, right: 6, child: Text(widget.channel.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis)),
-              ])),
             ),
           ),
         ),
@@ -2076,9 +2224,20 @@ class _PosterCardState extends State<_PosterCard> with SingleTickerProviderState
     );
   }
 
-  Widget _ph() {
-    final i = widget.channel.name.isNotEmpty ? widget.channel.name.substring(0, widget.channel.name.length.clamp(0, 2)).toUpperCase() : '?';
-    return Container(color: AppColors.surfaceElevated(context), child: Center(child: Text(i, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 22, fontWeight: FontWeight.w800))));
+  static Widget _placeholder(BuildContext context, Channel channel) {
+    final i = channel.name.isNotEmpty
+        ? channel.name
+            .substring(0, channel.name.length.clamp(0, 2))
+            .toUpperCase()
+        : '?';
+    return Container(
+        color: AppColors.surfaceElevated(context),
+        child: Center(
+            child: Text(i,
+                style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800))));
   }
 }
 
