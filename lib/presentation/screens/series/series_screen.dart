@@ -105,10 +105,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     super.dispose();
   }
 
-  /// Register a back handler that handles all focus levels:
-  /// Detail open → close detail
-  /// Category sidebar focused → move to grid
-  /// Otherwise → move to main sidebar
+  /// Register a back handler that handles Series-internal levels only.
+  /// Sidebar bounce and exit dance live in AppShell so every branch
+  /// has the same outer behavior.
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
       // Level 2: Detail is open → close it
@@ -121,9 +120,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _focusGrid();
         return true;
       }
-      // Level 1a: Otherwise hand back to the main sidebar via registry.
-      _focusMainSidebar();
-      return true;
+      // Otherwise let AppShell decide.
+      return false;
     });
   }
 

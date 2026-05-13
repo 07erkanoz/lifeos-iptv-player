@@ -102,10 +102,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     super.dispose();
   }
 
-  /// Register a back handler that handles all focus levels:
-  /// Detail open → close detail
-  /// Category sidebar focused → move to grid
-  /// Otherwise (focus is somewhere in the grid) → move to main sidebar
+  /// Register a back handler that handles Movies-internal levels only.
+  /// Sidebar bounce and exit dance live in AppShell so every branch
+  /// (including Dashboard / Settings) has the same outer behavior.
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
       // Level 2: Detail is open → close it
@@ -118,10 +117,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         _focusGrid();
         return true;
       }
-      // Level 1a: Grid (or anywhere else inside this branch) is focused
-      // → hand back to the main sidebar via the registry.
-      _focusMainSidebar();
-      return true;
+      // Otherwise let AppShell decide (focus main sidebar, navigate to
+      // Dashboard, or run the exit dance).
+      return false;
     });
   }
 

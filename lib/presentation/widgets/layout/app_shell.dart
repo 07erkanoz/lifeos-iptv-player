@@ -156,31 +156,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     final handler = ref.read(backHandlerProvider);
     if (handler != null && handler()) return;
 
-    // 1. Desktop: If sidebar is focused → hand focus to the active
-    // screen's primary content via the registry (detail overlay takes
-    // precedence, branch primary otherwise). Falls back to directional
-    // traversal only if no target is registered yet.
+    // 1. Desktop/TV: if focus is NOT on the sidebar yet, bounce there
+    // so the user can navigate between branches. This is the "back =
+    // surface the nav" behavior every TV app ships — without it,
+    // Dashboard has no D-pad path back to the sidebar at all.
     if (isDesktopPlatform) {
       final sidebarState = _sidebarKey.currentState;
-      if (sidebarState != null && sidebarState.hasFocus) {
-        final registry = ref.read(tvFocusRegistryProvider);
-        final ok = registry
-            .requestActivePrimary(widget.navigationShell.currentIndex);
-        if (!ok) {
-          FocusManager.instance.primaryFocus
-              ?.focusInDirection(TraversalDirection.right);
-        }
+      if (sidebarState != null && !sidebarState.hasFocus) {
+        sidebarState.requestFocus();
         return;
       }
     }
 
-    // 2. If not on Dashboard (index 0), go to Dashboard
+    // 2. Sidebar (or no sidebar / mobile): if we're not on Dashboard,
+    // go there. Back from any branch's sidebar reaches the root.
     if (widget.navigationShell.currentIndex != 0) {
       widget.navigationShell.goBranch(0);
       return;
     }
 
-    // 3. On Dashboard: double-back to exit
+    // 3. On Dashboard with sidebar focused: double-back to exit
     final now = DateTime.now();
     if (_lastBackPress != null &&
         now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
