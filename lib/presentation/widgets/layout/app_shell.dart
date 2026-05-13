@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
-import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/widgets/layout/app_shell_back_resolver.dart';
 import 'package:lifeostv/presentation/widgets/layout/desktop_title_bar.dart';
 import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
@@ -152,35 +152,38 @@ class _AppShellState extends ConsumerState<AppShell> {
   // ===========================================================================
 
   void _handleBack() {
-    // 0. Check if current screen has a back handler (e.g., close detail panel)
+    // Pure decision (no side effects). Logic stays in
+    // [resolveAppShellBackAction] so it's unit-testable end-to-end
+    // without standing up a navigation shell.
     final handler = ref.read(backHandlerProvider);
-    if (handler != null && handler()) return;
-
-    // 1. Desktop/TV: if focus is NOT on the sidebar yet, bounce there
-    // so the user can navigate between branches. This is the "back =
-    // surface the nav" behavior every TV app ships — without it,
-    // Dashboard has no D-pad path back to the sidebar at all.
-    if (isDesktopPlatform) {
-      final sidebarState = _sidebarKey.currentState;
-      if (sidebarState != null && !sidebarState.hasFocus) {
-        sidebarState.requestFocus();
-        return;
-      }
-    }
-
-    // 2. Sidebar (or no sidebar / mobile): if we're not on Dashboard,
-    // go there. Back from any branch's sidebar reaches the root.
-    if (widget.navigationShell.currentIndex != 0) {
-      widget.navigationShell.goBranch(0);
-      return;
-    }
-
-    // 3. On Dashboard with sidebar focused: double-back to exit
+    final screenHandled = handler != null && handler();
+    final sidebarState = _sidebarKey.currentState;
     final now = DateTime.now();
-    if (_lastBackPress != null &&
-        now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
-      SystemNavigator.pop();
-      return;
+
+    final action = resolveAppShellBackAction(
+      screenHandlerHandled: screenHandled,
+      isDesktopPlatform: isDesktopPlatform,
+      sidebarMounted: sidebarState != null,
+      sidebarHasFocus: sidebarState?.hasFocus ?? false,
+      currentBranchIndex: widget.navigationShell.currentIndex,
+      lastBackPress: _lastBackPress,
+      now: now,
+    );
+
+    switch (action) {
+      case AppShellBackAction.consumed:
+        return;
+      case AppShellBackAction.focusSidebar:
+        sidebarState!.requestFocus();
+        return;
+      case AppShellBackAction.goToDashboard:
+        widget.navigationShell.goBranch(0);
+        return;
+      case AppShellBackAction.exit:
+        SystemNavigator.pop();
+        return;
+      case AppShellBackAction.showExitConfirm:
+        break;
     }
 
     _lastBackPress = now;

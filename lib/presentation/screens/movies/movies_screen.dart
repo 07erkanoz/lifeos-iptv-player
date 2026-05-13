@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -102,43 +103,33 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     super.dispose();
   }
 
-  /// Movies back hierarchy: every back press moves focus one level
-  /// "out" toward the main sidebar / Dashboard, never inward and never
-  /// to the wrong zone.
+  /// Movies back ladder lives in [resolveGridScreenBackAction] so the
+  /// decision is pure-function unit-tested. This wires the inputs and
+  /// dispatches the outcome.
   ///
   /// detail → close
   /// grid → category panel (when open) → main sidebar → Dashboard / exit
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
-      // Level 3: Detail is open → close it.
-      if (_detailChannel != null) {
-        _closeDetail();
-        return true;
+      final action = resolveGridScreenBackAction(
+        detailOpen: _detailChannel != null,
+        mainSidebarFocused:
+            ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
+        categoriesCollapsed: _categoriesCollapsed,
+        categoryScopeFocused: _categorySidebarScope.hasFocus,
+      );
+      switch (action) {
+        case GridScreenBackAction.closeDetail:
+          _closeDetail();
+          return true;
+        case GridScreenBackAction.bounceToCategory:
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _categorySidebarScope.requestFocus();
+          });
+          return true;
+        case GridScreenBackAction.handToShell:
+          return false;
       }
-
-      final registry = ref.read(tvFocusRegistryProvider);
-
-      // Already on the main sidebar — nothing more for Movies to do.
-      // AppShell handles "go to Dashboard / exit dance".
-      if (registry.isMainSidebarFocused) return false;
-
-      // Level 2: Category panel focused → let AppShell take us further
-      // out (main sidebar). Returning false ensures we don't loop back
-      // into the grid.
-      if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        return false;
-      }
-
-      // Level 1: Focus is in the grid (or hero / toolbar). Bounce to
-      // the category panel if it's available; otherwise hand off to
-      // AppShell to focus the main sidebar.
-      if (!_categoriesCollapsed) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _categorySidebarScope.requestFocus();
-        });
-        return true;
-      }
-      return false;
     });
   }
 

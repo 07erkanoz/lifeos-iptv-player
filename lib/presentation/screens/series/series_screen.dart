@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -105,32 +106,31 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     super.dispose();
   }
 
-  /// Series back hierarchy: every back press moves focus one level
-  /// "out" toward the main sidebar / Dashboard.
+  /// Series back ladder — same shared resolver as Movies.
   ///
   /// detail → close
   /// grid → category panel (when open) → main sidebar → Dashboard / exit
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
-      if (_detailChannel != null) {
-        _closeDetail();
-        return true;
+      final action = resolveGridScreenBackAction(
+        detailOpen: _detailChannel != null,
+        mainSidebarFocused:
+            ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
+        categoriesCollapsed: _categoriesCollapsed,
+        categoryScopeFocused: _categorySidebarScope.hasFocus,
+      );
+      switch (action) {
+        case GridScreenBackAction.closeDetail:
+          _closeDetail();
+          return true;
+        case GridScreenBackAction.bounceToCategory:
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _categorySidebarScope.requestFocus();
+          });
+          return true;
+        case GridScreenBackAction.handToShell:
+          return false;
       }
-
-      final registry = ref.read(tvFocusRegistryProvider);
-      if (registry.isMainSidebarFocused) return false;
-
-      if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        return false;
-      }
-
-      if (!_categoriesCollapsed) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _categorySidebarScope.requestFocus();
-        });
-        return true;
-      }
-      return false;
     });
   }
 
