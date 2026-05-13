@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
+import 'package:lifeostv/core/tv_focus/tv_poster_grid.dart';
+import 'package:lifeostv/core/tv_focus/tv_poster_grid_controller.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
@@ -17,7 +22,6 @@ import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/watchlist_button.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
-import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/responsive.dart';
@@ -57,8 +61,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   String? _lastEpisodeExt;
   String _lastEpisodeLabel = '';
 
-  // Focus node for content area (to receive focus after sidebar collapse)
-  final FocusNode _contentFocusNode = FocusNode();
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
   // Focus node for detail view back button
@@ -66,17 +68,37 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   // Focus node for detail view play button (primary action)
   final FocusNode _detailPlayFocusNode = FocusNode();
 
+  /// Index-based D-pad navigation + lazy-mount-safe focus restore for
+  /// the series poster grid. Outlives detail open/close so the
+  /// previously focused streamId survives.
+  final TvPosterGridController _gridController = TvPosterGridController();
+
+  /// Stable closures for [TvFocusRegistry] register/unregister identity.
+  late final VoidFocusCallback _branchPrimaryCb;
+  VoidFocusCallback? _detailOverlayCb;
+
   @override
   void initState() {
     super.initState();
+    _branchPrimaryCb = _focusGrid;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _registerBackHandler();
+      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
+            TvBranchIndex.series,
+            _branchPrimaryCb,
+          );
     });
   }
 
   @override
   void dispose() {
-    _contentFocusNode.dispose();
+    ref.read(tvFocusRegistryProvider)
+        .unregisterBranchPrimary(TvBranchIndex.series, _branchPrimaryCb);
+    final overlay = _detailOverlayCb;
+    if (overlay != null) {
+      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+    }
     _categorySidebarScope.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
@@ -85,8 +107,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
   /// Register a back handler that handles all focus levels:
   /// Detail open → close detail
-  /// Category sidebar focused → move to content
-  /// Content focused → move to main sidebar
+  /// Category sidebar focused → move to grid
+  /// Otherwise → move to main sidebar
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
       // Level 2: Detail is open → close it
@@ -94,17 +116,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _closeDetail();
         return true;
       }
-      // Level 1b: Category sidebar is focused → move to content
+      // Level 1b: Category sidebar is focused → move to grid
       if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        _focusContent();
+        _focusGrid();
         return true;
       }
-      // Level 1a: Content area is focused → move to main sidebar
-      if (_contentFocusNode.hasFocus) {
-        _focusMainSidebar();
-        return true;
-      }
-      return false; // Let AppShell handle it
+      // Level 1a: Otherwise hand back to the main sidebar via registry.
+      _focusMainSidebar();
+      return true;
     });
   }
 
@@ -219,9 +238,21 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     return primary ?? secondary;
   }
 
+  /// Stable callback used for the registry overlay slot. Captured once
+  /// in [_openDetail] so push/pop identity matches.
+  void _focusDetailPlayCallback() {
+    if (_detailPlayFocusNode.canRequestFocus) {
+      _detailPlayFocusNode.requestFocus();
+    }
+  }
+
   void _openDetail(Channel ch) async {
-    // Disable content area focus so grid can't steal focus from detail
-    _contentFocusNode.canRequestFocus = false;
+    // Push the detail's primary action as the active overlay focus
+    // target in the registry. Takes precedence over the grid for any
+    // sidebar/back jump while the detail panel is open.
+    final cb = _focusDetailPlayCallback;
+    _detailOverlayCb = cb;
+    ref.read(tvFocusRegistryProvider).pushOverlayPrimary(cb);
     _categorySidebarScope.canRequestFocus = false;
     final hasCachedInfo =
         ch.genre != null ||
@@ -576,24 +607,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _detailChannel = null;
       _seriesInfo = null;
     });
-    // Re-enable content area focus
-    _contentFocusNode.canRequestFocus = true;
+    final overlay = _detailOverlayCb;
+    if (overlay != null) {
+      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _detailOverlayCb = null;
+    }
     _categorySidebarScope.canRequestFocus = true;
-    // Restore focus to content area — only on desktop/TV
-    // On mobile: Offstage preserves scroll position, focus manipulation
-    // would scroll the grid to a random item
+    // Restore focus to the previously focused poster — only on
+    // desktop/TV. On mobile, Offstage preserves scroll position;
+    // imperatively requesting focus would scroll the grid.
     if (!isMobilePlatform) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _contentFocusNode.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              FocusManager.instance.primaryFocus?.focusInDirection(
-                TraversalDirection.down,
-              );
-            }
-          });
-        }
+        if (mounted) _gridController.focusCurrentOrFirst();
       });
     }
   }
@@ -614,14 +639,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     setState(() => _categoriesCollapsed = !_categoriesCollapsed);
     if (_categoriesCollapsed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _contentFocusNode.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            FocusManager.instance.primaryFocus?.focusInDirection(
-              TraversalDirection.down,
-            );
-          });
-        }
+        if (mounted) _gridController.focusCurrentOrFirst();
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -768,23 +786,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     );
   }
 
-  /// Move focus to content area (D-pad right from category sidebar)
-  void _focusContent() {
+  /// Move focus to the poster grid via the controller (D-pad right
+  /// from category sidebar / right-arrow from main sidebar via
+  /// registry). Prefers the previously focused poster.
+  void _focusGrid() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _contentFocusNode.requestFocus();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          FocusManager.instance.primaryFocus?.focusInDirection(
-            TraversalDirection.down,
-          );
-        });
-      }
+      if (!mounted) return;
+      _gridController.focusCurrentOrFirst();
     });
   }
 
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
-    if (!_categoriesCollapsed) return;
+    if (!_categoriesCollapsed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _categorySidebarScope.requestFocus();
+      });
+      return;
+    }
     _toggleCategorySidebar();
   }
 
@@ -792,19 +811,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   void _focusDetailBackButton() {
     FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _detailPlayFocusNode.requestFocus();
+      if (mounted) _focusDetailPlayCallback();
     });
   }
 
-  /// Focus the main AppSidebar (called from category item left press)
+  /// Focus the main AppSidebar via [TvFocusRegistry] — the sidebar
+  /// lives in a sibling subtree under StatefulShellRoute.indexedStack
+  /// so findAncestorStateOfType could not reach it.
   void _focusMainSidebar() {
-    final sidebarState = context.findAncestorStateOfType<AppSidebarState>();
-    if (sidebarState != null) {
-      sidebarState.requestFocus();
-    } else {
-      FocusManager.instance.primaryFocus?.focusInDirection(
-        TraversalDirection.left,
-      );
+    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    if (!ok) {
+      // First-frame fallback before the sidebar finished registering.
+      FocusManager.instance.primaryFocus
+          ?.focusInDirection(TraversalDirection.left);
     }
   }
 
@@ -974,16 +993,17 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         isSelected: isSelected,
         isDark: isDark,
         onTap: onTap,
-        onRightPressed: _focusContent,
+        onRightPressed: _focusGrid,
         onLeftPressed: _focusMainSidebar,
       ),
     );
   }
 
   Widget _buildContentArea(bool isDark, AppLocalizations l10n) {
-    return Focus(
-      focusNode: _contentFocusNode,
-      child: Column(
+    // No parent Focus wrapper — the poster grid items own their own
+    // FocusNodes via TvPosterGrid. A parent Focus would intercept D-pad
+    // before the items could handle row/column math.
+    return Column(
         children: [
           // Hero banner (Tauri style: backdrop + info)
           if (_hoveredChannel != null &&
@@ -1046,13 +1066,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           // Grid
           Expanded(child: _buildGrid(l10n)),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildGrid(AppLocalizations l10n) {
     if (_selectedCategoryId == _kFavoritesId) {
       return _FavoritesGridView(
+        gridController: _gridController,
         searchQuery: _searchQuery,
         onHover: _onPosterHover,
         onTap: _openDetail,
@@ -1062,6 +1082,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
     if (_selectedCategoryId == _kHistoryId) {
       return _HistoryGridView(
+        gridController: _gridController,
         searchQuery: _searchQuery,
         onHover: _onPosterHover,
         onTap: _openDetail,
@@ -1071,6 +1092,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
     if (_selectedCategoryId != null) {
       return _SeriesGridView(
+        gridController: _gridController,
         categoryId: _selectedCategoryId!,
         searchQuery: _searchQuery,
         onHover: _onPosterHover,
@@ -1080,6 +1102,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       );
     }
     return _AllSeriesGridView(
+      gridController: _gridController,
       searchQuery: _searchQuery,
       onHover: _onPosterHover,
       onTap: _openDetail,
@@ -2787,6 +2810,7 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
 // ─── Grid Views ──────────────────────────────────────────────────────────────
 
 class _SeriesGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String categoryId;
   final String searchQuery;
   final Function(Channel) onHover;
@@ -2794,6 +2818,7 @@ class _SeriesGridView extends ConsumerWidget {
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
   const _SeriesGridView({
+    required this.gridController,
     required this.categoryId,
     required this.searchQuery,
     required this.onHover,
@@ -2821,6 +2846,7 @@ class _SeriesGridView extends ConsumerWidget {
           );
         }
         return _PosterGrid(
+          controller: gridController,
           channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
             ref.watch(seriesSortModeProvider),
@@ -2837,12 +2863,14 @@ class _SeriesGridView extends ConsumerWidget {
 }
 
 class _AllSeriesGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
   const _AllSeriesGridView({
+    required this.gridController,
     required this.searchQuery,
     required this.onHover,
     required this.onTap,
@@ -2869,6 +2897,7 @@ class _AllSeriesGridView extends ConsumerWidget {
           );
         }
         return _PosterGrid(
+          controller: gridController,
           channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
             ref.watch(seriesSortModeProvider),
@@ -2885,12 +2914,14 @@ class _AllSeriesGridView extends ConsumerWidget {
 }
 
 class _FavoritesGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
   const _FavoritesGridView({
+    required this.gridController,
     required this.searchQuery,
     required this.onHover,
     required this.onTap,
@@ -2928,6 +2959,7 @@ class _FavoritesGridView extends ConsumerWidget {
               );
             }
             return _PosterGrid(
+              controller: gridController,
               channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
             ref.watch(seriesSortModeProvider),
@@ -2948,12 +2980,14 @@ class _FavoritesGridView extends ConsumerWidget {
 }
 
 class _HistoryGridView extends ConsumerWidget {
+  final TvPosterGridController gridController;
   final String searchQuery;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
   const _HistoryGridView({
+    required this.gridController,
     required this.searchQuery,
     required this.onHover,
     required this.onTap,
@@ -3077,6 +3111,7 @@ class _HistoryGridView extends ConsumerWidget {
             ),
             Expanded(
               child: _PosterGrid(
+                controller: gridController,
                 channels: sortChannels(
             filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
             ref.watch(seriesSortModeProvider),
@@ -3096,13 +3131,19 @@ class _HistoryGridView extends ConsumerWidget {
   }
 }
 
+/// Thin wrapper around [TvPosterGrid] that keeps two series-specific
+/// behaviors: auto-hover-first-channel for the initial hero banner,
+/// and per-tile "new episode" badge lookup from
+/// [_newEpisodeSeriesIdsProvider]. Focus/D-pad lives in TvPosterGrid.
 class _PosterGrid extends ConsumerStatefulWidget {
+  final TvPosterGridController controller;
   final List<Channel> channels;
   final Function(Channel) onHover;
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final Function(Channel)? onLongPress;
   const _PosterGrid({
+    required this.controller,
     required this.channels,
     required this.onHover,
     required this.onTap,
@@ -3120,86 +3161,80 @@ class _PosterGridState extends ConsumerState<_PosterGrid> {
   @override
   void initState() {
     super.initState();
-    if (widget.channels.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_autoHovered) {
-          _autoHovered = true;
-          widget.onHover(widget.channels.first);
-        }
-      });
-    }
+    _maybeAutoHover();
   }
 
   @override
   void didUpdateWidget(covariant _PosterGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_autoHovered && widget.channels.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_autoHovered) {
-          _autoHovered = true;
-          widget.onHover(widget.channels.first);
-        }
-      });
+      _maybeAutoHover();
     }
+  }
+
+  void _maybeAutoHover() {
+    if (widget.channels.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _autoHovered) return;
+      _autoHovered = true;
+      widget.onHover(widget.channels.first);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final cols = context.gridColumns;
     final newEpIds = ref.watch(_newEpisodeSeriesIdsProvider).value ?? <int>{};
-    return GridView.builder(
+    return TvPosterGrid<Channel>(
+      controller: widget.controller,
+      items: widget.channels,
+      streamIdOf: (ch) => ch.streamId,
+      columns: context.gridColumns,
+      childAspectRatio: 0.65,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
       padding: EdgeInsets.fromLTRB(
-        context.horizontalPadding,
-        4,
-        context.horizontalPadding,
-        60,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: widget.channels.length,
-      itemBuilder: (_, i) => _PosterCard(
-        channel: widget.channels[i],
-        onHover: () => widget.onHover(widget.channels[i]),
-        onTap: () => widget.onTap(widget.channels[i]),
-        isLeftEdge: i % cols == 0,
-        onLeftEdge: widget.onLeftEdge,
-        onLongPress: widget.onLongPress != null
-            ? () => widget.onLongPress!(widget.channels[i])
-            : null,
-        showNewBadge: newEpIds.contains(widget.channels[i].streamId),
+          context.horizontalPadding, 4, context.horizontalPadding, 60),
+      onActivate: (ch) => widget.onTap(ch),
+      onLeftEdge: widget.onLeftEdge,
+      onFocusGained: (ch) => widget.onHover(ch),
+      itemBuilder: (ctx, ch, isFocused) => _PosterCardVisual(
+        channel: ch,
+        isFocused: isFocused,
+        showNewBadge: newEpIds.contains(ch.streamId),
+        onTap: () => widget.onTap(ch),
+        onHover: () => widget.onHover(ch),
+        onLongPress: widget.onLongPress == null
+            ? null
+            : () => widget.onLongPress!(ch),
       ),
     );
   }
 }
 
-class _PosterCard extends StatefulWidget {
+/// Series poster visual. Focus/D-pad come from [TvPosterGrid]; this
+/// widget only renders, tracks mouse-hover, and reads `isFocused` from
+/// its parent.
+class _PosterCardVisual extends StatefulWidget {
   final Channel channel;
+  final bool isFocused;
   final VoidCallback onHover;
   final VoidCallback onTap;
-  final bool isLeftEdge;
-  final VoidCallback? onLeftEdge;
   final VoidCallback? onLongPress;
   final bool showNewBadge;
-  const _PosterCard({
+  const _PosterCardVisual({
     required this.channel,
+    required this.isFocused,
     required this.onHover,
     required this.onTap,
-    this.isLeftEdge = false,
-    this.onLeftEdge,
     this.onLongPress,
     this.showNewBadge = false,
   });
   @override
-  State<_PosterCard> createState() => _PosterCardState();
+  State<_PosterCardVisual> createState() => _PosterCardVisualState();
 }
 
-class _PosterCardState extends State<_PosterCard>
+class _PosterCardVisualState extends State<_PosterCardVisual>
     with SingleTickerProviderStateMixin {
-  bool _isFocused = false;
   bool _isHovered = false;
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
@@ -3215,6 +3250,13 @@ class _PosterCardState extends State<_PosterCard>
       begin: 1.0,
       end: 1.05,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _syncAnim();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PosterCardVisual old) {
+    super.didUpdateWidget(old);
+    if (widget.isFocused != old.isFocused) _syncAnim();
   }
 
   @override
@@ -3223,45 +3265,29 @@ class _PosterCardState extends State<_PosterCard>
     super.dispose();
   }
 
-  void _update() {
-    (_isFocused || _isHovered) ? _ctrl.forward() : _ctrl.reverse();
+  void _syncAnim() {
+    if (widget.isFocused || _isHovered) {
+      _ctrl.forward();
+    } else {
+      _ctrl.reverse();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final active = _isFocused || _isHovered;
-    return Focus(
-      onFocusChange: (f) {
-        setState(() => _isFocused = f);
-        _update();
-        if (f) widget.onHover();
-      },
-      onKeyEvent: (_, e) {
-        if (e is KeyDownEvent) {
-          if (e.logicalKey == LogicalKeyboardKey.select ||
-              e.logicalKey == LogicalKeyboardKey.enter) {
-            widget.onTap();
-            return KeyEventResult.handled;
-          }
-          if (e.logicalKey == LogicalKeyboardKey.arrowLeft &&
-              widget.isLeftEdge &&
-              widget.onLeftEdge != null) {
-            widget.onLeftEdge!();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: MouseRegion(
+    final active = widget.isFocused || _isHovered;
+    return MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) {
+          if (!mounted) return;
           setState(() => _isHovered = true);
-          _update();
+          _syncAnim();
           widget.onHover();
         },
         onExit: (_) {
+          if (!mounted) return;
           setState(() => _isHovered = false);
-          _update();
+          _syncAnim();
         },
         child: GestureDetector(
           onTap: () {
@@ -3459,8 +3485,7 @@ class _PosterCardState extends State<_PosterCard>
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _ph() {
