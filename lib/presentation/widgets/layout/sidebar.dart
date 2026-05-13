@@ -2,21 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/widgets/layout/sidebar_search_button.dart';
 
-class AppSidebar extends StatefulWidget {
+class AppSidebar extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const AppSidebar({super.key, required this.navigationShell});
 
   @override
-  State<AppSidebar> createState() => AppSidebarState();
+  ConsumerState<AppSidebar> createState() => AppSidebarState();
 }
 
-class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMixin {
+class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   bool _isMouseInside = false;
   late AnimationController _animController;
@@ -25,6 +28,11 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
   Timer? _collapseTimer;
 
   final List<FocusNode> _itemFocusNodes = [];
+
+  /// Stable closure registered with [TvFocusRegistry]. Captured once so
+  /// register/unregister identity matches across the widget lifetime even
+  /// if `requestFocus` were ever reassigned.
+  late final VoidFocusCallback _registrySidebarCallback;
 
   static const _collapsedWidth = 64.0;
   static const _expandedWidth = 200.0;
@@ -56,10 +64,27 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
       node.addListener(_onAnyItemFocusChanged);
       _itemFocusNodes.add(node);
     }
+    // Hand the focus registry a stable handle that re-focuses whichever
+    // menu item is currently selected. Used by detail/back flows that
+    // want to bounce focus back to the sidebar without knowing its
+    // internals.
+    _registrySidebarCallback = requestFocus;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(tvFocusRegistryProvider)
+          .registerMainSidebar(_registrySidebarCallback);
+    });
   }
 
   @override
   void dispose() {
+    // De-register before the first super.dispose call so `ref` is still
+    // valid. Identity-matched: a stale unregister can't wipe a sibling
+    // sidebar registered later during hot reload.
+    ref
+        .read(tvFocusRegistryProvider)
+        .unregisterMainSidebar(_registrySidebarCallback);
     _expandTimer?.cancel();
     _collapseTimer?.cancel();
     _animController.dispose();
@@ -145,12 +170,26 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
     );
-    // After selecting, move focus to content area
+    // After the branch swap settles, hand focus to the new branch's
+    // primary target via the registry. focusInDirection is a guess that
+    // depends on widget geometry; the registry call is explicit and
+    // survives detail overlays.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.right);
-      }
+      if (!mounted) return;
+      _moveFocusToActiveContent();
     });
+  }
+
+  /// Resolve the right-arrow / branch-swap focus jump via the registry,
+  /// falling back to directional traversal if no screen has registered
+  /// yet (cold first frame).
+  void _moveFocusToActiveContent() {
+    final registry = ref.read(tvFocusRegistryProvider);
+    final ok = registry.requestActivePrimary(widget.navigationShell.currentIndex);
+    if (!ok) {
+      FocusManager.instance.primaryFocus
+          ?.focusInDirection(TraversalDirection.right);
+    }
   }
 
   @override
@@ -198,6 +237,7 @@ class AppSidebarState extends State<AppSidebar> with SingleTickerProviderStateMi
                           isExpanded: _isExpanded,
                           focusNode: _itemFocusNodes[index],
                           onTap: () => _onItemTapped(index),
+                          onRightPressed: _moveFocusToActiveContent,
                         );
                       },
                     ),
@@ -274,6 +314,7 @@ class _SidebarItem extends StatefulWidget {
   final bool isExpanded;
   final FocusNode focusNode;
   final VoidCallback onTap;
+  final VoidCallback onRightPressed;
 
   const _SidebarItem({
     required this.icon,
@@ -282,6 +323,7 @@ class _SidebarItem extends StatefulWidget {
     required this.isExpanded,
     required this.focusNode,
     required this.onTap,
+    required this.onRightPressed,
   });
 
   @override
@@ -314,9 +356,12 @@ class _SidebarItemState extends State<_SidebarItem> {
             widget.onTap();
             return KeyEventResult.handled;
           }
-          // D-pad right → move focus to content area
+          // D-pad right → hand focus to the active screen's primary
+          // content via the registry (not nextFocus(), which traverses
+          // sidebar siblings like the search button instead of jumping
+          // to the content area).
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            node.nextFocus();
+            widget.onRightPressed();
             return KeyEventResult.handled;
           }
         }

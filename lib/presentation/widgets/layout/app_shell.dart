@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/layout/desktop_title_bar.dart';
@@ -155,11 +156,20 @@ class _AppShellState extends ConsumerState<AppShell> {
     final handler = ref.read(backHandlerProvider);
     if (handler != null && handler()) return;
 
-    // 1. Desktop: If sidebar is focused → move focus to content area
+    // 1. Desktop: If sidebar is focused → hand focus to the active
+    // screen's primary content via the registry (detail overlay takes
+    // precedence, branch primary otherwise). Falls back to directional
+    // traversal only if no target is registered yet.
     if (isDesktopPlatform) {
       final sidebarState = _sidebarKey.currentState;
       if (sidebarState != null && sidebarState.hasFocus) {
-        FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.right);
+        final registry = ref.read(tvFocusRegistryProvider);
+        final ok = registry
+            .requestActivePrimary(widget.navigationShell.currentIndex);
+        if (!ok) {
+          FocusManager.instance.primaryFocus
+              ?.focusInDirection(TraversalDirection.right);
+        }
         return;
       }
     }
