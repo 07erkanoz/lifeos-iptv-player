@@ -33,6 +33,7 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
   /// register/unregister identity matches across the widget lifetime even
   /// if `requestFocus` were ever reassigned.
   late final VoidFocusCallback _registrySidebarCallback;
+  late final bool Function() _registryFocusProbe;
 
   static const _collapsedWidth = 64.0;
   static const _expandedWidth = 200.0;
@@ -69,11 +70,15 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     // want to bounce focus back to the sidebar without knowing its
     // internals.
     _registrySidebarCallback = requestFocus;
+    _registryFocusProbe = () => hasFocus;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref
           .read(tvFocusRegistryProvider)
           .registerMainSidebar(_registrySidebarCallback);
+      ref
+          .read(tvFocusRegistryProvider)
+          .registerMainSidebarFocusProbe(_registryFocusProbe);
     });
   }
 
@@ -85,6 +90,9 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     ref
         .read(tvFocusRegistryProvider)
         .unregisterMainSidebar(_registrySidebarCallback);
+    ref
+        .read(tvFocusRegistryProvider)
+        .unregisterMainSidebarFocusProbe(_registryFocusProbe);
     _expandTimer?.cancel();
     _collapseTimer?.cancel();
     _animController.dispose();

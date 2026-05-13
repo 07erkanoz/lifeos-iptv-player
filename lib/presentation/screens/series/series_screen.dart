@@ -105,22 +105,31 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     super.dispose();
   }
 
-  /// Register a back handler that handles Series-internal levels only.
-  /// Sidebar bounce and exit dance live in AppShell so every branch
-  /// has the same outer behavior.
+  /// Series back hierarchy: every back press moves focus one level
+  /// "out" toward the main sidebar / Dashboard.
+  ///
+  /// detail → close
+  /// grid → category panel (when open) → main sidebar → Dashboard / exit
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
-      // Level 2: Detail is open → close it
       if (_detailChannel != null) {
         _closeDetail();
         return true;
       }
-      // Level 1b: Category sidebar is focused → move to grid
+
+      final registry = ref.read(tvFocusRegistryProvider);
+      if (registry.isMainSidebarFocused) return false;
+
       if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        _focusGrid();
+        return false;
+      }
+
+      if (!_categoriesCollapsed) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _categorySidebarScope.requestFocus();
+        });
         return true;
       }
-      // Otherwise let AppShell decide.
       return false;
     });
   }

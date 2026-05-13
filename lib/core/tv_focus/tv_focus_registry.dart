@@ -20,6 +20,12 @@ class TvFocusRegistry {
   // "focus current menu item" callback here on mount.
   VoidFocusCallback? _focusMainSidebar;
 
+  // Probe: "is the main sidebar currently focused?". Set by AppSidebar
+  // on mount so screens can decide whether back should bounce to the
+  // sidebar (focus is on content) or fall through to AppShell's
+  // navigate/exit logic (focus is already on the sidebar).
+  bool Function()? _isMainSidebarFocused;
+
   // Branch primary focus targets. Keyed by branch index so the same screen
   // can re-register across hot reloads or branch swaps without leaking.
   final Map<int, VoidFocusCallback> _branchPrimary = {};
@@ -35,6 +41,20 @@ class TvFocusRegistry {
   void registerMainSidebar(VoidFocusCallback cb) {
     _focusMainSidebar = cb;
   }
+
+  void registerMainSidebarFocusProbe(bool Function() probe) {
+    _isMainSidebarFocused = probe;
+  }
+
+  void unregisterMainSidebarFocusProbe(bool Function() probe) {
+    if (identical(_isMainSidebarFocused, probe)) {
+      _isMainSidebarFocused = null;
+    }
+  }
+
+  /// True if the main sidebar currently has focus. Returns false when
+  /// no probe is registered yet (first frame).
+  bool get isMainSidebarFocused => _isMainSidebarFocused?.call() ?? false;
 
   /// Idempotent unregister. The identity check prevents a late unregister
   /// from a previously-mounted sidebar wiping a newer registration during

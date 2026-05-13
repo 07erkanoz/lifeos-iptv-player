@@ -102,23 +102,42 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     super.dispose();
   }
 
-  /// Register a back handler that handles Movies-internal levels only.
-  /// Sidebar bounce and exit dance live in AppShell so every branch
-  /// (including Dashboard / Settings) has the same outer behavior.
+  /// Movies back hierarchy: every back press moves focus one level
+  /// "out" toward the main sidebar / Dashboard, never inward and never
+  /// to the wrong zone.
+  ///
+  /// detail → close
+  /// grid → category panel (when open) → main sidebar → Dashboard / exit
   void _registerBackHandler() {
     ref.read(backHandlerProvider.notifier).set(() {
-      // Level 2: Detail is open → close it
+      // Level 3: Detail is open → close it.
       if (_detailChannel != null) {
         _closeDetail();
         return true;
       }
-      // Level 1b: Category sidebar is focused → move to grid
+
+      final registry = ref.read(tvFocusRegistryProvider);
+
+      // Already on the main sidebar — nothing more for Movies to do.
+      // AppShell handles "go to Dashboard / exit dance".
+      if (registry.isMainSidebarFocused) return false;
+
+      // Level 2: Category panel focused → let AppShell take us further
+      // out (main sidebar). Returning false ensures we don't loop back
+      // into the grid.
       if (!_categoriesCollapsed && _categorySidebarScope.hasFocus) {
-        _focusGrid();
+        return false;
+      }
+
+      // Level 1: Focus is in the grid (or hero / toolbar). Bounce to
+      // the category panel if it's available; otherwise hand off to
+      // AppShell to focus the main sidebar.
+      if (!_categoriesCollapsed) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _categorySidebarScope.requestFocus();
+        });
         return true;
       }
-      // Otherwise let AppShell decide (focus main sidebar, navigate to
-      // Dashboard, or run the exit dance).
       return false;
     });
   }
