@@ -191,6 +191,7 @@ class _TvPosterItemState<T> extends State<_TvPosterItem<T>> {
       // approximate jumpTo got us into the viewport; this aligns it for
       // a clean focus ring.
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         final ctx = _node.context;
         if (ctx == null) return;
         Scrollable.ensureVisible(
