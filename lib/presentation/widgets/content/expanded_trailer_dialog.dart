@@ -1,6 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 
+/// Compute the largest 16:9 box that fits inside [viewport] with
+/// [scale] (0–1) of each dimension as a margin. Returns a (width,
+/// height) record at the chosen size.
+///
+/// Pulled out of [showExpandedTrailer] so the letter-boxing math
+/// can be unit-tested without standing up a media_kit Player (which
+/// doesn't initialise in the test environment).
+({double width, double height}) computeExpandedTrailerSize(
+  Size viewport, {
+  double scale = 0.9,
+}) {
+  final maxW = viewport.width * scale;
+  final maxH = viewport.height * scale;
+  double w = maxW;
+  double h = w * 9 / 16;
+  if (h > maxH) {
+    h = maxH;
+    w = h * 16 / 9;
+  }
+  return (width: w, height: h);
+}
+
 /// Opens a fullscreen modal showing the YouTube trailer at the largest
 /// 16:9 size that fits the viewport, with sound on. The compact PiP
 /// player on the detail page keeps running behind the dialog — its
@@ -19,16 +41,9 @@ Future<void> showExpandedTrailer(
     barrierColor: Colors.black87,
     barrierDismissible: true,
     builder: (ctx) {
-      final size = MediaQuery.of(ctx).size;
-      // Largest 16:9 that fits with a comfortable margin on all sides.
-      final maxW = size.width * 0.9;
-      final maxH = size.height * 0.9;
-      double w = maxW;
-      double h = w * 9 / 16;
-      if (h > maxH) {
-        h = maxH;
-        w = h * 16 / 9;
-      }
+      final size = computeExpandedTrailerSize(MediaQuery.of(ctx).size);
+      final w = size.width;
+      final h = size.height;
       return Stack(
         children: [
           // Tap anywhere outside the video to dismiss.
