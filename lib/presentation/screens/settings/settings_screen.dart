@@ -13,6 +13,8 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/data/services/backup_service.dart';
+import 'package:lifeostv/data/services/sync_metadata.dart';
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/domain/models/account_info.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -481,12 +483,37 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
                   child: Text(l10n.defaultLabel, style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
                 if (!isDefault) TextButton(onPressed: () async {
+                  // 1. Persist the user's choice in settings (drives
+                  //    currentAccountProvider on next read).
                   ref.read(settingsProvider.notifier).setDefaultAccount(account.id);
-                  // Clear old data and sync new account
+
+                  // 2. Re-establish the single-active-row invariant in
+                  //    the DB. Old builds didn't enforce this on insert,
+                  //    so existing installs may have multiple actives —
+                  //    setActiveAccount fixes that atomically.
                   final authRepo = ref.read(authRepositoryProvider);
+                  await authRepo.setActiveAccount(account.id);
+
+                  // 3. Drop *all* data tied to the previous account
+                  //    (channels, EPG, watch history, favourites, …)
+                  //    and the global API cache.
                   if (authRepo is AuthRepositoryImpl) {
                     await authRepo.clearUserDataForNewAccount();
                   }
+
+                  // 4. Reset tier-sync timestamps. Without this the
+                  //    `initialSyncProvider` would see "Tier-3 synced
+                  //    20 minutes ago" from the previous account and
+                  //    silently skip the heavy initial sync — leaving
+                  //    the new account showing an empty UI.
+                  try {
+                    final prefs = ref.read(sharedPreferencesProvider);
+                    await SyncMetadata(prefs).resetAllTiers();
+                  } catch (_) {}
+
+                  // 5. Invalidate the providers that read account state
+                  //    so the rest of the app picks up the switch
+                  //    immediately.
                   ref.invalidate(currentAccountProvider);
                   ref.invalidate(initialSyncProvider);
                 }, child: Text(l10n.setDefault)),

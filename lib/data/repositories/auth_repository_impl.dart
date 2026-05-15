@@ -16,6 +16,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
   AuthRepositoryImpl(this._db, this._apiService);
 
+  /// Deactivate every account row. Run inside a transaction together
+  /// with whatever activation is happening next so the DB never spends
+  /// any time with zero (or more than one) `isActive == true` rows.
+  Future<void> _deactivateAllAccounts() async {
+    await _db.update(_db.accounts).write(
+          const AccountsCompanion(isActive: Value(false)),
+        );
+  }
+
   @override
   Future<void> loginXtream(String url, String username, String password, {String name = 'Xtream Account'}) async {
     // Normalize URL before authenticating and saving
@@ -23,16 +32,24 @@ class AuthRepositoryImpl implements AuthRepository {
 
     final authData = await _apiService.authenticate(normalizedUrl, username, password);
 
-    final accountId = await _db.into(_db.accounts).insert(
-      AccountsCompanion.insert(
-        name: name,
-        type: 'xtream',
-        url: normalizedUrl,
-        username: Value(username),
-        password: Value(password),
-        isActive: Value(true),
-      ),
-    );
+    // Insert the new account as the *single* active account.
+    // Previously this just set `isActive: true` without touching the
+    // existing rows, which left multiple actives in the DB and made
+    // `getCurrentAccount()`'s `getSingleOrNull()` throw / pick the
+    // wrong row depending on insertion order.
+    final accountId = await _db.transaction(() async {
+      await _deactivateAllAccounts();
+      return _db.into(_db.accounts).insert(
+            AccountsCompanion.insert(
+              name: name,
+              type: 'xtream',
+              url: normalizedUrl,
+              username: Value(username),
+              password: Value(password),
+              isActive: Value(true),
+            ),
+          );
+    });
 
     // Save server/user info
     await _saveAccountInfo(accountId, authData);
@@ -55,26 +72,32 @@ class AuthRepositoryImpl implements AuthRepository {
         debugPrint('[Auth] M3U preflight auth failed (saving anyway): $e');
       }
 
-      await _db.into(_db.accounts).insert(
-        AccountsCompanion.insert(
-          name: name,
-          type: 'xtream',
-          url: normalizedUrl,
-          username: Value(xtreamInfo['username']),
-          password: Value(xtreamInfo['password']),
-          isActive: Value(true),
-        ),
-      );
+      await _db.transaction(() async {
+        await _deactivateAllAccounts();
+        await _db.into(_db.accounts).insert(
+              AccountsCompanion.insert(
+                name: name,
+                type: 'xtream',
+                url: normalizedUrl,
+                username: Value(xtreamInfo['username']),
+                password: Value(xtreamInfo['password']),
+                isActive: Value(true),
+              ),
+            );
+      });
     } else {
       // Plain M3U URL - save as m3u type
-      await _db.into(_db.accounts).insert(
-        AccountsCompanion.insert(
-          name: name,
-          type: 'm3u',
-          url: source.trim(),
-          isActive: Value(true),
-        ),
-      );
+      await _db.transaction(() async {
+        await _deactivateAllAccounts();
+        await _db.into(_db.accounts).insert(
+              AccountsCompanion.insert(
+                name: name,
+                type: 'm3u',
+                url: source.trim(),
+                isActive: Value(true),
+              ),
+            );
+      });
     }
   }
 
@@ -170,7 +193,29 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Account?> getCurrentAccount() async {
-    return await (_db.select(_db.accounts)..where((tbl) => tbl.isActive.equals(true))).getSingleOrNull();
+    // Robust against multiple-active rows: if the invariant was ever
+    // violated (older builds didn't enforce it on insert), prefer the
+    // most-recently-inserted active account and limit to 1 so drift's
+    // single-result helper doesn't throw.
+    return await (_db.select(_db.accounts)
+          ..where((tbl) => tbl.isActive.equals(true))
+          ..orderBy([
+            (tbl) => OrderingTerm(expression: tbl.id, mode: OrderingMode.desc)
+          ])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  @override
+  Future<void> setActiveAccount(int accountId) async {
+    // Single transaction so we don't briefly land in a "zero active" or
+    // "two active" state. After this call the `isActive == true` rows
+    // are exactly the one with id == accountId (assuming the row exists).
+    await _db.transaction(() async {
+      await _deactivateAllAccounts();
+      await (_db.update(_db.accounts)..where((tbl) => tbl.id.equals(accountId)))
+          .write(const AccountsCompanion(isActive: Value(true)));
+    });
   }
 
   /// Clear all user data when switching to a new account:

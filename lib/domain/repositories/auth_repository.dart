@@ -20,4 +20,10 @@ abstract class AuthRepository {
   /// Gets all saved accounts.
   Future<List<Account>> getAccounts();
   Future<Account?> getCurrentAccount();
+
+  /// Make [accountId] the single active account.
+  /// Deactivates every other row so the `isActive == true` invariant
+  /// (exactly one active account) is restored — callers further up
+  /// (sync, current-account lookup) assume this.
+  Future<void> setActiveAccount(int accountId);
 }
