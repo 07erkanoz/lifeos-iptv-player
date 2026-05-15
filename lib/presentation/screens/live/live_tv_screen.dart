@@ -193,6 +193,28 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     }
   }
 
+  /// EPG → channel list bridge. Called from a _ProgramBlock's
+  /// left-edge handler when the user presses D-pad left on the
+  /// leftmost program in a row.
+  void _onProgramLeftEdge(Channel channel) {
+    _channelListController.focusByChannelId(channel.streamId);
+  }
+
+  /// EPG vertical-navigation bridge. Called when the user presses
+  /// D-pad up/down on a program; walks the channel list one step in
+  /// [direction] so focus stays inside a familiar zone instead of
+  /// stranding in the EPG grid (where the next visible program in
+  /// the row above might be temporally unaligned).
+  void _onProgramVerticalNav(Channel channel, TraversalDirection direction) {
+    final ids = _channelListController.channelIds;
+    final idx = ids.indexOf(channel.streamId);
+    if (idx < 0) return;
+    final delta = direction == TraversalDirection.up ? -1 : 1;
+    final target = idx + delta;
+    if (target < 0 || target >= ids.length) return;
+    _channelListController.focusByChannelId(ids[target]);
+  }
+
   /// Live TV back ladder via [resolveLiveTvBackAction]. The decision
   /// is pure-function unit-tested in
   /// test/core/tv_focus/live_tv_back_resolver_test.dart; this method
@@ -1327,6 +1349,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                   horizontalScrollController: _epgHorizontalScrollController,
                   onChannelTap: _playChannel,
                   l10n: l10n,
+                  onProgramLeftEdge: _onProgramLeftEdge,
+                  onProgramVerticalNav: _onProgramVerticalNav,
                 ),
               ),
             ),
@@ -1438,14 +1462,20 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                   ),
                 ),
                 Expanded(
-                  child: _EpgTimelineGrid(
-                    channels: channels,
-                    timelineStart: _timelineStart,
-                    currentTime: _currentTime,
-                    verticalScrollController: _epgVerticalScrollController,
-                    horizontalScrollController: _epgHorizontalScrollController,
-                    onChannelTap: _playChannel,
-                    l10n: l10n,
+                  child: FocusScope(
+                    node: _epgFocusScope,
+                    child: _EpgTimelineGrid(
+                      channels: channels,
+                      timelineStart: _timelineStart,
+                      currentTime: _currentTime,
+                      verticalScrollController: _epgVerticalScrollController,
+                      horizontalScrollController:
+                          _epgHorizontalScrollController,
+                      onChannelTap: _playChannel,
+                      l10n: l10n,
+                      onProgramLeftEdge: _onProgramLeftEdge,
+                      onProgramVerticalNav: _onProgramVerticalNav,
+                    ),
                   ),
                 ),
               ],
@@ -1588,14 +1618,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               ),
             ),
             Expanded(
-              child: _EpgTimelineGrid(
-                channels: channels,
-                timelineStart: _timelineStart,
-                currentTime: _currentTime,
-                verticalScrollController: _epgVerticalScrollController,
-                horizontalScrollController: _epgHorizontalScrollController,
-                onChannelTap: _playChannel,
-                l10n: l10n,
+              child: FocusScope(
+                node: _epgFocusScope,
+                child: _EpgTimelineGrid(
+                  channels: channels,
+                  timelineStart: _timelineStart,
+                  currentTime: _currentTime,
+                  verticalScrollController: _epgVerticalScrollController,
+                  horizontalScrollController: _epgHorizontalScrollController,
+                  onChannelTap: _playChannel,
+                  l10n: l10n,
+                  onProgramLeftEdge: _onProgramLeftEdge,
+                  onProgramVerticalNav: _onProgramVerticalNav,
+                ),
               ),
             ),
           ],
@@ -2014,6 +2049,15 @@ class _EpgTimelineGrid extends StatelessWidget {
   final Function(Channel) onChannelTap;
   final AppLocalizations l10n;
 
+  /// Called when the user presses D-pad left on the leftmost program
+  /// of a row — the screen focuses that channel in the channel list.
+  final void Function(Channel channel)? onProgramLeftEdge;
+
+  /// Called when the user presses D-pad up/down on any program. The
+  /// screen walks the channel list one step in `direction`.
+  final void Function(Channel channel, TraversalDirection direction)?
+      onProgramVerticalNav;
+
   // Total timeline hours to render
   static const int _totalHours = 6;
 
@@ -2025,6 +2069,8 @@ class _EpgTimelineGrid extends StatelessWidget {
     required this.horizontalScrollController,
     required this.onChannelTap,
     required this.l10n,
+    this.onProgramLeftEdge,
+    this.onProgramVerticalNav,
   });
 
   @override
@@ -2050,14 +2096,22 @@ class _EpgTimelineGrid extends StatelessWidget {
                     itemCount: channels.length,
                     itemExtent: _kChannelRowHeight,
                     itemBuilder: (context, index) {
+                      final channel = channels[index];
                       return _EpgChannelRow(
-                        channel: channels[index],
+                        channel: channel,
                         timelineStart: timelineStart,
                         currentTime: currentTime,
                         totalWidth: totalWidth,
                         totalHours: _totalHours,
-                        onTap: () => onChannelTap(channels[index]),
+                        onTap: () => onChannelTap(channel),
                         l10n: l10n,
+                        onProgramLeftEdge: onProgramLeftEdge == null
+                            ? null
+                            : () => onProgramLeftEdge!(channel),
+                        onProgramVerticalNav: onProgramVerticalNav == null
+                            ? null
+                            : (dir) =>
+                                onProgramVerticalNav!(channel, dir),
                       );
                     },
                   ),
@@ -2229,6 +2283,15 @@ class _EpgChannelRow extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   final AppLocalizations l10n;
 
+  /// Wired by the parent to focus this row's channel in the channel
+  /// list. Fired when the user presses D-pad left on the leftmost
+  /// visible program in the row.
+  final VoidCallback? onProgramLeftEdge;
+
+  /// Wired by the parent to walk the channel list up/down. Fired
+  /// when the user presses D-pad up/down on any program in this row.
+  final void Function(TraversalDirection direction)? onProgramVerticalNav;
+
   const _EpgChannelRow({
     required this.channel,
     required this.timelineStart,
@@ -2237,6 +2300,8 @@ class _EpgChannelRow extends ConsumerStatefulWidget {
     required this.totalHours,
     required this.onTap,
     required this.l10n,
+    this.onProgramLeftEdge,
+    this.onProgramVerticalNav,
   });
 
   @override
@@ -2329,7 +2394,9 @@ class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
           }
 
           return Stack(
-            children: visible.map((program) {
+            children: visible.asMap().entries.map((entry) {
+              final index = entry.key;
+              final program = entry.value;
               return _ProgramBlock(
                 program: program,
                 timelineStart: widget.timelineStart,
@@ -2337,6 +2404,15 @@ class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
                 totalWidth: widget.totalWidth,
                 totalHours: widget.totalHours,
                 onTap: widget.onTap,
+                // Only the leftmost program in this row gets the
+                // "left out of the EPG" hook. Other programs let
+                // Flutter's default directional traversal find the
+                // previous program inside the row.
+                onLeftEdge: index == 0 ? widget.onProgramLeftEdge : null,
+                onArrowUp: () =>
+                    widget.onProgramVerticalNav?.call(TraversalDirection.up),
+                onArrowDown: () => widget.onProgramVerticalNav
+                    ?.call(TraversalDirection.down),
               );
             }).toList(),
           );
@@ -2376,6 +2452,22 @@ class _ProgramBlock extends StatefulWidget {
   final int totalHours;
   final VoidCallback onTap;
 
+  /// Fired when the user presses D-pad left on this program. Set
+  /// only on the leftmost visible program in a row so the natural
+  /// "left out of the timeline" gesture lands on the channel list
+  /// row of the same channel.
+  final VoidCallback? onLeftEdge;
+
+  /// Fired when the user presses D-pad up. Wired by the parent to
+  /// focus the channel list row above the current channel — keeps
+  /// the user in a familiar zone instead of stranding focus inside
+  /// the EPG.
+  final VoidCallback? onArrowUp;
+
+  /// Fired when the user presses D-pad down. Wired to focus the
+  /// channel below.
+  final VoidCallback? onArrowDown;
+
   const _ProgramBlock({
     required this.program,
     required this.timelineStart,
@@ -2383,6 +2475,9 @@ class _ProgramBlock extends StatefulWidget {
     required this.totalWidth,
     required this.totalHours,
     required this.onTap,
+    this.onLeftEdge,
+    this.onArrowUp,
+    this.onArrowDown,
   });
 
   @override
@@ -2476,11 +2571,27 @@ class _ProgramBlockState extends State<_ProgramBlock> {
       child: Focus(
         onFocusChange: (f) => setState(() => _isFocused = f),
         onKeyEvent: (_, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
-            widget.onTap();
-            return KeyEventResult.handled;
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter) {
+              widget.onTap();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+                widget.onLeftEdge != null) {
+              widget.onLeftEdge!();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+                widget.onArrowUp != null) {
+              widget.onArrowUp!();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                widget.onArrowDown != null) {
+              widget.onArrowDown!();
+              return KeyEventResult.handled;
+            }
           }
           return KeyEventResult.ignored;
         },
