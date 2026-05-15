@@ -126,17 +126,26 @@ class SyncService {
       final streams = await _api.getStreams(url, username, password, action);
       if (streams.isEmpty) return 0;
 
+      // Track which stream ids we actually upserted so we can purge
+      // anything in the local table under this type that the server
+      // no longer ships. Without this the local DB grew monotonically
+      // — channels the provider removed remained visible forever.
+      final keepIds = <int>{};
+
       for (var i = 0; i < streams.length; i += 500) {
         final chunk = streams.skip(i).take(500).toList();
         await _db.batch((batch) {
           for (final item in chunk) {
             final streamId = item['stream_id'] ?? item['series_id'];
             if (streamId == null) continue;
+            final sid = int.tryParse(streamId.toString()) ?? 0;
+            if (sid == 0) continue;
+            keepIds.add(sid);
 
             batch.insert(
               _db.channels,
               ChannelsCompanion.insert(
-                streamId: int.tryParse(streamId.toString()) ?? 0,
+                streamId: sid,
                 name: item['name']?.toString() ?? 'Unknown',
                 type: type,
                 categoryId: item['category_id']?.toString() ?? '0',
@@ -151,9 +160,31 @@ class SyncService {
           }
         });
       }
+
+      await _pruneRemovedChannels(type, keepIds);
       return streams.length;
     } catch (_) {}
     return 0;
+  }
+
+  /// Delete rows in `channels` of the given [type] whose `streamId`
+  /// isn't in [keepIds]. Called from each sync path after a *successful*
+  /// upsert pass — never on an empty/errored API response (so a
+  /// transient server outage can't wipe the local cache).
+  Future<void> _pruneRemovedChannels(String type, Set<int> keepIds) async {
+    if (keepIds.isEmpty) return;
+    await (_db.delete(_db.channels)
+          ..where((tbl) => tbl.type.equals(type) & tbl.streamId.isNotIn(keepIds)))
+        .go();
+  }
+
+  /// Delete rows in `categories` of the given [type] whose `id` isn't
+  /// in [keepIds]. Same guarantees as [_pruneRemovedChannels].
+  Future<void> _pruneRemovedCategories(String type, Set<String> keepIds) async {
+    if (keepIds.isEmpty) return;
+    await (_db.delete(_db.categories)
+          ..where((tbl) => tbl.type.equals(type) & tbl.id.isNotIn(keepIds)))
+        .go();
   }
 
   Future<void> syncCategories(Account account) async {
@@ -178,17 +209,22 @@ class SyncService {
       final streams = await _api.getStreams(url, username, password, action);
       if (streams.isEmpty) return;
 
+      final keepIds = <int>{};
+
       for (var i = 0; i < streams.length; i += 500) {
         final chunk = streams.skip(i).take(500).toList();
         await _db.batch((batch) {
           for (final item in chunk) {
             final streamId = item['stream_id'] ?? item['series_id'];
             if (streamId == null) continue;
+            final sid = int.tryParse(streamId.toString()) ?? 0;
+            if (sid == 0) continue;
+            keepIds.add(sid);
 
             batch.insert(
               _db.channels,
               ChannelsCompanion.insert(
-                streamId: int.tryParse(streamId.toString()) ?? 0,
+                streamId: sid,
                 name: item['name']?.toString() ?? 'Unknown',
                 type: type,
                 categoryId: item['category_id']?.toString() ?? '0',
@@ -203,16 +239,23 @@ class SyncService {
           }
         });
       }
+
+      await _pruneRemovedChannels(type, keepIds);
     } catch (_) {}
   }
 
   Future<void> _saveCategories(List<dynamic> data, String type) async {
+    if (data.isEmpty) return; // don't wipe local cache on an empty API response
+    final keepIds = <String>{};
     await _db.batch((batch) {
       for (final item in data) {
+        final id = item['category_id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        keepIds.add(id);
         batch.insert(
           _db.categories,
           CategoriesCompanion.insert(
-            id: item['category_id']?.toString() ?? '',
+            id: id,
             name: item['category_name']?.toString() ?? 'Unknown',
             type: type,
           ),
@@ -220,6 +263,7 @@ class SyncService {
         );
       }
     });
+    await _pruneRemovedCategories(type, keepIds);
   }
 
   // ─── M3U Sync ───────────────────────────────────────────────────────────
@@ -252,8 +296,15 @@ class SyncService {
       categoryCount: result.categories.length,
     ));
 
+    // Track keepers per type so we can prune what disappeared from
+    // the playlist. Without this, removing a channel from the source
+    // M3U leaves the row in the local DB indefinitely.
+    final keepCatsByType = <String, Set<String>>{};
+    final keepChannelsByType = <String, Set<int>>{};
+
     await _db.batch((batch) {
       for (final cat in result.categories) {
+        keepCatsByType.putIfAbsent(cat.type, () => <String>{}).add(cat.id);
         batch.insert(
           _db.categories,
           CategoriesCompanion.insert(
@@ -302,6 +353,7 @@ class SyncService {
           // Deterministic id derived from url+name so re-syncing the playlist
           // (or reordering entries) keeps history / favorites references valid.
           final streamId = stableM3uChannelId(url: entry.url, name: channelName);
+          keepChannelsByType.putIfAbsent(streamType, () => <int>{}).add(streamId);
 
           batch.insert(
             _db.channels,
@@ -318,6 +370,17 @@ class SyncService {
           );
         }
       });
+    }
+
+    // Prune rows the new playlist no longer contains. Only runs if
+    // the playlist actually shipped at least one entry of that type
+    // (the keep set is non-empty) — a transient empty parse can't
+    // wipe the local cache.
+    for (final e in keepChannelsByType.entries) {
+      await _pruneRemovedChannels(e.key, e.value);
+    }
+    for (final e in keepCatsByType.entries) {
+      await _pruneRemovedCategories(e.key, e.value);
     }
 
     onProgress(SyncProgress(
@@ -341,8 +404,14 @@ class SyncService {
       _saveEpgUrl(account.id, rawResult.epgUrl!);
     }
 
+    // Mirror of _syncM3UWithProgress: track keepers so the prune at
+    // the end actually has something to compare against.
+    final keepCatsByType = <String, Set<String>>{};
+    final keepChannelsByType = <String, Set<int>>{};
+
     await _db.batch((batch) {
       for (final cat in result.categories) {
+        keepCatsByType.putIfAbsent(cat.type, () => <String>{}).add(cat.id);
         batch.insert(
           _db.categories,
           CategoriesCompanion.insert(id: cat.id, name: cat.name, type: cat.type),
@@ -365,6 +434,7 @@ class SyncService {
 
           // See stableM3uChannelId() — keeps history rows valid across re-syncs.
           final streamId = stableM3uChannelId(url: entry.url, name: channelName);
+          keepChannelsByType.putIfAbsent(streamType, () => <int>{}).add(streamId);
 
           batch.insert(
             _db.channels,
@@ -381,6 +451,13 @@ class SyncService {
           );
         }
       });
+    }
+
+    for (final e in keepChannelsByType.entries) {
+      await _pruneRemovedChannels(e.key, e.value);
+    }
+    for (final e in keepCatsByType.entries) {
+      await _pruneRemovedCategories(e.key, e.value);
     }
   }
 
