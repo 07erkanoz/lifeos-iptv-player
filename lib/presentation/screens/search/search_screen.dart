@@ -23,8 +23,15 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
-  final FocusNode _textFocus = FocusNode();
+  late final FocusNode _textFocus;
   final FocusNode _gridFocus = FocusNode();
+  /// Stable focus node for the first result card across rebuilds.
+  /// Reassigned to whichever section is currently first non-empty so
+  /// the text input's arrow-down bridge always lands on a visible
+  /// poster. Created here (not per item builder) so identity survives
+  /// list rebuilds — otherwise FocusNode.requestFocus() from the
+  /// arrow-down bridge would race the rebuild.
+  final FocusNode _firstResultFocus = FocusNode(debugLabel: 'SearchFirstResult');
   Timer? _debounce;
   int _searchRequestId = 0;
   List<Channel> _movieResults = [];
@@ -37,6 +44,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    // Intercept arrow-down on the search field at the FocusNode level
+    // (before TextField processes keys) so we can bridge into the
+    // results grid. Single-line TextField doesn't use arrow-down for
+    // anything, so intercepting it costs nothing.
+    _textFocus = FocusNode(
+      debugLabel: 'SearchTextInput',
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowDown &&
+            _hasResults) {
+          _focusFirstResult();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _textFocus.requestFocus();
     });
@@ -48,7 +71,32 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _controller.dispose();
     _textFocus.dispose();
     _gridFocus.dispose();
+    _firstResultFocus.dispose();
     super.dispose();
+  }
+
+  /// Move focus to the first result card. Called when the user
+  /// presses arrow-down (or Enter) from the search input.
+  void _focusFirstResult() {
+    if (_firstResultFocus.canRequestFocus) {
+      _firstResultFocus.requestFocus();
+    }
+  }
+
+  /// True if [section] is the first non-empty results section in
+  /// render order. Used to decide which grid gets the
+  /// _firstResultFocus node and the arrowUp→text bridge.
+  bool _isFirstSection(List<Channel> section) {
+    if (identical(section, _movieResults)) return _movieResults.isNotEmpty;
+    if (identical(section, _seriesResults)) {
+      return _movieResults.isEmpty && _seriesResults.isNotEmpty;
+    }
+    if (identical(section, _liveResults)) {
+      return _movieResults.isEmpty &&
+          _seriesResults.isEmpty &&
+          _liveResults.isNotEmpty;
+    }
+    return false;
   }
 
   void _goBack() {
@@ -139,21 +187,45 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildResultGrid(List<Channel> channels) {
     final isMobile = isMobilePlatform;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: isMobile ? 140 : 180,
-        childAspectRatio: isMobile ? 0.60 : 0.65,
-        crossAxisSpacing: isMobile ? 8 : 12,
-        mainAxisSpacing: isMobile ? 8 : 12,
-      ),
-      itemCount: channels.length,
-      itemBuilder: (context, index) {
-        final ch = channels[index];
-        return _SearchResultCard(
-          channel: ch,
-          onTap: () => _onResultTap(ch),
+    final maxCross = isMobile ? 140.0 : 180.0;
+    // Whether this section is the first non-empty results group —
+    // only its top row gets the arrow-up → text bridge and the
+    // stable _firstResultFocus node for the text→grid bridge.
+    final isFirst = _isFirstSection(channels);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Match the column count GridView will compute for
+        // SliverGridDelegateWithMaxCrossAxisExtent so we can mark
+        // exactly the top-row indices.
+        final cols = (constraints.maxWidth / maxCross).floor().clamp(1, 50);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: maxCross,
+            childAspectRatio: isMobile ? 0.60 : 0.65,
+            crossAxisSpacing: isMobile ? 8 : 12,
+            mainAxisSpacing: isMobile ? 8 : 12,
+          ),
+          itemCount: channels.length,
+          itemBuilder: (context, index) {
+            final ch = channels[index];
+            return _SearchResultCard(
+              channel: ch,
+              onTap: () => _onResultTap(ch),
+              // First section + index 0 → owns the stable focus node
+              // for text→grid arrow-down bridge.
+              focusNode:
+                  (isFirst && index == 0) ? _firstResultFocus : null,
+              // First section + top row → arrow-up goes to search
+              // input. Subsequent sections' top rows let default
+              // directional traversal find the previous section's
+              // bottom row.
+              onTopEdge: (isFirst && index < cols)
+                  ? () => _textFocus.requestFocus()
+                  : null,
+            );
+          },
         );
       },
     );
@@ -219,10 +291,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         autofocus: true,
                         onChanged: _onSearchChanged,
                         onSubmitted: (_) {
-                          // Move focus to results grid
-                          if (_hasResults) {
-                            _gridFocus.requestFocus();
-                          }
+                          // Move focus to the first result. Goes
+                          // through the same stable focus node the
+                          // arrow-down bridge uses so the landing
+                          // tile is identical between Enter and
+                          // D-pad down.
+                          if (_hasResults) _focusFirstResult();
                         },
                         style: TextStyle(
                           color: AppColors.textDark,
@@ -344,8 +418,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 class _SearchResultCard extends StatefulWidget {
   final Channel channel;
   final VoidCallback onTap;
+  final FocusNode? focusNode;
+  final VoidCallback? onTopEdge;
 
-  const _SearchResultCard({required this.channel, required this.onTap});
+  const _SearchResultCard({
+    required this.channel,
+    required this.onTap,
+    this.focusNode,
+    this.onTopEdge,
+  });
 
   @override
   State<_SearchResultCard> createState() => _SearchResultCardState();
@@ -362,13 +443,23 @@ class _SearchResultCardState extends State<_SearchResultCard> {
     final l10n = AppLocalizations.of(context)!;
 
     return Focus(
+      focusNode: widget.focusNode,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
-          widget.onTap();
-          return KeyEventResult.handled;
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          // Top-row cells get an onTopEdge callback so D-pad up from
+          // the top of the results lands on the search input instead
+          // of doing nothing (no row above to traverse to).
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+              widget.onTopEdge != null) {
+            widget.onTopEdge!();
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },
