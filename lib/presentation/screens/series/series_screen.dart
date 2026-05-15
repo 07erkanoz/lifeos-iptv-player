@@ -57,11 +57,21 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   bool _loadingDetail = false;
   int _activeSeason = 1;
 
-  // Continue watching for series (last watched episode)
+  // Continue watching for series. Semantics:
+  //  * `_lastEpisodeProgress` is the row we surfaced (latest by updatedAt).
+  //  * `_lastEpisodeId` / `_lastEpisodeExt` / `_lastEpisodeLabel` describe
+  //    the episode the resume button will play — NOT necessarily the
+  //    episode `_lastEpisodeProgress` belongs to. If the latest watched
+  //    episode was finished, we advance the button target to the next
+  //    episode (with no resume position) so "Devam Et" actually moves
+  //    the user forward instead of bouncing them back to a stale partial.
+  //  * `_lastEpisodeResumeFromMs` is non-zero only when we're resuming
+  //    mid-episode; for "play next" we keep it at 0.
   PlaybackProgressData? _lastEpisodeProgress;
   int? _lastEpisodeId;
   String? _lastEpisodeExt;
   String _lastEpisodeLabel = '';
+  int _lastEpisodeResumeFromMs = 0;
 
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
@@ -280,6 +290,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _lastEpisodeId = null;
         _lastEpisodeExt = null;
         _lastEpisodeLabel = '';
+        _lastEpisodeResumeFromMs = 0;
       });
       _focusDetailBackButton();
       _fetchLastEpisodeProgress(cachedInfo);
@@ -296,6 +307,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _lastEpisodeId = null;
       _lastEpisodeExt = null;
       _lastEpisodeLabel = '';
+      _lastEpisodeResumeFromMs = 0;
     });
     _focusDetailBackButton();
 
@@ -391,56 +403,80 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     } catch (_) {}
   }
 
-  /// Fetch the last watched (unfinished) episode for continue watching
+  /// Fetch progress for the "Devam Et" button.
+  ///
+  /// Strategy: ask the player repo for the most-recently-touched
+  /// progress row across this series' episodes (any state — finished
+  /// or not). Then decide what the button should do:
+  ///   * If the latest row is **unfinished**, resume it mid-episode.
+  ///   * If the latest row is **finished**, advance to the next
+  ///     episode in season/ep-number order with start-position 0.
+  ///   * If the latest row is finished and there's no next episode,
+  ///     hide the button (no `_lastEpisodeId`).
+  ///
+  /// This fixes the case where a stale partially-watched episode (say
+  /// S1E5) would surface even after the user had finished S1E6–E9.
   Future<void> _fetchLastEpisodeProgress(
     Map<String, dynamic>? seriesInfo,
   ) async {
     if (seriesInfo == null) return;
-    final epsRaw = seriesInfo['episodes'];
-    final eps = _asStringKeyMap(epsRaw);
-    if (eps == null) return;
 
-    // Collect all episode IDs with their metadata
+    // Use the same sort order as next/prev episode navigation so the
+    // "play next" advance is consistent with what auto-advance does.
+    final allEpsSorted = _getAllEpisodesSorted();
+    if (allEpsSorted.isEmpty) return;
+
+    // Project to a typed view of (id, season, epNum, ext) so the
+    // lookups below are clearer than reaching into dynamic maps.
     final allEpisodes = <({int id, String season, String epNum, String ext})>[];
-    for (final seasonKey in eps.keys) {
-      final seasonEpsRaw = eps[seasonKey];
-      final seasonEps = seasonEpsRaw is List ? seasonEpsRaw : <dynamic>[];
-      for (final ep in seasonEps) {
-        final epMap = _asStringKeyMap(ep);
-        if (epMap == null) continue;
-        final id = epMap['id'] is int
-            ? epMap['id'] as int
-            : int.tryParse(epMap['id']?.toString() ?? '') ?? 0;
-        if (id > 0) {
-          allEpisodes.add((
-            id: id,
-            season: seasonKey,
-            epNum: epMap['episode_num']?.toString() ?? '',
-            ext: epMap['container_extension']?.toString() ?? 'mp4',
-          ));
-        }
-      }
+    for (final epMap in allEpsSorted) {
+      final id = _episodeIdOf(epMap);
+      if (id <= 0) continue;
+      allEpisodes.add((
+        id: id,
+        season: epMap['_season']?.toString() ?? '1',
+        epNum: epMap['episode_num']?.toString() ?? '',
+        ext: epMap['container_extension']?.toString() ?? 'mp4',
+      ));
     }
-
     if (allEpisodes.isEmpty) return;
 
     try {
       final progress = await ref
           .read(playerRepositoryProvider)
           .getLatestSeriesProgress(allEpisodes.map((e) => e.id).toList());
-      if (progress != null && mounted) {
-        // Find which episode this progress belongs to
-        final matched = allEpisodes
-            .where((e) => e.id == progress.streamId)
-            .firstOrNull;
-        if (matched != null) {
-          setState(() {
-            _lastEpisodeProgress = progress;
-            _lastEpisodeId = matched.id;
-            _lastEpisodeExt = matched.ext;
-            _lastEpisodeLabel = 'S${matched.season}E${matched.epNum}';
-          });
+      if (progress == null || !mounted) return;
+
+      // Where does this progress sit in the sorted list?
+      final lastIdx = allEpisodes.indexWhere((e) => e.id == progress.streamId);
+      if (lastIdx == -1) return; // progress row is for an episode we no longer see
+
+      final last = allEpisodes[lastIdx];
+
+      if (progress.isFinished) {
+        // Episode complete — propose the next one if there is one.
+        if (lastIdx + 1 >= allEpisodes.length) {
+          // Already at the season finale; surface nothing so the UI
+          // falls back to a plain "Play" of the first available episode.
+          return;
         }
+        final next = allEpisodes[lastIdx + 1];
+        setState(() {
+          _lastEpisodeProgress = progress;
+          _lastEpisodeId = next.id;
+          _lastEpisodeExt = next.ext;
+          _lastEpisodeLabel = 'S${next.season}E${next.epNum}';
+          _lastEpisodeResumeFromMs = 0;
+        });
+      } else {
+        // Mid-episode — resume from where we left off.
+        setState(() {
+          _lastEpisodeProgress = progress;
+          _lastEpisodeId = last.id;
+          _lastEpisodeExt = last.ext;
+          _lastEpisodeLabel = 'S${last.season}E${last.epNum}';
+          _lastEpisodeResumeFromMs = progress.position;
+        });
       }
     } catch (_) {}
   }
@@ -555,6 +591,27 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       return id == epId;
     });
 
+    // Derive an "S1E5 • Episode title" label for the player chrome so
+    // the user can actually tell which episode they're watching. Falls
+    // back to just the series name if we can't locate the episode
+    // (corrupt Xtream payload, race against a series refresh, etc.).
+    final seriesName = _detailChannel?.name ?? '';
+    String fullTitle = seriesName;
+    if (currentIdx >= 0) {
+      final curEp = allEpisodes[currentIdx];
+      final curSeason = curEp['_season']?.toString() ?? '';
+      final curEpNum = curEp['episode_num']?.toString() ?? '';
+      final curEpName = curEp['title']?.toString().trim() ?? '';
+      final sxe =
+          (curSeason.isNotEmpty && curEpNum.isNotEmpty) ? 'S${curSeason}E$curEpNum' : '';
+      final parts = <String>[
+        if (seriesName.isNotEmpty) seriesName,
+        if (sxe.isNotEmpty) sxe,
+        if (curEpName.isNotEmpty && curEpName != seriesName) curEpName,
+      ];
+      fullTitle = parts.join(' • ');
+    }
+
     // Find next episode info — skip the "next" link entirely if the
     // candidate episode has no parseable id (corrupted Xtream JSON)
     // rather than pushing /player with a bogus id that yields 404.
@@ -602,7 +659,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       extra: {
         'url':
             '${acc.url}/series/${acc.username}/${acc.password}/$epId.${ext.isNotEmpty ? ext : 'mp4'}',
-        'title': _detailChannel?.name ?? '',
+        'title': fullTitle,
         'type': VideoType.series,
         'logo': _detailChannel?.streamIcon,
         'startPosition': startPosition,
@@ -1738,8 +1795,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                           _lastEpisodeId != null)
                                         _FocusableActionButton(
                                           icon: Icons.play_arrow,
-                                          label:
-                                              '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeProgress!.position)))} $_lastEpisodeLabel',
+                                          // Two phrasings:
+                                          //  * `_lastEpisodeResumeFromMs > 0`
+                                          //    means mid-episode resume —
+                                          //    show "Devam Et 48:57 S1E5"
+                                          //  * otherwise the previous episode
+                                          //    is finished and the button
+                                          //    advances to the next one —
+                                          //    show "Sonraki Bölüm S1E10".
+                                          label: _lastEpisodeResumeFromMs > 0
+                                              ? '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeResumeFromMs)))} $_lastEpisodeLabel'
+                                              // Finished previous episode → button advances to the next.
+                                              // Reuse existing localised "Play" verb + the SxxExx label
+                                              // (e.g. "İzle S1E10") instead of inventing a new key.
+                                              : '${l10n.play} $_lastEpisodeLabel',
                                           isPrimary: true,
                                           focusNode: _detailPlayFocusNode,
                                           maxWidth: isMobilePlatform
@@ -1748,11 +1817,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                           onTap: () => _playEpisode(
                                             _lastEpisodeId!,
                                             _lastEpisodeExt ?? 'mp4',
-                                            startPosition: Duration(
-                                              milliseconds:
-                                                  _lastEpisodeProgress!
-                                                      .position,
-                                            ),
+                                            startPosition:
+                                                _lastEpisodeResumeFromMs > 0
+                                                    ? Duration(
+                                                        milliseconds:
+                                                            _lastEpisodeResumeFromMs,
+                                                      )
+                                                    : null,
                                           ),
                                         )
                                       else if (activeEpisodes.isNotEmpty)

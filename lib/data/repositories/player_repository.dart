@@ -32,13 +32,20 @@ class PlayerRepository {
     ).getSingleOrNull();
   }
 
-  /// Get the most recently watched (unfinished) episode from a list of episode IDs.
-  /// Used to show "Continue watching" button in series detail view.
+  /// Get the most recently watched episode from a list of episode IDs,
+  /// regardless of whether it was finished or not.
+  ///
+  /// The previous implementation filtered to `isFinished == false`, which
+  /// gave wrong "Continue Watching" suggestions when a user had a stale
+  /// partially-watched episode followed by several fully-watched ones:
+  /// the partial would surface even though the user had since finished
+  /// later episodes. Callers can inspect `isFinished` on the returned
+  /// row and decide whether to resume mid-episode or advance to the
+  /// next one.
   Future<PlaybackProgressData?> getLatestSeriesProgress(List<int> episodeIds) async {
     if (episodeIds.isEmpty) return null;
     return await (_db.select(_db.playbackProgress)
       ..where((tbl) => tbl.streamId.isIn(episodeIds) & tbl.type.equals('series'))
-      ..where((tbl) => tbl.isFinished.equals(false))
       ..where((tbl) => tbl.position.isBiggerThanValue(0))
       ..orderBy([(tbl) => OrderingTerm(expression: tbl.updatedAt, mode: OrderingMode.desc)])
       ..limit(1)
