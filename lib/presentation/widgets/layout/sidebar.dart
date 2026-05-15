@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -207,8 +208,14 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
 
     return FocusTraversalGroup(
       child: MouseRegion(
-        onEnter: (_) => _onMouseEnter(),
-        onExit: (_) => _onMouseExit(),
+        // On TV the sidebar expands via focus (see _onAnyItemFocusChanged);
+        // mouse hover is a desktop-only duplicate path.
+        onEnter: PlatformHelper.useHoverEffects
+            ? (_) => _onMouseEnter()
+            : null,
+        onExit: PlatformHelper.useHoverEffects
+            ? (_) => _onMouseExit()
+            : null,
         child: AnimatedBuilder(
           animation: _widthAnimation,
           builder: (context, _) {
@@ -376,9 +383,15 @@ class _SidebarItemState extends State<_SidebarItem> {
         return KeyEventResult.ignored;
       },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        cursor: PlatformHelper.useHoverEffects
+            ? SystemMouseCursors.click
+            : MouseCursor.defer,
+        onEnter: PlatformHelper.useHoverEffects
+            ? (_) => setState(() => _isHovered = true)
+            : null,
+        onExit: PlatformHelper.useHoverEffects
+            ? (_) => setState(() => _isHovered = false)
+            : null,
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(

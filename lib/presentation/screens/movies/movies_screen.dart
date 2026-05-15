@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
@@ -2110,18 +2111,27 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
   Widget build(BuildContext context) {
     final active = widget.isFocused || _isHovered;
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (!mounted) return;
-        setState(() => _isHovered = true);
-        _syncAnim();
-        widget.onHover();
-      },
-      onExit: (_) {
-        if (!mounted) return;
-        setState(() => _isHovered = false);
-        _syncAnim();
-      },
+      // No mouse on TV — drop hover interactions so they don't race
+      // the focus state. The poster's active look is driven by
+      // isFocused alone in that case.
+      cursor: PlatformHelper.useHoverEffects
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: PlatformHelper.useHoverEffects
+          ? (_) {
+              if (!mounted) return;
+              setState(() => _isHovered = true);
+              _syncAnim();
+              widget.onHover();
+            }
+          : null,
+      onExit: PlatformHelper.useHoverEffects
+          ? (_) {
+              if (!mounted) return;
+              setState(() => _isHovered = false);
+              _syncAnim();
+            }
+          : null,
       child: GestureDetector(
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,

@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -402,20 +403,30 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
         return KeyEventResult.ignored;
       },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (_isHovered) return;
-          setState(() => _isHovered = true);
-          _setActive(true);
-          widget.onFocus?.call();
-          _scheduleTrailerPreview();
-        },
-        onExit: (_) {
-          if (!_isHovered) return;
-          setState(() => _isHovered = false);
-          _setActive(_isFocused);
-          if (!_isFocused) _stopTrailerPreview();
-        },
+        // TV mode has no real mouse; opting out of click-cursor +
+        // hover handlers prevents a stray "I have a mouse" remote
+        // mode from racing the focus state and triggering a trailer
+        // preview the user can't dismiss.
+        cursor: PlatformHelper.useHoverEffects
+            ? SystemMouseCursors.click
+            : MouseCursor.defer,
+        onEnter: PlatformHelper.useHoverEffects
+            ? (_) {
+                if (_isHovered) return;
+                setState(() => _isHovered = true);
+                _setActive(true);
+                widget.onFocus?.call();
+                _scheduleTrailerPreview();
+              }
+            : null,
+        onExit: PlatformHelper.useHoverEffects
+            ? (_) {
+                if (!_isHovered) return;
+                setState(() => _isHovered = false);
+                _setActive(_isFocused);
+                if (!_isFocused) _stopTrailerPreview();
+              }
+            : null,
         child: GestureDetector(
           onTap: widget.onTap,
           child: SizedBox(

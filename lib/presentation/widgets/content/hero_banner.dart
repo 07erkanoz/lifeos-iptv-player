@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -696,9 +697,15 @@ class _HeroButtonState extends State<_HeroButton> {
         return KeyEventResult.ignored;
       },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        cursor: PlatformHelper.useHoverEffects
+            ? SystemMouseCursors.click
+            : MouseCursor.defer,
+        onEnter: PlatformHelper.useHoverEffects
+            ? (_) => setState(() => _isHovered = true)
+            : null,
+        onExit: PlatformHelper.useHoverEffects
+            ? (_) => setState(() => _isHovered = false)
+            : null,
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedScale(
