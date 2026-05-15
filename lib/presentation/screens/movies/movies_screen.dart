@@ -2082,7 +2082,7 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 180));
-    _scale = Tween(begin: 1.0, end: 1.05)
+    _scale = Tween(begin: 1.0, end: PlatformHelper.focusedScale)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _syncAnim();
   }
@@ -2144,12 +2144,13 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                   color: active ? AppColors.primary : Colors.transparent,
-                  width: active ? 2 : 0),
+                  width: active ? PlatformHelper.focusRingWidth : 0),
               boxShadow: active
                   ? [
                       BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 14)
+                          color: AppColors.primary.withValues(
+                              alpha: PlatformHelper.focusRingGlowAlpha),
+                          blurRadius: PlatformHelper.focusRingGlowBlur)
                     ]
                   : [],
             ),

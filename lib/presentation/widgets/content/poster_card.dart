@@ -42,10 +42,10 @@ class PosterCard extends StatefulWidget {
 }
 
 class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateMixin {
-  // Bumped from 1.02 → 1.08: subtle Netflix-style lift without
-  // overlapping siblings. _hoverInset 12 leaves room for the bigger
-  // bounding box.
-  static const double _hoverScale = 1.08;
+  // Desktop: subtle Netflix lift (1.08x). TV: bigger pop (1.12x) so
+  // the active card reads from a couch's distance — pulled from
+  // PlatformHelper.focusedScale.
+  double get _hoverScale => PlatformHelper.focusedScale;
   static const double _hoverLift = -8;
   static const double _hoverInset = 12;
 

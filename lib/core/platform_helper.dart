@@ -65,4 +65,25 @@ class PlatformHelper {
   /// Card sizes
   static double get posterAspectRatio => 0.65;
   static double get landscapeAspectRatio => 16 / 9;
+
+  // ── Focus ring (TV mode reads from 3m, desktop reads from arm's length) ─
+  //
+  // TV remotes don't show a mouse cursor, so the focus ring IS the
+  // only "where am I" signal — it needs to be loud. Desktop has the
+  // cursor + a more typical Netflix-style subtle ring.
+
+  /// Border thickness drawn around the focused card / row / item.
+  static double get focusRingWidth => isTV ? 3.5 : 2.0;
+
+  /// Multiplier applied to the focused card's scale. Desktop is a
+  /// gentle 1.08; TV bumps to 1.12 so the size pop is visible from
+  /// a couch.
+  static double get focusedScale => isTV ? 1.12 : 1.08;
+
+  /// Blur radius for the glow shadow behind a focused card. TV emits
+  /// a stronger halo; desktop keeps it tight.
+  static double get focusRingGlowBlur => isTV ? 24.0 : 14.0;
+
+  /// Alpha 0–1 for the glow color (primary at this opacity).
+  static double get focusRingGlowAlpha => isTV ? 0.55 : 0.30;
 }
