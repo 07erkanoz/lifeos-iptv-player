@@ -492,12 +492,6 @@ class _HeroBannerState extends State<HeroBanner> {
     return (ch.genre != null && ch.genre!.isNotEmpty) ? ch.genre : null;
   }
 
-  String? _directorText(Channel ch) {
-    final v = widget.vodInfo?.director;
-    if (v != null && v.isNotEmpty) return v;
-    return (ch.director != null && ch.director!.isNotEmpty) ? ch.director : null;
-  }
-
   /// Truncate plot text cleanly at word boundary
   String _truncatePlot(String text, int maxLen) {
     if (text.length <= maxLen) return text;

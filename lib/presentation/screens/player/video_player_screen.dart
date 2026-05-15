@@ -829,24 +829,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     ));
   }
 
-  dynamic _findTrackByLanguage(List tracks, String wanted) {
-    // Legacy helper retained for callers that may still reference it;
-    // new code should use findBestSubtitleTrack/-AudioTrack via
-    // _applyRememberedTracks. Kept thin so it doesn't grow stale logic.
-    final w = wanted.toLowerCase();
-    for (final t in tracks) {
-      final lang = (t.language ?? '').toString().toLowerCase();
-      if (lang.isNotEmpty && (lang == w || lang.startsWith(w) || w.startsWith(lang))) {
-        return t;
-      }
-    }
-    for (final t in tracks) {
-      final title = (t.title ?? '').toString().toLowerCase();
-      if (title.isNotEmpty && title.contains(w)) return t;
-    }
-    return null;
-  }
-
   // =========================================================================
   //  Seek with readiness check
   // =========================================================================

@@ -123,8 +123,7 @@ class _PipOverlayState extends ConsumerState<PipOverlay> {
 
 class _PipControls extends ConsumerStatefulWidget {
   final PipData pipData;
-  final bool small;
-  const _PipControls({required this.pipData, this.small = false});
+  const _PipControls({required this.pipData});
 
   @override
   ConsumerState<_PipControls> createState() => _PipControlsState();
@@ -134,8 +133,12 @@ class _PipControlsState extends ConsumerState<_PipControls> {
   @override
   Widget build(BuildContext context) {
     final pd = widget.pipData;
-    final btnSize = widget.small ? 28.0 : 32.0;
-    final iconSize = widget.small ? 16.0 : 18.0;
+    // Previously there was a `small` constructor flag that swapped these
+    // to 28/16 for a denser layout, but no caller ever used it — the
+    // only callsite (line ~101) takes the default. Dropped the flag so
+    // the widget's surface matches what the codebase actually uses.
+    const btnSize = 32.0;
+    const iconSize = 18.0;
 
     return Row(
       children: [
