@@ -40,6 +40,13 @@ class TvIndexedList<T> extends StatefulWidget {
   /// onFocusGained — used by callers to drive a preview / EPG sync.
   final void Function(T item)? onFocusGained;
 
+  /// Optional external scroll controller. When provided, the widget
+  /// uses it instead of creating its own — needed by callers (Live
+  /// TV) that sync scrolling between this list and a sibling
+  /// (the EPG timeline's vertical scroll). When null, an internal
+  /// controller is created and disposed with the widget.
+  final ScrollController? scrollController;
+
   const TvIndexedList({
     super.key,
     required this.controller,
@@ -54,6 +61,7 @@ class TvIndexedList<T> extends StatefulWidget {
     this.onTopEdge,
     this.onBottomEdge,
     this.onFocusGained,
+    this.scrollController,
   });
 
   @override
@@ -61,12 +69,22 @@ class TvIndexedList<T> extends StatefulWidget {
 }
 
 class _TvIndexedListState<T> extends State<TvIndexedList<T>> {
-  final ScrollController _scrollController = ScrollController();
+  ScrollController? _ownedScrollController;
+  ScrollController get _activeScrollController =>
+      widget.scrollController ?? _ownedScrollController!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.scrollController == null) {
+      _ownedScrollController = ScrollController();
+    }
+  }
 
   @override
   void dispose() {
-    widget.controller.detach(_scrollController);
-    _scrollController.dispose();
+    widget.controller.detach(_activeScrollController);
+    _ownedScrollController?.dispose();
     super.dispose();
   }
 
@@ -77,14 +95,14 @@ class _TvIndexedListState<T> extends State<TvIndexedList<T>> {
     final channelIds =
         widget.items.map(widget.channelIdOf).toList(growable: false);
     widget.controller.attach(
-      scrollController: _scrollController,
+      scrollController: _activeScrollController,
       itemHeight: widget.itemExtent,
       paddingTop: paddingResolved.top,
       channelIds: channelIds,
     );
 
     return ListView.builder(
-      controller: _scrollController,
+      controller: _activeScrollController,
       padding: widget.padding,
       itemExtent: widget.itemExtent,
       itemCount: widget.items.length,

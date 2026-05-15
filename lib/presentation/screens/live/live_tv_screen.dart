@@ -7,6 +7,8 @@ import 'package:lifeostv/core/tv_focus/live_tv_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
+import 'package:lifeostv/core/tv_focus/tv_indexed_list.dart';
+import 'package:lifeostv/core/tv_focus/tv_indexed_list_controller.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
@@ -129,6 +131,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// identity matches across the widget life.
   late final VoidFocusCallback _branchPrimaryCb;
 
+  /// Controls D-pad focus on the channel list — owns per-channel
+  /// FocusNodes and the focusFirst / focusByChannelId / restore API.
+  /// Outlives category swaps so the last focused channel survives
+  /// when the filter (Favorites / History / All / per-category)
+  /// changes.
+  final TvIndexedListController _channelListController =
+      TvIndexedListController();
+
   // The base time for the EPG timeline (start of the current 2-hour window)
   late DateTime _timelineStart;
 
@@ -170,18 +180,17 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   }
 
   /// Branch-primary target via [TvFocusRegistry]: sidebar → right
-  /// lands here. Existing pattern (parent Focus + focusInDirection
-  /// down to first child) — kept as-is for the channel list since
-  /// it works; full TvIndexedList migration is Step 6b.
+  /// lands on the previously focused channel, or the first one if
+  /// nothing is remembered. Falls back to the parent
+  /// `_channelListFocusNode` if the controller has no items yet
+  /// (cold first frame before the channel stream resolves).
   void _focusChannelList() {
     if (!mounted) return;
-    _channelListFocusNode.requestFocus();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        FocusManager.instance.primaryFocus
-            ?.focusInDirection(TraversalDirection.down);
-      }
-    });
+    if (_channelListController.itemCount > 0) {
+      _channelListController.focusCurrentOrFirst();
+    } else {
+      _channelListFocusNode.requestFocus();
+    }
   }
 
   /// Live TV back ladder via [resolveLiveTvBackAction]. The decision
@@ -1279,19 +1288,23 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                         ),
                       ),
                     ),
-                    // Channel rows
+                    // Channel rows — TvIndexedList provides D-pad
+                    // up/down navigation, lazy-mount-safe focus
+                    // restore, and onLeftEdge → category sidebar.
                     Expanded(
-                      child: ListView.builder(
-                        controller: _channelListScrollController,
-                        itemCount: channels.length,
+                      child: TvIndexedList<Channel>(
+                        controller: _channelListController,
+                        scrollController: _channelListScrollController,
+                        items: channels,
+                        channelIdOf: (ch) => ch.streamId,
                         itemExtent: _kChannelRowHeight,
-                        itemBuilder: (context, index) {
-                          return _ChannelListItem(
-                            channel: channels[index],
-                            onTap: () => _playChannel(channels[index]),
-                            onLeftPressed: _openCategorySidebar,
-                          );
-                        },
+                        onActivate: _playChannel,
+                        onLeftEdge: _openCategorySidebar,
+                        itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
+                          channel: ch,
+                          onTap: () => _playChannel(ch),
+                          isFocused: isFocused,
+                        ),
                       ),
                     ),
                   ],
@@ -1406,14 +1419,18 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                         ),
                       ),
                       Expanded(
-                        child: ListView.builder(
-                          controller: _channelListScrollController,
-                          itemCount: channels.length,
+                        child: TvIndexedList<Channel>(
+                          controller: _channelListController,
+                          scrollController: _channelListScrollController,
+                          items: channels,
+                          channelIdOf: (ch) => ch.streamId,
                           itemExtent: _kChannelRowHeight,
-                          itemBuilder: (context, index) => _ChannelListItem(
-                            channel: channels[index],
-                            onTap: () => _playChannel(channels[index]),
-                            onLeftPressed: _openCategorySidebar,
+                          onActivate: _playChannel,
+                          onLeftEdge: _openCategorySidebar,
+                          itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
+                            channel: ch,
+                            onTap: () => _playChannel(ch),
+                            isFocused: isFocused,
                           ),
                         ),
                       ),
@@ -1552,14 +1569,18 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                     ),
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      controller: _channelListScrollController,
-                      itemCount: channels.length,
+                    child: TvIndexedList<Channel>(
+                      controller: _channelListController,
+                      scrollController: _channelListScrollController,
+                      items: channels,
+                      channelIdOf: (ch) => ch.streamId,
                       itemExtent: _kChannelRowHeight,
-                      itemBuilder: (context, index) => _ChannelListItem(
-                        channel: channels[index],
-                        onTap: () => _playChannel(channels[index]),
-                        onLeftPressed: _openCategorySidebar,
+                      onActivate: _playChannel,
+                      onLeftEdge: _openCategorySidebar,
+                      itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
+                        channel: ch,
+                        onTap: () => _playChannel(ch),
+                        isFocused: isFocused,
                       ),
                     ),
                   ),
@@ -1814,12 +1835,16 @@ class _CategoryItemState extends State<_CategoryItem> {
 class _ChannelListItem extends ConsumerStatefulWidget {
   final Channel channel;
   final VoidCallback onTap;
-  final VoidCallback? onLeftPressed;
+
+  /// Focus state pushed in from [TvIndexedList] (the parent owns the
+  /// FocusNode now). Drives the focus ring + scale animation; no
+  /// internal Focus widget here anymore.
+  final bool isFocused;
 
   const _ChannelListItem({
     required this.channel,
     required this.onTap,
-    this.onLeftPressed,
+    this.isFocused = false,
   });
 
   @override
@@ -1827,8 +1852,6 @@ class _ChannelListItem extends ConsumerStatefulWidget {
 }
 
 class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
-  bool _isFocused = false;
-
   Future<void> _toggleFavorite() async {
     final l10n = AppLocalizations.of(context)!;
     final added = await ref
@@ -1875,43 +1898,27 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
       }
     });
 
-    return Focus(
-      onFocusChange: (f) => setState(() => _isFocused = f),
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.enter) {
-            widget.onTap();
-            return KeyEventResult.handled;
-          }
-          if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
-              widget.onLeftPressed != null) {
-            widget.onLeftPressed!();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          height: _kChannelRowHeight,
-          transform: Matrix4.identity()..scale(_isFocused ? 1.02 : 1.0),
-          transformAlignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            color: _isFocused
-                ? AppColors.primary.withValues(alpha: 0.1)
-                : AppColors.backgroundDark,
-            border: Border(
-              bottom: const BorderSide(color: AppColors.borderDark, width: 0.5),
-              right: const BorderSide(color: AppColors.borderDark, width: 1),
-              left: BorderSide(
-                color: _isFocused ? AppColors.primary : Colors.transparent,
-                width: 3,
-              ),
+    final isFocused = widget.isFocused;
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: _kChannelRowHeight,
+        transform: Matrix4.identity()..scale(isFocused ? 1.02 : 1.0),
+        transformAlignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: isFocused
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.backgroundDark,
+          border: Border(
+            bottom: const BorderSide(color: AppColors.borderDark, width: 0.5),
+            right: const BorderSide(color: AppColors.borderDark, width: 1),
+            left: BorderSide(
+              color: isFocused ? AppColors.primary : Colors.transparent,
+              width: 3,
             ),
           ),
+        ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: [
@@ -1940,7 +1947,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
                     Text(
                       widget.channel.name,
                       style: TextStyle(
-                        color: _isFocused
+                        color: isFocused
                             ? AppColors.textDark
                             : AppColors.textDark,
                         fontSize: 12,
@@ -1981,8 +1988,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _channelPlaceholder() {
