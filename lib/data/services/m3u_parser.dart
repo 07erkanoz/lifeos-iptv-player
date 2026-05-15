@@ -434,51 +434,47 @@ Future<List<M3UEntry>> parseM3UFromUrl(String url) async {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  Gruptan Tür Belirleme (Majority Voting)
-// ═══════════════════════════════════════════════════════════════════
-
-/// İlk 10 kanalın çoğunluk oylamasıyla grup türünü belirler
-String _guessGroupStreamType(List<M3UEntry> groupEntries) {
-  final sampleSize = groupEntries.length < 10 ? groupEntries.length : 10;
-  final votes = {'live': 0, 'movie': 0, 'series': 0};
-
-  for (var i = 0; i < sampleSize; i++) {
-    final e = groupEntries[i];
-    final result = classifyStreamType(
-      url: e.url,
-      name: e.name,
-      tvgType: e.tvgType,
-      groupTitle: e.groupTitle,
-    );
-    votes[result] = (votes[result] ?? 0) + 1;
-  }
-
-  if (votes['movie']! >= votes['live']! && votes['movie']! >= votes['series']!) return 'movie';
-  if (votes['series']! >= votes['live']! && votes['series']! >= votes['movie']!) return 'series';
-  return 'live';
-}
-
-// ═══════════════════════════════════════════════════════════════════
 //  M3UEntry → Kanal/Kategori Dönüşümü
 // ═══════════════════════════════════════════════════════════════════
+//
+// `_guessGroupStreamType` (majority-vote) was removed in favour of
+// per-channel classification: categories are now emitted per
+// (groupTitle, streamType) pair, so a mixed group no longer loses its
+// minority-type channels to a `(categoryId, type)` join miss.
 
-/// M3U entry'lerden gruplara göre kategoriler oluşturur
+/// Build the set of `(groupTitle, streamType)` categories that the
+/// channel rows actually reference.
+///
+/// The `categories` table is keyed by `(id, type)` (see schema), so
+/// every channel row needs a matching category row under *its own*
+/// type — not the majority-voted type for the whole group. The
+/// previous implementation emitted exactly one category per group
+/// using majority voting, which silently dropped channels whose
+/// per-row classification differed from the group consensus: the
+/// channel existed in `channels` but the `(categoryId, type)` join
+/// against `categories` came up empty, so it never rendered in the UI.
+///
+/// We now project to a `Set<(group, type)>` and emit one
+/// [M3UCategory] per pair. A "Films & Shows" group with 6 movies and
+/// 4 series becomes two categories: one `(Films & Shows, movie)` and
+/// one `(Films & Shows, series)`. The display name is identical;
+/// only the join key differs.
 List<M3UCategory> extractCategories(List<M3UEntry> entries) {
-  final groups = <String, List<M3UEntry>>{};
+  final seen = <String>{}; // "<group>\x1F<type>" composite tags
+  final categories = <M3UCategory>[];
 
   for (final entry in entries) {
     final group = entry.groupTitle ?? 'Diğer';
-    groups.putIfAbsent(group, () => []).add(entry);
-  }
-
-  final categories = <M3UCategory>[];
-  for (final entry in groups.entries) {
-    final streamType = _guessGroupStreamType(entry.value);
-    categories.add(M3UCategory(
-      id: entry.key,
-      name: entry.key,
-      type: streamType,
-    ));
+    final type = classifyStreamType(
+      url: entry.url,
+      name: entry.name,
+      tvgType: entry.tvgType,
+      groupTitle: entry.groupTitle,
+    );
+    final tag = '$group\x1F$type';
+    if (seen.add(tag)) {
+      categories.add(M3UCategory(id: group, name: group, type: type));
+    }
   }
 
   return categories;
