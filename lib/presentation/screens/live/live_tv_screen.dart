@@ -3,6 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/live_tv_back_resolver.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
@@ -11,7 +15,7 @@ import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
-import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
+import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'dart:async';
@@ -116,6 +120,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   final FocusNode _channelListFocusNode = FocusNode();
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
+  // Focus scope for the EPG timeline so the back resolver can tell
+  // whether focus is currently in the EPG zone vs the channel list.
+  final FocusScopeNode _epgFocusScope = FocusScopeNode();
+
+  /// Stable callback registered with [TvFocusRegistry] as Live TV's
+  /// branch primary focus target. Captured once so register/unregister
+  /// identity matches across the widget life.
+  late final VoidFocusCallback _branchPrimaryCb;
 
   // The base time for the EPG timeline (start of the current 2-hour window)
   late DateTime _timelineStart;
@@ -141,11 +153,63 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       if (mounted) setState(() => _currentTime = DateTime.now());
     });
 
+    _branchPrimaryCb = _focusChannelList;
+
     // Auto-scroll to current time after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _scrollToCurrentTime(animate: false);
       // Start EPG sync in background
       _triggerEpgSync();
+      _registerBackHandler();
+      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
+            TvBranchIndex.liveTv,
+            _branchPrimaryCb,
+          );
+    });
+  }
+
+  /// Branch-primary target via [TvFocusRegistry]: sidebar → right
+  /// lands here. Existing pattern (parent Focus + focusInDirection
+  /// down to first child) — kept as-is for the channel list since
+  /// it works; full TvIndexedList migration is Step 6b.
+  void _focusChannelList() {
+    if (!mounted) return;
+    _channelListFocusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusManager.instance.primaryFocus
+            ?.focusInDirection(TraversalDirection.down);
+      }
+    });
+  }
+
+  /// Live TV back ladder via [resolveLiveTvBackAction]. The decision
+  /// is pure-function unit-tested in
+  /// test/core/tv_focus/live_tv_back_resolver_test.dart; this method
+  /// only wires the state inputs and dispatches.
+  void _registerBackHandler() {
+    ref.read(backHandlerProvider.notifier).set(() {
+      final registry = ref.read(tvFocusRegistryProvider);
+      final action = resolveLiveTvBackAction(
+        mainSidebarFocused: registry.isMainSidebarFocused,
+        categoriesCollapsed: _categoriesCollapsed,
+        categoryScopeFocused: _categorySidebarScope.hasFocus,
+        epgFocused: _epgFocusScope.hasFocus,
+        channelListFocused: _channelListFocusNode.hasFocus,
+      );
+      switch (action) {
+        case LiveTvBackAction.focusChannelList:
+          _focusChannelList();
+          return true;
+        case LiveTvBackAction.focusCategorySidebar:
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _categorySidebarScope.requestFocus();
+          });
+          return true;
+        case LiveTvBackAction.handToShell:
+          return false;
+      }
     });
   }
 
@@ -171,6 +235,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   @override
   void dispose() {
+    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
+          TvBranchIndex.liveTv,
+          _branchPrimaryCb,
+        );
     _currentTimeTimer?.cancel();
     _channelListScrollController.removeListener(_onChannelListScroll);
     _epgVerticalScrollController.removeListener(_onEpgVerticalScroll);
@@ -179,6 +247,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     _epgHorizontalScrollController.dispose();
     _channelListFocusNode.dispose();
     _categorySidebarScope.dispose();
+    _epgFocusScope.dispose();
     super.dispose();
   }
 
@@ -974,10 +1043,15 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     _toggleCategorySidebar();
   }
 
-  /// Focus the main AppSidebar (called from category item left press)
+  /// Focus the main AppSidebar via [TvFocusRegistry] — the sidebar
+  /// lives in a sibling subtree under StatefulShellRoute.indexedStack
+  /// so findAncestorStateOfType would never find it.
   void _focusMainSidebar() {
-    final sidebarState = context.findAncestorStateOfType<AppSidebarState>();
-    sidebarState?.requestFocus();
+    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    if (!ok) {
+      FocusManager.instance.primaryFocus
+          ?.focusInDirection(TraversalDirection.left);
+    }
   }
 
   Widget _buildCategorySidebar(
@@ -1226,15 +1300,21 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             ),
 
             // -- EPG Timeline grid (right side, horizontally scrollable)
+            // Wrapped in FocusScope so the back resolver can tell
+            // whether focus is currently in the EPG zone — back from
+            // EPG bounces to the channel list, not the main sidebar.
             Expanded(
-              child: _EpgTimelineGrid(
-                channels: channels,
-                timelineStart: _timelineStart,
-                currentTime: _currentTime,
-                verticalScrollController: _epgVerticalScrollController,
-                horizontalScrollController: _epgHorizontalScrollController,
-                onChannelTap: _playChannel,
-                l10n: l10n,
+              child: FocusScope(
+                node: _epgFocusScope,
+                child: _EpgTimelineGrid(
+                  channels: channels,
+                  timelineStart: _timelineStart,
+                  currentTime: _currentTime,
+                  verticalScrollController: _epgVerticalScrollController,
+                  horizontalScrollController: _epgHorizontalScrollController,
+                  onChannelTap: _playChannel,
+                  l10n: l10n,
+                ),
               ),
             ),
           ],
