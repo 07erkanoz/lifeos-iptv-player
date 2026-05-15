@@ -1,4 +1,8 @@
 import 'package:drift/drift.dart';
+// `show debugPrint` only, because `package:flutter/foundation.dart`
+// re-exports its own `Category` annotation which collides with our
+// generated drift `Category` row class.
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -130,24 +134,34 @@ class ContentRepository {
     ).watch();
   }
 
-  /// Check if enough time has passed since last EPG sync
+  /// Check if enough time has passed since last EPG sync.
+  ///
+  /// Returns `true` (i.e. "needs sync") on any SharedPreferences error
+  /// so we don't accidentally throttle the user out of EPG forever if
+  /// prefs are wedged. Logged in debug so a real platform-channel
+  /// failure is at least visible.
   Future<bool> _shouldSyncEpg() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastSync = prefs.getInt(_epgSyncKey) ?? 0;
       final elapsed = DateTime.now().millisecondsSinceEpoch - lastSync;
       return elapsed > _epgSyncInterval.inMilliseconds;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[ContentRepo] _shouldSyncEpg prefs read failed: $e\n$st');
       return true;
     }
   }
 
-  /// Mark that an EPG sync just completed
+  /// Mark that an EPG sync just completed. Swallows write failures —
+  /// next call to [_shouldSyncEpg] will just re-sync, no permanent
+  /// state corruption — but logs them so they're not invisible.
   Future<void> _markEpgSynced() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_epgSyncKey, DateTime.now().millisecondsSinceEpoch);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ContentRepo] _markEpgSynced prefs write failed: $e');
+    }
   }
 
   /// Check if DB has any EPG programs for live channels

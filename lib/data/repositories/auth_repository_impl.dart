@@ -80,6 +80,12 @@ class AuthRepositoryImpl implements AuthRepository {
 
   /// Parse Xtream credentials from M3U URL
   /// Handles: http://host:port/get.php?username=X&password=Y&type=m3u_plus&output=mpegts
+  ///
+  /// Returns `null` on any parse failure (caller will fall back to
+  /// treating the source as a plain M3U URL). Logs the failure in
+  /// debug so a user reporting "my Xtream M3U link is being treated as
+  /// plain M3U" has a breadcrumb in the logs instead of silent
+  /// downgrade.
   Map<String, String>? _parseXtreamFromM3U(String source) {
     try {
       final uri = Uri.parse(source.trim());
@@ -92,7 +98,9 @@ class AuthRepositoryImpl implements AuthRepository {
         final baseUrl = '${uri.scheme}://${uri.host}$port';
         return {'url': baseUrl, 'username': username, 'password': password};
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] _parseXtreamFromM3U failed: $e');
+    }
     return null;
   }
 
