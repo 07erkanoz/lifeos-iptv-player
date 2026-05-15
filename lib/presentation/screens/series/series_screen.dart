@@ -490,6 +490,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
   }
 
+  /// Read an episode's `id` field defensively. Xtream API normally
+  /// returns int, but some providers ship strings ("123") or even
+  /// non-numeric junk in malformed responses. Returns -1 as the
+  /// "couldn't parse" sentinel; callers skip episodes with -1
+  /// instead of pushing /player with a bogus id.
+  static int _episodeIdOf(Map<String, dynamic> ep) {
+    final raw = ep['id'];
+    if (raw is int) return raw;
+    if (raw == null) return -1;
+    return int.tryParse(raw.toString()) ?? -1;
+  }
+
   /// Build a flat list of all episodes across all seasons (sorted by season → episode)
   List<Map<String, dynamic>> _getAllEpisodesSorted() {
     final epsRaw2 = _seriesInfo?['episodes'];
@@ -539,50 +551,50 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     // Build flat episode list for next/prev navigation
     final allEpisodes = _getAllEpisodesSorted();
     final currentIdx = allEpisodes.indexWhere((ep) {
-      final id = ep['id'] is int
-          ? ep['id'] as int
-          : int.parse(ep['id'].toString());
+      final id = _episodeIdOf(ep);
       return id == epId;
     });
 
-    // Find next episode info
+    // Find next episode info — skip the "next" link entirely if the
+    // candidate episode has no parseable id (corrupted Xtream JSON)
+    // rather than pushing /player with a bogus id that yields 404.
     String? nextEpTitle;
     VoidCallback? onNextEp;
     if (currentIdx >= 0 && currentIdx < allEpisodes.length - 1) {
       final nextEp = allEpisodes[currentIdx + 1];
-      final nextId = nextEp['id'] is int
-          ? nextEp['id'] as int
-          : int.parse(nextEp['id'].toString());
-      final nextExt = nextEp['container_extension']?.toString() ?? 'mp4';
-      final nextNum = nextEp['episode_num']?.toString() ?? '';
-      final nextSeason = nextEp['_season']?.toString() ?? '';
-      nextEpTitle = 'S${nextSeason}E$nextNum ${nextEp['title'] ?? ''}';
-      onNextEp = () async {
-        // Pop current player, then wait briefly so its native media_kit
-        // resources (SurfaceTexture, decoder) are fully released before the
-        // next Player is created. Pushing immediately on Android can leave
-        // two live Players contending for GPU/decoder slots.
-        if (context.canPop()) context.pop();
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-        if (!mounted) return;
-        _playEpisode(nextId, nextExt);
-      };
+      final nextId = _episodeIdOf(nextEp);
+      if (nextId != -1) {
+        final nextExt = nextEp['container_extension']?.toString() ?? 'mp4';
+        final nextNum = nextEp['episode_num']?.toString() ?? '';
+        final nextSeason = nextEp['_season']?.toString() ?? '';
+        nextEpTitle = 'S${nextSeason}E$nextNum ${nextEp['title'] ?? ''}';
+        onNextEp = () async {
+          // Pop current player, then wait briefly so its native media_kit
+          // resources (SurfaceTexture, decoder) are fully released before
+          // the next Player is created. Pushing immediately on Android can
+          // leave two live Players contending for GPU/decoder slots.
+          if (context.canPop()) context.pop();
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          if (!mounted) return;
+          _playEpisode(nextId, nextExt);
+        };
+      }
     }
 
-    // Find previous episode callback
+    // Find previous episode callback — same guard.
     VoidCallback? onPrevEp;
     if (currentIdx > 0) {
       final prevEp = allEpisodes[currentIdx - 1];
-      final prevId = prevEp['id'] is int
-          ? prevEp['id'] as int
-          : int.parse(prevEp['id'].toString());
-      final prevExt = prevEp['container_extension']?.toString() ?? 'mp4';
-      onPrevEp = () async {
-        if (context.canPop()) context.pop();
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-        if (!mounted) return;
-        _playEpisode(prevId, prevExt);
-      };
+      final prevId = _episodeIdOf(prevEp);
+      if (prevId != -1) {
+        final prevExt = prevEp['container_extension']?.toString() ?? 'mp4';
+        onPrevEp = () async {
+          if (context.canPop()) context.pop();
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          if (!mounted) return;
+          _playEpisode(prevId, prevExt);
+        };
+      }
     }
 
     context.push(

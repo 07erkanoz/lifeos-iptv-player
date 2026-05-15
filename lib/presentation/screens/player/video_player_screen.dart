@@ -435,10 +435,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Subtitle styling helper
   // =========================================================================
 
+  /// Parse a `#RRGGBB` (or `#AARRGGBB`) string into a [Color]. Defaults
+  /// to opaque white on any malformed input so a corrupted
+  /// `settings.subtitleColor` (manually edited prefs, a migration
+  /// glitch, or a future setting we don't know how to parse) doesn't
+  /// crash the player.
   Color _hexToColor(String hex) {
-    var h = hex.replaceFirst('#', '');
-    if (h.length == 6) h = 'FF$h';
-    return Color(int.parse(h, radix: 16));
+    try {
+      var h = hex.replaceFirst('#', '');
+      if (h.length == 6) h = 'FF$h';
+      if (h.length != 8) return const Color(0xFFFFFFFF);
+      return Color(int.parse(h, radix: 16));
+    } catch (_) {
+      return const Color(0xFFFFFFFF);
+    }
   }
 
   /// Approximate vertical room the player's bottom control bar takes
