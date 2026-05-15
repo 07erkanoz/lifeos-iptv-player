@@ -224,6 +224,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   double? _gestureHudValue; // 0..1 for progress bar
   Timer? _gestureHudTimer;
 
+  /// Imperative handle to the media_kit Video widget so we can call
+  /// `setSubtitleViewPadding(...)` and `update(subtitleViewConfiguration:
+  /// ...)` directly. We need this because media_kit_video 2.0.1's
+  /// SubtitleViewState captures `padding` into local state in its
+  /// initializer (`late EdgeInsets padding = widget.configuration.padding`)
+  /// and never re-reads it on widget update — declarative prop changes
+  /// silently don't propagate. Style props (font size / color / bold /
+  /// background) do read from `widget.configuration` in build, but
+  /// because pushes through the notifier are post-frame-deferred we
+  /// add an explicit `.update()` call too as a belt-and-braces fix for
+  /// "settings'teki alt yazı ayarları değişmiyor".
+  final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
+
   // Per-session subtitle vertical offset — bottom padding in logical pixels
   // inside the SubtitleView. 0 = sitting on the video bottom, larger = higher.
   double _subtitleYOffset = 24;
@@ -428,6 +441,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     return Color(int.parse(h, radix: 16));
   }
 
+  /// Approximate vertical room the player's bottom control bar takes
+  /// once visible. Used to lift subtitles above the bar so dialogue
+  /// doesn't sit under the progress slider / button row whenever the
+  /// controls fade in.
+  static const double _controlsLift = 96.0;
+
+  /// Effective bottom padding for the subtitle view: the user-chosen
+  /// position offset (`_subtitleYOffset`) plus a temporary lift while
+  /// controls are visible.
+  double get _effectiveSubtitleBottomPadding =>
+      _subtitleYOffset + (_showControls ? _controlsLift : 0);
+
   SubtitleViewConfiguration _buildSubtitleViewConfig() {
     final s = ref.watch(settingsProvider);
     // Map user's settings.subtitleFontSize (20-110, mpv-like scale where
@@ -452,16 +477,39 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               ],
       ),
       textAlign: TextAlign.center,
-      padding: EdgeInsets.fromLTRB(16, 0, 16, _subtitleYOffset),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, _effectiveSubtitleBottomPadding),
     );
   }
 
-  /// Kept as a named hook in case we need to re-sync subtitle styling on
-  /// certain events (e.g. track switch). With the Flutter-widget renderer,
-  /// the SubtitleViewConfiguration in build() is the source of truth; this
-  /// just nudges a rebuild so it picks up any late setting changes.
+  /// Force the media_kit SubtitleView to pick up the latest style +
+  /// padding. We need this because the SubtitleView caches `padding`
+  /// in state at initState and never re-reads it on widget update —
+  /// declarative prop changes silently no-op for padding. Style props
+  /// DO update through the declarative path, but pushing them through
+  /// the imperative API too costs nothing and is one bug class fewer.
   Future<void> _applySubtitleStyle() async {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    final state = _videoKey.currentState;
+    if (state != null) {
+      state.update(subtitleViewConfiguration: _buildSubtitleViewConfig());
+      state.setSubtitleViewPadding(
+        EdgeInsets.fromLTRB(16, 0, 16, _effectiveSubtitleBottomPadding),
+        duration: const Duration(milliseconds: 120),
+      );
+    }
+  }
+
+  /// Lighter variant of [_applySubtitleStyle] that only pushes the
+  /// padding — used by the controls-show/hide animation where the
+  /// rest of the config didn't change. Avoids work and avoids the
+  /// `update()` post-frame defer.
+  void _pushSubtitlePadding() {
+    if (!mounted) return;
+    _videoKey.currentState?.setSubtitleViewPadding(
+      EdgeInsets.fromLTRB(16, 0, 16, _effectiveSubtitleBottomPadding),
+      duration: const Duration(milliseconds: 180),
+    );
   }
 
   // =========================================================================
@@ -610,6 +658,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         if (!playing) {
           _controlsAnim.forward();
           setState(() => _showControls = true);
+          _pushSubtitlePadding();
           _hideTimer?.cancel();
           // Show pause badge after 2s delay (VOD only, like Tauri)
           if (widget.type != VideoType.live && _dur.inSeconds > 0) {
@@ -1088,9 +1137,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (_showControls) {
       _controlsAnim.reverse();
       setState(() => _showControls = false);
+      _pushSubtitlePadding();
     } else {
       _controlsAnim.forward();
       setState(() => _showControls = true);
+      _pushSubtitlePadding();
       _resetHideTimer();
     }
   }
@@ -1099,6 +1150,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (!_showControls) {
       _controlsAnim.forward();
       setState(() => _showControls = true);
+      _pushSubtitlePadding();
     }
     _resetHideTimer();
   }
@@ -1109,6 +1161,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted && !_isPaused) {
         _controlsAnim.reverse();
         setState(() => _showControls = false);
+        _pushSubtitlePadding();
       }
     });
   }
@@ -1438,6 +1491,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                     _subtitleYOffset = v;
                                     setLocal(() {});
                                     if (mounted) setState(() {});
+                                    // Push padding through the
+                                    // imperative API — declarative
+                                    // prop changes are no-ops because
+                                    // SubtitleViewState caches padding
+                                    // at init.
+                                    _pushSubtitlePadding();
                                   },
                                 ),
                               ],
@@ -2151,6 +2210,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   if (ref.watch(pipProvider) == null)
                     Center(
                       child: Video(
+                        key: _videoKey,
                         controller: _controller,
                         fill: Colors.black,
                         controls: NoVideoControls,
@@ -2909,8 +2969,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               ),
               const SizedBox(width: 6),
 
-              // Online subtitle search (VOD only)
-              if (widget.type != VideoType.live) ...[
+              // Online subtitle search (VOD only, and only when an
+              // OpenSubtitles API key is configured — otherwise the
+              // button just popped a snackbar telling the user to go
+              // configure it, which read like an "error" out of
+              // nowhere).
+              if (widget.type != VideoType.live &&
+                  (ref.watch(settingsProvider).opensubtitlesApiKey ?? '')
+                      .isNotEmpty) ...[
                 _DpadIconBtn(
                   icon: Icons.closed_caption_outlined,
                   onTap: () => setState(
