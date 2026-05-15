@@ -13,6 +13,14 @@ class ContentList extends StatelessWidget {
   final IconData? icon;
   final Widget? trailing;
 
+  /// Fires when the user presses D-pad left on the *first* poster in
+  /// the carousel. Parents (typically DashboardScreen) wire this to
+  /// `TvFocusRegistry.requestMainSidebar()` so the natural "left out
+  /// of the leftmost item" gesture jumps focus back to the main nav
+  /// rather than falling through to Flutter's directional traversal
+  /// which often strands focus on an above row.
+  final VoidCallback? onCarouselLeftEdge;
+
   const ContentList({
     super.key,
     required this.title,
@@ -21,6 +29,7 @@ class ContentList extends StatelessWidget {
     this.onChannelFocus,
     this.icon,
     this.trailing,
+    this.onCarouselLeftEdge,
   });
 
   @override
@@ -92,6 +101,12 @@ class ContentList extends StatelessWidget {
                     height: context.posterHeight,
                     onTap: () => onChannelTap(channels[index]),
                     onFocus: () => onChannelFocus?.call(channels[index]),
+                    // Only the leftmost card forwards Left-edge.
+                    // PosterCard fires the callback as soon as it
+                    // sees Left and the prop is non-null, so any
+                    // non-zero index getting a no-op null here keeps
+                    // default sibling traversal intact.
+                    onLeftEdge: index == 0 ? onCarouselLeftEdge : null,
                   ),
                 );
               },

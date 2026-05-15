@@ -17,6 +17,14 @@ class PosterCard extends StatefulWidget {
   final double height;
   final bool showNewBadge;
 
+  /// Fires when the user presses D-pad left on this card. Only set
+  /// by parents (e.g. [ContentList]) for the leftmost item in a
+  /// horizontal carousel so focus can hand off to the main sidebar
+  /// instead of falling through to Flutter's default traversal,
+  /// which on dashboard layouts often strands focus on a sibling
+  /// row instead of jumping out of the content area.
+  final VoidCallback? onLeftEdge;
+
   const PosterCard({
     super.key,
     required this.channel,
@@ -25,6 +33,7 @@ class PosterCard extends StatefulWidget {
     this.width = 150,
     this.height = 220,
     this.showNewBadge = false,
+    this.onLeftEdge,
   });
 
   @override
@@ -375,11 +384,20 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
         }
       },
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
-          widget.onTap?.call();
-          return KeyEventResult.handled;
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            widget.onTap?.call();
+            return KeyEventResult.handled;
+          }
+          // Leftmost-item edge case: the carousel parent passes
+          // onLeftEdge only for index 0, so the cell itself can
+          // safely fire it on every Left press it receives.
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+              widget.onLeftEdge != null) {
+            widget.onLeftEdge!();
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },

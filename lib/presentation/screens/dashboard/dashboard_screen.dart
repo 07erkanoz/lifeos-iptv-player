@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -35,12 +38,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   HeroVodInfo? _heroVodInfo;
   int? _heroInfoStreamId; // Track which channel the info belongs to
 
+  /// FocusNode for the hero banner so the registry can target it as
+  /// the dashboard's branch primary (sidebar → right enters here).
+  final FocusNode _heroFocusNode = FocusNode(debugLabel: 'DashboardHero');
+
+  /// Stable callback registered with [TvFocusRegistry]. Captured once
+  /// so register/unregister identity matches across the widget life.
+  late final VoidFocusCallback _branchPrimaryCb;
+
   @override
   void initState() {
     super.initState();
+    _branchPrimaryCb = _focusHero;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _triggerSync();
+      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
+            TvBranchIndex.dashboard,
+            _branchPrimaryCb,
+          );
     });
+  }
+
+  @override
+  void dispose() {
+    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
+          TvBranchIndex.dashboard,
+          _branchPrimaryCb,
+        );
+    _heroFocusNode.dispose();
+    super.dispose();
+  }
+
+  /// Branch-primary target: focus the hero banner so the user lands
+  /// on the most prominent action (play / open detail) when they
+  /// arrow right out of the sidebar.
+  void _focusHero() {
+    if (!mounted) return;
+    if (_heroFocusNode.canRequestFocus) {
+      _heroFocusNode.requestFocus();
+    }
+  }
+
+  /// Left-edge target wired into every carousel's first item via
+  /// [ContentList.onCarouselLeftEdge]. Hands focus back to the main
+  /// sidebar through the registry — no findAncestor hack needed.
+  void _focusMainSidebar() {
+    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    if (!ok) {
+      // First-frame fallback before AppSidebar finished registering.
+      FocusManager.instance.primaryFocus
+          ?.focusInDirection(TraversalDirection.left);
+    }
   }
 
   Future<void> _triggerSync() async {
@@ -254,6 +303,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     onPlay: _playChannel,
                     onDetails: _openDetail,
                     onTrailer: _openTrailer,
+                    playFocusNode: _heroFocusNode,
+                    onLeftEdge: _focusMainSidebar,
                   ),
 
                   const SizedBox(height: 18),
@@ -299,6 +350,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             channels: channels,
                             onChannelTap: (ch) => ch.type == 'live' ? _playChannel(ch) : _openDetail(ch),
                             onChannelFocus: (_) {},
+                            onCarouselLeftEdge: _focusMainSidebar,
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
@@ -314,6 +366,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             channels: channels,
                             onChannelTap: (ch) => _openDetail(ch),
                             onChannelFocus: (_) {},
+                            onCarouselLeftEdge: _focusMainSidebar,
                             trailing: IconButton(
                               onPressed: _clearContinueWatching,
                               icon: const Icon(Icons.delete_sweep, size: 18),
@@ -337,6 +390,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             channels: channels,
                             onChannelTap: (ch) => _openDetail(ch),
                             onChannelFocus: (_) {},
+                            onCarouselLeftEdge: _focusMainSidebar,
                           )
                         : const SizedBox.shrink(),
                     loading: () => const SizedBox.shrink(),
@@ -351,6 +405,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       channels: channels,
                       onChannelTap: _openDetail,
                       onChannelFocus: (_) {},
+                      onCarouselLeftEdge: _focusMainSidebar,
                     ),
                     loading: () => _buildLoadingRow(),
                     error: (_, _) => const SizedBox.shrink(),
@@ -366,6 +421,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       channels: channels,
                       onChannelTap: _openDetail,
                       onChannelFocus: (_) {},
+                      onCarouselLeftEdge: _focusMainSidebar,
                     ),
                     loading: () => _buildLoadingRow(),
                     error: (_, _) => const SizedBox.shrink(),
@@ -381,6 +437,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       channels: channels,
                       onChannelTap: _playChannel,
                       onChannelFocus: (_) {},
+                      onCarouselLeftEdge: _focusMainSidebar,
                     ),
                     loading: () => _buildLoadingRow(),
                     error: (_, _) => const SizedBox.shrink(),

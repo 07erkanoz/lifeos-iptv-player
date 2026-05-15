@@ -45,6 +45,18 @@ class HeroBanner extends StatefulWidget {
   /// Current VOD info for the active hero item
   final HeroVodInfo? vodInfo;
 
+  /// External FocusNode wired into the Play button so the parent
+  /// (DashboardScreen) can register it as the branch's primary focus
+  /// target with [TvFocusRegistry]. Sidebar → right then lands on
+  /// Play instead of an indeterminate first focusable.
+  final FocusNode? playFocusNode;
+
+  /// Fires on D-pad left from the Play button. Wired by
+  /// DashboardScreen to `TvFocusRegistry.requestMainSidebar()` so the
+  /// natural left gesture from the leftmost action button surfaces
+  /// the nav.
+  final VoidCallback? onLeftEdge;
+
   const HeroBanner({
     super.key,
     required this.channels,
@@ -53,6 +65,8 @@ class HeroBanner extends StatefulWidget {
     this.onTrailer,
     this.onItemChanged,
     this.vodInfo,
+    this.playFocusNode,
+    this.onLeftEdge,
   });
 
   @override
@@ -410,6 +424,8 @@ class _HeroBannerState extends State<HeroBanner> {
                       label: l10n.play,
                       isPrimary: true,
                       onTap: () => widget.onPlay?.call(channel),
+                      focusNode: widget.playFocusNode,
+                      onLeftEdge: widget.onLeftEdge,
                     ),
                     const SizedBox(width: 10),
                     _HeroButton(
@@ -628,11 +644,24 @@ class _HeroButton extends StatefulWidget {
   final bool isPrimary;
   final VoidCallback? onTap;
 
+  /// External FocusNode — used for the leftmost (Play) button so the
+  /// dashboard's branch-primary callback can target it directly via
+  /// the focus registry (sidebar → right lands here).
+  final FocusNode? focusNode;
+
+  /// Fires on D-pad left. Only set for the leftmost button so the
+  /// natural "left out of the button row" gesture lands on the
+  /// sidebar instead of falling through to Flutter's default
+  /// directional traversal.
+  final VoidCallback? onLeftEdge;
+
   const _HeroButton({
     required this.icon,
     required this.label,
     required this.isPrimary,
     this.onTap,
+    this.focusNode,
+    this.onLeftEdge,
   });
 
   @override
@@ -648,14 +677,21 @@ class _HeroButtonState extends State<_HeroButton> {
     final isActive = _isFocused || _isHovered;
 
     return Focus(
+      focusNode: widget.focusNode,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter ||
-             event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-          widget.onTap?.call();
-          return KeyEventResult.handled;
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+            widget.onTap?.call();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+              widget.onLeftEdge != null) {
+            widget.onLeftEdge!();
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },
