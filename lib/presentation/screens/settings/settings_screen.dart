@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
@@ -26,6 +29,43 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _selectedIndex = isMobilePlatform ? -1 : 0;
+
+  /// FocusNode for the first nav item — the branch-primary target so
+  /// sidebar → right lands on the leftmost setting section instead
+  /// of stranding focus on an arbitrary input field.
+  final FocusNode _firstNavFocus = FocusNode(debugLabel: 'SettingsFirstNav');
+
+  late final VoidFocusCallback _branchPrimaryCb;
+
+  @override
+  void initState() {
+    super.initState();
+    _branchPrimaryCb = _focusFirstNav;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
+            TvBranchIndex.settings,
+            _branchPrimaryCb,
+          );
+    });
+  }
+
+  @override
+  void dispose() {
+    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
+          TvBranchIndex.settings,
+          _branchPrimaryCb,
+        );
+    _firstNavFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusFirstNav() {
+    if (!mounted) return;
+    if (_firstNavFocus.canRequestFocus) {
+      _firstNavFocus.requestFocus();
+    }
+  }
 
   List<({IconData icon, String label})> _getSections(AppLocalizations l10n) => [
     (icon: Icons.dns_outlined, label: l10n.accounts),
@@ -86,6 +126,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         label: section.label,
                         isSelected: isSelected,
                         onTap: () => setState(() => _selectedIndex = index),
+                        // Only the first item gets the branch-primary
+                        // focus node so sidebar → right has a stable
+                        // landing spot.
+                        focusNode: index == 0 ? _firstNavFocus : null,
                       );
                     },
                   ),
@@ -201,7 +245,18 @@ class _SettingsNavItem extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _SettingsNavItem({required this.icon, required this.label, required this.isSelected, required this.onTap});
+  /// External FocusNode wired by the parent — used for the first
+  /// nav item so the registry's branch-primary callback can target
+  /// it directly (sidebar → right lands here).
+  final FocusNode? focusNode;
+
+  const _SettingsNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.focusNode,
+  });
 
   @override
   State<_SettingsNavItem> createState() => _SettingsNavItemState();
@@ -218,6 +273,7 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Focus(
+        focusNode: widget.focusNode,
         onFocusChange: (f) => setState(() => _isFocused = f),
         onKeyEvent: (_, event) {
           if (event is KeyDownEvent &&
