@@ -978,6 +978,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _startLiveProgress() {
     _progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      // Guard against the rare window where dispose() runs between
+      // the timer firing and the cancel() in dispose taking effect —
+      // setState on an unmounted State throws.
+      if (!mounted) return;
       if (widget.programStart != null && widget.programEnd != null) {
         final total = widget.programEnd!
             .difference(widget.programStart!)
