@@ -24,6 +24,23 @@ class XtreamApiService {
 
   XtreamApiService(this._dio);
 
+  /// Account-scoped prefix for cache + queue keys.
+  ///
+  /// Previously the cache keys were just `vod_info_$vodId` /
+  /// `series_info_$seriesId` / `epg_$streamId` — so two different
+  /// servers that happened to share a stream id (very common with
+  /// public Xtream panels) would clobber each other's cached
+  /// responses. After a user switched accounts, VOD info / EPG could
+  /// come back wrong.
+  ///
+  /// The format `username@normalisedUrl:` matches what the rest of
+  /// the app uses for `ApiCache.invalidateForAccount(...)`, so
+  /// invalidation still works the same way.
+  String _scope(String url, String username) {
+    final normalised = url.replaceAll(RegExp(r'/+$'), '');
+    return '$username@$normalised:';
+  }
+
   /// Normalize URL: extract base server URL from various formats
   /// Handles: http://host:port, http://host:port/player_api.php?...,
   /// http://host:port/get.php?..., full m3u links, etc.
@@ -96,7 +113,7 @@ class XtreamApiService {
   }
 
   Future<List<dynamic>> getCategories(String url, String username, String password, String action) async {
-    final cacheKey = 'cat_${action}_$username';
+    final cacheKey = '${_scope(url, username)}cat_$action';
     final cached = _cache.get<List<dynamic>>(cacheKey);
     if (cached != null) return cached;
 
@@ -119,7 +136,7 @@ class XtreamApiService {
   }
 
   Future<List<dynamic>> getStreams(String url, String username, String password, String action, {String? categoryId}) async {
-    final cacheKey = 'streams_${action}_${categoryId ?? 'all'}_$username';
+    final cacheKey = '${_scope(url, username)}streams_${action}_${categoryId ?? 'all'}';
     final cached = _cache.get<List<dynamic>>(cacheKey);
     if (cached != null) return cached;
 
@@ -148,7 +165,7 @@ class XtreamApiService {
   /// Get VOD (movie) detail info: plot, cast, genre, director, duration, backdrop
   /// Uses cache (30 min TTL) + queue (max 1 concurrent request)
   Future<Map<String, dynamic>?> getVODInfo(String url, String username, String password, int vodId) async {
-    final cacheKey = 'vod_info_$vodId';
+    final cacheKey = '${_scope(url, username)}vod_info_$vodId';
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 
@@ -183,7 +200,7 @@ class XtreamApiService {
   /// Get Series info: seasons, episodes with details
   /// Uses cache (30 min TTL) + queue (max 1 concurrent request)
   Future<Map<String, dynamic>?> getSeriesInfo(String url, String username, String password, int seriesId) async {
-    final cacheKey = 'series_info_$seriesId';
+    final cacheKey = '${_scope(url, username)}series_info_$seriesId';
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 
@@ -218,7 +235,7 @@ class XtreamApiService {
   /// Get short EPG for a single stream (default 20 listings)
   /// Uses cache (15 min TTL) + queue
   Future<Map<String, dynamic>> getEpg(String url, String username, String password, String streamId, {int? limit}) async {
-    final cacheKey = 'epg_$streamId';
+    final cacheKey = '${_scope(url, username)}epg_$streamId';
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 
@@ -249,7 +266,9 @@ class XtreamApiService {
   /// Get full EPG table for all streams (or a single stream)
   /// Uses cache (15 min TTL) + queue
   Future<Map<String, dynamic>> getAllEpg(String url, String username, String password, {String? streamId}) async {
-    final cacheKey = streamId != null ? 'all_epg_$streamId' : 'all_epg';
+    final cacheKey = streamId != null
+        ? '${_scope(url, username)}all_epg_$streamId'
+        : '${_scope(url, username)}all_epg';
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 

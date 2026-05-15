@@ -246,6 +246,29 @@ class XmltvService {
   static XmltvParseResult? _cachedResult;
   static String? _cachedUrl;
 
+  /// Derive a stable, prefs-safe slug from the XMLTV URL so each
+  /// distinct EPG source gets its own cache entry instead of clobbering
+  /// the others.
+  ///
+  /// Previously the cache keys were the literals `xmltv_cache_data` /
+  /// `xmltv_ts_hash` — a single global slot. That meant if URL-A was
+  /// cached and the user (or an account switch) later asked for URL-B
+  /// while A's entry was still inside the 6-hour TTL, the parser would
+  /// return A's XML for B's request. Cross-account EPG contamination.
+  ///
+  /// We use FNV-1a-32 (small, dependency-free, good enough for cache
+  /// bucketing — not security-sensitive) over the UTF-8 bytes of the
+  /// URL, rendered as 8 hex chars.
+  static String _urlSlug(String url) {
+    var hash = 0x811c9dc5; // FNV-1a 32-bit offset basis
+    const prime = 0x01000193;
+    for (final b in utf8.encode(url)) {
+      hash = (hash ^ b) & 0xffffffff;
+      hash = (hash * prime) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
+
   /// Fetch and parse XMLTV data from URL.
   /// Uses in-memory + SharedPreferences cache with 6-hour TTL.
   static Future<XmltvParseResult?> fetchAndParse(String xmltvUrl) async {
@@ -254,15 +277,19 @@ class XmltvService {
       return _cachedResult;
     }
 
+    final slug = _urlSlug(xmltvUrl);
+    final dataKey = '$_cachePrefix$slug';
+    final tsKey = '$_cacheTimestampPrefix$slug';
+
     // Check SharedPreferences cache
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cachedTs = prefs.getInt('${_cacheTimestampPrefix}hash') ?? 0;
+      final cachedTs = prefs.getInt(tsKey) ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;
 
       if (now - cachedTs < _ttl.inMilliseconds) {
         // Try loading from cache
-        final cachedXml = prefs.getString('${_cachePrefix}data');
+        final cachedXml = prefs.getString(dataKey);
         if (cachedXml != null && cachedXml.isNotEmpty) {
           final result = parseXmltv(cachedXml);
           if (result.programsByChannel.isNotEmpty) {
@@ -307,11 +334,8 @@ class XmltvService {
       // Only save if reasonably sized (< 5MB)
       if (xmlContent.length < 5 * 1024 * 1024) {
         SharedPreferences.getInstance().then((prefs) {
-          prefs.setString('${_cachePrefix}data', xmlContent);
-          prefs.setInt(
-            '${_cacheTimestampPrefix}hash',
-            DateTime.now().millisecondsSinceEpoch,
-          );
+          prefs.setString(dataKey, xmlContent);
+          prefs.setInt(tsKey, DateTime.now().millisecondsSinceEpoch);
         });
       }
 
@@ -321,14 +345,20 @@ class XmltvService {
     }
   }
 
-  /// Clear cached XMLTV data
+  /// Clear cached XMLTV data across all URL slugs (plus the pre-fix
+  /// global keys that older builds wrote, so an upgrade-and-clear is
+  /// idempotent).
   static Future<void> clearCache() async {
     _cachedResult = null;
     _cachedUrl = null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('${_cachePrefix}data');
-      await prefs.remove('${_cacheTimestampPrefix}hash');
+      final keys = prefs.getKeys();
+      for (final k in keys) {
+        if (k.startsWith(_cachePrefix) || k.startsWith(_cacheTimestampPrefix)) {
+          await prefs.remove(k);
+        }
+      }
     } catch (_) {}
   }
 }
