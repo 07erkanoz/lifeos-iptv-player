@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
@@ -1032,165 +1033,20 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
       ),
 
       const SizedBox(height: 28),
-      Text(l10n.subtitleAppearance, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 16),
-
-      // Font size slider
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+      Text(
+        l10n.subtitleAppearance,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: isDark ? AppColors.textDark : AppColors.textLight,
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.format_size, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.subtitleFontSize, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppColors.textDark : AppColors.textLight)),
-            const Spacer(),
-            Text('${settings.subtitleFontSize}', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 16)),
-          ]),
-          Slider(
-            value: settings.subtitleFontSize.toDouble().clamp(20, 110),
-            min: 20,
-            max: 110,
-            divisions: 18,
-            activeColor: AppColors.primary,
-            label: '${settings.subtitleFontSize}',
-            onChanged: (val) {
-              ref.read(settingsProvider.notifier).updateSettings(
-                settings.copyWith(subtitleFontSize: val.round()),
-              );
-            },
-          ),
-          // Preview
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Altyazı Örneği',
-                style: TextStyle(
-                  color: _hexToColor(settings.subtitleColor),
-                  fontSize: settings.subtitleFontSize.toDouble().clamp(12, 36),
-                  fontWeight: settings.subtitleBold ? FontWeight.bold : FontWeight.normal,
-                  backgroundColor: settings.subtitleBackgroundEnabled
-                      ? Colors.black54
-                      : Colors.transparent,
-                ),
-              ),
-            ),
-          ),
-        ]),
       ),
-
       const SizedBox(height: 16),
-
-      // Color picker
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.palette_outlined, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.subtitleColor, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppColors.textDark : AppColors.textLight)),
-          ]),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _subtitleColors.entries.map((e) {
-              final isSelected = settings.subtitleColor.toUpperCase() == e.key.toUpperCase();
-              return GestureDetector(
-                onTap: () {
-                  ref.read(settingsProvider.notifier).updateSettings(
-                    settings.copyWith(subtitleColor: e.key),
-                  );
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: e.value,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : Colors.transparent,
-                      width: 3,
-                    ),
-                    boxShadow: isSelected
-                        ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 8)]
-                        : null,
-                  ),
-                  child: isSelected
-                      ? Icon(Icons.check, color: e.value.computeLuminance() > 0.5 ? Colors.black : Colors.white, size: 20)
-                      : null,
-                ),
-              );
-            }).toList(),
-          ),
-        ]),
-      ),
-
-      const SizedBox(height: 16),
-
-      // Bold toggle
-      SwitchListTile(
-        secondary: Icon(Icons.format_bold, color: AppColors.primary),
-        title: Text(l10n.subtitleBold, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        value: settings.subtitleBold,
-        activeThumbColor: AppColors.primary,
-        onChanged: (val) {
-          ref.read(settingsProvider.notifier).updateSettings(
-            settings.copyWith(subtitleBold: val),
-          );
-        },
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-
-      const SizedBox(height: 8),
-
-      // Background toggle
-      SwitchListTile(
-        secondary: Icon(Icons.rectangle_outlined, color: AppColors.primary),
-        title: Text(l10n.subtitleBackground, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.subtitleBackgroundDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.subtitleBackgroundEnabled,
-        activeThumbColor: AppColors.primary,
-        onChanged: (val) {
-          ref.read(settingsProvider.notifier).updateSettings(
-            settings.copyWith(subtitleBackgroundEnabled: val),
-          );
-        },
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
+      // Shared controls — same widget used in the in-player track
+      // picker, so changes here surface in playback immediately if a
+      // stream is active.
+      const SubtitleAppearanceControls(),
     ]);
-  }
-
-  static const _subtitleColors = <String, Color>{
-    '#FFFFFF': Color(0xFFFFFFFF), // White
-    '#FFFF00': Color(0xFFFFFF00), // Yellow
-    '#00FF00': Color(0xFF00FF00), // Green
-    '#00FFFF': Color(0xFF00FFFF), // Cyan
-    '#FF4444': Color(0xFFFF4444), // Red
-    '#4488FF': Color(0xFF4488FF), // Blue
-    '#FF8800': Color(0xFFFF8800), // Orange
-    '#FF44FF': Color(0xFFFF44FF), // Pink
-  };
-
-  static Color _hexToColor(String hex) {
-    final h = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$h', radix: 16));
   }
 }
 

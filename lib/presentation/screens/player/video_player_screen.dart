@@ -24,6 +24,8 @@ import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
 import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_search_overlay.dart';
 import 'package:lifeostv/data/services/opensubtitles_service.dart';
+import 'package:lifeostv/data/services/subtitle_track_matcher.dart';
+import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/utils/gpu_detector.dart';
@@ -665,6 +667,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   /// Match the remembered audio/subtitle language against the current
   /// track list and select the best fit. Called once per opened Media.
+  ///
+  /// Uses [findBestSubtitleTrack] / [findBestAudioTrack] from
+  /// `subtitle_track_matcher.dart` so the matching logic is
+  /// symmetric, ISO-aware, and unit-tested in isolation. The previous
+  /// inline implementation lost the user's pick across episodes when
+  /// the same subtitle was exposed as `language` in one episode and
+  /// `title` in the next.
   void _applyRememberedTracks() {
     if (_autoTrackApplied) return;
     final settings = ref.read(settingsProvider);
@@ -676,50 +685,95 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final hasRealSub = subs.any((t) => t.id != 'auto' && t.id != 'no');
     if (!hasRealAudio && !hasRealSub) return;
 
-    final wantAudio = settings.lastPlayerAudioLanguage;
-    if (wantAudio != null && wantAudio.isNotEmpty && hasRealAudio) {
-      final match = _findTrackByLanguage(audios, wantAudio);
-      if (match != null && _player.state.track.audio != match) {
-        _player.setAudioTrack(match as AudioTrack);
+    if (hasRealAudio &&
+        (settings.lastPlayerAudioLanguage != null ||
+            settings.lastPlayerAudioTitle != null)) {
+      final candidates = audios.map(_toCandidate).toList(growable: false);
+      final match = findBestAudioTrack(
+        tracks: candidates,
+        wantLanguage: settings.lastPlayerAudioLanguage,
+        wantTitle: settings.lastPlayerAudioTitle,
+      );
+      if (match != null) {
+        final track = audios.firstWhere((t) => t.id == match.id);
+        if (_player.state.track.audio != track) {
+          _player.setAudioTrack(track);
+        }
       }
     }
 
-    final wantSub = settings.lastPlayerSubtitleLanguage;
-    if (wantSub != null && wantSub.isNotEmpty && hasRealSub) {
-      final match = _findTrackByLanguage(subs, wantSub);
-      if (match != null && _player.state.track.subtitle != match) {
-        _player.setSubtitleTrack(match as SubtitleTrack);
-        _applySubtitleStyle();
+    if (hasRealSub &&
+        (settings.lastPlayerSubtitleLanguage != null ||
+            settings.lastPlayerSubtitleTitle != null)) {
+      final candidates = subs.map(_toCandidate).toList(growable: false);
+      final match = findBestSubtitleTrack(
+        tracks: candidates,
+        wantLanguage: settings.lastPlayerSubtitleLanguage,
+        wantTitle: settings.lastPlayerSubtitleTitle,
+      );
+      if (match != null) {
+        final track = subs.firstWhere((t) => t.id == match.id);
+        if (_player.state.track.subtitle != track) {
+          _player.setSubtitleTrack(track);
+          _applySubtitleStyle();
+        }
       }
     }
 
     _autoTrackApplied = true;
   }
 
+  /// Adapt media_kit's track types to the matcher's TrackCandidate
+  /// shape. Audio and subtitle tracks share id / language / title
+  /// fields, so a single conversion works for both.
+  TrackCandidate _toCandidate(dynamic t) => (
+        id: t.id as String,
+        language: t.language as String?,
+        title: t.title as String?,
+      );
+
   void _rememberAudioChoice(AudioTrack t) {
-    if (t.id == 'auto') return;
-    final lang = (t.language ?? t.title ?? '').toString();
-    if (lang.isEmpty) return;
+    if (t.id == 'auto' || t.id == 'no') return;
+    final lang = t.language ?? '';
+    final title = t.title ?? '';
+    // Track had no usable identifier on either field — nothing to
+    // store. Better than persisting a "" / "" pair that turns into
+    // "no preference" and silently strips this user's pick next time.
+    if (lang.isEmpty && title.isEmpty) return;
     final notifier = ref.read(settingsProvider.notifier);
     final cur = ref.read(settingsProvider);
-    notifier.updateSettings(cur.copyWith(lastPlayerAudioLanguage: lang));
+    notifier.updateSettings(cur.copyWith(
+      lastPlayerAudioLanguage: lang,
+      lastPlayerAudioTitle: title,
+    ));
   }
 
   void _rememberSubtitleChoice(SubtitleTrack t) {
     final notifier = ref.read(settingsProvider.notifier);
     final cur = ref.read(settingsProvider);
-    // "Off" choice → clear the remembered subtitle.
+    // "Off" → clear remembered subtitle so the next episode starts
+    // with subtitles off too. clearLastPlayerSubtitleLanguage clears
+    // both the language and the title slots.
     if (t.id == 'no') {
-      notifier.updateSettings(cur.copyWith(clearLastPlayerSubtitleLanguage: true));
+      notifier.updateSettings(
+        cur.copyWith(clearLastPlayerSubtitleLanguage: true),
+      );
       return;
     }
     if (t.id == 'auto') return;
-    final lang = (t.language ?? t.title ?? '').toString();
-    if (lang.isEmpty) return;
-    notifier.updateSettings(cur.copyWith(lastPlayerSubtitleLanguage: lang));
+    final lang = t.language ?? '';
+    final title = t.title ?? '';
+    if (lang.isEmpty && title.isEmpty) return;
+    notifier.updateSettings(cur.copyWith(
+      lastPlayerSubtitleLanguage: lang,
+      lastPlayerSubtitleTitle: title,
+    ));
   }
 
   dynamic _findTrackByLanguage(List tracks, String wanted) {
+    // Legacy helper retained for callers that may still reference it;
+    // new code should use findBestSubtitleTrack/-AudioTrack via
+    // _applyRememberedTracks. Kept thin so it doesn't grow stale logic.
     final w = wanted.toLowerCase();
     for (final t in tracks) {
       final lang = (t.language ?? '').toString().toLowerCase();
@@ -1323,108 +1377,75 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   ),
                 ),
                 // Subtitle appearance controls (only in subtitle picker).
+                // Full set — size + color + bold + background — via the
+                // shared SubtitleAppearanceControls so this stays in
+                // sync with Settings. Position lives below since it's
+                // player-local state, not in AppSettings.
                 if (!isAudio) ...[
                   const Divider(color: Colors.white12, height: 24),
-                  StatefulBuilder(
-                    builder: (context, setLocal) {
-                      final settings = ref.read(settingsProvider);
-                      final fontSize = settings.subtitleFontSize
-                          .toDouble()
-                          .clamp(20.0, 110.0);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.format_size,
-                                  color: AppColors.textTertiaryDark,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  l10n.subtitleFontSize,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondaryDark,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${fontSize.round()}',
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Slider(
-                              value: fontSize,
-                              min: 20,
-                              max: 110,
-                              divisions: 18,
-                              onChanged: (v) {
-                                ref
-                                    .read(settingsProvider.notifier)
-                                    .updateSettings(
-                                      settings.copyWith(
-                                        subtitleFontSize: v.round(),
-                                      ),
-                                    );
-                                setLocal(() {});
-                                // Force the outer Video widget to rebuild with
-                                // the new SubtitleViewConfiguration.
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.vertical_align_bottom,
-                                  color: AppColors.textTertiaryDark,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  l10n.subtitlePosition,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondaryDark,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${_subtitleYOffset.round()}',
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Slider(
-                              value: _subtitleYOffset,
-                              min: 0,
-                              max: 300,
-                              divisions: 30,
-                              onChanged: (v) {
-                                _subtitleYOffset = v;
-                                setLocal(() {});
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SubtitleAppearanceControls(
+                          compact: true,
+                          // Outer Video widget needs to rebuild so the
+                          // fresh SubtitleViewConfiguration reaches it.
+                          onChanged: () {
+                            if (mounted) setState(() {});
+                          },
                         ),
-                      );
-                    },
+                        const SizedBox(height: 8),
+                        StatefulBuilder(
+                          builder: (context, setLocal) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.vertical_align_bottom,
+                                      color: AppColors.textTertiaryDark,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      l10n.subtitlePosition,
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondaryDark,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${_subtitleYOffset.round()}',
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: _subtitleYOffset,
+                                  min: 0,
+                                  max: 300,
+                                  divisions: 30,
+                                  onChanged: (v) {
+                                    _subtitleYOffset = v;
+                                    setLocal(() {});
+                                    if (mounted) setState(() {});
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],

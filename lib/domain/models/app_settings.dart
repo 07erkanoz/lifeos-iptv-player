@@ -35,10 +35,20 @@ class AppSettings {
   final bool subtitleBackgroundEnabled;
 
   // Remember last chosen audio/subtitle track across episodes.
-  // Stored as the track's language (or title fallback) so it survives
-  // new Player instances where numeric track ids are unstable.
+  // We store BOTH the track's `language` and `title` because:
+  //   - Some streams expose only one of the two
+  //   - Episode N's track may carry the label in `language` while
+  //     episode N+1 has the same label in `title` (or vice versa)
+  // Numeric track ids are unstable across Player instances, so we
+  // can't fall back on them. The matcher in
+  // lib/data/services/subtitle_track_matcher.dart canonicalizes both
+  // sides through an ISO 639-1↔2 map and a parenthetical-qualifier
+  // stripper so "tr" / "tur" / "Türkçe" / "Turkish (forced)" all
+  // collapse to the same canonical key.
   final String? lastPlayerAudioLanguage;
+  final String? lastPlayerAudioTitle;
   final String? lastPlayerSubtitleLanguage;
+  final String? lastPlayerSubtitleTitle;
 
   // Account
   final int? defaultAccountId;
@@ -63,7 +73,9 @@ class AppSettings {
     this.subtitleBold = false,
     this.subtitleBackgroundEnabled = false,
     this.lastPlayerAudioLanguage,
+    this.lastPlayerAudioTitle,
     this.lastPlayerSubtitleLanguage,
+    this.lastPlayerSubtitleTitle,
     this.defaultAccountId,
   });
 
@@ -87,7 +99,9 @@ class AppSettings {
     bool? subtitleBold,
     bool? subtitleBackgroundEnabled,
     String? lastPlayerAudioLanguage,
+    String? lastPlayerAudioTitle,
     String? lastPlayerSubtitleLanguage,
+    String? lastPlayerSubtitleTitle,
     bool clearLastPlayerSubtitleLanguage = false,
     int? defaultAccountId,
   }) {
@@ -111,9 +125,13 @@ class AppSettings {
       subtitleBold: subtitleBold ?? this.subtitleBold,
       subtitleBackgroundEnabled: subtitleBackgroundEnabled ?? this.subtitleBackgroundEnabled,
       lastPlayerAudioLanguage: lastPlayerAudioLanguage ?? this.lastPlayerAudioLanguage,
+      lastPlayerAudioTitle: lastPlayerAudioTitle ?? this.lastPlayerAudioTitle,
       lastPlayerSubtitleLanguage: clearLastPlayerSubtitleLanguage
           ? null
           : (lastPlayerSubtitleLanguage ?? this.lastPlayerSubtitleLanguage),
+      lastPlayerSubtitleTitle: clearLastPlayerSubtitleLanguage
+          ? null
+          : (lastPlayerSubtitleTitle ?? this.lastPlayerSubtitleTitle),
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
     );
   }
