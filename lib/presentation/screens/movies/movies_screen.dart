@@ -1143,51 +1143,60 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           // the content scroll view for hit-testing — otherwise the
           // scroll view's gesture arena swallows taps inside the PiP
           // rect. Tap opens it fullscreen with sound.
-          Positioned(
-            top: 88,
-            right: 32,
-            child: SizedBox(
-              width: 384,
-              height: 216,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black54,
-                        child: BackdropTrailer(
-                          backdropUrl: null,
-                          directTrailerRef: ch.youtubeTrailer,
-                          searchTitle: ch.name,
-                          searchYear: year.isNotEmpty ? year : ch.year,
-                          channelType: ch.type,
-                          showBackdrop: false,
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => showExpandedTrailer(
-                            context,
+          //
+          // Mobile-only: skip rendering the floating PiP entirely. At
+          // 384×216 fixed pixels it overflows narrow phone viewports
+          // and stamps right under the header, covering content. The
+          // "Fragman İzle" button in `_buildMobileDetailContent` opens
+          // the same `showExpandedTrailer` dialog directly, which is
+          // the right entry point for a touch UI without burning
+          // cellular data / battery on silent autoplay.
+          if (!isMobilePlatform)
+            Positioned(
+              top: 88,
+              right: 32,
+              child: SizedBox(
+                width: 384,
+                height: 216,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black54,
+                          child: BackdropTrailer(
+                            backdropUrl: null,
                             directTrailerRef: ch.youtubeTrailer,
                             searchTitle: ch.name,
-                            searchYear:
-                                year.isNotEmpty ? year : ch.year,
+                            searchYear: year.isNotEmpty ? year : ch.year,
                             channelType: ch.type,
+                            showBackdrop: false,
                           ),
-                          child: const SizedBox.expand(),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned.fill(
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => showExpandedTrailer(
+                              context,
+                              directTrailerRef: ch.youtubeTrailer,
+                              searchTitle: ch.name,
+                              searchYear:
+                                  year.isNotEmpty ? year : ch.year,
+                              channelType: ch.type,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1281,7 +1290,19 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           ),
           if (trailerUrl != null)
             OutlinedButton.icon(
-              onPressed: () => _openTrailer(trailerUrl),
+              // Mobile entry point for the trailer. Desktop has a
+              // floating PiP that opens the same dialog on tap, but
+              // mobile skips the PiP (see the Positioned in
+              // `_buildDetailView`) — so this button is the only path.
+              // Open the in-app `showExpandedTrailer` instead of
+              // bouncing the user out to the external YouTube app.
+              onPressed: () => showExpandedTrailer(
+                context,
+                directTrailerRef: ch.youtubeTrailer,
+                searchTitle: ch.name,
+                searchYear: year.isNotEmpty ? year : ch.year,
+                channelType: ch.type,
+              ),
               icon: const Icon(Icons.play_circle_outline, size: 16),
               label: Text(l10n.trailer),
               style: OutlinedButton.styleFrom(

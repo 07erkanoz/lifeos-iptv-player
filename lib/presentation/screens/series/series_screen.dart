@@ -1852,7 +1852,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         isPrimary: false,
                                         backgroundColor: Colors.red.shade900
                                             .withValues(alpha: 0.3),
-                                        onTap: () => _openTrailer(trailerUrl),
+                                        // Mobile: skip the external launch
+                                        // and open the in-app fullscreen
+                                        // trailer dialog — the floating PiP
+                                        // is hidden on mobile so this is
+                                        // the only path to the trailer.
+                                        // Desktop/TV keeps the existing
+                                        // `_openTrailer` (external) so this
+                                        // change is mobile-only.
+                                        onTap: () => isMobilePlatform
+                                            ? showExpandedTrailer(
+                                                context,
+                                                directTrailerRef:
+                                                    ch.youtubeTrailer,
+                                                searchTitle: ch.name,
+                                                searchYear: ch.year,
+                                                channelType: ch.type,
+                                              )
+                                            : _openTrailer(trailerUrl),
                                       ),
                                       _FocusableActionButton(
                                         icon: Icons.open_in_new,
@@ -2061,50 +2078,56 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           // the content scroll view for hit-testing — otherwise the
           // scroll view's gesture arena swallows taps inside the PiP
           // rect. Tap opens it fullscreen with sound.
-          Positioned(
-            top: 88,
-            right: 32,
-            child: SizedBox(
-              width: 384,
-              height: 216,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black54,
-                        child: BackdropTrailer(
-                          backdropUrl: null,
-                          directTrailerRef: ch.youtubeTrailer,
-                          searchTitle: ch.name,
-                          searchYear: ch.year,
-                          channelType: ch.type,
-                          showBackdrop: false,
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => showExpandedTrailer(
-                            context,
+          //
+          // Mobile-only: skip rendering the floating PiP entirely. At
+          // 384×216 fixed pixels it overflows narrow phone viewports
+          // and stamps right under the header. The shared "Fragman
+          // İzle" action button below opens the same dialog on mobile.
+          if (!isMobilePlatform)
+            Positioned(
+              top: 88,
+              right: 32,
+              child: SizedBox(
+                width: 384,
+                height: 216,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black54,
+                          child: BackdropTrailer(
+                            backdropUrl: null,
                             directTrailerRef: ch.youtubeTrailer,
                             searchTitle: ch.name,
                             searchYear: ch.year,
                             channelType: ch.type,
+                            showBackdrop: false,
                           ),
-                          child: const SizedBox.expand(),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned.fill(
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => showExpandedTrailer(
+                              context,
+                              directTrailerRef: ch.youtubeTrailer,
+                              searchTitle: ch.name,
+                              searchYear: ch.year,
+                              channelType: ch.type,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
