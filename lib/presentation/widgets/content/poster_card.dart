@@ -90,9 +90,17 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
   /// Start the 600ms debounce. If the user keeps hovering past that
   /// window, extraction kicks in. Short hovers (mouse passing through)
   /// never burn a YouTube request.
+  ///
+  /// **TV mode skips this entirely.** D-pad navigation moves focus
+  /// deliberately and rapidly — spinning up a new Player on every
+  /// card focus would compete with the main IPTV decoder for the GPU
+  /// and burn battery on Android TV sticks. Hero / detail screens
+  /// still autoplay trailers in their own widgets; PosterCard stays
+  /// quiet to keep browsing snappy.
   void _scheduleTrailerPreview() {
     _trailerScheduleTimer?.cancel();
     if (widget.channel.type == 'live') return; // no trailers for live TV
+    if (PlatformHelper.isTV) return;
 
     final reqId = ++_trailerRequestId;
     _trailerScheduleTimer = Timer(const Duration(milliseconds: 600), () {

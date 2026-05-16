@@ -191,9 +191,14 @@ class _HeroBannerState extends State<HeroBanner> {
     setState(() => _trailerVisible = false);
 
     // Live channels don't have trailers; mobile is too small / data
-    // sensitive to autoplay, skip there too.
+    // sensitive to autoplay, skip there too. TV is skipped because
+    // the hero auto-rotates every 12s and on TV that meant a new
+    // YouTube extract + libmpv Player init every cycle — visible
+    // jank during D-pad navigation and constant GPU contention with
+    // the main IPTV decoder.
     if (channel.type == 'live') return;
     if (_isMobile(context)) return;
+    if (PlatformHelper.isTV) return;
 
     final fromApi = widget.vodInfo?.youtubeTrailer;
     final fromDb = channel.youtubeTrailer;

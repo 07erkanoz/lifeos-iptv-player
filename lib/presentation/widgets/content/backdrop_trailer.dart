@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 
 /// Renders a backdrop image and, after a short delay, fades in a muted
@@ -108,8 +109,17 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
     _scheduleTimer?.cancel();
     if (widget.channelType == 'live') return;
 
+    // On TV we double the still-image delay before extraction kicks
+    // in. Detail screens on TV are often a "pause and consider"
+    // moment — user may back out quickly. The longer window avoids
+    // burning a YouTube extract + libmpv Player startup when they
+    // do, and gives the IPTV decoder breathing room.
+    final effectiveDelay = PlatformHelper.isTV
+        ? const Duration(seconds: 3)
+        : widget.delay;
+
     final reqId = ++_requestId;
-    _scheduleTimer = Timer(widget.delay, () {
+    _scheduleTimer = Timer(effectiveDelay, () {
       if (mounted) _startTrailer(reqId);
     });
   }

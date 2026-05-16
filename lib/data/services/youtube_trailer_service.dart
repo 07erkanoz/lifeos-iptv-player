@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 /// Resolves a YouTube watch URL or bare video id into a direct stream URL
@@ -25,6 +27,14 @@ class YouTubeTrailerService {
   static const Duration _searchTtl = Duration(hours: 6);
   final Map<String, _CachedSearch> _searchCache = {};
 
+  // Global single-flight gate. Even when many widgets schedule
+  // extractions in parallel (rapid hover across cards, hero auto-
+  // rotate firing while detail page is opening, etc.) we run only
+  // ONE network round-trip at a time. Cuts CPU + bandwidth spikes
+  // and keeps libmpv from queuing up several concurrent decode
+  // pipelines on weaker devices. Cached lookups skip the gate.
+  Future<void>? _inflight;
+
   /// Returns a direct stream URL for [videoIdOrUrl], or null if the
   /// video can't be extracted (region lock, embed disabled, deleted,
   /// network error). Negative results are also cached so we don't
@@ -39,6 +49,20 @@ class YouTubeTrailerService {
     final cached = _cache[id];
     if (cached != null && DateTime.now().difference(cached.fetchedAt) < _ttl) {
       return cached.url;
+    }
+
+    // Serialize through the single-flight gate so we never spawn two
+    // YouTube round-trips at once.
+    return _serialize(() => _extractStreamUrlImpl(id));
+  }
+
+  Future<String?> _extractStreamUrlImpl(String id) async {
+    // Re-check cache inside the gate — another waiter might have
+    // populated it while we were queued.
+    final cachedAgain = _cache[id];
+    if (cachedAgain != null &&
+        DateTime.now().difference(cachedAgain.fetchedAt) < _ttl) {
+      return cachedAgain.url;
     }
 
     try {
@@ -73,6 +97,28 @@ class YouTubeTrailerService {
     }
   }
 
+  /// Chain [task] onto the single-flight queue. Subsequent callers
+  /// wait for the previous task to complete before their own runs.
+  /// Failures in one task never block the queue.
+  Future<T> _serialize<T>(Future<T> Function() task) async {
+    final previous = _inflight;
+    final completer = Completer<void>();
+    _inflight = completer.future;
+    try {
+      if (previous != null) {
+        try { await previous; } catch (_) {}
+      }
+      return await task();
+    } finally {
+      completer.complete();
+      // Clear only if we're still the head — a later task may have
+      // already chained on while we ran.
+      if (identical(_inflight, completer.future)) {
+        _inflight = null;
+      }
+    }
+  }
+
   /// Resolve a stream URL by searching YouTube for [title] (+ optional
   /// [year]) + the literal "trailer" — used as a fallback when the
   /// IPTV provider doesn't ship a youtube_trailer field for the VOD.
@@ -90,6 +136,20 @@ class YouTubeTrailerService {
     if (cached != null && DateTime.now().difference(cached.fetchedAt) < _searchTtl) {
       if (cached.videoId == null) return null;
       return extractStreamUrl(cached.videoId!);
+    }
+
+    // Serialize search → extract through the single-flight gate.
+    return _serialize(() => _extractStreamUrlForQueryImpl(query));
+  }
+
+  Future<String?> _extractStreamUrlForQueryImpl(String query) async {
+    // Re-check cache inside the gate — another waiter might have
+    // populated it while we were queued.
+    final cachedAgain = _searchCache[query];
+    if (cachedAgain != null &&
+        DateTime.now().difference(cachedAgain.fetchedAt) < _searchTtl) {
+      if (cachedAgain.videoId == null) return null;
+      return _extractStreamUrlImpl(cachedAgain.videoId!);
     }
 
     try {
@@ -110,7 +170,7 @@ class YouTubeTrailerService {
         fetchedAt: DateTime.now(),
       );
       if (videoId == null) return null;
-      return extractStreamUrl(videoId);
+      return _extractStreamUrlImpl(videoId);
     } catch (_) {
       _searchCache[query] = _CachedSearch(
         videoId: null,
