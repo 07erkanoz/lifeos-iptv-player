@@ -87,7 +87,12 @@ void main() {
         mime: 'video/mp4',
       );
       expect(didl, contains('<dc:title>My Movie</dc:title>'));
-      expect(didl, contains('http-get:*:video/mp4:*'));
+      // protocolInfo's MIME field + the DLNA.ORG flag block (required
+      // by Samsung Tizen + recent LG webOS — see buildDidlMetadata
+      // docstring for the bit-flag breakdown).
+      expect(didl, contains('http-get:*:video/mp4:'));
+      expect(didl, contains('DLNA.ORG_OP=01'));
+      expect(didl, contains('DLNA.ORG_FLAGS=01700000000000000000000000000000'));
       expect(didl, contains('http://x/foo.mp4'));
       expect(didl, startsWith('<?xml'));
       expect(didl, contains('object.item.videoItem'));

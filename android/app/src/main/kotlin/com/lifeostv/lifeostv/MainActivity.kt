@@ -4,6 +4,7 @@ import android.app.PictureInPictureParams
 import android.app.UiModeManager
 import android.content.Context
 import android.content.res.Configuration
+import android.net.wifi.WifiManager
 import android.opengl.GLES20
 import android.opengl.EGL14
 import android.opengl.EGLConfig
@@ -23,6 +24,13 @@ class MainActivity : FlutterActivity() {
 
     private var pipEventSink: EventChannel.EventSink? = null
     private var isPlayerActive = false
+
+    /// Wi-Fi multicast lock used by DLNA (SSDP M-SEARCH on 239.255.255.250)
+    /// and Chromecast (mDNS / _googlecast._tcp). Without this, most Android
+    /// devices drop incoming multicast UDP frames to save battery once the
+    /// screen is on for more than a few seconds — discovery returns zero
+    /// devices even though the TV is on the same Wi-Fi.
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -58,6 +66,14 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(true)
                 }
+                "acquireMulticastLock" -> {
+                    acquireMulticastLock()
+                    result.success(true)
+                }
+                "releaseMulticastLock" -> {
+                    releaseMulticastLock()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -84,6 +100,38 @@ class MainActivity : FlutterActivity() {
         }
 
         return builder.build()
+    }
+
+    /// Reference-counted multicast lock. Dart side balances acquire/release
+    /// around discovery, but we tolerate sloppy calls (double-acquire is
+    /// idempotent; release-without-acquire is a no-op).
+    private fun acquireMulticastLock() {
+        if (multicastLock?.isHeld == true) return
+        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            ?: return
+        val lock = wifi.createMulticastLock("lifeostv-dlna-discovery").apply {
+            setReferenceCounted(false)
+        }
+        try {
+            lock.acquire()
+            multicastLock = lock
+        } catch (_: Exception) {
+            multicastLock = null
+        }
+    }
+
+    private fun releaseMulticastLock() {
+        val lock = multicastLock ?: return
+        if (lock.isHeld) {
+            try { lock.release() } catch (_: Exception) {}
+        }
+        multicastLock = null
+    }
+
+    override fun onDestroy() {
+        // Don't leak the lock if discovery is in flight when the activity dies.
+        releaseMulticastLock()
+        super.onDestroy()
     }
 
     private fun enterPipMode(): Boolean {

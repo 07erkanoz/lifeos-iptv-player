@@ -2054,7 +2054,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// started — pause local playback and push the current media URL to the
   /// remote receiver. We dispatch on whichever transport reports itself
   /// connected (the cast button picker only enables one at a time).
-  void _onCastStarted() {
+  Future<void> _onCastStarted() async {
     _player.pause();
 
     if (CastService.instance.state.isConnected) {
@@ -2068,10 +2068,50 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         streamType: streamType,
       );
     } else if (DlnaService.instance.state.isConnected) {
-      DlnaService.instance.loadMedia(
-        url: _currentUrl,
-        title: _currentTitle,
-      );
+      // Capture ScaffoldMessenger BEFORE await so we don't have to
+      // re-resolve it from a (potentially stale) context after the
+      // load attempt completes.
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await DlnaService.instance.loadMedia(
+          url: _currentUrl,
+          title: _currentTitle,
+        );
+      } on DlnaPlaybackVerificationException catch (e) {
+        // TV accepted the SOAP commands but never moved to PLAYING —
+        // most common cause: DMR / Smart View / Screen Share toggle on
+        // the TV is off, or the TV doesn't accept the source MIME.
+        // Resume local playback and surface the hint.
+        if (!mounted) return;
+        _player.play();
+        await DlnaService.instance.disconnect();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'TV oynatmayı başlatamadı (${e.lastState ?? "yanıt yok"}). '
+              'TV ayarlarından "DMR / Smart View / DLNA" özelliğinin '
+              'açık olduğundan emin ol ve tekrar dene.',
+            ),
+            backgroundColor: Colors.red.shade800,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      } catch (_) {
+        // Transport / SOAP fault — TV didn't respond at all.
+        if (!mounted) return;
+        _player.play();
+        await DlnaService.instance.disconnect();
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text(
+              'TV ile iletişim kurulamadı. Aynı Wi-Fi ağında olduğundan '
+              've TV\'nin açık olduğundan emin ol.',
+            ),
+            backgroundColor: Colors.red.shade800,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

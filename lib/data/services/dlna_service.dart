@@ -4,7 +4,30 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:xml/xml.dart';
+
+/// Thrown by [DlnaService.loadMedia] when the renderer accepted the
+/// SetAVTransportURI + Play SOAP commands but never transitioned to a
+/// PLAYING transport state inside our verification window. UI surfaces
+/// it as a "TV got the request but didn't play — open DMR/Smart View on
+/// the TV and try again" hint.
+class DlnaPlaybackVerificationException implements Exception {
+  final String message;
+  final String? lastState;
+  DlnaPlaybackVerificationException(this.message, {this.lastState});
+  @override
+  String toString() =>
+      'DlnaPlaybackVerificationException($message, lastState=$lastState)';
+}
+
+/// Shared MethodChannel to the Android native side. Used here to
+/// acquire / release a Wi-Fi multicast lock around SSDP discovery —
+/// Android drops incoming multicast UDP after a short idle without
+/// the lock, which makes SSDP M-SEARCH return zero devices even
+/// though the TV is reachable.
+const _platformChannel = MethodChannel('com.lifeostv.lifeostv/platform');
 
 /// DLNA / UPnP MediaRenderer.
 ///
@@ -106,9 +129,11 @@ class DlnaService {
   static const _renderer = 'urn:schemas-upnp-org:device:MediaRenderer:1';
 
   /// Search the LAN for MediaRenderer devices. Returns whatever responded
-  /// within [timeout] (default 5s). Safe to call repeatedly — no state.
+  /// within [timeout] (default 10s — was 5s but several home setups need
+  /// the longer window because of multicast retransmission delays).
+  /// Safe to call repeatedly — no state.
   Future<List<DlnaDevice>> discoverDevices({
-    Duration timeout = const Duration(seconds: 5),
+    Duration timeout = const Duration(seconds: 10),
   }) async {
     if (Platform.isAndroid || Platform.isIOS ||
         Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
@@ -117,46 +142,100 @@ class DlnaService {
       return const [];
     }
 
-    final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0,
-        reuseAddress: true);
-    try {
-      socket.broadcastEnabled = true;
-
-      // Build M-SEARCH request — exact format mandated by UPnP spec.
-      final request = utf8.encode(
-        'M-SEARCH * HTTP/1.1\r\n'
-        'HOST: $_ssdpAddress:$_ssdpPort\r\n'
-        'MAN: "ssdp:discover"\r\n'
-        'MX: 3\r\n'
-        'ST: $_renderer\r\n\r\n',
-      );
-      socket.send(request, InternetAddress(_ssdpAddress), _ssdpPort);
-
-      final locations = <Uri>{};
-      final completer = Completer<void>();
-      late StreamSubscription<RawSocketEvent> sub;
-      sub = socket.listen((event) {
-        if (event != RawSocketEvent.read) return;
-        final dg = socket.receive();
-        if (dg == null) return;
-        final body = utf8.decode(dg.data, allowMalformed: true);
-        final loc = _extractLocationHeader(body);
-        if (loc != null) locations.add(loc);
-      });
-
-      Timer(timeout, () {
-        if (!completer.isCompleted) completer.complete();
-      });
-      await completer.future;
-      await sub.cancel();
-
-      // Fan out: fetch + parse each device description XML in parallel.
-      final futures = locations.map(_fetchDevice).toList();
-      final results = await Future.wait(futures, eagerError: false);
-      return results.whereType<DlnaDevice>().toSet().toList();
-    } finally {
-      socket.close();
+    // Android 13+ requires NEARBY_WIFI_DEVICES runtime permission for any
+    // LAN discovery that doesn't already imply ACCESS_FINE_LOCATION
+    // (which we don't want to ask for — it's overkill for casting). The
+    // permission_handler request is a no-op on Android <13 and other
+    // platforms.
+    if (Platform.isAndroid) {
+      try {
+        final status = await Permission.nearbyWifiDevices.status;
+        if (!status.isGranted) {
+          final result = await Permission.nearbyWifiDevices.request();
+          // If user denies we still try discovery — on Android 12 and
+          // earlier the permission isn't required, the request just
+          // resolves "denied" without effect.
+          if (kDebugMode) debugPrint('[Dlna] nearbyWifiDevices: $result');
+        }
+      } catch (_) {
+        // permission_handler can throw on devices without the API; SSDP
+        // still works via legacy paths in that case.
+      }
     }
+
+    // Hold a Wi-Fi multicast lock for the duration of discovery so
+    // Android doesn't drop the SSDP response datagrams. No-op outside
+    // Android.
+    await _acquireMulticastLock();
+    try {
+      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0,
+          reuseAddress: true);
+      try {
+        socket.broadcastEnabled = true;
+        // Loopback off: we don't want to see our own M-SEARCH back.
+        try { socket.multicastLoopback = false; } catch (_) {}
+
+        // Build M-SEARCH request — exact format mandated by UPnP spec.
+        // MX bumped 3→5 so TVs that wait the full window before
+        // responding actually get heard.
+        final request = utf8.encode(
+          'M-SEARCH * HTTP/1.1\r\n'
+          'HOST: $_ssdpAddress:$_ssdpPort\r\n'
+          'MAN: "ssdp:discover"\r\n'
+          'MX: 5\r\n'
+          'ST: $_renderer\r\n\r\n',
+        );
+        // Send twice with a small gap — multicast UDP is unreliable and
+        // some Samsung Tizen firmwares miss the first packet.
+        socket.send(request, InternetAddress(_ssdpAddress), _ssdpPort);
+        Future.delayed(const Duration(milliseconds: 500), () {
+          try {
+            socket.send(request, InternetAddress(_ssdpAddress), _ssdpPort);
+          } catch (_) {}
+        });
+
+        final locations = <Uri>{};
+        final completer = Completer<void>();
+        late StreamSubscription<RawSocketEvent> sub;
+        sub = socket.listen((event) {
+          if (event != RawSocketEvent.read) return;
+          final dg = socket.receive();
+          if (dg == null) return;
+          final body = utf8.decode(dg.data, allowMalformed: true);
+          final loc = _extractLocationHeader(body);
+          if (loc != null) locations.add(loc);
+        });
+
+        Timer(timeout, () {
+          if (!completer.isCompleted) completer.complete();
+        });
+        await completer.future;
+        await sub.cancel();
+
+        // Fan out: fetch + parse each device description XML in parallel.
+        final futures = locations.map(_fetchDevice).toList();
+        final results = await Future.wait(futures, eagerError: false);
+        return results.whereType<DlnaDevice>().toSet().toList();
+      } finally {
+        socket.close();
+      }
+    } finally {
+      await _releaseMulticastLock();
+    }
+  }
+
+  Future<void> _acquireMulticastLock() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _platformChannel.invokeMethod('acquireMulticastLock');
+    } catch (_) {}
+  }
+
+  Future<void> _releaseMulticastLock() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _platformChannel.invokeMethod('releaseMulticastLock');
+    } catch (_) {}
   }
 
   Uri? _extractLocationHeader(String body) => extractSsdpLocationHeader(body);
@@ -234,6 +313,11 @@ class DlnaService {
   /// `mimeType` matters for some TVs — they reject playback if the
   /// DIDL-Lite metadata advertises the wrong protocolInfo. We pick a
   /// sensible default per file extension; caller can override.
+  ///
+  /// Throws [DlnaPlaybackVerificationException] if the renderer accepted
+  /// the SOAP calls but never moved to a PLAYING transport state inside
+  /// our verification window. Other failures (transport / SOAP fault)
+  /// propagate the underlying [DioException].
   Future<void> loadMedia({
     required String url,
     required String title,
@@ -245,16 +329,85 @@ class DlnaService {
     final mime = mimeType ?? _guessMime(url);
     final didl = _buildDidlMetadata(url: url, title: title, mime: mime);
 
-    await _safeSoap('SetAVTransportURI', device, {
+    // Use raw _soapAction so failures propagate (previously _safeSoap
+    // swallowed them and the user would see "connected" with a black
+    // screen on the TV).
+    await _soapAction('SetAVTransportURI', device, {
       'InstanceID': '0',
       'CurrentURI': url,
       'CurrentURIMetaData': didl,
     });
-    await _safeSoap('Play', device, {
+    await _soapAction('Play', device, {
       'InstanceID': '0',
       'Speed': '1',
     });
     _updateState(state.copyWith(isPlaying: true));
+
+    // Verify the renderer actually entered PLAYING within ~5 seconds.
+    // GetTransportInfo is part of the AVTransport spec — every
+    // compliant renderer must respond. We poll every 500ms; success
+    // is any of {PLAYING, TRANSITIONING}. PAUSED_PLAYBACK,
+    // STOPPED, NO_MEDIA_PRESENT after the grace window are failures.
+    try {
+      final ok = await _verifyPlaying(device);
+      if (!ok.success) {
+        throw DlnaPlaybackVerificationException(
+          'TV oynatma onayı vermedi (durum: ${ok.lastState ?? "bilinmiyor"}).',
+          lastState: ok.lastState,
+        );
+      }
+    } on DlnaPlaybackVerificationException {
+      rethrow;
+    } catch (_) {
+      // Renderer didn't implement GetTransportInfo cleanly — fall back
+      // to optimistic assumption (we already sent Play; if it really
+      // didn't work the user will see no video and try again).
+    }
+  }
+
+  /// Poll GetTransportInfo until the renderer reports PLAYING or the
+  /// grace window expires. Returns the last observed state for diagnostics.
+  Future<({bool success, String? lastState})> _verifyPlaying(
+    DlnaDevice device, {
+    Duration window = const Duration(seconds: 5),
+    Duration interval = const Duration(milliseconds: 500),
+  }) async {
+    final deadline = DateTime.now().add(window);
+    String? last;
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final response = await _soapActionRaw(
+          'GetTransportInfo',
+          device,
+          {'InstanceID': '0'},
+        );
+        final transportState = _extractElementText(
+          response,
+          'CurrentTransportState',
+        );
+        if (transportState != null) {
+          last = transportState;
+          if (transportState == 'PLAYING' ||
+              transportState == 'TRANSITIONING') {
+            return (success: true, lastState: transportState);
+          }
+        }
+      } catch (_) {
+        // Single poll error — keep trying inside the window.
+      }
+      await Future.delayed(interval);
+    }
+    return (success: false, lastState: last);
+  }
+
+  String? _extractElementText(String soapResponse, String localName) {
+    try {
+      final doc = XmlDocument.parse(soapResponse);
+      final el = doc.findAllElements(localName).firstOrNull;
+      return el?.innerText.trim();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> pause() async {
@@ -304,6 +457,16 @@ class DlnaService {
     DlnaDevice device,
     Map<String, String> args,
   ) async {
+    await _soapActionRaw(action, device, args);
+  }
+
+  /// Like [_soapAction] but returns the SOAP envelope body so callers
+  /// (e.g. GetTransportInfo verification) can parse it.
+  Future<String> _soapActionRaw(
+    String action,
+    DlnaDevice device,
+    Map<String, String> args,
+  ) async {
     final body = StringBuffer()
       ..write('<?xml version="1.0" encoding="utf-8"?>')
       ..write('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
@@ -327,7 +490,8 @@ class DlnaService {
         'SOAPAction': '"${device.serviceType}#$action"',
       },
     ));
-    await dio.postUri<String>(device.controlUrl, data: body.toString());
+    final res = await dio.postUri<String>(device.controlUrl, data: body.toString());
+    return res.data ?? '';
   }
 }
 
@@ -376,6 +540,23 @@ String xmlEscape(String s) => s
 /// DIDL-Lite metadata payload — minimal but most TVs require it (an
 /// empty CurrentURIMetaData is rejected by, among others, several LG
 /// webOS firmware versions).
+///
+/// The protocolInfo's 4th field carries DLNA flags. Samsung Tizen and
+/// recent LG webOS firmwares reject the stream entirely if these are
+/// missing — they treat the absent profile as "unsupported source".
+/// We emit:
+///   DLNA.ORG_OP=01    → server supports byte-range seek (most IPTV
+///                       providers do; if not the TV just won't seek)
+///   DLNA.ORG_CI=0     → not transcoded (we're passing through the
+///                       provider's bytes as-is)
+///   DLNA.ORG_FLAGS=01700000000000000000000000000000
+///                     → senderPaced=0, lopNpt=1, lopBytes=1,
+///                       playContainer=1, s0Increase=1, sNIncrease=1,
+///                       rtspPause=1, streamingTransferMode=1,
+///                       interactiveTransferMode=1,
+///                       backgroundTransferMode=1, connectionStall=1,
+///                       dlnaV15=1 — the catch-all combo Samsung's
+///                       Tizen reference renderer expects for VOD.
 String buildDidlMetadata({
   required String url,
   required String title,
@@ -383,6 +564,8 @@ String buildDidlMetadata({
 }) {
   final escapedTitle = xmlEscape(title);
   final escapedUrl = xmlEscape(url);
+  const dlnaFlags =
+      'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000';
   return '<?xml version="1.0" encoding="UTF-8"?>'
       '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
       'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
@@ -390,7 +573,7 @@ String buildDidlMetadata({
       '<item id="0" parentID="0" restricted="1">'
       '<dc:title>$escapedTitle</dc:title>'
       '<upnp:class>object.item.videoItem</upnp:class>'
-      '<res protocolInfo="http-get:*:$mime:*">$escapedUrl</res>'
+      '<res protocolInfo="http-get:*:$mime:$dlnaFlags">$escapedUrl</res>'
       '</item>'
       '</DIDL-Lite>';
 }
