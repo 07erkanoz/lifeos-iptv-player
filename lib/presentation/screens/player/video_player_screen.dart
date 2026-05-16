@@ -1134,6 +1134,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _controlsAnim.reverse();
       setState(() => _showControls = false);
       _pushSubtitlePadding();
+      _reassertImmersive();
     } else {
       _controlsAnim.forward();
       setState(() => _showControls = true);
@@ -1158,8 +1159,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _controlsAnim.reverse();
         setState(() => _showControls = false);
         _pushSubtitlePadding();
+        _reassertImmersive();
       }
     });
+  }
+
+  /// Re-apply Android immersive mode. The OS sometimes "leaks" out of
+  /// immersiveSticky after seek / swipe / accessibility events and
+  /// leaves the status + nav bar visible even though our controls have
+  /// already faded. Calling setEnabledSystemUIMode here forces Android
+  /// to hide them again in the same frame as our control fade. No-op
+  /// on desktop / iOS (iOS handles fullscreen player chrome via
+  /// SystemUiOverlayStyle elsewhere).
+  void _reassertImmersive() {
+    if (!isMobilePlatform) return;
+    if (!Platform.isAndroid) return;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   // =========================================================================
