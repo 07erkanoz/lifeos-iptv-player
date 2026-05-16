@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2578,11 +2579,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             if (_currentLogo != null && _currentLogo!.isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.network(
-                  _currentLogo!,
+                child: CachedNetworkImage(
+                  imageUrl: _currentLogo!,
                   width: 30,
                   height: 30,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
             if (_currentLogo != null && _currentLogo!.isNotEmpty)
@@ -2748,12 +2749,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                     if (widget.logo != null && widget.logo!.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          widget.logo!,
+                        child: CachedNetworkImage(
+                          imageUrl: widget.logo!,
                           width: 80,
                           height: 120,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     if (widget.logo != null && widget.logo!.isNotEmpty)
@@ -3242,12 +3243,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       if (_currentLogo != null && _currentLogo!.isNotEmpty)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            _currentLogo!,
+                          child: CachedNetworkImage(
+                            imageUrl: _currentLogo!,
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
+                            errorWidget: (_, _, _) => Container(
                               width: 52,
                               height: 52,
                               decoration: BoxDecoration(

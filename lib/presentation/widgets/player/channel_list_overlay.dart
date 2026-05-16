@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
@@ -496,12 +497,12 @@ class _ChannelItemState extends State<_ChannelItem> {
               if (widget.channel.logo != null && widget.channel.logo!.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: Image.network(
-                    widget.channel.logo!,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.channel.logo!,
                     width: 32,
                     height: 22,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 22),
+                    errorWidget: (_, _, _) => const SizedBox(width: 32, height: 22),
                   ),
                 )
               else

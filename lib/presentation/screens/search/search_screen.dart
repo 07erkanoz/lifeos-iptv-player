@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -490,10 +491,10 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                   // Poster
                   Expanded(
                     child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
-                        ? Image.network(
-                            ch.streamIcon!,
+                        ? CachedNetworkImage(
+                            imageUrl: ch.streamIcon!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _placeholderIcon(),
+                            errorWidget: (_, _, _) => _placeholderIcon(),
                           )
                         : _placeholderIcon(),
                   ),

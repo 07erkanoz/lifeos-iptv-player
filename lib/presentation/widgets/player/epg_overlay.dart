@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -204,12 +205,12 @@ class _EpgOverlayState extends State<EpgOverlay>
           if (widget.channelLogo != null && widget.channelLogo!.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                widget.channelLogo!,
+              child: CachedNetworkImage(
+                imageUrl: widget.channelLogo!,
                 width: 36,
                 height: 36,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                errorWidget: (_, _, _) => Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(

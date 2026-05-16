@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1964,10 +1965,10 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
                   width: 32,
                   height: 32,
                   child: widget.channel.streamIcon != null
-                      ? Image.network(
-                          widget.channel.streamIcon!,
+                      ? CachedNetworkImage(
+                          imageUrl: widget.channel.streamIcon!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _channelPlaceholder(),
+                          errorWidget: (_, _, _) => _channelPlaceholder(),
                         )
                       : _channelPlaceholder(),
                 ),
@@ -2823,10 +2824,10 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
                 width: 44,
                 height: 44,
                 child: widget.channel.streamIcon != null
-                    ? Image.network(
-                        widget.channel.streamIcon!,
+                    ? CachedNetworkImage(
+                        imageUrl: widget.channel.streamIcon!,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => Container(
+                        errorWidget: (_, _, _) => Container(
                           color: AppColors.surfaceElevatedDark,
                           child: const Icon(
                             Icons.tv,

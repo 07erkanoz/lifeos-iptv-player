@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -175,11 +176,11 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
         // PiP mode where the caller owns the fallback visual).
         if (widget.showBackdrop) ...[
           if (url != null && url.isNotEmpty)
-            Image.network(
-              url,
+            CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
-              errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black),
+              errorWidget: (_, _, _) => const ColoredBox(color: Colors.black),
             )
           else
             const ColoredBox(color: Colors.black),

@@ -508,18 +508,19 @@ class _HeroBannerState extends State<HeroBanner> {
     return widget.channels[_currentIndex].type != 'live';
   }
 
-  /// Hero image — same approach as movies/series hero: Image.network + BoxFit.cover
+  /// Hero image — cached so a slide repeating after the 12s auto-rotate
+  /// doesn't re-download the multi-MB backdrop every cycle.
   Widget _buildHeroImage(Channel channel, String? backdropUrl, bool hasBackdrop) {
     final imgUrl = hasBackdrop ? backdropUrl! : channel.streamIcon;
     if (imgUrl != null && imgUrl.isNotEmpty) {
-      return Image.network(
-        imgUrl,
+      return CachedNetworkImage(
+        imageUrl: imgUrl,
         key: ValueKey('hero_bg_${channel.streamId}_$imgUrl'),
         fit: BoxFit.cover,
         alignment: const Alignment(0, -0.3),
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) => _buildPosterBackground(channel),
+        errorWidget: (_, _, _) => _buildPosterBackground(channel),
       );
     }
     return _buildPosterBackground(channel);

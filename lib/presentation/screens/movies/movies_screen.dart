@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -683,9 +684,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           children: [
             // Background image (backdrop preferred)
             if (imgUrl != null)
-              Image.network(imgUrl, fit: BoxFit.cover,
+              CachedNetworkImage(imageUrl: imgUrl, fit: BoxFit.cover,
                 alignment: const Alignment(0, -0.3),
-                errorBuilder: (_, _, _) => Container(color: AppColors.surface(context))),
+                errorWidget: (_, _, _) => Container(color: AppColors.surface(context))),
 
             // Left gradient for text readability (lighter to show more poster)
             Container(decoration: BoxDecoration(
@@ -829,8 +830,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 right: 24, bottom: 20,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(ch.streamIcon!, width: 100, height: 150, fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                  child: CachedNetworkImage(imageUrl: ch.streamIcon!, width: 100, height: 150, fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => const SizedBox.shrink()),
                 ),
               ),
           ],
@@ -902,11 +903,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           // Static backdrop fills the page as the base visual layer.
           Positioned.fill(
             child: backdrop.toString().isNotEmpty
-                ? Image.network(
-                    backdrop.toString(),
+                ? CachedNetworkImage(
+                    imageUrl: backdrop.toString(),
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    errorBuilder: (_, _, _) =>
+                    errorWidget: (_, _, _) =>
                         const ColoredBox(color: Colors.black),
                   )
                 : const ColoredBox(color: Colors.black),
@@ -964,8 +965,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: ch.streamIcon != null
-                        ? Image.network(ch.streamIcon!, width: 180, height: 270, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(width: 180, height: 270, color: AppColors.surface(context),
+                        ? CachedNetworkImage(imageUrl: ch.streamIcon!, width: 180, height: 270, fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => Container(width: 180, height: 270, color: AppColors.surface(context),
                               child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))))
                         : Container(width: 180, height: 270, color: AppColors.surface(context),
                             child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))),
@@ -1235,8 +1236,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(ch.streamIcon!, width: 120, height: 180, fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(width: 120, height: 180, color: AppColors.surface(context),
+                child: CachedNetworkImage(imageUrl: ch.streamIcon!, width: 120, height: 180, fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => Container(width: 120, height: 180, color: AppColors.surface(context),
                     child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 36)))),
               ),
             ),
@@ -1631,11 +1632,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: channel.streamIcon != null
-                    ? Image.network(
-                        channel.streamIcon!,
+                    ? CachedNetworkImage(
+                        imageUrl: channel.streamIcon!,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        errorBuilder: (_, _, _) => Container(color: AppColors.surface(context)),
+                        errorWidget: (_, _, _) => Container(color: AppColors.surface(context)),
                       )
                     : Container(color: AppColors.surface(context)),
               ),
@@ -2181,9 +2182,9 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                 fit: StackFit.expand,
                 children: [
                   widget.channel.streamIcon != null
-                      ? Image.network(widget.channel.streamIcon!,
+                      ? CachedNetworkImage(imageUrl: widget.channel.streamIcon!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
+                          errorWidget: (_, _, _) =>
                               _placeholder(context, widget.channel))
                       : _placeholder(context, widget.channel),
                   Positioned.fill(

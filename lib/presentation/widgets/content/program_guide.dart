@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -33,12 +34,12 @@ class ProgramGuide extends ConsumerWidget {
           Row(
             children: [
               if (channel.streamIcon != null)
-                Image.network(
-                  channel.streamIcon!,
+                CachedNetworkImage(
+                  imageUrl: channel.streamIcon!,
                   width: 80,
                   height: 80,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) =>
+                  errorWidget: (_, _, _) =>
                       const Icon(Icons.tv, size: 80, color: Colors.white24),
                 ),
               const SizedBox(width: 16),
