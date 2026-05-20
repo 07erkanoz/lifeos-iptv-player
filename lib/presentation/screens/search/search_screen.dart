@@ -179,8 +179,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // Gemini key, or the AI call fails/times out, plain results
       // stay on screen.
       if (gemini == null) return;
-      final aiResults = await _runAiSearch(trimmed, requestId, gemini);
-      if (!mounted || requestId != _searchRequestId) return;
+      final plainAll = [...plain[0], ...plain[1], ...plain[2]];
+      final aiResults =
+          await _runAiSearch(trimmed, requestId, gemini, plainAll);
+      if (!mounted || requestId != _searchRequestId) {
+        // Stale request — never leave the spinner stuck even when
+        // we bail early.
+        if (mounted) setState(() => _aiRefining = false);
+        return;
+      }
       if (aiResults == null) {
         setState(() => _aiRefining = false);
         return;
@@ -204,26 +211,49 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// Internally:
   ///   * Tier 2 — `parseSearchQuery` extracts structured filters
   ///     and we re-query the repo with them.
-  ///   * Tier 3 — `curateLibraryByQuery` reads a library sample and
-  ///     hand-picks IDs by general knowledge of titles.
-  /// Both run in parallel under a single 8-second timeout so a
-  /// hung Gemini can't permanently freeze the search experience.
+  ///   * Tier 3 — `curateLibraryByQuery` ranks library items by
+  ///     true relevance to the query, with per-pick reasons.
+  ///
+  /// **Critical sampling change**: when plain LIKE already produced
+  /// results, those become the curator's sample (capped at 80) so
+  /// the AI ranks + annotates the items the user is actually about
+  /// to see. Previously we sent a separate top-rated sample, which
+  /// rarely overlapped with plain results — AI value never landed
+  /// in front of the user.
+  ///
+  /// Both Gemini calls run in parallel under a single 8-second
+  /// timeout so a hung backend can't freeze search.
   Future<_SearchResults?> _runAiSearch(
     String query,
     int requestId,
     GeminiService gemini,
+    List<Channel> plainResults,
   ) async {
     final repo = ref.read(contentRepositoryProvider);
     final lang = _userLanguageCode();
 
-    // Library sample. Trimmed down from the previous 140 to ~80
-    // — fewer tokens per call, much faster turnaround, and still
-    // enough for the curator to find good matches.
-    final librarySample = await repo.sampleLibraryForAi(
-      moviesPerType: 35,
-      seriesPerType: 35,
-      livePerType: 10,
-    );
+    // Sample strategy:
+    //  - Plain LIKE found something → curate THAT set (cap 80).
+    //    Curator's job becomes "rank + annotate" the items the user
+    //    is already looking at, which surfaces immediate visible AI
+    //    value on every query strong enough to match a name/plot
+    //    substring.
+    //  - Plain LIKE empty → thematic / semantic search. Reach into
+    //    a top-rated cross-section so curator has *something* to
+    //    pick from for queries like "dünyanın sonu konulu" that
+    //    don't keyword-match anywhere.
+    final List<Channel> librarySample;
+    if (plainResults.isNotEmpty) {
+      librarySample = plainResults.length > 80
+          ? plainResults.sublist(0, 80)
+          : plainResults;
+    } else {
+      librarySample = await repo.sampleLibraryForAi(
+        moviesPerType: 35,
+        seriesPerType: 35,
+        livePerType: 10,
+      );
+    }
     if (requestId != _searchRequestId) return null;
     final sampleByStreamId = {for (final c in librarySample) c.streamId: c};
     final compactSample = librarySample
@@ -283,14 +313,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         : const <Channel>[];
     if (requestId != _searchRequestId) return null;
 
-    // Merge: curator first (reasons surface near the top), then any
-    // intent result we haven't seen, deduped by stream id.
+    // Merge order, deduped by stream id:
+    //   1. Curator picks (AI-ranked + ✨ reason on the card)
+    //   2. Intent-filtered hits not yet seen
+    //   3. Original plain LIKE hits not yet seen (preserved so the
+    //      user keeps the full plain result set — AI only reorders
+    //      and annotates, it doesn't shrink the list)
     final seen = <int>{};
     final merged = <Channel>[];
     for (final ch in curatorChannels) {
       if (seen.add(ch.streamId)) merged.add(ch);
     }
     for (final ch in intentChannels) {
+      if (seen.add(ch.streamId)) merged.add(ch);
+    }
+    for (final ch in plainResults) {
       if (seen.add(ch.streamId)) merged.add(ch);
     }
 
