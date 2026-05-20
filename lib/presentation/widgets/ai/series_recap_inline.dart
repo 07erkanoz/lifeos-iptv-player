@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -223,33 +224,62 @@ class _RecapLink extends StatefulWidget {
 
 class _RecapLinkState extends State<_RecapLink> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(
-            Icons.history_edu_outlined,
-            color: AppColors.primary,
-            size: 14,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            widget.label,
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              decoration: _hovered ? TextDecoration.underline : null,
-              decorationColor: AppColors.primary,
+    final isActive = _hovered || _focused;
+    return Focus(
+      // D-pad / keyboard support — Android TV users couldn't open
+      // the recap without this. Enter/select activates.
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            // 8 dp vertical padding bumps the touch target on
+            // phones past 36 dp without disturbing desktop layout.
+            padding: const EdgeInsets.symmetric(
+                horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: _focused
+                  ? AppColors.primary.withValues(alpha: 0.18)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(
+                Icons.history_edu_outlined,
+                color: AppColors.primary,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  decoration:
+                      isActive ? TextDecoration.underline : null,
+                  decorationColor: AppColors.primary,
+                ),
+              ),
+            ]),
           ),
-        ]),
+        ),
       ),
     );
   }

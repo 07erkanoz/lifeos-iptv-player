@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -374,24 +375,60 @@ class _SimilarCard extends StatefulWidget {
 
 class _SimilarCardState extends State<_SimilarCard> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final ch = widget.channel;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 130,
-          transform: _hovered
-              ? (Matrix4.identity()..scaleByDouble(1.04, 1.04, 1.04, 1.0))
-              : Matrix4.identity(),
-          transformAlignment: Alignment.center,
-          child: Column(
+    final isActive = _hovered || _focused;
+    return Focus(
+      // TV D-pad navigation: each horizontal axis is a ListView, so
+      // left/right naturally scroll through cards via the default
+      // scrollable behaviour. select/enter opens the detail.
+      onFocusChange: (f) {
+        setState(() => _focused = f);
+        if (f) {
+          // Ensure focused card stays visible in the horizontal
+          // scroller — D-pad navigation can otherwise leave the
+          // newly-focused card off-screen.
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 200),
+          );
+        }
+      },
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 130,
+            transform: isActive
+                ? (Matrix4.identity()..scaleByDouble(1.04, 1.04, 1.04, 1.0))
+                : Matrix4.identity(),
+            transformAlignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              // Visible focus ring so the TV-remote user can see
+              // which card is selected at a glance.
+              border: _focused
+                  ? Border.all(color: AppColors.primary, width: 2)
+                  : null,
+            ),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
@@ -436,7 +473,8 @@ class _SimilarCardState extends State<_SimilarCard> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _placeholderPoster() {

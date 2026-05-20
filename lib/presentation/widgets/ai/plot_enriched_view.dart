@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -332,23 +333,54 @@ class _InlineLink extends StatefulWidget {
 
 class _InlineLinkState extends State<_InlineLink> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Text(
-          widget.label,
-          style: TextStyle(
-            color: AppColors.primary,
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-            decoration: _hovered ? TextDecoration.underline : null,
-            decorationColor: AppColors.primary,
+    final isActive = _hovered || _focused;
+    return Focus(
+      // D-pad / keyboard navigation: select/enter activates the
+      // link. Without this, Android-TV users can't reach the AI
+      // inline actions at all.
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          // Padding makes the touch target ~36 dp tall on phones —
+          // without it the 12 sp italic text rendered as a ~16 dp
+          // strip, well below Material's 44 dp guideline.
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 4, vertical: 8),
+            decoration: BoxDecoration(
+              color: _focused
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                decoration:
+                    isActive ? TextDecoration.underline : null,
+                decorationColor: AppColors.primary,
+              ),
+            ),
           ),
         ),
       ),
