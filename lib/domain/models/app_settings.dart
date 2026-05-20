@@ -24,6 +24,11 @@ class AppSettings {
   // Content
   final bool continueWatchingEnabled;
 
+  // Skip-Intro UX. When true and the user has marked this series'
+  // intro range, the player overlays a "Skip Intro" floating button
+  // whenever playback is inside that range.
+  final bool showSkipIntroButton;
+
   // OpenSubtitles
   final String? opensubtitlesApiKey;
   final String subtitlePreferredLanguage; // ISO 639-1 code (e.g., 'tr', 'en')
@@ -66,6 +71,7 @@ class AppSettings {
     this.parentalPin,
     this.autoHideAdult = true,
     this.continueWatchingEnabled = true,
+    this.showSkipIntroButton = true,
     this.opensubtitlesApiKey,
     this.subtitlePreferredLanguage = 'tr',
     this.subtitleFontSize = 55,
@@ -92,6 +98,7 @@ class AppSettings {
     String? parentalPin,
     bool? autoHideAdult,
     bool? continueWatchingEnabled,
+    bool? showSkipIntroButton,
     String? opensubtitlesApiKey,
     String? subtitlePreferredLanguage,
     int? subtitleFontSize,
@@ -118,6 +125,7 @@ class AppSettings {
       parentalPin: parentalPin ?? this.parentalPin,
       autoHideAdult: autoHideAdult ?? this.autoHideAdult,
       continueWatchingEnabled: continueWatchingEnabled ?? this.continueWatchingEnabled,
+      showSkipIntroButton: showSkipIntroButton ?? this.showSkipIntroButton,
       opensubtitlesApiKey: opensubtitlesApiKey ?? this.opensubtitlesApiKey,
       subtitlePreferredLanguage: subtitlePreferredLanguage ?? this.subtitlePreferredLanguage,
       subtitleFontSize: subtitleFontSize ?? this.subtitleFontSize,

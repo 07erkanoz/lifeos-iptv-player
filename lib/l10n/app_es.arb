@@ -299,5 +299,13 @@
   "subtitleBold": "Negrita",
   "subtitleBackground": "Fondo",
   "subtitleBackgroundDesc": "Fondo semitransparente detrás de los subtítulos",
-  "trialBadge": "Prueba"
+  "trialBadge": "Prueba",
+  "skipIntro": "Saltar Intro",
+  "skipIntroSetting": "Mostrar botón Saltar Intro",
+  "skipIntroSettingDesc": "Cuando está activo, el reproductor muestra un botón 'Saltar Intro' durante el rango marcado.",
+  "markIntroStart": "El intro empieza aquí",
+  "markIntroEnd": "El intro termina aquí",
+  "introMarked": "Intro guardado. El siguiente episodio te ofrecerá saltarlo.",
+  "introCleared": "Marca de intro eliminada.",
+  "introMarkInvalid": "El fin debe ser posterior al inicio."
 }

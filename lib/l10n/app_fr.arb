@@ -299,5 +299,13 @@
   "subtitleBold": "Gras",
   "subtitleBackground": "Arrière-plan",
   "subtitleBackgroundDesc": "Arrière-plan semi-transparent derrière les sous-titres",
-  "trialBadge": "Essai"
+  "trialBadge": "Essai",
+  "skipIntro": "Passer le générique",
+  "skipIntroSetting": "Afficher le bouton Passer générique",
+  "skipIntroSettingDesc": "Quand activé, le lecteur affiche un bouton 'Passer le générique' pendant la plage marquée.",
+  "markIntroStart": "Le générique commence ici",
+  "markIntroEnd": "Le générique se termine ici",
+  "introMarked": "Générique enregistré. L'épisode suivant proposera de le sauter.",
+  "introCleared": "Marqueur de générique effacé.",
+  "introMarkInvalid": "La fin doit être après le début."
 }

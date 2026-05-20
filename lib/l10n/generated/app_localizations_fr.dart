@@ -861,4 +861,30 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get trialBadge => 'Essai';
+
+  @override
+  String get skipIntro => 'Passer le générique';
+
+  @override
+  String get skipIntroSetting => 'Afficher le bouton Passer générique';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Quand activé, le lecteur affiche un bouton \'Passer le générique\' pendant la plage marquée.';
+
+  @override
+  String get markIntroStart => 'Le générique commence ici';
+
+  @override
+  String get markIntroEnd => 'Le générique se termine ici';
+
+  @override
+  String get introMarked =>
+      'Générique enregistré. L\'épisode suivant proposera de le sauter.';
+
+  @override
+  String get introCleared => 'Marqueur de générique effacé.';
+
+  @override
+  String get introMarkInvalid => 'La fin doit être après le début.';
 }

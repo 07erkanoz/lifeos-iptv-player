@@ -289,5 +289,13 @@
   "xtreamM3uAutoDetectInfo": "Xtream M3U links (with username & password) are auto-detected.",
   "searchVodHint": "Movie or series name...",
   "subtitleNotFound": "No subtitles found",
-  "trialBadge": "Trial"
+  "trialBadge": "Trial",
+  "skipIntro": "Skip Intro",
+  "skipIntroSetting": "Show Skip-Intro button",
+  "skipIntroSettingDesc": "When enabled, the player shows a 'Skip Intro' button while playback is within a series' marked intro range.",
+  "markIntroStart": "Intro starts here",
+  "markIntroEnd": "Intro ends here",
+  "introMarked": "Intro saved. The next episode will offer to skip it.",
+  "introCleared": "Intro marker cleared.",
+  "introMarkInvalid": "End time must be after start time."
 }

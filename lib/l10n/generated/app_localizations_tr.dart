@@ -856,4 +856,30 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get trialBadge => 'Deneme';
+
+  @override
+  String get skipIntro => 'İntroyu Atla';
+
+  @override
+  String get skipIntroSetting => 'İntro Atla butonu göster';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken \'İntroyu Atla\' butonu gösterir.';
+
+  @override
+  String get markIntroStart => 'İntro burada başlıyor';
+
+  @override
+  String get markIntroEnd => 'İntro burada bitiyor';
+
+  @override
+  String get introMarked =>
+      'İntro kaydedildi. Sonraki bölümde atlamayı önerecek.';
+
+  @override
+  String get introCleared => 'İntro işareti silindi.';
+
+  @override
+  String get introMarkInvalid => 'Bitiş zamanı başlangıçtan sonra olmalı.';
 }

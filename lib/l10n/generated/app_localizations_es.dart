@@ -859,4 +859,30 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get trialBadge => 'Prueba';
+
+  @override
+  String get skipIntro => 'Saltar Intro';
+
+  @override
+  String get skipIntroSetting => 'Mostrar botón Saltar Intro';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Cuando está activo, el reproductor muestra un botón \'Saltar Intro\' durante el rango marcado.';
+
+  @override
+  String get markIntroStart => 'El intro empieza aquí';
+
+  @override
+  String get markIntroEnd => 'El intro termina aquí';
+
+  @override
+  String get introMarked =>
+      'Intro guardado. El siguiente episodio te ofrecerá saltarlo.';
+
+  @override
+  String get introCleared => 'Marca de intro eliminada.';
+
+  @override
+  String get introMarkInvalid => 'El fin debe ser posterior al inicio.';
 }

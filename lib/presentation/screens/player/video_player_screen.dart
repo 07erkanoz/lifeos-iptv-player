@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -242,9 +243,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // inside the SubtitleView. 0 = sitting on the video bottom, larger = higher.
   double _subtitleYOffset = 24;
 
-  // Series intro skip (only set for VideoType.series with a parentStreamId)
+  // Series intro skip (only set for VideoType.series with a parentStreamId).
+  //
+  // The marker is sourced from Drift (`introMarkers` table, keyed by parent
+  // series id), with a one-shot migration of the legacy
+  // `series_intro_<sid>` SharedPreferences key on first read.
+  //
+  // Visibility window: `pos` falls between `_introStartMs` and
+  // `_introEndMs`. If only the legacy single-int key existed, that's
+  // mapped to `(0, stored*1000)` so existing users keep their behaviour.
   bool _showSkipIntro = false;
-  int _skipIntroSeconds = 85; // default guess if nothing stored
+  int? _introStartMs;
+  int? _introEndMs;
+  StreamSubscription<IntroMarker?>? _introMarkerSub;
 
   // -- Always on top (desktop only) -------------------------------------------
   bool _isAlwaysOnTop = false;
@@ -335,6 +346,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _epgSub?.cancel();
     _pipEventSub?.cancel();
     _pipEventSub = null;
+    _introMarkerSub?.cancel();
     _posUpdateTimer?.cancel();
     _channelInfoTimer?.cancel();
     // Stop playback first so the decoder stops feeding the SurfaceTexture,
@@ -364,29 +376,199 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     super.dispose();
   }
 
+  /// Subscribe to this series' intro marker from Drift and, on first
+  /// run, migrate any legacy `series_intro_<sid>` SharedPreferences
+  /// key into the new table so users who already taught the v0
+  /// implementation don't lose their setting.
   Future<void> _loadIntroDuration() async {
     final sid = widget.parentStreamId;
     if (sid == null) return;
+
+    // One-shot migration: read the legacy single-int "intro length in
+    // seconds" key, write it back as a `(0, stored*1000)` range, then
+    // delete the legacy key so the migration only happens once.
     try {
       final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getInt('series_intro_$sid');
-      if (stored != null && stored > 0 && mounted) {
-        setState(() => _skipIntroSeconds = stored);
+      final legacyKey = 'series_intro_$sid';
+      final legacy = prefs.getInt(legacyKey);
+      if (legacy != null && legacy > 0) {
+        await ref.read(introMarkerRepositoryProvider).setMarker(
+              sid,
+              introStartMs: 0,
+              introEndMs: legacy * 1000,
+            );
+        await prefs.remove(legacyKey);
       }
     } catch (_) {}
+
+    // Live subscription to the marker. The marking UI writes to the
+    // same table, so this picks up edits without an extra reload.
+    _introMarkerSub = ref
+        .read(introMarkerRepositoryProvider)
+        .watchMarker(sid)
+        .listen((m) {
+      if (!mounted) return;
+      setState(() {
+        _introStartMs = m?.introStartMs;
+        _introEndMs = m?.introEndMs;
+      });
+    });
   }
 
+  /// Skip past the intro: seek to the marker's `introEndMs` and hide
+  /// the floating button. Caller has already verified the marker
+  /// exists.
   Future<void> _skipIntroNow() async {
-    final sid = widget.parentStreamId;
-    final target = Duration(seconds: _skipIntroSeconds);
-    _player.seek(target);
+    final end = _introEndMs;
+    if (end == null) return;
+    _player.seek(Duration(milliseconds: end));
     setState(() => _showSkipIntro = false);
-    if (sid != null) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('series_intro_$sid', _skipIntroSeconds);
-      } catch (_) {}
-    }
+  }
+
+  /// Two-step marking flow:
+  /// 1. User taps "İntro burada başlıyor" while the intro starts on
+  ///    screen → we capture the *current* playback position as
+  ///    `introStartMs` (kept locally, nothing saved yet).
+  /// 2. User taps "İntro burada bitiyor" when the intro ends → we
+  ///    capture that as `introEndMs`, validate `end > start`, and
+  ///    persist via the repository. The active subscription picks
+  ///    the new row up automatically so the Skip button works on
+  ///    the next episode (or even right after marking the same
+  ///    episode, if it loops).
+  ///
+  /// Also exposes "Mevcut işareti temizle" when a marker exists, so
+  /// users who mis-marked can start over without leaving the player.
+  Future<void> _showIntroMarkerDialog() async {
+    final sid = widget.parentStreamId;
+    if (sid == null) return;
+    final l10n = AppLocalizations.of(context)!;
+    final repo = ref.read(introMarkerRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Capture an *initial* snapshot of the pending start. The dialog
+    // is stateful (StatefulBuilder) so the user can tap "Başla" then
+    // "Bitti" without the dialog rebuilding from outside.
+    int? pendingStartMs;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final hasMarker = _introStartMs != null && _introEndMs != null;
+          return Dialog(
+            backgroundColor: AppColors.surfaceElevatedDark,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: SizedBox(
+              width: 360,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.bookmark_outline,
+                            color: AppColors.primary, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          l10n.skipIntro,
+                          style: const TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (hasMarker)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '${_fmt(Duration(milliseconds: _introStartMs!))} '
+                          '— '
+                          '${_fmt(Duration(milliseconds: _introEndMs!))}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondaryDark,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    if (pendingStartMs != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '${l10n.markIntroStart}: '
+                          '${_fmt(Duration(milliseconds: pendingStartMs!))}',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    _FocusableTrackTile(
+                      title: l10n.markIntroStart,
+                      isSelected: pendingStartMs != null,
+                      autofocus: pendingStartMs == null,
+                      onTap: () {
+                        setLocal(() {
+                          pendingStartMs = _rawPos.inMilliseconds;
+                        });
+                      },
+                    ),
+                    _FocusableTrackTile(
+                      title: l10n.markIntroEnd,
+                      isSelected: false,
+                      autofocus: false,
+                      onTap: () async {
+                        final start = pendingStartMs;
+                        final end = _rawPos.inMilliseconds;
+                        if (start == null || end <= start) {
+                          messenger.showSnackBar(SnackBar(
+                            content: Text(l10n.introMarkInvalid),
+                            duration: const Duration(seconds: 2),
+                          ));
+                          return;
+                        }
+                        await repo.setMarker(
+                          sid,
+                          introStartMs: start,
+                          introEndMs: end,
+                        );
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                        messenger.showSnackBar(SnackBar(
+                          content: Text(l10n.introMarked),
+                          duration: const Duration(seconds: 2),
+                        ));
+                      },
+                    ),
+                    if (hasMarker)
+                      _FocusableTrackTile(
+                        title: l10n.introCleared,
+                        isSelected: false,
+                        autofocus: false,
+                        onTap: () async {
+                          await repo.clearMarker(sid);
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          messenger.showSnackBar(SnackBar(
+                            content: Text(l10n.introCleared),
+                            duration: const Duration(seconds: 2),
+                          ));
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildSkipIntroButton() {
@@ -409,7 +591,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               const Icon(Icons.skip_next, color: Colors.white, size: 18),
               const SizedBox(width: 6),
               Text(
-                '${l10n.skipIntroLabel} (→${_fmt(Duration(seconds: _skipIntroSeconds))})',
+                '${l10n.skipIntroLabel} (→${_fmt(Duration(milliseconds: _introEndMs ?? 0))})',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -637,11 +819,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _startNextCountdown();
           }
         }
-        // Skip-intro visibility window: only early in the episode and only
-        // until a few seconds past the stored intro length.
+        // Skip-intro visibility window: position is inside the marked
+        // `[introStartMs, introEndMs]` range. If the user hasn't
+        // marked an intro for this series yet, both timestamps are
+        // null and the button stays hidden — instead, the marking UI
+        // ("Bu diziyi tanı") lets them set the range while watching.
         if (widget.type == VideoType.series && widget.parentStreamId != null) {
-          final shouldShow =
-              p.inSeconds < _skipIntroSeconds + 8 && p.inSeconds > 2;
+          final start = _introStartMs;
+          final end = _introEndMs;
+          final shouldShow = start != null &&
+              end != null &&
+              p.inMilliseconds >= start &&
+              p.inMilliseconds <= end;
           if (shouldShow != _showSkipIntro && mounted) {
             setState(() => _showSkipIntro = shouldShow);
           }
@@ -2448,11 +2637,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       child: _buildNextOverlay(l10n),
                     ),
 
-                  // -- Skip intro button (series only, early in episode) -----
+                  // -- Skip intro button (series only, inside marked range) --
                   if (!_isInPipMode &&
                       _showSkipIntro &&
                       widget.type == VideoType.series &&
-                      !_showNextOverlay)
+                      !_showNextOverlay &&
+                      ref.watch(settingsProvider).showSkipIntroButton)
                     Positioned(
                       bottom: 110,
                       right: 24,
@@ -2671,6 +2861,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               tint: _isSleepTimerActive ? AppColors.primary : null,
             ),
             const SizedBox(width: 8),
+
+            // Skip-Intro marker manager — series only. Bookmark icon is
+            // filled if this series already has a saved intro range so
+            // the user can tell at a glance whether the floating
+            // "Skip Intro" affordance will appear on subsequent
+            // episodes.
+            if (widget.type == VideoType.series &&
+                widget.parentStreamId != null) ...[
+              _DpadIconBtn(
+                icon: (_introStartMs != null && _introEndMs != null)
+                    ? Icons.bookmark
+                    : Icons.bookmark_outline,
+                onTap: _showIntroMarkerDialog,
+                tint: (_introStartMs != null && _introEndMs != null)
+                    ? AppColors.primary
+                    : null,
+              ),
+              const SizedBox(width: 8),
+            ],
 
             // PiP button (supported desktop platforms + Android)
             if (isPipSupported) ...[

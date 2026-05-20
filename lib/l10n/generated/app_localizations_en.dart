@@ -857,4 +857,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trialBadge => 'Trial';
+
+  @override
+  String get skipIntro => 'Skip Intro';
+
+  @override
+  String get skipIntroSetting => 'Show Skip-Intro button';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'When enabled, the player shows a \'Skip Intro\' button while playback is within a series\' marked intro range.';
+
+  @override
+  String get markIntroStart => 'Intro starts here';
+
+  @override
+  String get markIntroEnd => 'Intro ends here';
+
+  @override
+  String get introMarked =>
+      'Intro saved. The next episode will offer to skip it.';
+
+  @override
+  String get introCleared => 'Intro marker cleared.';
+
+  @override
+  String get introMarkInvalid => 'End time must be after start time.';
 }

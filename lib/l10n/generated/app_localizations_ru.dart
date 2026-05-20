@@ -859,4 +859,30 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get trialBadge => 'Пробная';
+
+  @override
+  String get skipIntro => 'Пропустить заставку';
+
+  @override
+  String get skipIntroSetting => 'Показывать кнопку Пропустить заставку';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Когда включено, плеер показывает кнопку \'Пропустить заставку\' внутри отмеченного диапазона.';
+
+  @override
+  String get markIntroStart => 'Заставка начинается здесь';
+
+  @override
+  String get markIntroEnd => 'Заставка заканчивается здесь';
+
+  @override
+  String get introMarked =>
+      'Заставка сохранена. Следующая серия предложит её пропустить.';
+
+  @override
+  String get introCleared => 'Метка заставки удалена.';
+
+  @override
+  String get introMarkInvalid => 'Конец должен быть позже начала.';
 }

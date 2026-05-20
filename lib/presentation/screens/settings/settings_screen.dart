@@ -799,6 +799,20 @@ class _PlayerSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
       ),
+      const SizedBox(height: 12),
+      // Skip-Intro toggle. Only affects the floating in-player button;
+      // the marker-management bookmark icon stays available on the
+      // player toolbar regardless so users can still record/edit a
+      // marker.
+      SwitchListTile(
+        title: Text(l10n.skipIntroSetting, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
+        subtitle: Text(l10n.skipIntroSettingDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        value: settings.showSkipIntroButton,
+        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(showSkipIntroButton: val)),
+        activeThumbColor: AppColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      ),
     ]);
   }
 }

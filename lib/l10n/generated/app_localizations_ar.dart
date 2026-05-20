@@ -856,4 +856,29 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get trialBadge => 'تجريبي';
+
+  @override
+  String get skipIntro => 'تخطي المقدمة';
+
+  @override
+  String get skipIntroSetting => 'إظهار زر تخطي المقدمة';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'عند التفعيل، يعرض المشغل زر \'تخطي المقدمة\' أثناء النطاق المحدد.';
+
+  @override
+  String get markIntroStart => 'تبدأ المقدمة هنا';
+
+  @override
+  String get markIntroEnd => 'تنتهي المقدمة هنا';
+
+  @override
+  String get introMarked => 'تم حفظ المقدمة. ستقترح الحلقة التالية تخطيها.';
+
+  @override
+  String get introCleared => 'تم مسح علامة المقدمة.';
+
+  @override
+  String get introMarkInvalid => 'يجب أن يكون وقت النهاية بعد وقت البداية.';
 }

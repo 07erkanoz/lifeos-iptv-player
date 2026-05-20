@@ -299,5 +299,13 @@
   "subtitleBold": "Fett",
   "subtitleBackground": "Hintergrund",
   "subtitleBackgroundDesc": "Halbtransparenter Hintergrund hinter Untertiteln",
-  "trialBadge": "Test"
+  "trialBadge": "Test",
+  "skipIntro": "Intro überspringen",
+  "skipIntroSetting": "Intro-überspringen-Button anzeigen",
+  "skipIntroSettingDesc": "Zeigt einen 'Intro überspringen'-Button, wenn die Wiedergabe innerhalb des markierten Intros liegt.",
+  "markIntroStart": "Intro beginnt hier",
+  "markIntroEnd": "Intro endet hier",
+  "introMarked": "Intro gespeichert. Die nächste Folge bietet das Überspringen an.",
+  "introCleared": "Intro-Markierung entfernt.",
+  "introMarkInvalid": "Endzeit muss nach Startzeit liegen."
 }

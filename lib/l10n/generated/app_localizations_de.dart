@@ -860,4 +860,30 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get trialBadge => 'Test';
+
+  @override
+  String get skipIntro => 'Intro überspringen';
+
+  @override
+  String get skipIntroSetting => 'Intro-überspringen-Button anzeigen';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Zeigt einen \'Intro überspringen\'-Button, wenn die Wiedergabe innerhalb des markierten Intros liegt.';
+
+  @override
+  String get markIntroStart => 'Intro beginnt hier';
+
+  @override
+  String get markIntroEnd => 'Intro endet hier';
+
+  @override
+  String get introMarked =>
+      'Intro gespeichert. Die nächste Folge bietet das Überspringen an.';
+
+  @override
+  String get introCleared => 'Intro-Markierung entfernt.';
+
+  @override
+  String get introMarkInvalid => 'Endzeit muss nach Startzeit liegen.';
 }

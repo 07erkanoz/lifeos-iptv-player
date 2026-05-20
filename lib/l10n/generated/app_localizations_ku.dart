@@ -857,4 +857,30 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get trialBadge => 'Ceribandin';
+
+  @override
+  String get skipIntro => 'Destpêkê Derbas Bike';
+
+  @override
+  String get skipIntroSetting => 'Bişkoja Destpêk Derbas Bike nîşan bide';
+
+  @override
+  String get skipIntroSettingDesc =>
+      'Dema çalak be, lîstikvan bişkoja \'Destpêkê Derbas Bike\' di nav rêza nîşankirî de nîşan dide.';
+
+  @override
+  String get markIntroStart => 'Destpêk li vir dest pê dike';
+
+  @override
+  String get markIntroEnd => 'Destpêk li vir diqede';
+
+  @override
+  String get introMarked =>
+      'Destpêk hate tomarkirin. Beşa pêş wê derbasbûnê pêşniyar bike.';
+
+  @override
+  String get introCleared => 'Nîşana destpêkê hate jêbirin.';
+
+  @override
+  String get introMarkInvalid => 'Dema dawî divê piştî dema destpêkê be.';
 }

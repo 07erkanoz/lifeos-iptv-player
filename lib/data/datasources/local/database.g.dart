@@ -3637,6 +3637,324 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
   }
 }
 
+class $IntroMarkersTable extends IntroMarkers
+    with TableInfo<$IntroMarkersTable, IntroMarker> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IntroMarkersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
+    'seriesId',
+  );
+  @override
+  late final GeneratedColumn<int> seriesId = GeneratedColumn<int>(
+    'series_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _introStartMsMeta = const VerificationMeta(
+    'introStartMs',
+  );
+  @override
+  late final GeneratedColumn<int> introStartMs = GeneratedColumn<int>(
+    'intro_start_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _introEndMsMeta = const VerificationMeta(
+    'introEndMs',
+  );
+  @override
+  late final GeneratedColumn<int> introEndMs = GeneratedColumn<int>(
+    'intro_end_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    seriesId,
+    introStartMs,
+    introEndMs,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'intro_markers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IntroMarker> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    }
+    if (data.containsKey('intro_start_ms')) {
+      context.handle(
+        _introStartMsMeta,
+        introStartMs.isAcceptableOrUnknown(
+          data['intro_start_ms']!,
+          _introStartMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_introStartMsMeta);
+    }
+    if (data.containsKey('intro_end_ms')) {
+      context.handle(
+        _introEndMsMeta,
+        introEndMs.isAcceptableOrUnknown(
+          data['intro_end_ms']!,
+          _introEndMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_introEndMsMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {seriesId};
+  @override
+  IntroMarker map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IntroMarker(
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}series_id'],
+      )!,
+      introStartMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}intro_start_ms'],
+      )!,
+      introEndMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}intro_end_ms'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $IntroMarkersTable createAlias(String alias) {
+    return $IntroMarkersTable(attachedDatabase, alias);
+  }
+}
+
+class IntroMarker extends DataClass implements Insertable<IntroMarker> {
+  /// References [Channels.streamId] for the *parent series*, not an
+  /// individual episode. Comes from `widget.parentStreamId` in the
+  /// player route.
+  final int seriesId;
+  final int introStartMs;
+  final int introEndMs;
+  final DateTime updatedAt;
+  const IntroMarker({
+    required this.seriesId,
+    required this.introStartMs,
+    required this.introEndMs,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['series_id'] = Variable<int>(seriesId);
+    map['intro_start_ms'] = Variable<int>(introStartMs);
+    map['intro_end_ms'] = Variable<int>(introEndMs);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  IntroMarkersCompanion toCompanion(bool nullToAbsent) {
+    return IntroMarkersCompanion(
+      seriesId: Value(seriesId),
+      introStartMs: Value(introStartMs),
+      introEndMs: Value(introEndMs),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory IntroMarker.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IntroMarker(
+      seriesId: serializer.fromJson<int>(json['seriesId']),
+      introStartMs: serializer.fromJson<int>(json['introStartMs']),
+      introEndMs: serializer.fromJson<int>(json['introEndMs']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'seriesId': serializer.toJson<int>(seriesId),
+      'introStartMs': serializer.toJson<int>(introStartMs),
+      'introEndMs': serializer.toJson<int>(introEndMs),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  IntroMarker copyWith({
+    int? seriesId,
+    int? introStartMs,
+    int? introEndMs,
+    DateTime? updatedAt,
+  }) => IntroMarker(
+    seriesId: seriesId ?? this.seriesId,
+    introStartMs: introStartMs ?? this.introStartMs,
+    introEndMs: introEndMs ?? this.introEndMs,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  IntroMarker copyWithCompanion(IntroMarkersCompanion data) {
+    return IntroMarker(
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      introStartMs: data.introStartMs.present
+          ? data.introStartMs.value
+          : this.introStartMs,
+      introEndMs: data.introEndMs.present
+          ? data.introEndMs.value
+          : this.introEndMs,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IntroMarker(')
+          ..write('seriesId: $seriesId, ')
+          ..write('introStartMs: $introStartMs, ')
+          ..write('introEndMs: $introEndMs, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(seriesId, introStartMs, introEndMs, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IntroMarker &&
+          other.seriesId == this.seriesId &&
+          other.introStartMs == this.introStartMs &&
+          other.introEndMs == this.introEndMs &&
+          other.updatedAt == this.updatedAt);
+}
+
+class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
+  final Value<int> seriesId;
+  final Value<int> introStartMs;
+  final Value<int> introEndMs;
+  final Value<DateTime> updatedAt;
+  const IntroMarkersCompanion({
+    this.seriesId = const Value.absent(),
+    this.introStartMs = const Value.absent(),
+    this.introEndMs = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  IntroMarkersCompanion.insert({
+    this.seriesId = const Value.absent(),
+    required int introStartMs,
+    required int introEndMs,
+    this.updatedAt = const Value.absent(),
+  }) : introStartMs = Value(introStartMs),
+       introEndMs = Value(introEndMs);
+  static Insertable<IntroMarker> custom({
+    Expression<int>? seriesId,
+    Expression<int>? introStartMs,
+    Expression<int>? introEndMs,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (seriesId != null) 'series_id': seriesId,
+      if (introStartMs != null) 'intro_start_ms': introStartMs,
+      if (introEndMs != null) 'intro_end_ms': introEndMs,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  IntroMarkersCompanion copyWith({
+    Value<int>? seriesId,
+    Value<int>? introStartMs,
+    Value<int>? introEndMs,
+    Value<DateTime>? updatedAt,
+  }) {
+    return IntroMarkersCompanion(
+      seriesId: seriesId ?? this.seriesId,
+      introStartMs: introStartMs ?? this.introStartMs,
+      introEndMs: introEndMs ?? this.introEndMs,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (seriesId.present) {
+      map['series_id'] = Variable<int>(seriesId.value);
+    }
+    if (introStartMs.present) {
+      map['intro_start_ms'] = Variable<int>(introStartMs.value);
+    }
+    if (introEndMs.present) {
+      map['intro_end_ms'] = Variable<int>(introEndMs.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IntroMarkersCompanion(')
+          ..write('seriesId: $seriesId, ')
+          ..write('introStartMs: $introStartMs, ')
+          ..write('introEndMs: $introEndMs, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3650,6 +3968,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FavoritesTable favorites = $FavoritesTable(this);
   late final $WatchlistTable watchlist = $WatchlistTable(this);
   late final $SeriesTrackingTable seriesTracking = $SeriesTrackingTable(this);
+  late final $IntroMarkersTable introMarkers = $IntroMarkersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3663,6 +3982,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favorites,
     watchlist,
     seriesTracking,
+    introMarkers,
   ];
 }
 
@@ -5986,6 +6306,185 @@ typedef $$SeriesTrackingTableProcessedTableManager =
       SeriesTrackingData,
       PrefetchHooks Function()
     >;
+typedef $$IntroMarkersTableCreateCompanionBuilder =
+    IntroMarkersCompanion Function({
+      Value<int> seriesId,
+      required int introStartMs,
+      required int introEndMs,
+      Value<DateTime> updatedAt,
+    });
+typedef $$IntroMarkersTableUpdateCompanionBuilder =
+    IntroMarkersCompanion Function({
+      Value<int> seriesId,
+      Value<int> introStartMs,
+      Value<int> introEndMs,
+      Value<DateTime> updatedAt,
+    });
+
+class $$IntroMarkersTableFilterComposer
+    extends Composer<_$AppDatabase, $IntroMarkersTable> {
+  $$IntroMarkersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get introStartMs => $composableBuilder(
+    column: $table.introStartMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get introEndMs => $composableBuilder(
+    column: $table.introEndMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$IntroMarkersTableOrderingComposer
+    extends Composer<_$AppDatabase, $IntroMarkersTable> {
+  $$IntroMarkersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get introStartMs => $composableBuilder(
+    column: $table.introStartMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get introEndMs => $composableBuilder(
+    column: $table.introEndMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$IntroMarkersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $IntroMarkersTable> {
+  $$IntroMarkersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get seriesId =>
+      $composableBuilder(column: $table.seriesId, builder: (column) => column);
+
+  GeneratedColumn<int> get introStartMs => $composableBuilder(
+    column: $table.introStartMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get introEndMs => $composableBuilder(
+    column: $table.introEndMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$IntroMarkersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $IntroMarkersTable,
+          IntroMarker,
+          $$IntroMarkersTableFilterComposer,
+          $$IntroMarkersTableOrderingComposer,
+          $$IntroMarkersTableAnnotationComposer,
+          $$IntroMarkersTableCreateCompanionBuilder,
+          $$IntroMarkersTableUpdateCompanionBuilder,
+          (
+            IntroMarker,
+            BaseReferences<_$AppDatabase, $IntroMarkersTable, IntroMarker>,
+          ),
+          IntroMarker,
+          PrefetchHooks Function()
+        > {
+  $$IntroMarkersTableTableManager(_$AppDatabase db, $IntroMarkersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IntroMarkersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$IntroMarkersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$IntroMarkersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> seriesId = const Value.absent(),
+                Value<int> introStartMs = const Value.absent(),
+                Value<int> introEndMs = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => IntroMarkersCompanion(
+                seriesId: seriesId,
+                introStartMs: introStartMs,
+                introEndMs: introEndMs,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> seriesId = const Value.absent(),
+                required int introStartMs,
+                required int introEndMs,
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => IntroMarkersCompanion.insert(
+                seriesId: seriesId,
+                introStartMs: introStartMs,
+                introEndMs: introEndMs,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$IntroMarkersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $IntroMarkersTable,
+      IntroMarker,
+      $$IntroMarkersTableFilterComposer,
+      $$IntroMarkersTableOrderingComposer,
+      $$IntroMarkersTableAnnotationComposer,
+      $$IntroMarkersTableCreateCompanionBuilder,
+      $$IntroMarkersTableUpdateCompanionBuilder,
+      (
+        IntroMarker,
+        BaseReferences<_$AppDatabase, $IntroMarkersTable, IntroMarker>,
+      ),
+      IntroMarker,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6006,6 +6505,8 @@ class $AppDatabaseManager {
       $$WatchlistTableTableManager(_db, _db.watchlist);
   $$SeriesTrackingTableTableManager get seriesTracking =>
       $$SeriesTrackingTableTableManager(_db, _db.seriesTracking);
+  $$IntroMarkersTableTableManager get introMarkers =>
+      $$IntroMarkersTableTableManager(_db, _db.introMarkers);
 }
 
 // **************************************************************************

@@ -307,5 +307,13 @@
   "xtreamM3uAutoDetectInfo": "Xtream M3U bağlantıları (kullanıcı adı ve şifre içeren) otomatik algılanır.",
   "searchVodHint": "Film veya dizi adı...",
   "subtitleNotFound": "Altyazı bulunamadı",
-  "trialBadge": "Deneme"
+  "trialBadge": "Deneme",
+  "skipIntro": "İntroyu Atla",
+  "skipIntroSetting": "İntro Atla butonu göster",
+  "skipIntroSettingDesc": "Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken 'İntroyu Atla' butonu gösterir.",
+  "markIntroStart": "İntro burada başlıyor",
+  "markIntroEnd": "İntro burada bitiyor",
+  "introMarked": "İntro kaydedildi. Sonraki bölümde atlamayı önerecek.",
+  "introCleared": "İntro işareti silindi.",
+  "introMarkInvalid": "Bitiş zamanı başlangıçtan sonra olmalı."
 }

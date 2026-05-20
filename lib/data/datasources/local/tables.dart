@@ -105,3 +105,26 @@ class SeriesTracking extends Table {
   @override
   Set<Column> get primaryKey => {seriesId};
 }
+
+/// Per-series intro position markers used to drive the "Skip Intro"
+/// affordance in the player. A series usually has a fixed-length intro
+/// reused across every episode, so we store *one* marker per series and
+/// apply it to every episode of that series.
+///
+/// `introStartMs` / `introEndMs` are positions in milliseconds within
+/// the episode timeline. We deliberately keep this table small and
+/// independent of [PlaybackProgress] so the marker isn't lost when the
+/// user clears watch history.
+class IntroMarkers extends Table {
+  /// References [Channels.streamId] for the *parent series*, not an
+  /// individual episode. Comes from `widget.parentStreamId` in the
+  /// player route.
+  IntColumn get seriesId => integer()();
+  IntColumn get introStartMs => integer()();
+  IntColumn get introEndMs => integer()();
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {seriesId};
+}

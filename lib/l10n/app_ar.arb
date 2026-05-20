@@ -299,5 +299,13 @@
   "subtitleBold": "عريض",
   "subtitleBackground": "الخلفية",
   "subtitleBackgroundDesc": "خلفية شبه شفافة خلف الترجمة",
-  "trialBadge": "تجريبي"
+  "trialBadge": "تجريبي",
+  "skipIntro": "تخطي المقدمة",
+  "skipIntroSetting": "إظهار زر تخطي المقدمة",
+  "skipIntroSettingDesc": "عند التفعيل، يعرض المشغل زر 'تخطي المقدمة' أثناء النطاق المحدد.",
+  "markIntroStart": "تبدأ المقدمة هنا",
+  "markIntroEnd": "تنتهي المقدمة هنا",
+  "introMarked": "تم حفظ المقدمة. ستقترح الحلقة التالية تخطيها.",
+  "introCleared": "تم مسح علامة المقدمة.",
+  "introMarkInvalid": "يجب أن يكون وقت النهاية بعد وقت البداية."
 }

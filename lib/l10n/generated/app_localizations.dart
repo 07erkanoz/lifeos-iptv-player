@@ -1729,6 +1729,54 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Deneme'**
   String get trialBadge;
+
+  /// No description provided for @skipIntro.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntroyu Atla'**
+  String get skipIntro;
+
+  /// No description provided for @skipIntroSetting.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntro Atla butonu göster'**
+  String get skipIntroSetting;
+
+  /// No description provided for @skipIntroSettingDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken \'İntroyu Atla\' butonu gösterir.'**
+  String get skipIntroSettingDesc;
+
+  /// No description provided for @markIntroStart.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntro burada başlıyor'**
+  String get markIntroStart;
+
+  /// No description provided for @markIntroEnd.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntro burada bitiyor'**
+  String get markIntroEnd;
+
+  /// No description provided for @introMarked.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntro kaydedildi. Sonraki bölümde atlamayı önerecek.'**
+  String get introMarked;
+
+  /// No description provided for @introCleared.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntro işareti silindi.'**
+  String get introCleared;
+
+  /// No description provided for @introMarkInvalid.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bitiş zamanı başlangıçtan sonra olmalı.'**
+  String get introMarkInvalid;
 }
 
 class _AppLocalizationsDelegate

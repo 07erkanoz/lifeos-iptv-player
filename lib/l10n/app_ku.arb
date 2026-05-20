@@ -299,5 +299,13 @@
   "subtitleBold": "Stûr",
   "subtitleBackground": "Paşxane",
   "subtitleBackgroundDesc": "Paşxaneya nîvşeffaf li pişt binnivîsê",
-  "trialBadge": "Ceribandin"
+  "trialBadge": "Ceribandin",
+  "skipIntro": "Destpêkê Derbas Bike",
+  "skipIntroSetting": "Bişkoja Destpêk Derbas Bike nîşan bide",
+  "skipIntroSettingDesc": "Dema çalak be, lîstikvan bişkoja 'Destpêkê Derbas Bike' di nav rêza nîşankirî de nîşan dide.",
+  "markIntroStart": "Destpêk li vir dest pê dike",
+  "markIntroEnd": "Destpêk li vir diqede",
+  "introMarked": "Destpêk hate tomarkirin. Beşa pêş wê derbasbûnê pêşniyar bike.",
+  "introCleared": "Nîşana destpêkê hate jêbirin.",
+  "introMarkInvalid": "Dema dawî divê piştî dema destpêkê be."
 }
