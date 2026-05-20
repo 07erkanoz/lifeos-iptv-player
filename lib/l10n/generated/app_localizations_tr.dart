@@ -1055,4 +1055,14 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Özet';
+
+  @override
+  String get aiSimilarTitle => 'Sana özel benzer içerikler';
+
+  @override
+  String get aiSimilarLoading => 'Hazırlanıyor…';
+
+  @override
+  String get aiSimilarFailed =>
+      'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.';
 }

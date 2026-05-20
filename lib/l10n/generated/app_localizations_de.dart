@@ -1064,4 +1064,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Recap';
+
+  @override
+  String get aiSimilarTitle => 'Smarte Empfehlungen';
+
+  @override
+  String get aiSimilarLoading => 'Wird kuratiert…';
+
+  @override
+  String get aiSimilarFailed =>
+      'Smarte Vorschläge nicht geladen — Standardliste.';
 }

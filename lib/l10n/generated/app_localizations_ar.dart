@@ -1053,4 +1053,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'ملخص';
+
+  @override
+  String get aiSimilarTitle => 'اقتراحات ذكية';
+
+  @override
+  String get aiSimilarLoading => 'يحضّر…';
+
+  @override
+  String get aiSimilarFailed => 'تعذّر التحميل — عرض القائمة العادية.';
 }

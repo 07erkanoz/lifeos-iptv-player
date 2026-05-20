@@ -20,6 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
@@ -1138,10 +1139,18 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                               ],
                             ),
                           ),
-                          if (similarMovies.isNotEmpty) ...[
-                            const SizedBox(height: 44),
-                            _buildSimilarSection(similarMovies),
-                          ],
+                          // Smart Similar — falls back to the
+                          // token-overlap rail when no Gemini key or
+                          // when the AI call doesn't yield usable
+                          // results.
+                          const SizedBox(height: 44),
+                          AiSimilarSection(
+                            current: ch,
+                            onTap: (target) => _openDetail(target),
+                            fallbackBuilder: (_) => similarMovies.isNotEmpty
+                                ? _buildSimilarSection(similarMovies)
+                                : const SizedBox.shrink(),
+                          ),
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -1342,10 +1351,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           _buildCreditRow(l10n.cast, cast.toString().length > 100 ? '${cast.toString().substring(0, 100)}...' : cast.toString()),
         if (genre.toString().isNotEmpty)
           _buildCreditRow(l10n.genre, genre.toString()),
-        if (similarMovies.isNotEmpty) ...[
-          const SizedBox(height: 30),
-          _buildSimilarSection(similarMovies),
-        ],
+        const SizedBox(height: 30),
+        AiSimilarSection(
+          current: ch,
+          onTap: (target) => _openDetail(target),
+          fallbackBuilder: (_) => similarMovies.isNotEmpty
+              ? _buildSimilarSection(similarMovies)
+              : const SizedBox.shrink(),
+        ),
         const SizedBox(height: 40),
       ],
     );

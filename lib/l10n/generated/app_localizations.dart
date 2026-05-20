@@ -2107,6 +2107,24 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Özet'**
   String get aiRecapTag;
+
+  /// No description provided for @aiSimilarTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sana özel benzer içerikler'**
+  String get aiSimilarTitle;
+
+  /// No description provided for @aiSimilarLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırlanıyor…'**
+  String get aiSimilarLoading;
+
+  /// No description provided for @aiSimilarFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.'**
+  String get aiSimilarFailed;
 }
 
 class _AppLocalizationsDelegate

@@ -353,5 +353,8 @@
   "aiPlotEnrichedTag": "AI",
   "aiRecapPrompt": "Remind me what happened so far",
   "aiRecapHide": "Hide recap",
-  "aiRecapTag": "Recap"
+  "aiRecapTag": "Recap",
+  "aiSimilarTitle": "Smart similar picks",
+  "aiSimilarLoading": "Curating picks…",
+  "aiSimilarFailed": "Couldn't load smart picks — showing fallback."
 }

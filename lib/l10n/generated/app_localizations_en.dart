@@ -1057,4 +1057,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Recap';
+
+  @override
+  String get aiSimilarTitle => 'Smart similar picks';
+
+  @override
+  String get aiSimilarLoading => 'Curating picks…';
+
+  @override
+  String get aiSimilarFailed =>
+      'Couldn\'t load smart picks — showing fallback.';
 }

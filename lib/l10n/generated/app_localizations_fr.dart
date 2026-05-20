@@ -1067,4 +1067,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Résumé';
+
+  @override
+  String get aiSimilarTitle => 'Suggestions intelligentes';
+
+  @override
+  String get aiSimilarLoading => 'Préparation…';
+
+  @override
+  String get aiSimilarFailed => 'Échec — affichage de la liste basique.';
 }

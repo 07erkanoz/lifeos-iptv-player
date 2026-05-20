@@ -1058,4 +1058,13 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Kurtenivîs';
+
+  @override
+  String get aiSimilarTitle => 'Pêşniyarên jîr';
+
+  @override
+  String get aiSimilarLoading => 'Amade dike…';
+
+  @override
+  String get aiSimilarFailed => 'Nehat barkirin — lîsteya hêsan tê nîşandan.';
 }

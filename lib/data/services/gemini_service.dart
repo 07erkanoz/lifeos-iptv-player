@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
+import 'package:lifeostv/data/models/similar_group.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -495,6 +496,200 @@ recap it without inventing details, reply with the single word
       return null;
     }
   }
+
+  /// Curated "similar content" picks, grouped by axis.
+  ///
+  /// Replaces the token-overlap scoring in the detail screens when
+  /// the user has an AI key configured. Gemini receives the full
+  /// metadata of the title the user is looking at *plus* a sample
+  /// of their library and (optionally) their favourites for
+  /// personalisation, and returns 2-4 axis-grouped buckets:
+  ///
+  ///   • "Aynı yönetmenden" / "From the same director"
+  ///   • "Aynı oyuncularla" / "With the same cast"
+  ///   • "Benzer atmosfer ve tempo" / "Similar tone & pacing"
+  ///   • "Aynı dönem ve coğrafya" / "Same era & origin"
+  ///
+  /// …with 2-4 items per bucket, each carrying a one-sentence
+  /// justification specific to that axis. Axis labels are in the
+  /// user's language so the UI doesn't need to translate them.
+  ///
+  /// Returns `null` on failure; caller falls back to the existing
+  /// scoring algorithm in that case so the detail page never ends
+  /// up with an empty "Benzer içerikler" rail.
+  Future<List<SimilarGroup>?> findSimilarContent({
+    required String currentTitle,
+    required String currentType,
+    String? currentYear,
+    String? currentGenre,
+    String? currentPlot,
+    String? currentDirector,
+    String? currentCast,
+    required List<Map<String, dynamic>> librarySample,
+    List<Map<String, dynamic>> favorites = const [],
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || librarySample.isEmpty) return null;
+
+    final currentBlob = <String, dynamic>{
+      'title': currentTitle,
+      'type': currentType,
+      if (currentYear != null && currentYear.isNotEmpty) 'year': currentYear,
+      if (currentGenre != null && currentGenre.isNotEmpty)
+        'genre': currentGenre,
+      if (currentDirector != null && currentDirector.isNotEmpty)
+        'director': currentDirector,
+      if (currentCast != null && currentCast.isNotEmpty) 'cast': currentCast,
+      if (currentPlot != null && currentPlot.isNotEmpty) 'plot': currentPlot,
+    };
+
+    final systemPrompt = '''
+You are a film and TV recommendation specialist with deep knowledge
+of casts, directors, themes, and cinematic style. You speak the
+user's language ($targetLanguage) fluently.
+
+The user is looking at one specific title (CURRENT_ITEM JSON in the
+first user turn) and you have a sample of their library
+(LIBRARY_SAMPLE). Pick 6-12 items total from LIBRARY_SAMPLE that the
+user would enjoy, **grouped by axis**. You may also use FAVORITES
+as a hint about their taste.
+
+Acceptable axes (use exact wording you choose, in $targetLanguage):
+  • Same director — when LIBRARY has another work by the current
+    item's director or a director with very similar sensibility.
+  • Same lead actor(s) — when one or more cast members from the
+    current item appear in LIBRARY items.
+  • Similar tone & pacing — atmospheric / mood-based matches that
+    cross genre lines.
+  • Same era & origin — country + decade clusters (e.g. "Korean
+    crime drama, 2020+").
+  • Same theme — thematic matches (e.g. "Father-son drama",
+    "Heist comedies").
+
+Rules:
+  1. Use **only** streamIds that appear in LIBRARY_SAMPLE. Never
+     invent ids.
+  2. 2-4 groups. Each group must have 2-4 items.
+  3. Each item's `reason` must be **specific to this axis** —
+     "shares director Hong Sung-chang" not just "similar genre".
+  4. `reason` and `axisLabel` / `axisSubtitle` MUST be in
+     $targetLanguage. Plain text, one sentence each, no markdown.
+  5. Don't list the current item itself.
+  6. If LIBRARY_SAMPLE has nothing genuinely similar, return an
+     empty groups array — better to show nothing than reach.
+
+Return strict JSON matching the response schema.
+''';
+
+    final userTurn = 'CURRENT_ITEM: ${jsonEncode(currentBlob)}\n'
+        'LIBRARY_SAMPLE: ${jsonEncode(librarySample)}\n'
+        '${favorites.isNotEmpty ? "FAVORITES: ${jsonEncode(favorites)}\n" : ""}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _similarResponseSchema,
+            'temperature': 0.6,
+            'maxOutputTokens': 2048,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] findSimilarContent status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+
+      // Same prose-tolerance trick as other methods.
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
+      final jsonStr = text.substring(start, end + 1);
+
+      Object? decoded;
+      try {
+        decoded = jsonDecode(jsonStr);
+      } catch (e) {
+        debugPrint('[Gemini] findSimilarContent JSON decode failed: $e');
+        return null;
+      }
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final rawGroups = decoded['groups'];
+      if (rawGroups is! List) return null;
+      final groups = <SimilarGroup>[];
+      for (final g in rawGroups) {
+        if (g is Map<String, dynamic>) {
+          final group = SimilarGroup.fromJson(g);
+          if (group != null && !group.isEmpty) {
+            groups.add(group);
+          }
+        }
+      }
+      return groups;
+    } catch (e) {
+      debugPrint('[Gemini] findSimilarContent failed: $e');
+      return null;
+    }
+  }
+
+  static const Map<String, dynamic> _similarResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'groups': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'axisLabel': {'type': 'STRING'},
+            'axisSubtitle': {'type': 'STRING', 'nullable': true},
+            'items': {
+              'type': 'ARRAY',
+              'items': {
+                'type': 'OBJECT',
+                'properties': {
+                  'streamId': {'type': 'INTEGER'},
+                  'reason': {'type': 'STRING'},
+                },
+                'required': ['streamId', 'reason'],
+              },
+            },
+          },
+          'required': ['axisLabel', 'items'],
+        },
+      },
+    },
+    'required': ['groups'],
+  };
 
   // ─── Prompt + schema ─────────────────────────────────────────────
 

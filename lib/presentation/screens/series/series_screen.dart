@@ -19,6 +19,7 @@ import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/ai/series_recap_inline.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
@@ -2083,10 +2084,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     const SizedBox(height: 16),
                     ...activeEpisodes.map((ep) => _buildEpisodeItem(ep, l10n)),
                   ],
-                  if (similarSeries.isNotEmpty) ...[
-                    const SizedBox(height: 36),
-                    _buildSimilarSection(similarSeries),
-                  ],
+                  const SizedBox(height: 36),
+                  AiSimilarSection(
+                    current: ch,
+                    onTap: (target) => _openDetail(target),
+                    fallbackBuilder: (_) => similarSeries.isNotEmpty
+                        ? _buildSimilarSection(similarSeries)
+                        : const SizedBox.shrink(),
+                  ),
                   const SizedBox(height: 60),
                 ],
               ),

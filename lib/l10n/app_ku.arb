@@ -363,5 +363,8 @@
   "aiPlotEnrichedTag": "AI",
   "aiRecapPrompt": "Tiştên berê qewimîne bîne bîra min",
   "aiRecapHide": "Kurtenivîs veşêre",
-  "aiRecapTag": "Kurtenivîs"
+  "aiRecapTag": "Kurtenivîs",
+  "aiSimilarTitle": "Pêşniyarên jîr",
+  "aiSimilarLoading": "Amade dike…",
+  "aiSimilarFailed": "Nehat barkirin — lîsteya hêsan tê nîşandan."
 }

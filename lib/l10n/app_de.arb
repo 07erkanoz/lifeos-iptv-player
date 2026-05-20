@@ -363,5 +363,8 @@
   "aiPlotEnrichedTag": "KI",
   "aiRecapPrompt": "Erinnere mich, was bisher geschah",
   "aiRecapHide": "Zusammenfassung ausblenden",
-  "aiRecapTag": "Recap"
+  "aiRecapTag": "Recap",
+  "aiSimilarTitle": "Smarte Empfehlungen",
+  "aiSimilarLoading": "Wird kuratiert…",
+  "aiSimilarFailed": "Smarte Vorschläge nicht geladen — Standardliste."
 }

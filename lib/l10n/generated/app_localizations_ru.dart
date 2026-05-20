@@ -1060,4 +1060,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aiRecapTag => 'Резюме';
+
+  @override
+  String get aiSimilarTitle => 'Умные подборки';
+
+  @override
+  String get aiSimilarLoading => 'Подбираем…';
+
+  @override
+  String get aiSimilarFailed =>
+      'Не удалось загрузить — показан стандартный список.';
 }

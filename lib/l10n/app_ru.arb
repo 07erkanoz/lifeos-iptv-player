@@ -363,5 +363,8 @@
   "aiPlotEnrichedTag": "ИИ",
   "aiRecapPrompt": "Напомни, что было раньше",
   "aiRecapHide": "Скрыть резюме",
-  "aiRecapTag": "Резюме"
+  "aiRecapTag": "Резюме",
+  "aiSimilarTitle": "Умные подборки",
+  "aiSimilarLoading": "Подбираем…",
+  "aiSimilarFailed": "Не удалось загрузить — показан стандартный список."
 }

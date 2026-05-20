@@ -363,5 +363,8 @@
   "aiPlotEnrichedTag": "ذكاء اصطناعي",
   "aiRecapPrompt": "ذكّرني بما حدث حتى الآن",
   "aiRecapHide": "إخفاء الملخص",
-  "aiRecapTag": "ملخص"
+  "aiRecapTag": "ملخص",
+  "aiSimilarTitle": "اقتراحات ذكية",
+  "aiSimilarLoading": "يحضّر…",
+  "aiSimilarFailed": "تعذّر التحميل — عرض القائمة العادية."
 }

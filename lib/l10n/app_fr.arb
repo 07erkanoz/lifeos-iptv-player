@@ -363,5 +363,8 @@
   "aiPlotEnrichedTag": "IA",
   "aiRecapPrompt": "Rappelle-moi ce qui s'est passé",
   "aiRecapHide": "Masquer le résumé",
-  "aiRecapTag": "Résumé"
+  "aiRecapTag": "Résumé",
+  "aiSimilarTitle": "Suggestions intelligentes",
+  "aiSimilarLoading": "Préparation…",
+  "aiSimilarFailed": "Échec — affichage de la liste basique."
 }
