@@ -1045,6 +1045,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiPlotFillIn => 'Obtenir l\'intrigue';
 
   @override
+  String get aiPlotDetailedInfo => 'Informations détaillées';
+
+  @override
   String get aiPlotEnriching => 'Préparation…';
 
   @override

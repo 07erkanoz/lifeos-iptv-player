@@ -1042,6 +1042,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiPlotFillIn => 'Handlung abrufen';
 
   @override
+  String get aiPlotDetailedInfo => 'Ausführliche Infos';
+
+  @override
   String get aiPlotEnriching => 'Bereite vor…';
 
   @override

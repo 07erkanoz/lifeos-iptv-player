@@ -1031,6 +1031,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get aiPlotFillIn => 'جلب معلومات الحبكة';
 
   @override
+  String get aiPlotDetailedInfo => 'معلومات مفصّلة';
+
+  @override
   String get aiPlotEnriching => 'يحضّر…';
 
   @override

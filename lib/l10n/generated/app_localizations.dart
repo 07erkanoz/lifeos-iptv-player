@@ -2060,6 +2060,12 @@ abstract class AppLocalizations {
   /// **'Plot bilgisi getir'**
   String get aiPlotFillIn;
 
+  /// No description provided for @aiPlotDetailedInfo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Detaylı bilgi'**
+  String get aiPlotDetailedInfo;
+
   /// No description provided for @aiPlotEnriching.
   ///
   /// In tr, this message translates to:

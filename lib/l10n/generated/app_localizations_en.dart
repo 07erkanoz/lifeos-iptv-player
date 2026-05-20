@@ -1035,6 +1035,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiPlotFillIn => 'Get plot info';
 
   @override
+  String get aiPlotDetailedInfo => 'Detailed info';
+
+  @override
   String get aiPlotEnriching => 'Preparing…';
 
   @override

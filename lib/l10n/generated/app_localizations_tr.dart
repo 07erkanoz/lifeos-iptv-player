@@ -1033,6 +1033,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get aiPlotFillIn => 'Plot bilgisi getir';
 
   @override
+  String get aiPlotDetailedInfo => 'Detaylı bilgi';
+
+  @override
   String get aiPlotEnriching => 'Hazırlıyor…';
 
   @override

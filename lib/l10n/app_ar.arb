@@ -356,6 +356,7 @@
   "aiPlotTranslate": "ترجمة",
   "aiPlotSummarize": "ملخص بدون حرق",
   "aiPlotFillIn": "جلب معلومات الحبكة",
+  "aiPlotDetailedInfo": "معلومات مفصّلة",
   "aiPlotEnriching": "يحضّر…",
   "aiPlotError": "تعذّر الجلب — حاول مجدداً",
   "aiPlotShowOriginal": "عرض الأصلي",

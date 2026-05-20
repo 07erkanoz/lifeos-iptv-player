@@ -1036,6 +1036,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiPlotFillIn => 'Agahiya çîrokê bîne';
 
   @override
+  String get aiPlotDetailedInfo => 'Agahiya berfireh';
+
+  @override
   String get aiPlotEnriching => 'Amade dike…';
 
   @override

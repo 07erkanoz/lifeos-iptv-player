@@ -199,13 +199,19 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
             child: _ActionRow(
               showTranslate: !plotIsEmpty && !isShowingEnriched,
               showSummarize: plotIsLong && !isShowingEnriched,
-              showFillIn: plotIsEmpty && !isShowingEnriched,
+              // `fillIn` and `detailedInfo` overlap — the latter is
+              // strictly richer. When the plot is empty we only
+              // surface the detailed-info link to avoid offering
+              // two near-identical actions.
+              showFillIn: false,
+              showDetailedInfo: !isShowingEnriched,
               showRevert: isShowingEnriched,
               loading: _loading,
               failed: _lastCallFailed,
               onTranslate: () => _enrich(PlotEnrichMode.translate),
               onSummarize: () => _enrich(PlotEnrichMode.summarize),
               onFillIn: () => _enrich(PlotEnrichMode.fillIn),
+              onDetailedInfo: () => _enrich(PlotEnrichMode.detailedInfo),
               onRevert: _revertToOriginal,
               activeMode: _enrichedMode,
             ),
@@ -222,12 +228,14 @@ class _ActionRow extends StatelessWidget {
   final bool showTranslate;
   final bool showSummarize;
   final bool showFillIn;
+  final bool showDetailedInfo;
   final bool showRevert;
   final bool loading;
   final bool failed;
   final VoidCallback onTranslate;
   final VoidCallback onSummarize;
   final VoidCallback onFillIn;
+  final VoidCallback onDetailedInfo;
   final VoidCallback onRevert;
   final PlotEnrichMode? activeMode;
 
@@ -235,12 +243,14 @@ class _ActionRow extends StatelessWidget {
     required this.showTranslate,
     required this.showSummarize,
     required this.showFillIn,
+    required this.showDetailedInfo,
     required this.showRevert,
     required this.loading,
     required this.failed,
     required this.onTranslate,
     required this.onSummarize,
     required this.onFillIn,
+    required this.onDetailedInfo,
     required this.onRevert,
     required this.activeMode,
   });
@@ -278,6 +288,10 @@ class _ActionRow extends StatelessWidget {
     }
     if (showFillIn) {
       links.add(_InlineLink(label: l10n.aiPlotFillIn, onTap: onFillIn));
+    }
+    if (showDetailedInfo) {
+      links.add(_InlineLink(
+          label: l10n.aiPlotDetailedInfo, onTap: onDetailedInfo));
     }
     if (showRevert) {
       links.add(_InlineLink(label: l10n.aiPlotShowOriginal, onTap: onRevert));

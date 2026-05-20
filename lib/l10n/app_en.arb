@@ -346,6 +346,7 @@
   "aiPlotTranslate": "Translate",
   "aiPlotSummarize": "Spoiler-free summary",
   "aiPlotFillIn": "Get plot info",
+  "aiPlotDetailedInfo": "Detailed info",
   "aiPlotEnriching": "Preparing…",
   "aiPlotError": "Couldn't fetch — try again",
   "aiPlotShowOriginal": "Show original",

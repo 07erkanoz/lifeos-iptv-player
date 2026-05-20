@@ -289,6 +289,29 @@ you genuinely don't recognise the title, reply with the single
 word "UNKNOWN" (uppercase, no punctuation) — caller drops the
 result in that case.
 ''',
+      PlotEnrichMode.detailedInfo => '''
+The user wants comprehensive information about this title, in
+their language ($targetLanguage). The plot field they currently
+see is unreliable (often machine-translated, truncated, or in
+the wrong language) — write a richer description from your
+general knowledge of the title instead.
+
+Cover these in 4–6 short paragraphs, separated by blank lines:
+  1. Premise — what's the setup, who's the protagonist
+  2. Tone & style — pace, atmosphere, signature elements
+  3. Themes — what the story is really *about*
+  4. Why it stands out — what's notable (awards, director,
+     cultural impact, unique angle)
+  5. Recommended viewer — who'll enjoy this most
+
+Spoiler-free. No reveals, no ending hints, no twists. Plain text
+with paragraph breaks (use blank lines between paragraphs). No
+markdown headings, no preamble, no "Here's the info:" framing.
+
+If you genuinely don't recognise the title with confidence, reply
+with the single word "UNKNOWN" (uppercase, no punctuation) —
+caller drops the result.
+''',
     };
 
     final userTurn = switch (mode) {
@@ -297,7 +320,8 @@ result in that case.
         'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
             '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}'
             '\n\nPlot:\n${originalPlot ?? ""}',
-      PlotEnrichMode.fillIn =>
+      PlotEnrichMode.fillIn ||
+      PlotEnrichMode.detailedInfo =>
         'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
             '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}',
     };
@@ -321,7 +345,11 @@ result in that case.
           ],
           'generationConfig': {
             'temperature': mode == PlotEnrichMode.translate ? 0.2 : 0.5,
-            'maxOutputTokens': 400,
+            // detailedInfo needs a roomier budget — 4-6 short paragraphs
+            // can comfortably exceed 400 tokens, and a truncated reply
+            // looks worse than no reply at all.
+            'maxOutputTokens':
+                mode == PlotEnrichMode.detailedInfo ? 900 : 400,
           },
         },
       );
@@ -343,8 +371,12 @@ result in that case.
       if (parts is! List || parts.isEmpty) return null;
       final text = parts.first['text']?.toString().trim();
       if (text == null || text.isEmpty) return null;
-      // Fill-in mode opted out: drop and let UI keep original.
-      if (mode == PlotEnrichMode.fillIn && text.toUpperCase() == 'UNKNOWN') {
+      // Modes that can opt out with the UNKNOWN sentinel when the
+      // model can't confidently describe the title. UI keeps the
+      // original plot in that case.
+      if ((mode == PlotEnrichMode.fillIn ||
+              mode == PlotEnrichMode.detailedInfo) &&
+          text.toUpperCase() == 'UNKNOWN') {
         return null;
       }
       return text;
@@ -459,11 +491,24 @@ fits the request, return an empty array with a brief explanation in
   };
 }
 
-/// The three "fix this plot" modes [GeminiService.enrichPlot]
+/// The four "fix this plot" modes [GeminiService.enrichPlot]
 /// supports — each chooses a different framing system prompt while
 /// the request / response shape stays the same. UI widgets import
 /// this directly.
-enum PlotEnrichMode { translate, summarize, fillIn }
+///
+///   * [translate] — translate the existing plot to the user's
+///     language.
+///   * [summarize] — condense a too-long plot into spoiler-free
+///     2-3 sentences.
+///   * [fillIn] — generate a 2-3 sentence plot when the source
+///     field is empty. Kept for backwards compatibility; new code
+///     should prefer [detailedInfo].
+///   * [detailedInfo] — ignore the source plot entirely and pull
+///     comprehensive 4-6 paragraph info from Gemini's general
+///     knowledge, always in the user's language. The right mode
+///     for the common case of "Xtream gave me one bad English
+///     sentence and I want real info".
+enum PlotEnrichMode { translate, summarize, fillIn, detailedInfo }
 
 /// Provider that returns a `GeminiService` instance when the user has
 /// a key configured, or `null` when they don't.

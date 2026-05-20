@@ -1038,6 +1038,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiPlotFillIn => 'Получить описание';
 
   @override
+  String get aiPlotDetailedInfo => 'Подробная информация';
+
+  @override
   String get aiPlotEnriching => 'Готовлю…';
 
   @override
