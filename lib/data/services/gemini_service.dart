@@ -691,6 +691,168 @@ Return strict JSON matching the response schema.
     'required': ['groups'],
   };
 
+  /// Library-aware semantic search.
+  ///
+  /// The other "search" method on this service ([parseSearchQuery])
+  /// only extracts structured filters from the user's wording —
+  /// the actual matching is still keyword LIKE in the repository.
+  /// That works for categorical queries (genre, year, cast name)
+  /// but falls apart on conceptual / thematic queries where the
+  /// catalog's `plot` field doesn't carry the obvious vocabulary
+  /// (an apocalyptic film whose plot says "in a world without
+  /// fuel…").
+  ///
+  /// This method takes the user's query *plus a sample of the
+  /// library* and lets Gemini do the matching directly, leaning on
+  /// its general knowledge of titles. It returns the
+  /// stream-ids of items that fit the query (only ids that actually
+  /// appear in the supplied sample — no hallucinations) along with
+  /// a short user-language reason per pick.
+  ///
+  /// Returns `null` on any failure; caller falls back to the
+  /// keyword path. Empty list = AI consulted but found nothing.
+  Future<List<({int streamId, String reason})>?> curateLibraryByQuery({
+    required String query,
+    required List<Map<String, dynamic>> librarySample,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || query.trim().isEmpty || librarySample.isEmpty) {
+      return null;
+    }
+
+    final systemPrompt = '''
+You are a film and TV curator with deep knowledge of titles across
+languages and decades. The user types a query (any language, often
+Turkish) describing what they want to watch. You have a sample of
+their library (LIBRARY_SAMPLE) with title, type, year, genre, cast,
+director, rating.
+
+Pick the items from LIBRARY_SAMPLE that genuinely fit the query —
+lean on your general knowledge of the titles, not just their
+metadata text. A Mad Max-style film without the word "apocalypse"
+in its plot still fits "dünyanın sonu konulu". A serial killer
+thriller without the word "katil" in the plot still fits "seri
+katil filmi".
+
+Rules:
+  1. Use only streamIds that appear in LIBRARY_SAMPLE. Never
+     invent ids.
+  2. Up to 30 picks. Quality over quantity — empty list is fine
+     when nothing matches.
+  3. `reason` is one short sentence in $targetLanguage explaining
+     why this specific title fits.
+  4. If the query refers to a specific title, treat exact / fuzzy
+     name matches as obvious picks too.
+  5. Don't include irrelevant items just to pad the list.
+
+Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
+''';
+
+    final userTurn =
+        'QUERY: $query\n\nLIBRARY_SAMPLE: ${jsonEncode(librarySample)}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _curateResponseSchema,
+            'temperature': 0.3,
+            'maxOutputTokens': 2048,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] curateLibraryByQuery status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
+      final jsonStr = text.substring(start, end + 1);
+
+      Object? decoded;
+      try {
+        decoded = jsonDecode(jsonStr);
+      } catch (e) {
+        debugPrint('[Gemini] curateLibraryByQuery JSON decode failed: $e');
+        return null;
+      }
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final raw = decoded['picks'];
+      if (raw is! List) return null;
+      final picks = <({int streamId, String reason})>[];
+      for (final item in raw) {
+        if (item is! Map<String, dynamic>) continue;
+        final sidRaw = item['streamId'];
+        int? sid;
+        if (sidRaw is int) {
+          sid = sidRaw;
+        } else if (sidRaw is num) {
+          sid = sidRaw.toInt();
+        } else if (sidRaw != null) {
+          sid = int.tryParse(sidRaw.toString());
+        }
+        final reason = item['reason']?.toString().trim() ?? '';
+        if (sid != null && sid > 0 && reason.isNotEmpty) {
+          picks.add((streamId: sid, reason: reason));
+        }
+      }
+      return picks;
+    } catch (e) {
+      debugPrint('[Gemini] curateLibraryByQuery failed: $e');
+      return null;
+    }
+  }
+
+  static const Map<String, dynamic> _curateResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'picks': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'streamId': {'type': 'INTEGER'},
+            'reason': {'type': 'STRING'},
+          },
+          'required': ['streamId', 'reason'],
+        },
+      },
+    },
+    'required': ['picks'],
+  };
+
   // ─── Prompt + schema ─────────────────────────────────────────────
 
   /// System prompt is terse and example-driven — Gemini follows few-

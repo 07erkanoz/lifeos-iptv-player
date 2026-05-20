@@ -9,6 +9,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
@@ -48,6 +49,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// "AI yorumladı: …" chip row above the results so the user can
   /// see why they got those filters.
   SearchIntent? _activeIntent;
+
+  /// Per-card "AI seçti çünkü…" reason text from the Tier-3 library
+  /// curator. Result tiles look up their stream id in this map and
+  /// render the reason underneath the poster when present.
+  Map<int, String> _curatorReasons = const {};
 
   bool get _hasResults => _movieResults.isNotEmpty || _seriesResults.isNotEmpty || _liveResults.isNotEmpty;
 
@@ -127,6 +133,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _liveResults = [];
         _isSearching = false;
         _activeIntent = null;
+        _curatorReasons = const {};
       });
       return;
     }
@@ -141,30 +148,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _liveResults = results.live;
         _isSearching = false;
         _activeIntent = results.intent;
+        _curatorReasons = results.curatorReasons;
       });
     });
   }
 
-  /// Plain-search vs AI-search dispatcher.
+  /// Three-tier search dispatcher.
   ///
-  /// When the user has a Gemini key configured, we kick off a parse
-  /// in parallel with the plain SQL search. If Gemini returns a
-  /// non-empty structured intent (e.g. `genres: ['crime']`), we re-run
-  /// the search through `searchChannelsByIntent` to take advantage of
-  /// the filters. Otherwise we keep the plain results — no UX
-  /// regression when Gemini is slow, rate-limited, or simply has no
-  /// extra signal to add.
+  /// Tier 1 — Plain LIKE: always runs, ships ~50 ms results so the
+  /// grid is never empty while the AI thinks.
   ///
-  /// We deliberately race the two paths instead of awaiting Gemini
-  /// first: a 1-second Gemini RTT shouldn't tax-bracket every plain
-  /// keyword search. The user sees plain results in ~50ms and the
-  /// AI-refined set replaces them as soon as Gemini answers (typically
-  /// 500-1500ms).
+  /// Tier 2 — Intent-aware LIKE: when Gemini extracts structured
+  /// filters from the query (genres, year range, cast / director
+  /// name, theme keywords), we re-query the repo with those
+  /// filters and swap results.
+  ///
+  /// Tier 3 — Library curator: in parallel with the intent parse,
+  /// Gemini *reads a sample of the user's library* and returns
+  /// streamIds that match the query using its general knowledge
+  /// of titles — independent of the plot text the catalog
+  /// happens to carry. This catches the "Mad Max → 'dünyanın
+  /// sonu konulu'" case the keyword path cannot.
+  ///
+  /// Curator picks land first (with per-card reasons); intent
+  /// results follow, deduplicated. Without a Gemini key, only
+  /// Tier 1 runs.
   Future<_SearchResults> _runSearch(String query, int requestId) async {
     final repo = ref.read(contentRepositoryProvider);
     final gemini = ref.read(geminiServiceProvider); // nullable
 
-    // Always start the plain search.
+    // Tier 1 — always run.
     final plainFuture = Future.wait([
       repo.searchChannelsByType(query, 'movie', limit: 60),
       repo.searchChannelsByType(query, 'series', limit: 60),
@@ -178,14 +191,61 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         series: plain[1],
         live: plain[2],
         intent: null,
+        curatorReasons: const {},
       );
     }
 
-    // Race plain + Gemini. Whichever path produces a usable result
-    // set wins; we prefer the AI-refined one when it carries real
-    // structured filters.
-    final intent = await gemini.parseSearchQuery(query);
-    // If the user typed something else in the meantime, abandon.
+    // Tier 2 + 3 — start in parallel. Curator gets a library sample
+    // it can read; intent parse only sees the query string.
+    final intentFuture = gemini.parseSearchQuery(query);
+
+    // Pull a broad sample for the curator. Channels objects are
+    // kept locally so we can resolve picks back to full rows
+    // without a second DB hit.
+    final librarySample = await repo.sampleLibraryForAi(
+      moviesPerType: 60,
+      seriesPerType: 60,
+      livePerType: 20,
+    );
+    final sampleByStreamId = {for (final c in librarySample) c.streamId: c};
+    final compactSample = librarySample
+        .map((c) => {
+              'streamId': c.streamId,
+              'title': c.name,
+              'type': c.type,
+              if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+              if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+              if (c.cast != null && c.cast!.isNotEmpty) 'cast': c.cast,
+              if (c.director != null && c.director!.isNotEmpty)
+                'director': c.director,
+              if (c.rating != null) 'rating': c.rating,
+            })
+        .toList();
+
+    final lang = _userLanguageCode();
+    final curatorFuture = gemini.curateLibraryByQuery(
+      query: query,
+      librarySample: compactSample,
+      targetLanguage: lang,
+    );
+
+    final intent = await intentFuture;
+    if (requestId != _searchRequestId) {
+      // User typed something else — drop everything, give them the
+      // plain Tier-1 result so the grid isn't empty.
+      final plain = await plainFuture;
+      return _SearchResults(
+        movies: plain[0],
+        series: plain[1],
+        live: plain[2],
+        intent: null,
+        curatorReasons: const {},
+      );
+    }
+
+    // Wait for the curator too — its result drives the per-card
+    // "AI seçti çünkü…" reasons.
+    final curatorPicks = await curatorFuture;
     if (requestId != _searchRequestId) {
       final plain = await plainFuture;
       return _SearchResults(
@@ -193,31 +253,58 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         series: plain[1],
         live: plain[2],
         intent: null,
+        curatorReasons: const {},
       );
     }
 
-    if (intent == null ||
-        intent.isEmpty ||
-        !intent.hasStructuredFilters) {
-      // No useful AI signal — show plain results.
+    final reasonByStreamId = <int, String>{};
+    final curatorChannels = <Channel>[];
+    if (curatorPicks != null) {
+      for (final pick in curatorPicks) {
+        final ch = sampleByStreamId[pick.streamId];
+        if (ch == null) continue; // hallucinated id; drop
+        reasonByStreamId[pick.streamId] = pick.reason;
+        curatorChannels.add(ch);
+      }
+    }
+
+    // If both AI tiers came up empty, fall through to Tier 1.
+    final hasIntent = intent != null &&
+        !intent.isEmpty &&
+        intent.hasStructuredFilters;
+    if (!hasIntent && curatorChannels.isEmpty) {
       final plain = await plainFuture;
       return _SearchResults(
         movies: plain[0],
         series: plain[1],
         live: plain[2],
         intent: null,
+        curatorReasons: const {},
       );
     }
 
-    // Pull AI-refined matches. The intent might pin a single type
-    // (e.g. `contentType: 'movie'`) — in that case the other two
-    // buckets stay empty. Otherwise we partition by type after the
-    // single call.
-    final refined = await repo.searchChannelsByIntent(intent, limit: 180);
+    // Intent-driven LIKE search (skipped if intent had nothing useful).
+    final intentChannels = hasIntent
+        ? await repo.searchChannelsByIntent(intent, limit: 180)
+        : const <Channel>[];
+
+    // Merge: curator first (so reasons surface near the top), then
+    // any intent result we haven't seen yet. Same dedup key — stream
+    // id is unique across types in practice because the section
+    // bucketing keys off `type` below.
+    final seen = <int>{};
+    final merged = <Channel>[];
+    for (final ch in curatorChannels) {
+      if (seen.add(ch.streamId)) merged.add(ch);
+    }
+    for (final ch in intentChannels) {
+      if (seen.add(ch.streamId)) merged.add(ch);
+    }
+
     final movies = <Channel>[];
     final series = <Channel>[];
     final live = <Channel>[];
-    for (final ch in refined) {
+    for (final ch in merged) {
       switch (ch.type) {
         case 'movie':
           movies.add(ch);
@@ -232,7 +319,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       series: series,
       live: live,
       intent: intent,
+      curatorReasons: reasonByStreamId,
     );
+  }
+
+  /// User's UI language as an ISO-639-1 code — mirrors the same
+  /// resolution rule the other AI surfaces use so Gemini replies in
+  /// the language the rest of the app is rendering in.
+  String _userLanguageCode() {
+    final appLang = ref.read(settingsProvider).language;
+    if (appLang == AppLanguage.system) {
+      return Localizations.localeOf(context).languageCode;
+    }
+    return appLang.name;
   }
 
   void _onResultTap(Channel channel) {
@@ -319,6 +418,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onTopEdge: (isFirst && index < cols)
                   ? () => _textFocus.requestFocus()
                   : null,
+              // Tier-3 curator picked this card — show the AI's
+              // explanation under the poster.
+              aiReason: _curatorReasons[ch.streamId],
             );
           },
         );
@@ -525,11 +627,18 @@ class _SearchResultCard extends StatefulWidget {
   final FocusNode? focusNode;
   final VoidCallback? onTopEdge;
 
+  /// Optional AI-generated reason for why this item matched the
+  /// current search. Non-null only when the Tier-3 library curator
+  /// surfaced this card. Rendered in italic primary-colored text
+  /// underneath the type badge.
+  final String? aiReason;
+
   const _SearchResultCard({
     required this.channel,
     required this.onTap,
     this.focusNode,
     this.onTopEdge,
+    this.aiReason,
   });
 
   @override
@@ -633,6 +742,38 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                             ),
                           ),
                         ),
+                        // Tier-3 curator reason — italic primary text
+                        // right under the type badge. Only renders
+                        // when the AI flagged this specific card as a
+                        // semantic match.
+                        if (widget.aiReason != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.auto_awesome,
+                                size: 9,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  widget.aiReason!,
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 9.5,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.3,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -863,10 +1004,17 @@ class _SearchResults {
   /// Drives the "AI yorumladı: …" chip row in the UI.
   final SearchIntent? intent;
 
+  /// Map of streamId → AI-generated reason text. Populated only when
+  /// the Tier-3 library curator picked specific titles for this
+  /// query. Result cards check this map and render the reason
+  /// underneath the poster when their id is present.
+  final Map<int, String> curatorReasons;
+
   const _SearchResults({
     required this.movies,
     required this.series,
     required this.live,
     required this.intent,
+    required this.curatorReasons,
   });
 }
