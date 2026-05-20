@@ -882,4 +882,97 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'Bitiş zamanı başlangıçtan sonra olmalı.';
+
+  @override
+  String get aiAssistant => 'AI Asistan';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Opsiyonel — ücretsiz Google Gemini API key\'i yapıştırarak akıllı özellikleri aç.';
+
+  @override
+  String get aiAssistantWhy => 'Key girince neler kazanırsın';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'Doğal dil arama (\"kısa süreli Kore polisiye dizisi\")';
+
+  @override
+  String get aiBenefitTonightChat => '\"Bu akşam ne izlesem?\" sohbet asistanı';
+
+  @override
+  String get aiBenefitRecap => 'Bıraktığın yerin spoiler içermeyen özeti';
+
+  @override
+  String get aiBenefitPlot => 'Konu özeti, çeviri ve zenginleştirme';
+
+  @override
+  String get aiBenefitSubtitle => 'Altyazı yoksa akıllı çeviri';
+
+  @override
+  String get aiPrivacyNote =>
+      'Arama sorguları Google\'a gönderilir. Key cihazında tutulur, istediğin zaman silebilirsin.';
+
+  @override
+  String get geminiApiKey => 'Gemini API anahtarı';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'Kaydet';
+
+  @override
+  String get geminiClearKey => 'Sil';
+
+  @override
+  String get geminiTestKey => 'Test et';
+
+  @override
+  String get geminiKeySaved => 'Key kaydedildi. AI özellikleri aktif.';
+
+  @override
+  String get geminiKeyCleared => 'Key silindi. AI özellikleri gizlendi.';
+
+  @override
+  String get geminiKeyInvalid => 'Key boş veya geçersiz.';
+
+  @override
+  String get geminiKeyTestSuccess => 'Key çalışıyor! Gemini\'den yanıt geldi.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'Test başarısız: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'Aktif';
+
+  @override
+  String get geminiStatusInactive => 'Yapılandırılmadı';
+
+  @override
+  String get howToGetGeminiKey => 'Key\'i nasıl alırım?';
+
+  @override
+  String get geminiStep1 => '1. Tarayıcıda aistudio.google.com adresine git';
+
+  @override
+  String get geminiStep2 => '2. Herhangi bir Google hesabıyla giriş yap';
+
+  @override
+  String get geminiStep3 => '3. \"Get API key\" → \"Create new\" tıkla';
+
+  @override
+  String get geminiStep4 => '4. Key\'i kopyala (AIzaSy… ile başlar)';
+
+  @override
+  String get geminiStep5 => '5. Yukarıdaki alana yapıştır ve Kaydet\'e bas';
+
+  @override
+  String get geminiFreeReassurance =>
+      'Ücretsiz, kart gerekmez. Kişisel kullanım için günlük kota fazlasıyla yeterli.';
+
+  @override
+  String get openGeminiSite => 'aistudio.google.com\'u aç';
 }

@@ -886,4 +886,102 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'Endzeit muss nach Startzeit liegen.';
+
+  @override
+  String get aiAssistant => 'KI-Assistent';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Optional — Füge einen kostenlosen Google Gemini API-Key ein, um smarte Funktionen freizuschalten.';
+
+  @override
+  String get aiAssistantWhy => 'Was du mit einem Key bekommst';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'Suche in natürlicher Sprache (\"kurze koreanische Krimi-Serie\")';
+
+  @override
+  String get aiBenefitTonightChat =>
+      '\"Was soll ich heute Abend schauen?\" Chat';
+
+  @override
+  String get aiBenefitRecap =>
+      'Spoilerfreie Zusammenfassung deines letzten Stands';
+
+  @override
+  String get aiBenefitPlot =>
+      'Handlungszusammenfassung, Übersetzung, Anreicherung';
+
+  @override
+  String get aiBenefitSubtitle =>
+      'Intelligente Untertitelübersetzung wenn keine vorhanden';
+
+  @override
+  String get aiPrivacyNote =>
+      'Suchanfragen werden an Google gesendet. Der Key wird lokal gespeichert und kann jederzeit entfernt werden.';
+
+  @override
+  String get geminiApiKey => 'Gemini API-Key';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'Speichern';
+
+  @override
+  String get geminiClearKey => 'Entfernen';
+
+  @override
+  String get geminiTestKey => 'Testen';
+
+  @override
+  String get geminiKeySaved => 'Key gespeichert. KI-Funktionen aktiv.';
+
+  @override
+  String get geminiKeyCleared => 'Key entfernt. KI-Funktionen ausgeblendet.';
+
+  @override
+  String get geminiKeyInvalid => 'Key ist leer oder ungültig.';
+
+  @override
+  String get geminiKeyTestSuccess =>
+      'Key funktioniert! Antwort von Gemini erhalten.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'Test fehlgeschlagen: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'Aktiv';
+
+  @override
+  String get geminiStatusInactive => 'Nicht konfiguriert';
+
+  @override
+  String get howToGetGeminiKey => 'Wie bekomme ich einen Key?';
+
+  @override
+  String get geminiStep1 => '1. Öffne aistudio.google.com im Browser';
+
+  @override
+  String get geminiStep2 => '2. Mit einem Google-Konto anmelden';
+
+  @override
+  String get geminiStep3 => '3. \"Get API key\" → \"Create new\" klicken';
+
+  @override
+  String get geminiStep4 => '4. Key kopieren (beginnt mit AIzaSy…)';
+
+  @override
+  String get geminiStep5 => '5. In das Feld oben einfügen und Speichern';
+
+  @override
+  String get geminiFreeReassurance =>
+      'Kostenlos, keine Kreditkarte erforderlich. Persönliches Kontingent reicht für den täglichen Gebrauch.';
+
+  @override
+  String get openGeminiSite => 'aistudio.google.com öffnen';
 }

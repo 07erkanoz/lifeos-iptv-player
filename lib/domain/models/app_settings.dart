@@ -31,6 +31,15 @@ class AppSettings {
 
   // OpenSubtitles
   final String? opensubtitlesApiKey;
+
+  // Google AI Studio (Gemini) API key. Optional — when set, unlocks
+  // the AI assistant features (natural-language search, "what should
+  // I watch tonight?" chat, spoiler-free recaps, plot summarisation,
+  // smart subtitle translation). When null/empty, every AI surface
+  // hides itself and the rest of the app keeps working exactly as
+  // before. Read by [AppSettings.hasAiKey] so callers don't have to
+  // repeat the empty-string check.
+  final String? geminiApiKey;
   final String subtitlePreferredLanguage; // ISO 639-1 code (e.g., 'tr', 'en')
 
   // Subtitle appearance
@@ -73,6 +82,7 @@ class AppSettings {
     this.continueWatchingEnabled = true,
     this.showSkipIntroButton = true,
     this.opensubtitlesApiKey,
+    this.geminiApiKey,
     this.subtitlePreferredLanguage = 'tr',
     this.subtitleFontSize = 55,
     this.subtitleColor = '#FFFFFF',
@@ -100,6 +110,8 @@ class AppSettings {
     bool? continueWatchingEnabled,
     bool? showSkipIntroButton,
     String? opensubtitlesApiKey,
+    String? geminiApiKey,
+    bool clearGeminiApiKey = false,
     String? subtitlePreferredLanguage,
     int? subtitleFontSize,
     String? subtitleColor,
@@ -127,6 +139,9 @@ class AppSettings {
       continueWatchingEnabled: continueWatchingEnabled ?? this.continueWatchingEnabled,
       showSkipIntroButton: showSkipIntroButton ?? this.showSkipIntroButton,
       opensubtitlesApiKey: opensubtitlesApiKey ?? this.opensubtitlesApiKey,
+      geminiApiKey: clearGeminiApiKey
+          ? null
+          : (geminiApiKey ?? this.geminiApiKey),
       subtitlePreferredLanguage: subtitlePreferredLanguage ?? this.subtitlePreferredLanguage,
       subtitleFontSize: subtitleFontSize ?? this.subtitleFontSize,
       subtitleColor: subtitleColor ?? this.subtitleColor,
@@ -143,4 +158,15 @@ class AppSettings {
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
     );
   }
+
+  /// True when the user has a non-empty Gemini API key on file.
+  ///
+  /// AI features (natural-language search, the "what should I watch?"
+  /// chat sheet, spoiler-free recaps, AI plot summary/translation,
+  /// smart subtitle translation) gate themselves on this getter.
+  /// When `false`, the corresponding UI entries hide rather than
+  /// showing a disabled state — there's no per-feature "you can do
+  /// this if you add a key" nag.
+  bool get hasAiKey =>
+      geminiApiKey != null && geminiApiKey!.trim().isNotEmpty;
 }

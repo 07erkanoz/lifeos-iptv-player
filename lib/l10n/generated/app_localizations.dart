@@ -1777,6 +1777,180 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Bitiş zamanı başlangıçtan sonra olmalı.'**
   String get introMarkInvalid;
+
+  /// No description provided for @aiAssistant.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI Asistan'**
+  String get aiAssistant;
+
+  /// No description provided for @aiAssistantSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Opsiyonel — ücretsiz Google Gemini API key\'i yapıştırarak akıllı özellikleri aç.'**
+  String get aiAssistantSubtitle;
+
+  /// No description provided for @aiAssistantWhy.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key girince neler kazanırsın'**
+  String get aiAssistantWhy;
+
+  /// No description provided for @aiBenefitNaturalSearch.
+  ///
+  /// In tr, this message translates to:
+  /// **'Doğal dil arama (\"kısa süreli Kore polisiye dizisi\")'**
+  String get aiBenefitNaturalSearch;
+
+  /// No description provided for @aiBenefitTonightChat.
+  ///
+  /// In tr, this message translates to:
+  /// **'\"Bu akşam ne izlesem?\" sohbet asistanı'**
+  String get aiBenefitTonightChat;
+
+  /// No description provided for @aiBenefitRecap.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bıraktığın yerin spoiler içermeyen özeti'**
+  String get aiBenefitRecap;
+
+  /// No description provided for @aiBenefitPlot.
+  ///
+  /// In tr, this message translates to:
+  /// **'Konu özeti, çeviri ve zenginleştirme'**
+  String get aiBenefitPlot;
+
+  /// No description provided for @aiBenefitSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Altyazı yoksa akıllı çeviri'**
+  String get aiBenefitSubtitle;
+
+  /// No description provided for @aiPrivacyNote.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arama sorguları Google\'a gönderilir. Key cihazında tutulur, istediğin zaman silebilirsin.'**
+  String get aiPrivacyNote;
+
+  /// No description provided for @geminiApiKey.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gemini API anahtarı'**
+  String get geminiApiKey;
+
+  /// No description provided for @geminiApiKeyHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'AIzaSy…'**
+  String get geminiApiKeyHint;
+
+  /// No description provided for @geminiSaveKey.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kaydet'**
+  String get geminiSaveKey;
+
+  /// No description provided for @geminiClearKey.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sil'**
+  String get geminiClearKey;
+
+  /// No description provided for @geminiTestKey.
+  ///
+  /// In tr, this message translates to:
+  /// **'Test et'**
+  String get geminiTestKey;
+
+  /// No description provided for @geminiKeySaved.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key kaydedildi. AI özellikleri aktif.'**
+  String get geminiKeySaved;
+
+  /// No description provided for @geminiKeyCleared.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key silindi. AI özellikleri gizlendi.'**
+  String get geminiKeyCleared;
+
+  /// No description provided for @geminiKeyInvalid.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key boş veya geçersiz.'**
+  String get geminiKeyInvalid;
+
+  /// No description provided for @geminiKeyTestSuccess.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key çalışıyor! Gemini\'den yanıt geldi.'**
+  String get geminiKeyTestSuccess;
+
+  /// No description provided for @geminiKeyTestFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Test başarısız: {reason}'**
+  String geminiKeyTestFailed(String reason);
+
+  /// No description provided for @geminiStatusActive.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktif'**
+  String get geminiStatusActive;
+
+  /// No description provided for @geminiStatusInactive.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yapılandırılmadı'**
+  String get geminiStatusInactive;
+
+  /// No description provided for @howToGetGeminiKey.
+  ///
+  /// In tr, this message translates to:
+  /// **'Key\'i nasıl alırım?'**
+  String get howToGetGeminiKey;
+
+  /// No description provided for @geminiStep1.
+  ///
+  /// In tr, this message translates to:
+  /// **'1. Tarayıcıda aistudio.google.com adresine git'**
+  String get geminiStep1;
+
+  /// No description provided for @geminiStep2.
+  ///
+  /// In tr, this message translates to:
+  /// **'2. Herhangi bir Google hesabıyla giriş yap'**
+  String get geminiStep2;
+
+  /// No description provided for @geminiStep3.
+  ///
+  /// In tr, this message translates to:
+  /// **'3. \"Get API key\" → \"Create new\" tıkla'**
+  String get geminiStep3;
+
+  /// No description provided for @geminiStep4.
+  ///
+  /// In tr, this message translates to:
+  /// **'4. Key\'i kopyala (AIzaSy… ile başlar)'**
+  String get geminiStep4;
+
+  /// No description provided for @geminiStep5.
+  ///
+  /// In tr, this message translates to:
+  /// **'5. Yukarıdaki alana yapıştır ve Kaydet\'e bas'**
+  String get geminiStep5;
+
+  /// No description provided for @geminiFreeReassurance.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ücretsiz, kart gerekmez. Kişisel kullanım için günlük kota fazlasıyla yeterli.'**
+  String get geminiFreeReassurance;
+
+  /// No description provided for @openGeminiSite.
+  ///
+  /// In tr, this message translates to:
+  /// **'aistudio.google.com\'u aç'**
+  String get openGeminiSite;
 }
 
 class _AppLocalizationsDelegate

@@ -885,4 +885,98 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'Конец должен быть позже начала.';
+
+  @override
+  String get aiAssistant => 'ИИ-ассистент';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Опционально — вставьте бесплатный ключ Google Gemini API, чтобы разблокировать умные функции.';
+
+  @override
+  String get aiAssistantWhy => 'Что вы получаете с ключом';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'Поиск на естественном языке (\"короткая корейская детективная драма\")';
+
+  @override
+  String get aiBenefitTonightChat => 'Чат \"что посмотреть сегодня?\"';
+
+  @override
+  String get aiBenefitRecap =>
+      'Резюме без спойлеров с того места, где остановились';
+
+  @override
+  String get aiBenefitPlot => 'Резюме, перевод и обогащение сюжета';
+
+  @override
+  String get aiBenefitSubtitle => 'Умный перевод субтитров когда их нет';
+
+  @override
+  String get aiPrivacyNote =>
+      'Поисковые запросы отправляются в Google. Ключ хранится локально, удалить можно в любой момент.';
+
+  @override
+  String get geminiApiKey => 'Ключ Gemini API';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'Сохранить';
+
+  @override
+  String get geminiClearKey => 'Удалить';
+
+  @override
+  String get geminiTestKey => 'Проверить';
+
+  @override
+  String get geminiKeySaved => 'Ключ сохранён. Функции ИИ активны.';
+
+  @override
+  String get geminiKeyCleared => 'Ключ удалён. Функции ИИ скрыты.';
+
+  @override
+  String get geminiKeyInvalid => 'Ключ пуст или недействителен.';
+
+  @override
+  String get geminiKeyTestSuccess => 'Ключ работает! Ответ от Gemini получен.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'Тест не пройден: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'Активен';
+
+  @override
+  String get geminiStatusInactive => 'Не настроен';
+
+  @override
+  String get howToGetGeminiKey => 'Как получить ключ?';
+
+  @override
+  String get geminiStep1 => '1. Откройте aistudio.google.com в браузере';
+
+  @override
+  String get geminiStep2 => '2. Войдите с любым аккаунтом Google';
+
+  @override
+  String get geminiStep3 => '3. Нажмите \"Get API key\" → \"Create new\"';
+
+  @override
+  String get geminiStep4 => '4. Скопируйте ключ (начинается с AIzaSy…)';
+
+  @override
+  String get geminiStep5 => '5. Вставьте в поле выше и нажмите Сохранить';
+
+  @override
+  String get geminiFreeReassurance =>
+      'Бесплатно, без банковской карты. Личной квоты достаточно для повседневного использования.';
+
+  @override
+  String get openGeminiSite => 'Открыть aistudio.google.com';
 }

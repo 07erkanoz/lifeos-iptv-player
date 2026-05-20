@@ -883,4 +883,99 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'Dema dawî divê piştî dema destpêkê be.';
+
+  @override
+  String get aiAssistant => 'Alîkarê AI';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Bijarî — bişopa Google Gemini API ya belaş binivîsîne ji bo vekirina taybetmendiyên jîr.';
+
+  @override
+  String get aiAssistantWhy => 'Bi bişopê tu çi qezenc dikî';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'Lêgerîn bi zimanê xwezayî (\"drama polîs ya Koreyî ya kurt\")';
+
+  @override
+  String get aiBenefitTonightChat => 'Sohbet \"îşev çi temaşe bikim?\"';
+
+  @override
+  String get aiBenefitRecap => 'Kurtenivîs bê spoyler ji cihê ku te dawî hişt';
+
+  @override
+  String get aiBenefitPlot => 'Kurtenivîs, werger û dewlemendkirina çîrokê';
+
+  @override
+  String get aiBenefitSubtitle => 'Wergera jîr a binnivîsê dema tune be';
+
+  @override
+  String get aiPrivacyNote =>
+      'Lêgerîn ji Google re tê şandin. Bişop li herêmê tê hilanîn û her dem dikare were jêbirin.';
+
+  @override
+  String get geminiApiKey => 'Bişopa Gemini API';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'Tomar bike';
+
+  @override
+  String get geminiClearKey => 'Jê bibe';
+
+  @override
+  String get geminiTestKey => 'Test bike';
+
+  @override
+  String get geminiKeySaved =>
+      'Bişop hate tomarkirin. Taybetmendiyên AI çalak in.';
+
+  @override
+  String get geminiKeyCleared =>
+      'Bişop hate jêbirin. Taybetmendiyên AI veşartî ne.';
+
+  @override
+  String get geminiKeyInvalid => 'Bişop vala an nederbasdar e.';
+
+  @override
+  String get geminiKeyTestSuccess => 'Bişop dixebite! Bersiv ji Gemini hat.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'Test bi ser neket: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'Çalak';
+
+  @override
+  String get geminiStatusInactive => 'Nehatî mîhengkirin';
+
+  @override
+  String get howToGetGeminiKey => 'Çawa bişopê bistînim?';
+
+  @override
+  String get geminiStep1 => '1. Di gerokê de aistudio.google.com veke';
+
+  @override
+  String get geminiStep2 => '2. Bi her hesabê Google re têkeve';
+
+  @override
+  String get geminiStep3 => '3. Bikirtîne \"Get API key\" → \"Create new\"';
+
+  @override
+  String get geminiStep4 => '4. Bişopê kopî bike (bi AIzaSy… dest pê dike)';
+
+  @override
+  String get geminiStep5 => '5. Wê di qadê de bipêve û pêl Tomar bike';
+
+  @override
+  String get geminiFreeReassurance =>
+      'Belaş, qarta krediyê pêwîst nake. Quota şexsî ji bo bikaranîna rojane bes e.';
+
+  @override
+  String get openGeminiSite => 'aistudio.google.com veke';
 }

@@ -881,4 +881,98 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'يجب أن يكون وقت النهاية بعد وقت البداية.';
+
+  @override
+  String get aiAssistant => 'مساعد الذكاء الاصطناعي';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'اختياري — الصق مفتاح Google Gemini API المجاني لفتح الميزات الذكية.';
+
+  @override
+  String get aiAssistantWhy => 'ما الذي تحصل عليه بمفتاح';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'بحث بلغة طبيعية (\"دراما بوليسية كورية قصيرة\")';
+
+  @override
+  String get aiBenefitTonightChat => 'محادثة \"ماذا أشاهد الليلة؟\"';
+
+  @override
+  String get aiBenefitRecap => 'ملخص بدون حرق لما توقفت عنده';
+
+  @override
+  String get aiBenefitPlot => 'ملخص الحبكة وترجمتها وإثرائها';
+
+  @override
+  String get aiBenefitSubtitle => 'ترجمة ذكية للترجمات عند عدم توفرها';
+
+  @override
+  String get aiPrivacyNote =>
+      'تُرسل استعلامات البحث إلى Google. يُخزَّن المفتاح محلياً ويمكن حذفه في أي وقت.';
+
+  @override
+  String get geminiApiKey => 'مفتاح Gemini API';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'حفظ';
+
+  @override
+  String get geminiClearKey => 'حذف';
+
+  @override
+  String get geminiTestKey => 'اختبار';
+
+  @override
+  String get geminiKeySaved => 'تم حفظ المفتاح. ميزات الذكاء الاصطناعي مفعّلة.';
+
+  @override
+  String get geminiKeyCleared =>
+      'تم حذف المفتاح. ميزات الذكاء الاصطناعي مخفية.';
+
+  @override
+  String get geminiKeyInvalid => 'المفتاح فارغ أو غير صالح.';
+
+  @override
+  String get geminiKeyTestSuccess => 'المفتاح يعمل! تم استلام رد من Gemini.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'فشل الاختبار: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'مفعّل';
+
+  @override
+  String get geminiStatusInactive => 'غير مُعدّ';
+
+  @override
+  String get howToGetGeminiKey => 'كيف أحصل على مفتاح؟';
+
+  @override
+  String get geminiStep1 => '١. افتح aistudio.google.com في المتصفح';
+
+  @override
+  String get geminiStep2 => '٢. سجّل الدخول بأي حساب Google';
+
+  @override
+  String get geminiStep3 => '٣. انقر على \"Get API key\" → \"Create new\"';
+
+  @override
+  String get geminiStep4 => '٤. انسخ المفتاح (يبدأ بـ AIzaSy…)';
+
+  @override
+  String get geminiStep5 => '٥. الصقه في الحقل أعلاه واضغط حفظ';
+
+  @override
+  String get geminiFreeReassurance =>
+      'مجاني، لا حاجة لبطاقة ائتمان. الحصة الشخصية كافية للاستخدام اليومي.';
+
+  @override
+  String get openGeminiSite => 'فتح aistudio.google.com';
 }

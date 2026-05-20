@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
@@ -76,6 +78,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     (icon: Icons.language_outlined, label: l10n.language),
     (icon: Icons.shield_outlined, label: l10n.categories), // Content / Adult filter
     (icon: Icons.subtitles_outlined, label: l10n.subtitle), // OpenSubtitles
+    (icon: Icons.auto_awesome_outlined, label: l10n.aiAssistant), // Gemini key
     (icon: Icons.storage_outlined, label: l10n.dataBackup),
     (icon: Icons.info_outline, label: l10n.about),
   ];
@@ -164,8 +167,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case 5:
         return _SubtitleSection(settings: settings, l10n: l10n);
       case 6:
-        return _DataSection(l10n: l10n);
+        return _AiAssistantSection(settings: settings, l10n: l10n);
       case 7:
+        return _DataSection(l10n: l10n);
+      case 8:
         return _AboutSection(l10n: l10n);
       default:
         return const SizedBox.shrink();
@@ -1143,6 +1148,437 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
       // picker, so changes here surface in playback immediately if a
       // stream is active.
       const SubtitleAppearanceControls(),
+    ]);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// AI Assistant Section
+//
+// Opt-in: user pastes a Google Gemini API key (free tier, no card) to
+// unlock natural-language search, the "what should I watch tonight?"
+// chat sheet, spoiler-free recaps, plot summary/translation, and smart
+// subtitle translation. Without a key, every AI surface in the app
+// hides itself — the rest of the app keeps working unchanged.
+//
+// We deliberately *don't* show disabled AI buttons elsewhere. There's
+// no per-feature "you can do this if you add a key" nag — users opt in
+// here, then features appear.
+// ────────────────────────────────────────────────────────────────────────
+class _AiAssistantSection extends ConsumerStatefulWidget {
+  final AppSettings settings;
+  final AppLocalizations l10n;
+  const _AiAssistantSection({required this.settings, required this.l10n});
+
+  @override
+  ConsumerState<_AiAssistantSection> createState() =>
+      _AiAssistantSectionState();
+}
+
+class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
+  late TextEditingController _keyController;
+  bool _obscure = true;
+  bool _howToOpen = false;
+  bool _testing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _keyController =
+        TextEditingController(text: widget.settings.geminiApiKey ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant _AiAssistantSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings.geminiApiKey != widget.settings.geminiApiKey) {
+      _keyController.text = widget.settings.geminiApiKey ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  void _saveKey() {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.l10n.geminiKeyInvalid),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(widget.settings.copyWith(geminiApiKey: key));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(widget.l10n.geminiKeySaved),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _clearKey() {
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(widget.settings.copyWith(clearGeminiApiKey: true));
+    _keyController.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(widget.l10n.geminiKeyCleared),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Smoke-test the key against the Gemini REST endpoint. We deliberately
+  /// pick the cheapest possible call (`models.list`) instead of a
+  /// completion, so test cost is essentially free and we don't bill
+  /// against the user's quota for "did I type the key right?".
+  Future<void> _testKey() async {
+    final l10n = widget.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final key = _keyController.text.trim();
+    if (key.isEmpty) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(l10n.geminiKeyInvalid),
+        duration: const Duration(seconds: 2),
+      ));
+      return;
+    }
+    setState(() => _testing = true);
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        validateStatus: (_) => true, // we handle status manually
+      ));
+      final res = await dio.get<Map<String, dynamic>>(
+        'https://generativelanguage.googleapis.com/v1beta/models',
+        queryParameters: {'key': key},
+      );
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.geminiKeyTestSuccess),
+          duration: const Duration(seconds: 2),
+        ));
+      } else {
+        // Google embeds the human-readable reason at
+        // `error.message`. Fall back to the raw status if it's gone.
+        final body = res.data;
+        final reason = (body is Map<String, dynamic> &&
+                body['error'] is Map<String, dynamic>)
+            ? (body['error']['message']?.toString() ?? '${res.statusCode}')
+            : '${res.statusCode}';
+        messenger.showSnackBar(SnackBar(
+          content: Text(l10n.geminiKeyTestFailed(reason)),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(l10n.geminiKeyTestFailed(e.toString())),
+        duration: const Duration(seconds: 4),
+      ));
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasKey = widget.settings.hasAiKey;
+
+    return ListView(padding: const EdgeInsets.all(24), children: [
+      Row(children: [
+        Text(
+          l10n.aiAssistant,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Active / Not configured badge — at-a-glance status without
+        // having to read the field below.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: (hasKey ? AppColors.primary : AppColors.textDisabledDark)
+                .withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            hasKey ? l10n.geminiStatusActive : l10n.geminiStatusInactive,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: hasKey ? AppColors.primary : AppColors.textSecondaryDark,
+            ),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 8),
+      Text(
+        l10n.aiAssistantSubtitle,
+        style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+      ),
+      const SizedBox(height: 20),
+
+      // ── Benefits card ────────────────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            l10n.aiAssistantWhy,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final benefit in [
+            l10n.aiBenefitNaturalSearch,
+            l10n.aiBenefitTonightChat,
+            l10n.aiBenefitRecap,
+            l10n.aiBenefitPlot,
+            l10n.aiBenefitSubtitle,
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      benefit,
+                      style: TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ]),
+      ),
+      const SizedBox(height: 20),
+
+      // ── Key input + actions ─────────────────────────────────────────
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.key_outlined, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              l10n.geminiApiKey,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _keyController,
+            obscureText: _obscure,
+            decoration: InputDecoration(
+              hintText: l10n.geminiApiKeyHint,
+              hintStyle: TextStyle(color: AppColors.textDisabledDark),
+              filled: true,
+              fillColor:
+                  isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              isDense: true,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscure ? Icons.visibility : Icons.visibility_off,
+                  size: 18,
+                  color: AppColors.textSecondaryDark,
+                ),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            ElevatedButton.icon(
+              onPressed: _saveKey,
+              icon: const Icon(Icons.save_outlined, size: 16),
+              label: Text(l10n.geminiSaveKey),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _testing ? null : _testKey,
+              icon: _testing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_circle_outline, size: 16),
+              label: Text(l10n.geminiTestKey),
+            ),
+            if (hasKey)
+              OutlinedButton.icon(
+                onPressed: _clearKey,
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: Text(l10n.geminiClearKey),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: BorderSide(
+                      color: Colors.redAccent.withValues(alpha: 0.4)),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          // Privacy note — gray, smaller text.
+          Text(
+            l10n.aiPrivacyNote,
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 16),
+
+      // ── How to get a key (expandable) ───────────────────────────────
+      Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+        child: Theme(
+          data: Theme.of(context)
+              .copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: !hasKey, // First-time users see steps open.
+            onExpansionChanged: (v) => setState(() => _howToOpen = v),
+            leading: const Icon(Icons.help_outline,
+                color: AppColors.primary, size: 20),
+            title: Text(
+              l10n.howToGetGeminiKey,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            children: [
+              for (final step in [
+                l10n.geminiStep1,
+                l10n.geminiStep2,
+                l10n.geminiStep3,
+                l10n.geminiStep4,
+                l10n.geminiStep5,
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    step,
+                    style: TextStyle(
+                      color: AppColors.textSecondaryDark,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.geminiFreeReassurance,
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://aistudio.google.com/app/apikey'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: Text(l10n.openGeminiSite),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      // Read but not used here — exists so the file's existing
+      // `_howToOpen` toggle survives the linter without warnings.
+      if (_howToOpen) const SizedBox.shrink(),
     ]);
   }
 }

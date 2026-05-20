@@ -885,4 +885,100 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get introMarkInvalid => 'El fin debe ser posterior al inicio.';
+
+  @override
+  String get aiAssistant => 'Asistente de IA';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Opcional — pega una clave gratuita de Google Gemini para desbloquear funciones inteligentes.';
+
+  @override
+  String get aiAssistantWhy => 'Qué obtienes con una clave';
+
+  @override
+  String get aiBenefitNaturalSearch =>
+      'Búsqueda en lenguaje natural (\"drama policial coreano corto\")';
+
+  @override
+  String get aiBenefitTonightChat => 'Chat \"¿qué veo esta noche?\"';
+
+  @override
+  String get aiBenefitRecap => 'Resumen sin spoilers de donde te quedaste';
+
+  @override
+  String get aiBenefitPlot =>
+      'Resumen, traducción y enriquecimiento de la trama';
+
+  @override
+  String get aiBenefitSubtitle =>
+      'Traducción inteligente de subtítulos cuando no hay';
+
+  @override
+  String get aiPrivacyNote =>
+      'Las búsquedas se envían a Google. La clave se guarda localmente; puedes eliminarla en cualquier momento.';
+
+  @override
+  String get geminiApiKey => 'Clave API de Gemini';
+
+  @override
+  String get geminiApiKeyHint => 'AIzaSy…';
+
+  @override
+  String get geminiSaveKey => 'Guardar';
+
+  @override
+  String get geminiClearKey => 'Eliminar';
+
+  @override
+  String get geminiTestKey => 'Probar';
+
+  @override
+  String get geminiKeySaved => 'Clave guardada. Funciones de IA activas.';
+
+  @override
+  String get geminiKeyCleared => 'Clave eliminada. Funciones de IA ocultas.';
+
+  @override
+  String get geminiKeyInvalid => 'Clave vacía o inválida.';
+
+  @override
+  String get geminiKeyTestSuccess =>
+      '¡Clave funciona! Respuesta recibida de Gemini.';
+
+  @override
+  String geminiKeyTestFailed(String reason) {
+    return 'Prueba fallida: $reason';
+  }
+
+  @override
+  String get geminiStatusActive => 'Activa';
+
+  @override
+  String get geminiStatusInactive => 'No configurada';
+
+  @override
+  String get howToGetGeminiKey => '¿Cómo obtengo una clave?';
+
+  @override
+  String get geminiStep1 => '1. Abre aistudio.google.com en el navegador';
+
+  @override
+  String get geminiStep2 => '2. Inicia sesión con cualquier cuenta de Google';
+
+  @override
+  String get geminiStep3 => '3. Clic en \"Get API key\" → \"Create new\"';
+
+  @override
+  String get geminiStep4 => '4. Copia la clave (empieza con AIzaSy…)';
+
+  @override
+  String get geminiStep5 => '5. Pégala en el campo de arriba y pulsa Guardar';
+
+  @override
+  String get geminiFreeReassurance =>
+      'Gratis, sin tarjeta de crédito. La cuota personal es suficiente para uso diario.';
+
+  @override
+  String get openGeminiSite => 'Abrir aistudio.google.com';
 }

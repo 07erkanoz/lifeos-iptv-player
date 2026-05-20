@@ -23,6 +23,7 @@ class SettingsRepository {
   static const _keyParentalEnabled = 'parental_control_enabled';
   static const _keyParentalPin = 'parental_pin';
   static const _keyOpenSubsApiKey = 'opensubtitles_api_key';
+  static const _keyGeminiApiKey = 'gemini_api_key';
   static const _keySubtitleLang = 'subtitle_preferred_lang';
   static const _keySubtitleFontSize = 'subtitle_font_size';
   static const _keySubtitleColor = 'subtitle_color';
@@ -51,6 +52,7 @@ class SettingsRepository {
       parentalControlEnabled: _prefs.getBool(_keyParentalEnabled) ?? false,
       parentalPin: _prefs.getString(_keyParentalPin),
       opensubtitlesApiKey: _prefs.getString(_keyOpenSubsApiKey),
+      geminiApiKey: _prefs.getString(_keyGeminiApiKey),
       subtitlePreferredLanguage: _prefs.getString(_keySubtitleLang) ?? 'tr',
       subtitleFontSize: _prefs.getInt(_keySubtitleFontSize) ?? 55,
       subtitleColor: _prefs.getString(_keySubtitleColor) ?? '#FFFFFF',
@@ -80,6 +82,15 @@ class SettingsRepository {
     }
     if (settings.opensubtitlesApiKey != null) {
       await _prefs.setString(_keyOpenSubsApiKey, settings.opensubtitlesApiKey!);
+    }
+    // Gemini key needs an explicit `remove` branch because the
+    // "Clear key" button in settings flows through copyWith with
+    // `clearGeminiApiKey: true`, leaving the field null.
+    final geminiKey = settings.geminiApiKey;
+    if (geminiKey != null && geminiKey.isNotEmpty) {
+      await _prefs.setString(_keyGeminiApiKey, geminiKey);
+    } else {
+      await _prefs.remove(_keyGeminiApiKey);
     }
     await _prefs.setString(_keySubtitleLang, settings.subtitlePreferredLanguage);
     await _prefs.setInt(_keySubtitleFontSize, settings.subtitleFontSize);
