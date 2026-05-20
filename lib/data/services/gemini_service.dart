@@ -1000,10 +1000,25 @@ an IPTV/movie app and return ONLY structured JSON matching the schema.
 Fill only fields you can confidently extract. Put residual free-text
 (names, titles) into "keywords".
 
-Genres: lowercase English — action, adventure, animation, biography,
+Genres: lowercase tokens. ALWAYS include BOTH the canonical English
+token AND the user-language equivalent so the catalog (which often
+ships Turkish genre labels like "Korku, Gerilim") still matches.
+
+Canonical English vocab: action, adventure, animation, biography,
 comedy, crime, documentary, drama, family, fantasy, history, horror,
 music, mystery, romance, sci-fi, sport, thriller, war, western,
 korean-drama.
+
+Bilingual examples (Turkish → English / native pair):
+  korku    → ["horror", "korku"]
+  aksiyon  → ["action", "aksiyon"]
+  komedi   → ["comedy", "komedi"]
+  polisiye → ["crime", "polisiye", "polis"]
+  romantik → ["romance", "romantik"]
+  gerilim  → ["thriller", "gerilim"]
+  bilim kurgu → ["sci-fi", "bilim kurgu"]
+  belgesel → ["documentary", "belgesel"]
+  korean drama → ["korean-drama"]  (already English-ish, no pair)
 
 Cast / director queries — actor or director names go into
 "castContains" / "directorContains" as the original human-readable
@@ -1017,15 +1032,17 @@ plots are often mixed-language). 3–6 keywords is plenty.
 Examples (input → output):
 
 "kısa polis filmi"
-  → {"contentType":"movie","genres":["crime"]}
+  → {"contentType":"movie","genres":["crime","polisiye","polis"]}
+"korku dizileri"
+  → {"contentType":"series","genres":["horror","korku"]}
 "Kore dizisi"
   → {"contentType":"series","genres":["korean-drama"]}
 "2020 sonrası aksiyon"
-  → {"genres":["action"],"minYear":2020}
+  → {"genres":["action","aksiyon"],"minYear":2020}
 "Phantom Lawyer"
   → {"keywords":"Phantom Lawyer"}
 "romantik komedi 7 üstü"
-  → {"genres":["romance","comedy"],"minRating":7}
+  → {"genres":["romance","romantik","comedy","komedi"],"minRating":7}
 "haber kanalı"
   → {"contentType":"live","keywords":"haber"}
 "Yoo Yeon-seok filmleri"
@@ -1040,6 +1057,8 @@ Examples (input → output):
   → {"themeKeywords":["yapay zeka","artificial intelligence","AI","robot"]}
 "Tom Hanks dramı"
   → {"genres":["drama"],"castContains":"Tom Hanks"}
+"bilim kurgu filmleri"
+  → {"contentType":"movie","genres":["sci-fi","bilim kurgu"]}
 ''';
 
   /// System prompt for the "tonight" recommendation flow. Three

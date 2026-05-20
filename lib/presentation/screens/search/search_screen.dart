@@ -541,25 +541,54 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                       )
                     : !_hasResults
+                        // Plain search returned nothing. If AI is
+                        // still in flight, show a "Düşünüyor…" panel
+                        // instead of the "Kanal bulunamadı" empty
+                        // state — otherwise the user gives up before
+                        // the AI tier even gets a chance to surface
+                        // results (a common case for thematic
+                        // queries like "korku dizileri" where plain
+                        // LIKE has nothing to grab onto).
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  _controller.text.isEmpty ? Icons.search : Icons.search_off,
-                                  size: 48,
-                                  color: AppColors.textDisabledDark,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _controller.text.isEmpty
-                                      ? l10n.search
-                                      : l10n.noChannels,
-                                  style: const TextStyle(
-                                    color: AppColors.textTertiaryDark,
-                                    fontSize: 14,
+                                if (_aiRefining) ...[
+                                  const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: AppColors.primary),
                                   ),
-                                ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    l10n.aiThinking,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 14,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Icon(
+                                    _controller.text.isEmpty
+                                        ? Icons.search
+                                        : Icons.search_off,
+                                    size: 48,
+                                    color: AppColors.textDisabledDark,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _controller.text.isEmpty
+                                        ? l10n.search
+                                        : l10n.noChannels,
+                                    style: const TextStyle(
+                                      color: AppColors.textTertiaryDark,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           )

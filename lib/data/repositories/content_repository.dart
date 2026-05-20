@@ -118,6 +118,72 @@ class ContentRepository {
         .toList();
   }
 
+  /// Canonical English ↔ Turkish bilingual genre synonyms.
+  ///
+  /// Keyed by either side — `expand(["horror"])` returns both
+  /// "horror" and "korku", and `expand(["korku"])` returns the same
+  /// pair. This is the cheap belt-and-suspenders fix for the
+  /// AI-emits-English-only-but-catalog-is-Turkish mismatch; the
+  /// system prompt already asks Gemini to emit bilingual genre
+  /// lists, this just covers the case where it doesn't.
+  static const Map<String, List<String>> _genreSynonyms = {
+    'horror': ['horror', 'korku'],
+    'korku': ['korku', 'horror'],
+    'action': ['action', 'aksiyon'],
+    'aksiyon': ['aksiyon', 'action'],
+    'comedy': ['comedy', 'komedi'],
+    'komedi': ['komedi', 'comedy'],
+    'crime': ['crime', 'polisiye', 'polis', 'suç'],
+    'polisiye': ['polisiye', 'crime', 'polis'],
+    'thriller': ['thriller', 'gerilim'],
+    'gerilim': ['gerilim', 'thriller'],
+    'romance': ['romance', 'romantik', 'romantizm'],
+    'romantik': ['romantik', 'romance'],
+    'sci-fi': ['sci-fi', 'science fiction', 'bilim kurgu', 'bilimkurgu'],
+    'bilim kurgu': ['bilim kurgu', 'sci-fi', 'science fiction'],
+    'documentary': ['documentary', 'belgesel'],
+    'belgesel': ['belgesel', 'documentary'],
+    'drama': ['drama'],
+    'family': ['family', 'aile'],
+    'aile': ['aile', 'family'],
+    'fantasy': ['fantasy', 'fantastik', 'fantezi'],
+    'fantastik': ['fantastik', 'fantasy'],
+    'animation': ['animation', 'animasyon', 'çizgi film'],
+    'animasyon': ['animasyon', 'animation'],
+    'war': ['war', 'savaş'],
+    'savaş': ['savaş', 'war'],
+    'history': ['history', 'tarih', 'tarihi'],
+    'tarih': ['tarih', 'history'],
+    'mystery': ['mystery', 'gizem', 'esrarengiz'],
+    'gizem': ['gizem', 'mystery'],
+    'adventure': ['adventure', 'macera'],
+    'macera': ['macera', 'adventure'],
+    'biography': ['biography', 'biyografi'],
+    'biyografi': ['biyografi', 'biography'],
+    'music': ['music', 'müzik'],
+    'müzik': ['müzik', 'music'],
+    'sport': ['sport', 'spor'],
+    'spor': ['spor', 'sport'],
+    'western': ['western', 'kovboy'],
+    'kovboy': ['kovboy', 'western'],
+  };
+
+  /// Expand a genre list using [_genreSynonyms], deduping. Pass-through
+  /// for tokens not in the map (e.g. obscure or custom genres).
+  static List<String>? _expandGenreSynonyms(List<String>? input) {
+    if (input == null || input.isEmpty) return input;
+    final out = <String>{};
+    for (final g in input) {
+      final synonyms = _genreSynonyms[g];
+      if (synonyms != null) {
+        out.addAll(synonyms);
+      } else {
+        out.add(g);
+      }
+    }
+    return out.toList();
+  }
+
   /// Search powered by a [SearchIntent] from Gemini.
   ///
   /// Every field on the intent is optional; missing fields don't
@@ -162,10 +228,18 @@ class ContentRepository {
     final channels = rows.map((row) => row.readTable(_db.channels));
 
     final keywordsLower = intent.keywords?.trim().toLowerCase();
-    final genres = intent.genres
-        ?.map((g) => g.trim().toLowerCase())
-        .where((g) => g.isNotEmpty)
-        .toList();
+    // Bilingual genre matching — Xtream catalogs are notorious for
+    // shipping Turkish genre labels ("Korku, Gerilim") even though
+    // the rest of the metadata is in English. The AI is asked to
+    // emit both languages, but we expand again defensively so an
+    // English-only `["horror"]` from older prompt versions still
+    // matches a "Korku" channel and vice-versa.
+    final genres = _expandGenreSynonyms(
+      intent.genres
+          ?.map((g) => g.trim().toLowerCase())
+          .where((g) => g.isNotEmpty)
+          .toList(),
+    );
     final castLower = intent.castContains?.trim().toLowerCase();
     final directorLower = intent.directorContains?.trim().toLowerCase();
     // Theme keywords matched OR-wise — any hit qualifies. Lower-cased
