@@ -1961,7 +1961,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiChatGreeting.
   ///
   /// In tr, this message translates to:
-  /// **'Selam! Ne izlemek istediğini söyle — kütüphanenden öneri yapayım.'**
+  /// **'Selam! Ne izlemek istediğini söyle ya da bir film/dizi hakkında bilgi iste — kütüphanene göre cevap vereyim.'**
   String get aiChatGreeting;
 
   /// No description provided for @aiChatInputHint.
@@ -2023,6 +2023,12 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Çocuklar için bir şey'**
   String get aiSuggestKids;
+
+  /// No description provided for @aiSuggestAboutTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Phantom Lawyer hakkında bilgi ver'**
+  String get aiSuggestAboutTitle;
 
   /// No description provided for @aiWhyThis.
   ///

@@ -275,6 +275,9 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       l10n.aiSuggestTogether,
       l10n.aiSuggestShort,
       l10n.aiSuggestKids,
+      // Direct Q&A example so users notice the chat can also answer
+      // "X hakkında bilgi ver" type queries — not just recommendation.
+      l10n.aiSuggestAboutTitle,
     ];
     return ListView(
       padding: const EdgeInsets.all(20),

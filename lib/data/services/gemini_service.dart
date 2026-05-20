@@ -202,7 +202,10 @@ class GeminiService {
             'responseMimeType': 'application/json',
             'responseSchema': _tonightResponseSchema,
             'temperature': 0.7, // some warmth in phrasing
-            'maxOutputTokens': 1024,
+            // 2048 was 1024 — the Q&A path may produce a couple of
+            // short paragraphs of real information, which a tighter
+            // budget was truncating mid-sentence.
+            'maxOutputTokens': 2048,
           },
         },
       );
@@ -1078,38 +1081,58 @@ Examples (input → output):
   → {"contentType":"movie","genres":["sci-fi","bilim kurgu"]}
 ''';
 
-  /// System prompt for the "tonight" recommendation flow. Three
-  /// constraints matter:
+  /// System prompt for the "tonight" recommendation + Q&A flow.
+  /// Three constraints matter:
   ///   1. Only return ids that appear in the supplied `library` list
   ///      (no hallucination — the UI can't render a fake stream id).
   ///   2. Match the user's language in the `message` and `reason`
   ///      fields (Turkish for Turkish prompts, English for English).
   ///   3. Keep reasons concrete and short (single sentence is fine).
   static const String _tonightSystemPrompt = '''
-You are a Turkish-first IPTV/streaming recommendation assistant.
+You are a Turkish-first IPTV/streaming assistant. You handle TWO
+kinds of user turns and adjust the response shape accordingly:
 
-The first user turn contains a JSON context blob with three lists:
-"recentlyWatched", "favorites", "library". Use these to understand
-the user's taste and to pick recommendations *only from the library
-list*. Do not invent stream ids or titles that aren't in the library.
+A) **Recommendation queries** ("bu akşam ne izleyim", "eşimle 2
+   saat zaman var", "kısa polis filmi", "çocuklarla izlenir bir
+   şey", "drama dışında öner") — return 3-5 picks from the
+   library plus a short framing message.
 
-Match the user's language in your replies. If the user writes
-Turkish, answer Turkish.
+B) **Direct info / Q&A queries** ("Phantom Lawyer hakkında bilgi
+   ver", "Mad Max nedir", "Bong Joon-ho kimdir", "Inception'ın
+   konusu ne") — use the `message` field for a substantive
+   multi-paragraph answer in the user's language. Recommendations
+   array can be empty, or carry 1-3 related-title picks if
+   genuinely helpful.
+
+The first user turn contains a JSON context blob with three lists
+("recentlyWatched", "favorites", "library"). Use these for taste
+context AND for resolving title references — if the user says
+"Phantom Lawyer hakkında bilgi ver" and that title exists in the
+library, prefer that streamId when picking a related title.
+
+Hard rules:
+  - Only return streamIds that appear in the library list.
+  - Match the user's language in both `message` and per-pick
+    `reason` strings.
+  - For Q&A turns the `message` may be 2-5 short paragraphs of
+    real, factual information about the title or person — concrete
+    director, cast, premise, era, awards, themes. Avoid
+    generic "this is a horror film" filler.
+  - For recommendation turns the `message` stays one or two
+    short sentences framing the picks.
+  - When the user asks for clarification or you need more
+    information, return a non-empty `message` and an empty
+    `recommendations` array.
 
 Respond with JSON only, matching the schema:
 {
-  "message": "<one or two short sentences framing your picks>",
+  "message": "<plain text — short framing for picks, OR
+              multi-paragraph answer for Q&A>",
   "recommendations": [
-    {"streamId": <int from library>, "reason": "<one sentence in user's language>"},
+    {"streamId": <int from library>, "reason": "<one sentence>"},
     ...
   ]
 }
-
-Aim for 3-5 recommendations. If the user asks a clarifying question
-or you need more information, return a non-empty "message" and an
-empty "recommendations" array. If absolutely nothing in the library
-fits the request, return an empty array with a brief explanation in
-"message".
 ''';
 
   /// JSON Schema for the "tonight" flow. Strict so Gemini emits

@@ -981,7 +981,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiChatGreeting =>
-      'Selam! Ne izlemek istediğini söyle — kütüphanenden öneri yapayım.';
+      'Selam! Ne izlemek istediğini söyle ya da bir film/dizi hakkında bilgi iste — kütüphanene göre cevap vereyim.';
 
   @override
   String get aiChatInputHint => 'Asistana sor…';
@@ -1013,6 +1013,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiSuggestKids => 'Çocuklar için bir şey';
+
+  @override
+  String get aiSuggestAboutTitle => 'Phantom Lawyer hakkında bilgi ver';
 
   @override
   String get aiWhyThis => 'Neden bu?';

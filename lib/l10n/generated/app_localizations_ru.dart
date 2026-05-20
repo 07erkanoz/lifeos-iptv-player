@@ -1020,6 +1020,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiSuggestKids => 'Что-то для детей';
 
   @override
+  String get aiSuggestAboutTitle => 'Расскажи об Inception';
+
+  @override
   String get aiWhyThis => 'Почему?';
 
   @override

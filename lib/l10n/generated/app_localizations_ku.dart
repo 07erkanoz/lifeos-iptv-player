@@ -1018,6 +1018,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiSuggestKids => 'Tiştek ji bo zarokan';
 
   @override
+  String get aiSuggestAboutTitle => 'Li ser Inception ji min re bibêje';
+
+  @override
   String get aiWhyThis => 'Çima?';
 
   @override

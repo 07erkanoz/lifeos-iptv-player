@@ -983,7 +983,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiChatGreeting =>
-      'Hi! Ask me what to watch — I\'ll pick from your library.';
+      'Hi! Ask me what to watch or tell me to give info about a title — I\'ll answer based on your library.';
 
   @override
   String get aiChatInputHint => 'Ask the assistant…';
@@ -1015,6 +1015,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiSuggestKids => 'Something for kids';
+
+  @override
+  String get aiSuggestAboutTitle => 'Tell me about Inception';
 
   @override
   String get aiWhyThis => 'Why this?';

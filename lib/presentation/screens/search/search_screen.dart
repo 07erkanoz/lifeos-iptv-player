@@ -266,9 +266,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     // Step 2 — Build the candidate pool. Plain results stay
     // top-of-list because they're the strongest name-match signal
-    // when the user is searching by title; intent matches widen the
-    // net for genre/cast/director; a top-rated padding ensures the
-    // pool isn't empty for purely thematic queries.
+    // when the user is searching by title; intent matches widen
+    // the net for genre/cast/director/theme; top-rated padding
+    // ensures the pool isn't empty for purely thematic queries.
     final pool = <int, Channel>{};
     for (final ch in plainResults) {
       pool[ch.streamId] = ch;
@@ -276,11 +276,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     for (final ch in intentChannels) {
       pool.putIfAbsent(ch.streamId, () => ch);
     }
-    if (pool.length < 30) {
+
+    // Thematic queries (no exact name match, but the AI extracted
+    // theme/genre keywords) need a substantially bigger
+    // cross-section so the curator can find titles like
+    // "Train to Busan" for "zombi filmleri" even when the catalog
+    // doesn't have the word "zombi" anywhere in the metadata.
+    final isThematic = plainResults.isEmpty &&
+        intent != null &&
+        ((intent.themeKeywords?.isNotEmpty ?? false) ||
+            (intent.genres?.isNotEmpty ?? false));
+    final padTarget = isThematic ? 250 : 30;
+    if (pool.length < padTarget) {
       final pad = await repo.sampleLibraryForAi(
-        moviesPerType: 25,
-        seriesPerType: 25,
-        livePerType: 10,
+        moviesPerType: isThematic ? 90 : 25,
+        seriesPerType: isThematic ? 90 : 25,
+        livePerType: isThematic ? 30 : 10,
       );
       if (requestId != _searchRequestId) return null;
       for (final ch in pad) {
@@ -288,8 +299,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     }
 
-    // Cap at 150 for the curator's prompt budget.
-    final sampleEntries = pool.values.take(150).toList();
+    // Cap at 220 for the curator's prompt budget — comfortably
+    // under the 1M-context model and around ~12 KB of compact JSON.
+    final sampleEntries = pool.values.take(220).toList();
     if (sampleEntries.isEmpty) return null;
 
     final compactSample = sampleEntries

@@ -1027,6 +1027,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiSuggestKids => 'Quelque chose pour les enfants';
 
   @override
+  String get aiSuggestAboutTitle => 'Parle-moi d\'Inception';
+
+  @override
   String get aiWhyThis => 'Pourquoi ?';
 
   @override

@@ -1021,6 +1021,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiSuggestKids => 'Algo para niños';
 
   @override
+  String get aiSuggestAboutTitle => 'Háblame de Inception';
+
+  @override
   String get aiWhyThis => '¿Por qué?';
 
   @override
