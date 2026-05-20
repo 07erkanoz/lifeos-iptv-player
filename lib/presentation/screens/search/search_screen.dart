@@ -203,26 +203,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
-  /// Phase-2 AI enrichment of an already-shown plain result set.
+  /// AI-driven search.
   ///
-  /// Returns `null` when the AI call(s) errored, timed out, or had
-  /// nothing to add — caller leaves the plain results on screen.
+  /// Returns `null` when the AI call(s) errored / timed out / had
+  /// nothing useful to contribute — caller leaves the plain results
+  /// on screen.
   ///
-  /// Internally:
-  ///   * Tier 2 — `parseSearchQuery` extracts structured filters
-  ///     and we re-query the repo with them.
-  ///   * Tier 3 — `curateLibraryByQuery` ranks library items by
-  ///     true relevance to the query, with per-pick reasons.
+  /// Strategy (the bit that matters):
+  ///   1. Parse the query to extract structured filters
+  ///      (genre / cast / director / theme / type / year).
+  ///   2. Build a **wide candidate pool** by union'ing:
+  ///        - the plain LIKE hits the caller already produced,
+  ///        - everything the parsed intent matches against the
+  ///          full local library (e.g. all horror-genre rows for
+  ///          "korku"),
+  ///        - if the pool is still thin (< 30), a top-rated
+  ///          cross-section so the curator always has something
+  ///          to grade.
+  ///      Cap at 150 entries for the curator's token budget.
+  ///   3. Ask the curator to rank + annotate the top 15–25 picks
+  ///      from that pool. The curator gets full metadata
+  ///      (title/year/genre/cast/director/rating) so it can tell
+  ///      "Korku Seansı = horror" apart from "Korkusuz = action",
+  ///      something keyword LIKE physically can't.
+  ///   4. Merge: curator picks first (with ✨ reasons), then
+  ///      intent matches not yet seen, then any remaining plain
+  ///      results. Plain set is never shrunk.
   ///
-  /// **Critical sampling change**: when plain LIKE already produced
-  /// results, those become the curator's sample (capped at 80) so
-  /// the AI ranks + annotates the items the user is actually about
-  /// to see. Previously we sent a separate top-rated sample, which
-  /// rarely overlapped with plain results — AI value never landed
-  /// in front of the user.
-  ///
-  /// Both Gemini calls run in parallel under a single 8-second
-  /// timeout so a hung backend can't freeze search.
+  /// 15-second timeout (was 8) — Gemini Flash 2.5 with a 150-item
+  /// JSON sample legitimately runs 5–10 s in Turkey, and a longer
+  /// budget is the difference between "AI does something useful"
+  /// and "user sees no value".
   Future<_SearchResults?> _runAiSearch(
     String query,
     int requestId,
@@ -232,31 +243,56 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final repo = ref.read(contentRepositoryProvider);
     final lang = _userLanguageCode();
 
-    // Sample strategy:
-    //  - Plain LIKE found something → curate THAT set (cap 80).
-    //    Curator's job becomes "rank + annotate" the items the user
-    //    is already looking at, which surfaces immediate visible AI
-    //    value on every query strong enough to match a name/plot
-    //    substring.
-    //  - Plain LIKE empty → thematic / semantic search. Reach into
-    //    a top-rated cross-section so curator has *something* to
-    //    pick from for queries like "dünyanın sonu konulu" that
-    //    don't keyword-match anywhere.
-    final List<Channel> librarySample;
-    if (plainResults.isNotEmpty) {
-      librarySample = plainResults.length > 80
-          ? plainResults.sublist(0, 80)
-          : plainResults;
-    } else {
-      librarySample = await repo.sampleLibraryForAi(
-        moviesPerType: 35,
-        seriesPerType: 35,
+    Future<R?> withTimeout<R>(Future<R?> f) =>
+        f.timeout(const Duration(seconds: 15), onTimeout: () => null);
+
+    // Step 1 — parse intent. Independent call so we can already
+    // start building the candidate pool while it's in flight.
+    final intentFuture = withTimeout(gemini.parseSearchQuery(query));
+
+    // Pull genre-filtered matches once the parse lands. These are
+    // typically the strongest signal for genre queries because they
+    // hit the catalog's genre column directly (e.g. "Korku" rows in
+    // a Turkish provider) without depending on name keywords.
+    final intent = await intentFuture;
+    if (requestId != _searchRequestId) return null;
+
+    final hasIntent =
+        intent != null && !intent.isEmpty && intent.hasStructuredFilters;
+    final intentChannels = hasIntent
+        ? await repo.searchChannelsByIntent(intent, limit: 200)
+        : const <Channel>[];
+    if (requestId != _searchRequestId) return null;
+
+    // Step 2 — Build the candidate pool. Plain results stay
+    // top-of-list because they're the strongest name-match signal
+    // when the user is searching by title; intent matches widen the
+    // net for genre/cast/director; a top-rated padding ensures the
+    // pool isn't empty for purely thematic queries.
+    final pool = <int, Channel>{};
+    for (final ch in plainResults) {
+      pool[ch.streamId] = ch;
+    }
+    for (final ch in intentChannels) {
+      pool.putIfAbsent(ch.streamId, () => ch);
+    }
+    if (pool.length < 30) {
+      final pad = await repo.sampleLibraryForAi(
+        moviesPerType: 25,
+        seriesPerType: 25,
         livePerType: 10,
       );
+      if (requestId != _searchRequestId) return null;
+      for (final ch in pad) {
+        pool.putIfAbsent(ch.streamId, () => ch);
+      }
     }
-    if (requestId != _searchRequestId) return null;
-    final sampleByStreamId = {for (final c in librarySample) c.streamId: c};
-    final compactSample = librarySample
+
+    // Cap at 150 for the curator's prompt budget.
+    final sampleEntries = pool.values.take(150).toList();
+    if (sampleEntries.isEmpty) return null;
+
+    final compactSample = sampleEntries
         .map((c) => {
               'streamId': c.streamId,
               'title': c.name,
@@ -270,55 +306,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             })
         .toList();
 
-    // Fire both Gemini calls in parallel, gated by a single deadline.
-    // Whichever doesn't return inside 8 s falls back to "no AI input"
-    // for that tier rather than holding the whole search up.
-    Future<R?> withTimeout<R>(Future<R?> f) =>
-        f.timeout(const Duration(seconds: 8), onTimeout: () => null);
-
-    final results = await Future.wait([
-      withTimeout(gemini.parseSearchQuery(query)),
-      withTimeout(gemini.curateLibraryByQuery(
-        query: query,
-        librarySample: compactSample,
-        targetLanguage: lang,
-      )),
-    ]);
+    // Step 3 — Curator ranks + annotates.
+    final curatorPicks = await withTimeout(gemini.curateLibraryByQuery(
+      query: query,
+      librarySample: compactSample,
+      targetLanguage: lang,
+    ));
     if (requestId != _searchRequestId) return null;
-
-    final intent = results[0] as SearchIntent?;
-    final curatorPicks =
-        results[1] as List<({int streamId, String reason})>?;
 
     final reasonByStreamId = <int, String>{};
     final curatorChannels = <Channel>[];
     if (curatorPicks != null) {
       for (final pick in curatorPicks) {
-        final ch = sampleByStreamId[pick.streamId];
+        final ch = pool[pick.streamId];
         if (ch == null) continue; // hallucinated id; drop
         reasonByStreamId[pick.streamId] = pick.reason;
         curatorChannels.add(ch);
       }
     }
 
-    final hasIntent = intent != null &&
-        !intent.isEmpty &&
-        intent.hasStructuredFilters;
-    // Nothing to upgrade with — keep the plain Tier-1 results on
-    // screen by returning null.
+    // Nothing AI could contribute on either front — leave plain
+    // results on screen by returning null.
     if (!hasIntent && curatorChannels.isEmpty) return null;
 
-    final intentChannels = hasIntent
-        ? await repo.searchChannelsByIntent(intent, limit: 180)
-        : const <Channel>[];
-    if (requestId != _searchRequestId) return null;
-
-    // Merge order, deduped by stream id:
-    //   1. Curator picks (AI-ranked + ✨ reason on the card)
-    //   2. Intent-filtered hits not yet seen
-    //   3. Original plain LIKE hits not yet seen (preserved so the
-    //      user keeps the full plain result set — AI only reorders
-    //      and annotates, it doesn't shrink the list)
+    // Step 4 — Merge. Curator first, then intent matches the
+    // curator didn't already include, then any plain hits still
+    // unseen. The plain set is never shrunk; AI only reorders + adds
+    // reasons.
     final seen = <int>{};
     final merged = <Channel>[];
     for (final ch in curatorChannels) {
@@ -643,6 +657,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
                                     child: _AiIntentChips(intent: _activeIntent!),
+                                  ),
+                                // Header banner when curator actively
+                                // ranked the top of the grid — gives
+                                // the user a clear "AI did work for
+                                // you" signal so the ✨ reasons on
+                                // individual cards aren't easy to
+                                // miss when scrolling.
+                                if (_curatorReasons.isNotEmpty)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(bottom: 10),
+                                    child: Row(children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.auto_awesome,
+                                                size: 12,
+                                                color: AppColors.primary),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'AI tarafından sıralandı · ${_curatorReasons.length} öneri',
+                                              style: const TextStyle(
+                                                color: AppColors.primary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ]),
                                   ),
                                 // While Tier 2/3 are still in flight,
                                 // surface a small "AI yorumluyor…"
