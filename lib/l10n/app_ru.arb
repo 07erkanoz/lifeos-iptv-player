@@ -352,5 +352,12 @@
   "aiSuggestKids": "Что-то для детей",
   "aiWhyThis": "Почему?",
   "aiPlay": "Смотреть",
-  "aiOpenDetails": "Детали"
+  "aiOpenDetails": "Детали",
+  "aiPlotTranslate": "Перевести",
+  "aiPlotSummarize": "Резюме без спойлеров",
+  "aiPlotFillIn": "Получить описание",
+  "aiPlotEnriching": "Готовлю…",
+  "aiPlotError": "Не удалось — попробуйте снова",
+  "aiPlotShowOriginal": "Показать оригинал",
+  "aiPlotEnrichedTag": "ИИ"
 }

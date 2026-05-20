@@ -1020,4 +1020,25 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get aiOpenDetails => 'التفاصيل';
+
+  @override
+  String get aiPlotTranslate => 'ترجمة';
+
+  @override
+  String get aiPlotSummarize => 'ملخص بدون حرق';
+
+  @override
+  String get aiPlotFillIn => 'جلب معلومات الحبكة';
+
+  @override
+  String get aiPlotEnriching => 'يحضّر…';
+
+  @override
+  String get aiPlotError => 'تعذّر الجلب — حاول مجدداً';
+
+  @override
+  String get aiPlotShowOriginal => 'عرض الأصلي';
+
+  @override
+  String get aiPlotEnrichedTag => 'ذكاء اصطناعي';
 }

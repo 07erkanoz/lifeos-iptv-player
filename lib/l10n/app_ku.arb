@@ -352,5 +352,12 @@
   "aiSuggestKids": "Tiştek ji bo zarokan",
   "aiWhyThis": "Çima?",
   "aiPlay": "Lê bide",
-  "aiOpenDetails": "Hûragahî"
+  "aiOpenDetails": "Hûragahî",
+  "aiPlotTranslate": "Wergerîne",
+  "aiPlotSummarize": "Kurtenivîs bê spoyler",
+  "aiPlotFillIn": "Agahiya çîrokê bîne",
+  "aiPlotEnriching": "Amade dike…",
+  "aiPlotError": "Nehate anîn — careke din biceribîne",
+  "aiPlotShowOriginal": "Orjînalê nîşan bide",
+  "aiPlotEnrichedTag": "AI"
 }

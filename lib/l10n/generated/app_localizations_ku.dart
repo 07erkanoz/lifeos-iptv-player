@@ -1025,4 +1025,25 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get aiOpenDetails => 'Hûragahî';
+
+  @override
+  String get aiPlotTranslate => 'Wergerîne';
+
+  @override
+  String get aiPlotSummarize => 'Kurtenivîs bê spoyler';
+
+  @override
+  String get aiPlotFillIn => 'Agahiya çîrokê bîne';
+
+  @override
+  String get aiPlotEnriching => 'Amade dike…';
+
+  @override
+  String get aiPlotError => 'Nehate anîn — careke din biceribîne';
+
+  @override
+  String get aiPlotShowOriginal => 'Orjînalê nîşan bide';
+
+  @override
+  String get aiPlotEnrichedTag => 'AI';
 }

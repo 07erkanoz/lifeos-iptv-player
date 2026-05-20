@@ -342,5 +342,12 @@
   "aiSuggestKids": "Something for kids",
   "aiWhyThis": "Why this?",
   "aiPlay": "Play",
-  "aiOpenDetails": "Details"
+  "aiOpenDetails": "Details",
+  "aiPlotTranslate": "Translate",
+  "aiPlotSummarize": "Spoiler-free summary",
+  "aiPlotFillIn": "Get plot info",
+  "aiPlotEnriching": "Preparing…",
+  "aiPlotError": "Couldn't fetch — try again",
+  "aiPlotShowOriginal": "Show original",
+  "aiPlotEnrichedTag": "AI"
 }

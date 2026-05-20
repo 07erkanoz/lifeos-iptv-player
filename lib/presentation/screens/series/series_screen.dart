@@ -19,6 +19,7 @@ import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
@@ -1882,21 +1883,26 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 24),
-                                  // Plot (max-width constrained for readability)
-                                  if (plot.toString().isNotEmpty)
-                                    ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 600,
-                                      ),
-                                      child: Text(
-                                        plot.toString(),
-                                        style: TextStyle(
-                                          color: AppColors.textSecondary(context),
-                                          fontSize: 14,
-                                          height: 1.6,
-                                        ),
+                                  // Plot (max-width constrained for readability).
+                                  // AI-aware wrapper — pixel-identical to
+                                  // a plain Text when no Gemini key is
+                                  // configured, but gains inline
+                                  // translate / spoiler-free-summary /
+                                  // fill-in links when the user opts in.
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 600,
+                                    ),
+                                    child: PlotEnrichedView(
+                                      channel: ch,
+                                      plotText: plot.toString(),
+                                      textStyle: TextStyle(
+                                        color: AppColors.textSecondary(context),
+                                        fontSize: 14,
+                                        height: 1.6,
                                       ),
                                     ),
+                                  ),
                                   const SizedBox(height: 20),
                                   // Credits (label-value pairs)
                                   ConstrainedBox(

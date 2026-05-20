@@ -1034,4 +1034,25 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiOpenDetails => 'Détails';
+
+  @override
+  String get aiPlotTranslate => 'Traduire';
+
+  @override
+  String get aiPlotSummarize => 'Résumé sans spoilers';
+
+  @override
+  String get aiPlotFillIn => 'Obtenir l\'intrigue';
+
+  @override
+  String get aiPlotEnriching => 'Préparation…';
+
+  @override
+  String get aiPlotError => 'Échec — réessayer';
+
+  @override
+  String get aiPlotShowOriginal => 'Voir l\'original';
+
+  @override
+  String get aiPlotEnrichedTag => 'IA';
 }

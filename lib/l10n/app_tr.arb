@@ -360,5 +360,12 @@
   "aiSuggestKids": "Çocuklar için bir şey",
   "aiWhyThis": "Neden bu?",
   "aiPlay": "Oynat",
-  "aiOpenDetails": "Detay"
+  "aiOpenDetails": "Detay",
+  "aiPlotTranslate": "Türkçe'ye çevir",
+  "aiPlotSummarize": "Spoiler-free özet",
+  "aiPlotFillIn": "Plot bilgisi getir",
+  "aiPlotEnriching": "Hazırlıyor…",
+  "aiPlotError": "Alınamadı — tekrar dene",
+  "aiPlotShowOriginal": "Orijinali göster",
+  "aiPlotEnrichedTag": "AI"
 }

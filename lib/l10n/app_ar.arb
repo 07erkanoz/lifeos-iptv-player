@@ -352,5 +352,12 @@
   "aiSuggestKids": "شيء للأطفال",
   "aiWhyThis": "لماذا؟",
   "aiPlay": "تشغيل",
-  "aiOpenDetails": "التفاصيل"
+  "aiOpenDetails": "التفاصيل",
+  "aiPlotTranslate": "ترجمة",
+  "aiPlotSummarize": "ملخص بدون حرق",
+  "aiPlotFillIn": "جلب معلومات الحبكة",
+  "aiPlotEnriching": "يحضّر…",
+  "aiPlotError": "تعذّر الجلب — حاول مجدداً",
+  "aiPlotShowOriginal": "عرض الأصلي",
+  "aiPlotEnrichedTag": "ذكاء اصطناعي"
 }

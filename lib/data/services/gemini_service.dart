@@ -248,6 +248,112 @@ class GeminiService {
     }
   }
 
+  /// Three "fix this plot" use-cases the detail page wires to small
+  /// inline links underneath the synopsis text. Each maps to a
+  /// different system prompt — the user-visible action stays the
+  /// same shape ("ask Gemini → swap the text"), only the framing
+  /// differs.
+  ///
+  /// Returns the AI-produced plot text, or `null` on any failure.
+  /// Caller falls back to keeping the original.
+  Future<String?> enrichPlot({
+    required String title,
+    String? year,
+    String? genre,
+    String? originalPlot,
+    required PlotEnrichMode mode,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty) return null;
+
+    final systemPrompt = switch (mode) {
+      PlotEnrichMode.translate => '''
+You translate movie/series plot summaries into the user's language
+($targetLanguage). Keep the same level of detail. Reply with the
+translation only — no preamble, no quotes, no "Here is the
+translation:" framing. Output plain text.
+''',
+      PlotEnrichMode.summarize => '''
+You write spoiler-free summaries of movie/series plots in the user's
+language ($targetLanguage). Reduce to 2–3 sentences that establish
+the premise and tone without revealing twists, endings, or
+mid-story turns. Reply with the summary only — plain text, no
+markdown headings, no preamble.
+''',
+      PlotEnrichMode.fillIn => '''
+The user is viewing a title whose plot field is empty or missing.
+Generate a 2–3 sentence plot description based on what's
+generally known about the title. Reply in the user's language
+($targetLanguage), plain text, no preamble, no disclaimers. If
+you genuinely don't recognise the title, reply with the single
+word "UNKNOWN" (uppercase, no punctuation) — caller drops the
+result in that case.
+''',
+    };
+
+    final userTurn = switch (mode) {
+      PlotEnrichMode.translate ||
+      PlotEnrichMode.summarize =>
+        'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
+            '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}'
+            '\n\nPlot:\n${originalPlot ?? ""}',
+      PlotEnrichMode.fillIn =>
+        'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
+            '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}',
+    };
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'temperature': mode == PlotEnrichMode.translate ? 0.2 : 0.5,
+            'maxOutputTokens': 400,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] enrichPlot status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString().trim();
+      if (text == null || text.isEmpty) return null;
+      // Fill-in mode opted out: drop and let UI keep original.
+      if (mode == PlotEnrichMode.fillIn && text.toUpperCase() == 'UNKNOWN') {
+        return null;
+      }
+      return text;
+    } catch (e) {
+      debugPrint('[Gemini] enrichPlot failed: $e');
+      return null;
+    }
+  }
+
   // ─── Prompt + schema ─────────────────────────────────────────────
 
   /// System prompt is terse and example-driven — Gemini follows few-
@@ -352,6 +458,12 @@ fits the request, return an empty array with a brief explanation in
     },
   };
 }
+
+/// The three "fix this plot" modes [GeminiService.enrichPlot]
+/// supports — each chooses a different framing system prompt while
+/// the request / response shape stays the same. UI widgets import
+/// this directly.
+enum PlotEnrichMode { translate, summarize, fillIn }
 
 /// Provider that returns a `GeminiService` instance when the user has
 /// a key configured, or `null` when they don't.

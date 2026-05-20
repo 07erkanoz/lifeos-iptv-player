@@ -2041,6 +2041,48 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Detay'**
   String get aiOpenDetails;
+
+  /// No description provided for @aiPlotTranslate.
+  ///
+  /// In tr, this message translates to:
+  /// **'Türkçe\'ye çevir'**
+  String get aiPlotTranslate;
+
+  /// No description provided for @aiPlotSummarize.
+  ///
+  /// In tr, this message translates to:
+  /// **'Spoiler-free özet'**
+  String get aiPlotSummarize;
+
+  /// No description provided for @aiPlotFillIn.
+  ///
+  /// In tr, this message translates to:
+  /// **'Plot bilgisi getir'**
+  String get aiPlotFillIn;
+
+  /// No description provided for @aiPlotEnriching.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazırlıyor…'**
+  String get aiPlotEnriching;
+
+  /// No description provided for @aiPlotError.
+  ///
+  /// In tr, this message translates to:
+  /// **'Alınamadı — tekrar dene'**
+  String get aiPlotError;
+
+  /// No description provided for @aiPlotShowOriginal.
+  ///
+  /// In tr, this message translates to:
+  /// **'Orijinali göster'**
+  String get aiPlotShowOriginal;
+
+  /// No description provided for @aiPlotEnrichedTag.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI'**
+  String get aiPlotEnrichedTag;
 }
 
 class _AppLocalizationsDelegate

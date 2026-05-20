@@ -20,6 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
@@ -1064,14 +1065,24 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                             ),
                           ],
                           const SizedBox(height: 24),
-                          // Plot (max-width constrained for readability)
-                          if (plot.toString().isNotEmpty)
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 600),
-                              child: Text(plot.toString(), style: TextStyle(
-                                color: AppColors.textSecondary(context), fontSize: 14, height: 1.6,
-                              )),
+                          // Plot (max-width constrained for readability).
+                          // PlotEnrichedView falls back to plain Text
+                          // when the user has no Gemini key — so this
+                          // is visually identical for users without AI
+                          // and gains inline translate / summarise /
+                          // fill-in links for those who opt in.
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 600),
+                            child: PlotEnrichedView(
+                              channel: ch,
+                              plotText: plot.toString(),
+                              textStyle: TextStyle(
+                                color: AppColors.textSecondary(context),
+                                fontSize: 14,
+                                height: 1.6,
+                              ),
                             ),
+                          ),
                           const SizedBox(height: 20),
                           // Credits (label-value pairs)
                           ConstrainedBox(
@@ -1313,11 +1324,16 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             ),
         ]),
         const SizedBox(height: 16),
-        // Plot
-        if (plot.toString().isNotEmpty)
-          Text(plot.toString(), style: TextStyle(
-            color: AppColors.textSecondary(context), fontSize: 13, height: 1.6,
-          )),
+        // Plot — same AI-aware wrapper as the desktop branch.
+        PlotEnrichedView(
+          channel: ch,
+          plotText: plot.toString(),
+          textStyle: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+            height: 1.6,
+          ),
+        ),
         const SizedBox(height: 12),
         // Credits
         if (director.toString().isNotEmpty)

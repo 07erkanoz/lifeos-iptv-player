@@ -352,5 +352,12 @@
   "aiSuggestKids": "Quelque chose pour les enfants",
   "aiWhyThis": "Pourquoi ?",
   "aiPlay": "Lire",
-  "aiOpenDetails": "Détails"
+  "aiOpenDetails": "Détails",
+  "aiPlotTranslate": "Traduire",
+  "aiPlotSummarize": "Résumé sans spoilers",
+  "aiPlotFillIn": "Obtenir l'intrigue",
+  "aiPlotEnriching": "Préparation…",
+  "aiPlotError": "Échec — réessayer",
+  "aiPlotShowOriginal": "Voir l'original",
+  "aiPlotEnrichedTag": "IA"
 }

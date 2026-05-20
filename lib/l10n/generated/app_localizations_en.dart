@@ -1024,4 +1024,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiOpenDetails => 'Details';
+
+  @override
+  String get aiPlotTranslate => 'Translate';
+
+  @override
+  String get aiPlotSummarize => 'Spoiler-free summary';
+
+  @override
+  String get aiPlotFillIn => 'Get plot info';
+
+  @override
+  String get aiPlotEnriching => 'Preparing…';
+
+  @override
+  String get aiPlotError => 'Couldn\'t fetch — try again';
+
+  @override
+  String get aiPlotShowOriginal => 'Show original';
+
+  @override
+  String get aiPlotEnrichedTag => 'AI';
 }

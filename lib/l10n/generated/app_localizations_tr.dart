@@ -1022,4 +1022,25 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiOpenDetails => 'Detay';
+
+  @override
+  String get aiPlotTranslate => 'Türkçe\'ye çevir';
+
+  @override
+  String get aiPlotSummarize => 'Spoiler-free özet';
+
+  @override
+  String get aiPlotFillIn => 'Plot bilgisi getir';
+
+  @override
+  String get aiPlotEnriching => 'Hazırlıyor…';
+
+  @override
+  String get aiPlotError => 'Alınamadı — tekrar dene';
+
+  @override
+  String get aiPlotShowOriginal => 'Orijinali göster';
+
+  @override
+  String get aiPlotEnrichedTag => 'AI';
 }
