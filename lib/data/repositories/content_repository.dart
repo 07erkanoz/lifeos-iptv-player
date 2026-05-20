@@ -166,6 +166,14 @@ class ContentRepository {
         ?.map((g) => g.trim().toLowerCase())
         .where((g) => g.isNotEmpty)
         .toList();
+    final castLower = intent.castContains?.trim().toLowerCase();
+    final directorLower = intent.directorContains?.trim().toLowerCase();
+    // Theme keywords matched OR-wise — any hit qualifies. Lower-cased
+    // once here so the inner predicate doesn't re-allocate per channel.
+    final themes = intent.themeKeywords
+        ?.map((t) => t.trim().toLowerCase())
+        .where((t) => t.isNotEmpty)
+        .toList();
 
     final filtered = channels.where((ch) {
       // Keywords: substring across name/plot/cast/director.
@@ -199,6 +207,30 @@ class ContentRepository {
       if (intent.minRating != null) {
         final r = ch.rating;
         if (r == null || r < intent.minRating!) return false;
+      }
+
+      // Cast contains — case-insensitive substring against the
+      // comma-separated cast column. SQL LIKE doesn't fold Turkish
+      // characters, so we filter in Dart instead.
+      if (castLower != null && castLower.isNotEmpty) {
+        final c = (ch.cast ?? '').toLowerCase();
+        if (c.isEmpty || !c.contains(castLower)) return false;
+      }
+
+      // Director contains — same pattern.
+      if (directorLower != null && directorLower.isNotEmpty) {
+        final d = (ch.director ?? '').toLowerCase();
+        if (d.isEmpty || !d.contains(directorLower)) return false;
+      }
+
+      // Theme keywords — OR semantics. Match if any keyword appears
+      // in the title or plot. The AI synthesises both user-language
+      // and English variants, so a Turkish query still hits an
+      // English plot (a common Xtream case).
+      if (themes != null && themes.isNotEmpty) {
+        final haystack = '${ch.name}  ${ch.plot ?? ""}'.toLowerCase();
+        final hit = themes.any((kw) => haystack.contains(kw));
+        if (!hit) return false;
       }
 
       return true;

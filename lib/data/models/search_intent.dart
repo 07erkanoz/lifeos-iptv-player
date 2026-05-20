@@ -34,6 +34,28 @@ class SearchIntent {
   /// Inclusive minimum rating (0..10).
   final double? minRating;
 
+  /// Substring to look for in `Channel.cast`. Used when the user
+  /// types "Yoo Yeon-seok filmleri" / "Tom Hanks" / etc. We accept
+  /// the raw human name — the repository does case-insensitive
+  /// substring match against the comma-separated cast column.
+  final String? castContains;
+
+  /// Same shape as [castContains] but against `Channel.director`.
+  /// "Bong Joon-ho yönetmenliği" → directorContains: "Bong Joon-ho".
+  final String? directorContains;
+
+  /// Theme / topic keywords supplied multilingually so we catch
+  /// content tagged in either the user's language *or* English.
+  ///
+  /// "dünyanın sonu konulu film" should parse to something like
+  ///   themeKeywords: ["dünya sonu", "kıyamet",
+  ///                   "apocalypse", "post-apocalyptic"]
+  /// and the repository matches against `plot` + `name` with OR
+  /// semantics (any keyword hit qualifies). Gemini synthesises the
+  /// alternate-language synonyms because Xtream plots are routinely
+  /// in mixed languages.
+  final List<String>? themeKeywords;
+
   const SearchIntent({
     this.keywords,
     this.contentType,
@@ -41,6 +63,9 @@ class SearchIntent {
     this.minYear,
     this.maxYear,
     this.minRating,
+    this.castContains,
+    this.directorContains,
+    this.themeKeywords,
   });
 
   /// True when every filter field is null/empty. The search screen
@@ -52,14 +77,20 @@ class SearchIntent {
       (genres == null || genres!.isEmpty) &&
       minYear == null &&
       maxYear == null &&
-      minRating == null;
+      minRating == null &&
+      (castContains == null || castContains!.trim().isEmpty) &&
+      (directorContains == null || directorContains!.trim().isEmpty) &&
+      (themeKeywords == null || themeKeywords!.isEmpty);
 
   bool get hasStructuredFilters =>
       contentType != null ||
       (genres != null && genres!.isNotEmpty) ||
       minYear != null ||
       maxYear != null ||
-      minRating != null;
+      minRating != null ||
+      (castContains != null && castContains!.trim().isNotEmpty) ||
+      (directorContains != null && directorContains!.trim().isNotEmpty) ||
+      (themeKeywords != null && themeKeywords!.isNotEmpty);
 
   /// Parse JSON shaped like
   /// `{"keywords": "...", "contentType": "movie", "genres": [...],
@@ -104,6 +135,20 @@ class SearchIntent {
       return list.isEmpty ? null : list;
     }
 
+    // Theme keywords are read with the same defensive list helper
+    // as genres but *without* lower-casing — a cast / theme value
+    // like "Yoo Yeon-seok" needs to keep its capitalisation for
+    // legibility on the AI-explainer chips.
+    List<String>? readKeywordList(String key) {
+      final v = json[key];
+      if (v is! List) return null;
+      final list = v
+          .map((e) => e?.toString().trim() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+      return list.isEmpty ? null : list;
+    }
+
     final ct = readString('contentType')?.toLowerCase();
     return SearchIntent(
       keywords: readString('keywords'),
@@ -112,6 +157,9 @@ class SearchIntent {
       minYear: readInt('minYear'),
       maxYear: readInt('maxYear'),
       minRating: readDouble('minRating'),
+      castContains: readString('castContains'),
+      directorContains: readString('directorContains'),
+      themeKeywords: readKeywordList('themeKeywords'),
     );
   }
 
@@ -121,5 +169,8 @@ class SearchIntent {
       'contentType: $contentType, '
       'genres: $genres, '
       'year: [$minYear..$maxYear], '
-      'minRating: $minRating)';
+      'minRating: $minRating, '
+      'cast: $castContains, '
+      'director: $directorContains, '
+      'themes: $themeKeywords)';
 }

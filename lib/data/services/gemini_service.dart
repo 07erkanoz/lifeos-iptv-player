@@ -703,19 +703,46 @@ an IPTV/movie app and return ONLY structured JSON matching the schema.
 Fill only fields you can confidently extract. Put residual free-text
 (names, titles) into "keywords".
 
-Use lowercase English genre names: action, adventure, animation,
-biography, comedy, crime, documentary, drama, family, fantasy,
-history, horror, music, mystery, romance, sci-fi, sport, thriller,
-war, western, korean-drama.
+Genres: lowercase English — action, adventure, animation, biography,
+comedy, crime, documentary, drama, family, fantasy, history, horror,
+music, mystery, romance, sci-fi, sport, thriller, war, western,
+korean-drama.
+
+Cast / director queries — actor or director names go into
+"castContains" / "directorContains" as the original human-readable
+name (preserve capitalisation).
+
+Theme queries — when the user describes a *topic* or *concept* (not a
+title), expand it into a "themeKeywords" array containing the
+original phrase **plus equivalent terms in English** (the catalog's
+plots are often mixed-language). 3–6 keywords is plenty.
 
 Examples (input → output):
 
-"kısa polis filmi" → {"contentType":"movie","genres":["crime"]}
-"Kore dizisi" → {"contentType":"series","genres":["korean-drama"]}
-"2020 sonrası aksiyon" → {"genres":["action"],"minYear":2020}
-"Phantom Lawyer" → {"keywords":"Phantom Lawyer"}
-"romantik komedi 7 üstü" → {"genres":["romance","comedy"],"minRating":7}
-"haber kanalı" → {"contentType":"live","keywords":"haber"}
+"kısa polis filmi"
+  → {"contentType":"movie","genres":["crime"]}
+"Kore dizisi"
+  → {"contentType":"series","genres":["korean-drama"]}
+"2020 sonrası aksiyon"
+  → {"genres":["action"],"minYear":2020}
+"Phantom Lawyer"
+  → {"keywords":"Phantom Lawyer"}
+"romantik komedi 7 üstü"
+  → {"genres":["romance","comedy"],"minRating":7}
+"haber kanalı"
+  → {"contentType":"live","keywords":"haber"}
+"Yoo Yeon-seok filmleri"
+  → {"contentType":"movie","castContains":"Yoo Yeon-seok"}
+"Bong Joon-ho"
+  → {"directorContains":"Bong Joon-ho"}
+"dünyanın sonu konulu film"
+  → {"contentType":"movie","themeKeywords":["dünya sonu","kıyamet","apocalypse","post-apocalyptic","end of world"]}
+"uzaylı istilası"
+  → {"themeKeywords":["uzaylı istilası","uzaylılar","alien invasion","aliens"]}
+"yapay zeka konulu"
+  → {"themeKeywords":["yapay zeka","artificial intelligence","AI","robot"]}
+"Tom Hanks dramı"
+  → {"genres":["drama"],"castContains":"Tom Hanks"}
 ''';
 
   /// System prompt for the "tonight" recommendation flow. Three
@@ -792,6 +819,13 @@ fits the request, return an empty array with a brief explanation in
       'minYear': {'type': 'INTEGER', 'nullable': true},
       'maxYear': {'type': 'INTEGER', 'nullable': true},
       'minRating': {'type': 'NUMBER', 'nullable': true},
+      'castContains': {'type': 'STRING', 'nullable': true},
+      'directorContains': {'type': 'STRING', 'nullable': true},
+      'themeKeywords': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+        'nullable': true,
+      },
     },
   };
 }

@@ -787,6 +787,26 @@ class _AiIntentChips extends StatelessWidget {
       chips.add(_chip(Icons.star_outline, '${intent.minRating}+'));
     }
 
+    // Cast / director / theme keywords surface as named chips so the
+    // user can see *why* their query matched. Different icons make
+    // the three intents distinguishable at a glance.
+    if (intent.castContains != null && intent.castContains!.isNotEmpty) {
+      chips.add(_chip(Icons.person_outline, intent.castContains!));
+    }
+    if (intent.directorContains != null &&
+        intent.directorContains!.isNotEmpty) {
+      chips.add(_chip(Icons.movie_creation_outlined, intent.directorContains!));
+    }
+    final themes = intent.themeKeywords;
+    if (themes != null && themes.isNotEmpty) {
+      // Show only the first 1-2 theme keywords to avoid a chip-flood
+      // when Gemini emits 5 multilingual synonyms ("kıyamet",
+      // "apocalypse", "end of world", …) for one concept.
+      for (final t in themes.take(2)) {
+        chips.add(_chip(Icons.lightbulb_outline, t));
+      }
+    }
+
     if (chips.isEmpty) return const SizedBox.shrink();
 
     return Row(
