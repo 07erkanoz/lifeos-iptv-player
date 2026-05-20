@@ -337,5 +337,20 @@
   "geminiStep4": "٤. انسخ المفتاح (يبدأ بـ AIzaSy…)",
   "geminiStep5": "٥. الصقه في الحقل أعلاه واضغط حفظ",
   "geminiFreeReassurance": "مجاني، لا حاجة لبطاقة ائتمان. الحصة الشخصية كافية للاستخدام اليومي.",
-  "openGeminiSite": "فتح aistudio.google.com"
+  "openGeminiSite": "فتح aistudio.google.com",
+  "aiChatTitle": "مساعد الذكاء الاصطناعي",
+  "aiChatGreeting": "مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.",
+  "aiChatInputHint": "اسأل المساعد…",
+  "aiThinking": "يفكر…",
+  "aiSend": "إرسال",
+  "aiNoMatches": "لا شيء في مكتبتك يطابق. أعد الصياغة؟",
+  "aiError": "تعذر الوصول إلى المساعد. حاول لاحقاً.",
+  "aiEmptyLibrary": "المكتبة فارغة. زامن المحتوى أولاً.",
+  "aiSuggestTonight": "ماذا أشاهد الليلة؟",
+  "aiSuggestTogether": "شيء أشاهده مع شريكي",
+  "aiSuggestShort": "أقل من 90 دقيقة",
+  "aiSuggestKids": "شيء للأطفال",
+  "aiWhyThis": "لماذا؟",
+  "aiPlay": "تشغيل",
+  "aiOpenDetails": "التفاصيل"
 }

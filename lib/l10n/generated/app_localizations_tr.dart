@@ -975,4 +975,51 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get openGeminiSite => 'aistudio.google.com\'u aç';
+
+  @override
+  String get aiChatTitle => 'AI Asistan';
+
+  @override
+  String get aiChatGreeting =>
+      'Selam! Ne izlemek istediğini söyle — kütüphanenden öneri yapayım.';
+
+  @override
+  String get aiChatInputHint => 'Asistana sor…';
+
+  @override
+  String get aiThinking => 'Düşünüyor…';
+
+  @override
+  String get aiSend => 'Gönder';
+
+  @override
+  String get aiNoMatches =>
+      'Kütüphanende buna uyan bir şey bulamadım. Biraz farklı sor?';
+
+  @override
+  String get aiError => 'Asistana ulaşılamadı. Birazdan tekrar dene.';
+
+  @override
+  String get aiEmptyLibrary => 'Kütüphanen boş. Önce içeriği senkronize et.';
+
+  @override
+  String get aiSuggestTonight => 'Bu akşam ne izleyim?';
+
+  @override
+  String get aiSuggestTogether => 'Eşimle izleyebileceğim bir şey';
+
+  @override
+  String get aiSuggestShort => '90 dakikadan kısa';
+
+  @override
+  String get aiSuggestKids => 'Çocuklar için bir şey';
+
+  @override
+  String get aiWhyThis => 'Neden bu?';
+
+  @override
+  String get aiPlay => 'Oynat';
+
+  @override
+  String get aiOpenDetails => 'Detay';
 }

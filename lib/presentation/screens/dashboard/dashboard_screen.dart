@@ -8,6 +8,7 @@ import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/tonight_chat_sheet.dart';
 import 'package:lifeostv/presentation/widgets/content/content_list.dart';
 import 'package:lifeostv/presentation/widgets/content/hero_banner.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
@@ -236,7 +237,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return aHas.compareTo(bHas);
     });
 
+    // AI assistant entry — only renders when the user has a Gemini
+    // key configured. We hide the FAB entirely rather than showing
+    // it disabled because the chat has nothing meaningful to do
+    // without a key, and a disabled button is a worse signal than no
+    // button at all.
+    final hasAiKey = ref.watch(settingsProvider).hasAiKey;
+
     return Scaffold(
+      floatingActionButton: hasAiKey
+          ? FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.auto_awesome),
+              label: Text(l10n.aiChatTitle),
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const TonightChatSheet(),
+              ),
+            )
+          : null,
       body: Stack(
         children: [
           RefreshIndicator(

@@ -337,5 +337,20 @@
   "geminiStep4": "4. Bişopê kopî bike (bi AIzaSy… dest pê dike)",
   "geminiStep5": "5. Wê di qadê de bipêve û pêl Tomar bike",
   "geminiFreeReassurance": "Belaş, qarta krediyê pêwîst nake. Quota şexsî ji bo bikaranîna rojane bes e.",
-  "openGeminiSite": "aistudio.google.com veke"
+  "openGeminiSite": "aistudio.google.com veke",
+  "aiChatTitle": "Alîkarê AI",
+  "aiChatGreeting": "Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.",
+  "aiChatInputHint": "Ji alîkar bipirse…",
+  "aiThinking": "Difikire…",
+  "aiSend": "Bişîne",
+  "aiNoMatches": "Tiştek di pirtûkxaneya te de tê nagire. Cardin binivîse?",
+  "aiError": "Negihiştinê alîkar. Demek din biceribîne.",
+  "aiEmptyLibrary": "Pirtûkxane vala ye. Pêşî naverokê sync bike.",
+  "aiSuggestTonight": "Îşev çi temaşe bikim?",
+  "aiSuggestTogether": "Tiştek bi hevjînê min re",
+  "aiSuggestShort": "Ji 90 deqîqeyê kêmtir",
+  "aiSuggestKids": "Tiştek ji bo zarokan",
+  "aiWhyThis": "Çima?",
+  "aiPlay": "Lê bide",
+  "aiOpenDetails": "Hûragahî"
 }

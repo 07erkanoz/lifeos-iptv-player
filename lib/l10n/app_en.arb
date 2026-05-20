@@ -327,5 +327,20 @@
   "geminiStep4": "4. Copy the key (starts with AIzaSy…)",
   "geminiStep5": "5. Paste it into the field above and tap Save",
   "geminiFreeReassurance": "Free, no credit card required. Personal quota is enough for everyday use.",
-  "openGeminiSite": "Open aistudio.google.com"
+  "openGeminiSite": "Open aistudio.google.com",
+  "aiChatTitle": "AI Assistant",
+  "aiChatGreeting": "Hi! Ask me what to watch — I'll pick from your library.",
+  "aiChatInputHint": "Ask the assistant…",
+  "aiThinking": "Thinking…",
+  "aiSend": "Send",
+  "aiNoMatches": "Nothing in your library fits that. Try rephrasing?",
+  "aiError": "Couldn't reach the assistant. Try again in a moment.",
+  "aiEmptyLibrary": "Your library is empty. Sync content first.",
+  "aiSuggestTonight": "What should I watch tonight?",
+  "aiSuggestTogether": "Something I can watch with my partner",
+  "aiSuggestShort": "Under 90 minutes",
+  "aiSuggestKids": "Something for kids",
+  "aiWhyThis": "Why this?",
+  "aiPlay": "Play",
+  "aiOpenDetails": "Details"
 }

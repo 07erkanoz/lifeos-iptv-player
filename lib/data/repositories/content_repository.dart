@@ -357,6 +357,56 @@ class ContentRepository {
     ));
   }
 
+  /// Return a small stratified sample of the library for AI context.
+  ///
+  /// Used by the "what should I watch tonight?" chat — Gemini needs
+  /// to know *what's available* before it can recommend anything, but
+  /// shoving a 10K-item library into the prompt is wasteful (cost,
+  /// latency, attention). We pick the highest-rated rows per type so
+  /// the AI sees a representative cross-section without paging the
+  /// whole catalogue.
+  ///
+  /// Hidden categories are excluded — anything the user has chosen
+  /// to hide shouldn't surface as an AI recommendation either.
+  Future<List<Channel>> sampleLibraryForAi({
+    int moviesPerType = 30,
+    int seriesPerType = 30,
+    int livePerType = 20,
+  }) async {
+    Future<List<Channel>> topByType(String type, int limit) async {
+      final rows = await (_db.select(_db.channels).join([
+        innerJoin(
+          _db.categories,
+          _db.categories.id.equalsExp(_db.channels.categoryId) &
+              _db.categories.type.equalsExp(_db.channels.type),
+        ),
+      ])
+            ..where(_db.channels.type.equals(type))
+            ..where(_db.categories.isHidden.equals(false))
+            ..orderBy([
+              // Highest-rated first; tie-break on most recently added
+              // (the `added` column is a timestamp string from the
+              // Xtream API).
+              OrderingTerm(
+                  expression: _db.channels.rating,
+                  mode: OrderingMode.desc),
+              OrderingTerm(
+                  expression: _db.channels.added,
+                  mode: OrderingMode.desc),
+            ])
+            ..limit(limit))
+          .get();
+      return rows.map((row) => row.readTable(_db.channels)).toList();
+    }
+
+    final results = await Future.wait([
+      topByType('movie', moviesPerType),
+      topByType('series', seriesPerType),
+      topByType('live', livePerType),
+    ]);
+    return [...results[0], ...results[1], ...results[2]];
+  }
+
   /// Watch channels that have playback progress (continue watching)
   Stream<List<Channel>> watchContinueWatching(String type) {
     final query = _db.select(_db.channels).join([

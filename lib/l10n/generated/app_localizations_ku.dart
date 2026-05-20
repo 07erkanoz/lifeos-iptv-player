@@ -978,4 +978,51 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get openGeminiSite => 'aistudio.google.com veke';
+
+  @override
+  String get aiChatTitle => 'Alîkarê AI';
+
+  @override
+  String get aiChatGreeting =>
+      'Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.';
+
+  @override
+  String get aiChatInputHint => 'Ji alîkar bipirse…';
+
+  @override
+  String get aiThinking => 'Difikire…';
+
+  @override
+  String get aiSend => 'Bişîne';
+
+  @override
+  String get aiNoMatches =>
+      'Tiştek di pirtûkxaneya te de tê nagire. Cardin binivîse?';
+
+  @override
+  String get aiError => 'Negihiştinê alîkar. Demek din biceribîne.';
+
+  @override
+  String get aiEmptyLibrary => 'Pirtûkxane vala ye. Pêşî naverokê sync bike.';
+
+  @override
+  String get aiSuggestTonight => 'Îşev çi temaşe bikim?';
+
+  @override
+  String get aiSuggestTogether => 'Tiştek bi hevjînê min re';
+
+  @override
+  String get aiSuggestShort => 'Ji 90 deqîqeyê kêmtir';
+
+  @override
+  String get aiSuggestKids => 'Tiştek ji bo zarokan';
+
+  @override
+  String get aiWhyThis => 'Çima?';
+
+  @override
+  String get aiPlay => 'Lê bide';
+
+  @override
+  String get aiOpenDetails => 'Hûragahî';
 }

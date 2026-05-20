@@ -345,5 +345,20 @@
   "geminiStep4": "4. Key'i kopyala (AIzaSy… ile başlar)",
   "geminiStep5": "5. Yukarıdaki alana yapıştır ve Kaydet'e bas",
   "geminiFreeReassurance": "Ücretsiz, kart gerekmez. Kişisel kullanım için günlük kota fazlasıyla yeterli.",
-  "openGeminiSite": "aistudio.google.com'u aç"
+  "openGeminiSite": "aistudio.google.com'u aç",
+  "aiChatTitle": "AI Asistan",
+  "aiChatGreeting": "Selam! Ne izlemek istediğini söyle — kütüphanenden öneri yapayım.",
+  "aiChatInputHint": "Asistana sor…",
+  "aiThinking": "Düşünüyor…",
+  "aiSend": "Gönder",
+  "aiNoMatches": "Kütüphanende buna uyan bir şey bulamadım. Biraz farklı sor?",
+  "aiError": "Asistana ulaşılamadı. Birazdan tekrar dene.",
+  "aiEmptyLibrary": "Kütüphanen boş. Önce içeriği senkronize et.",
+  "aiSuggestTonight": "Bu akşam ne izleyim?",
+  "aiSuggestTogether": "Eşimle izleyebileceğim bir şey",
+  "aiSuggestShort": "90 dakikadan kısa",
+  "aiSuggestKids": "Çocuklar için bir şey",
+  "aiWhyThis": "Neden bu?",
+  "aiPlay": "Oynat",
+  "aiOpenDetails": "Detay"
 }

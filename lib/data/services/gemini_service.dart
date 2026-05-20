@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
+import 'package:lifeostv/data/models/tonight_recommendation.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 /// Thin Gemini REST client. Only what LifeOs TV actually calls —
@@ -120,6 +122,132 @@ class GeminiService {
     }
   }
 
+  /// Ask Gemini for a "what should I watch tonight?" recommendation.
+  ///
+  /// Multi-turn — the [conversation] list carries every prior user
+  /// turn and AI reply so follow-ups ("daha kısa bir şey", "drama
+  /// dışında") stay in context. We send the [recentlyWatched] /
+  /// [favorites] / [librarySample] arrays alongside so the model
+  /// only recommends real IDs the user can actually play.
+  ///
+  /// Returns `null` on any failure (same contract as
+  /// [parseSearchQuery]) so the chat UI can show a friendly error
+  /// bubble instead of crashing.
+  ///
+  /// Cost budget: each call serialises ~50 channels of metadata
+  /// (titles, genres, years, ratings) plus the conversation —
+  /// roughly 5-8 KB / 1.5-2.5K input tokens. Well inside Gemini
+  /// 2.5 Flash's free-tier daily allowance for personal use.
+  Future<TonightResponse?> recommendForTonight({
+    required List<({bool fromUser, String text})> conversation,
+    required List<Channel> recentlyWatched,
+    required List<Channel> favorites,
+    required List<Channel> librarySample,
+  }) async {
+    if (_apiKey.isEmpty || conversation.isEmpty) return null;
+
+    try {
+      // Compact each channel into the smallest informative form the
+      // model needs. Skipping `plot` keeps the prompt small; the AI
+      // gets to pick from the sample by id and the UI looks up the
+      // full row to render. We *do* keep genre/year/rating because
+      // they're the levers the AI needs to reason about fit.
+      Map<String, dynamic> compact(Channel ch) => {
+            'id': ch.streamId,
+            'title': ch.name,
+            'type': ch.type,
+            if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
+            if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
+            if (ch.rating != null) 'rating': ch.rating,
+          };
+
+      final contextBlob = {
+        'recentlyWatched': recentlyWatched.map(compact).toList(),
+        'favorites': favorites.map(compact).toList(),
+        'library': librarySample.map(compact).toList(),
+      };
+
+      // Build Gemini chat history. The first user turn carries the
+      // context blob inline as JSON; subsequent turns only carry
+      // their own text. We could re-send context every turn for
+      // robustness, but at conversation-level token budgets, that
+      // burns the user's quota for no gain.
+      final contents = <Map<String, dynamic>>[];
+      for (var i = 0; i < conversation.length; i++) {
+        final turn = conversation[i];
+        final isFirstUserTurn = i == 0 && turn.fromUser;
+        final text = isFirstUserTurn
+            ? 'CONTEXT_JSON: ${jsonEncode(contextBlob)}\n\nUSER: ${turn.text}'
+            : turn.text;
+        contents.add({
+          'role': turn.fromUser ? 'user' : 'model',
+          'parts': [
+            {'text': text},
+          ],
+        });
+      }
+
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': _tonightSystemPrompt},
+            ],
+          },
+          'contents': contents,
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _tonightResponseSchema,
+            'temperature': 0.7, // some warmth in phrasing
+            'maxOutputTokens': 1024,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] recommendForTonight status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+
+      // Same prose-tolerance trick as parseSearchQuery: pull out the
+      // outermost JSON object in case Gemini wraps it in prose.
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
+      final jsonStr = text.substring(start, end + 1);
+
+      Object? decoded;
+      try {
+        decoded = jsonDecode(jsonStr);
+      } catch (e) {
+        debugPrint('[Gemini] recommendForTonight JSON decode failed: $e');
+        return null;
+      }
+      if (decoded is! Map<String, dynamic>) return null;
+
+      return TonightResponse.fromJson(decoded);
+    } catch (e) {
+      debugPrint('[Gemini] recommendForTonight failed: $e');
+      return null;
+    }
+  }
+
   // ─── Prompt + schema ─────────────────────────────────────────────
 
   /// System prompt is terse and example-driven — Gemini follows few-
@@ -146,6 +274,61 @@ Examples (input → output):
 "romantik komedi 7 üstü" → {"genres":["romance","comedy"],"minRating":7}
 "haber kanalı" → {"contentType":"live","keywords":"haber"}
 ''';
+
+  /// System prompt for the "tonight" recommendation flow. Three
+  /// constraints matter:
+  ///   1. Only return ids that appear in the supplied `library` list
+  ///      (no hallucination — the UI can't render a fake stream id).
+  ///   2. Match the user's language in the `message` and `reason`
+  ///      fields (Turkish for Turkish prompts, English for English).
+  ///   3. Keep reasons concrete and short (single sentence is fine).
+  static const String _tonightSystemPrompt = '''
+You are a Turkish-first IPTV/streaming recommendation assistant.
+
+The first user turn contains a JSON context blob with three lists:
+"recentlyWatched", "favorites", "library". Use these to understand
+the user's taste and to pick recommendations *only from the library
+list*. Do not invent stream ids or titles that aren't in the library.
+
+Match the user's language in your replies. If the user writes
+Turkish, answer Turkish.
+
+Respond with JSON only, matching the schema:
+{
+  "message": "<one or two short sentences framing your picks>",
+  "recommendations": [
+    {"streamId": <int from library>, "reason": "<one sentence in user's language>"},
+    ...
+  ]
+}
+
+Aim for 3-5 recommendations. If the user asks a clarifying question
+or you need more information, return a non-empty "message" and an
+empty "recommendations" array. If absolutely nothing in the library
+fits the request, return an empty array with a brief explanation in
+"message".
+''';
+
+  /// JSON Schema for the "tonight" flow. Strict so Gemini emits
+  /// usable JSON without us doing extra coercion.
+  static const Map<String, dynamic> _tonightResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'message': {'type': 'STRING'},
+      'recommendations': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'streamId': {'type': 'INTEGER'},
+            'reason': {'type': 'STRING'},
+          },
+          'required': ['streamId', 'reason'],
+        },
+      },
+    },
+    'required': ['message', 'recommendations'],
+  };
 
   /// JSON Schema for structured output. Keys mirror SearchIntent
   /// field names so `SearchIntent.fromJson` lines up.

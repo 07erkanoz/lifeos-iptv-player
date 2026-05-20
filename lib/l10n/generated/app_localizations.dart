@@ -1951,6 +1951,96 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'aistudio.google.com\'u aç'**
   String get openGeminiSite;
+
+  /// No description provided for @aiChatTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI Asistan'**
+  String get aiChatTitle;
+
+  /// No description provided for @aiChatGreeting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Selam! Ne izlemek istediğini söyle — kütüphanenden öneri yapayım.'**
+  String get aiChatGreeting;
+
+  /// No description provided for @aiChatInputHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Asistana sor…'**
+  String get aiChatInputHint;
+
+  /// No description provided for @aiThinking.
+  ///
+  /// In tr, this message translates to:
+  /// **'Düşünüyor…'**
+  String get aiThinking;
+
+  /// No description provided for @aiSend.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönder'**
+  String get aiSend;
+
+  /// No description provided for @aiNoMatches.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kütüphanende buna uyan bir şey bulamadım. Biraz farklı sor?'**
+  String get aiNoMatches;
+
+  /// No description provided for @aiError.
+  ///
+  /// In tr, this message translates to:
+  /// **'Asistana ulaşılamadı. Birazdan tekrar dene.'**
+  String get aiError;
+
+  /// No description provided for @aiEmptyLibrary.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kütüphanen boş. Önce içeriği senkronize et.'**
+  String get aiEmptyLibrary;
+
+  /// No description provided for @aiSuggestTonight.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu akşam ne izleyim?'**
+  String get aiSuggestTonight;
+
+  /// No description provided for @aiSuggestTogether.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşimle izleyebileceğim bir şey'**
+  String get aiSuggestTogether;
+
+  /// No description provided for @aiSuggestShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'90 dakikadan kısa'**
+  String get aiSuggestShort;
+
+  /// No description provided for @aiSuggestKids.
+  ///
+  /// In tr, this message translates to:
+  /// **'Çocuklar için bir şey'**
+  String get aiSuggestKids;
+
+  /// No description provided for @aiWhyThis.
+  ///
+  /// In tr, this message translates to:
+  /// **'Neden bu?'**
+  String get aiWhyThis;
+
+  /// No description provided for @aiPlay.
+  ///
+  /// In tr, this message translates to:
+  /// **'Oynat'**
+  String get aiPlay;
+
+  /// No description provided for @aiOpenDetails.
+  ///
+  /// In tr, this message translates to:
+  /// **'Detay'**
+  String get aiOpenDetails;
 }
 
 class _AppLocalizationsDelegate

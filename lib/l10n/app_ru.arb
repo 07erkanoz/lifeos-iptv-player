@@ -337,5 +337,20 @@
   "geminiStep4": "4. Скопируйте ключ (начинается с AIzaSy…)",
   "geminiStep5": "5. Вставьте в поле выше и нажмите Сохранить",
   "geminiFreeReassurance": "Бесплатно, без банковской карты. Личной квоты достаточно для повседневного использования.",
-  "openGeminiSite": "Открыть aistudio.google.com"
+  "openGeminiSite": "Открыть aistudio.google.com",
+  "aiChatTitle": "ИИ-ассистент",
+  "aiChatGreeting": "Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.",
+  "aiChatInputHint": "Спроси ассистента…",
+  "aiThinking": "Думаю…",
+  "aiSend": "Отправить",
+  "aiNoMatches": "В библиотеке ничего не подходит. Переформулируйте?",
+  "aiError": "Ассистент недоступен. Попробуйте позже.",
+  "aiEmptyLibrary": "Библиотека пуста. Сначала синхронизируйте контент.",
+  "aiSuggestTonight": "Что посмотреть сегодня?",
+  "aiSuggestTogether": "Что-то для просмотра вдвоём",
+  "aiSuggestShort": "Менее 90 минут",
+  "aiSuggestKids": "Что-то для детей",
+  "aiWhyThis": "Почему?",
+  "aiPlay": "Смотреть",
+  "aiOpenDetails": "Детали"
 }

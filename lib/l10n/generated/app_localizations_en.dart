@@ -977,4 +977,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openGeminiSite => 'Open aistudio.google.com';
+
+  @override
+  String get aiChatTitle => 'AI Assistant';
+
+  @override
+  String get aiChatGreeting =>
+      'Hi! Ask me what to watch — I\'ll pick from your library.';
+
+  @override
+  String get aiChatInputHint => 'Ask the assistant…';
+
+  @override
+  String get aiThinking => 'Thinking…';
+
+  @override
+  String get aiSend => 'Send';
+
+  @override
+  String get aiNoMatches =>
+      'Nothing in your library fits that. Try rephrasing?';
+
+  @override
+  String get aiError => 'Couldn\'t reach the assistant. Try again in a moment.';
+
+  @override
+  String get aiEmptyLibrary => 'Your library is empty. Sync content first.';
+
+  @override
+  String get aiSuggestTonight => 'What should I watch tonight?';
+
+  @override
+  String get aiSuggestTogether => 'Something I can watch with my partner';
+
+  @override
+  String get aiSuggestShort => 'Under 90 minutes';
+
+  @override
+  String get aiSuggestKids => 'Something for kids';
+
+  @override
+  String get aiWhyThis => 'Why this?';
+
+  @override
+  String get aiPlay => 'Play';
+
+  @override
+  String get aiOpenDetails => 'Details';
 }

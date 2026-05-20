@@ -979,4 +979,52 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get openGeminiSite => 'Открыть aistudio.google.com';
+
+  @override
+  String get aiChatTitle => 'ИИ-ассистент';
+
+  @override
+  String get aiChatGreeting =>
+      'Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.';
+
+  @override
+  String get aiChatInputHint => 'Спроси ассистента…';
+
+  @override
+  String get aiThinking => 'Думаю…';
+
+  @override
+  String get aiSend => 'Отправить';
+
+  @override
+  String get aiNoMatches =>
+      'В библиотеке ничего не подходит. Переформулируйте?';
+
+  @override
+  String get aiError => 'Ассистент недоступен. Попробуйте позже.';
+
+  @override
+  String get aiEmptyLibrary =>
+      'Библиотека пуста. Сначала синхронизируйте контент.';
+
+  @override
+  String get aiSuggestTonight => 'Что посмотреть сегодня?';
+
+  @override
+  String get aiSuggestTogether => 'Что-то для просмотра вдвоём';
+
+  @override
+  String get aiSuggestShort => 'Менее 90 минут';
+
+  @override
+  String get aiSuggestKids => 'Что-то для детей';
+
+  @override
+  String get aiWhyThis => 'Почему?';
+
+  @override
+  String get aiPlay => 'Смотреть';
+
+  @override
+  String get aiOpenDetails => 'Детали';
 }
