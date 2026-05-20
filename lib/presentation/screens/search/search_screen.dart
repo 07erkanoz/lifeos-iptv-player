@@ -43,6 +43,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Channel> _liveResults = [];
   bool _isSearching = false;
 
+  /// True while plain results are on screen *and* a Gemini call is
+  /// still in flight that may upgrade them. Drives the small
+  /// "AI yorumluyor…" badge so the user knows further refinement
+  /// is coming even though the grid already populated.
+  bool _aiRefining = false;
+
   /// Last AI-parsed intent for the active query, or `null` when we
   /// took the plain-search code path (no key, AI failed, or AI
   /// returned no structured filters). When non-null we render an
@@ -132,6 +138,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _seriesResults = [];
         _liveResults = [];
         _isSearching = false;
+        _aiRefining = false;
         _activeIntent = null;
         _curatorReasons = const {};
       });
@@ -140,73 +147,84 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() => _isSearching = true);
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       final trimmed = query.trim();
-      final results = await _runSearch(trimmed, requestId);
+
+      // Phase 1 — always do the plain LIKE search first and surface
+      // its results immediately. Without this, while Gemini was
+      // thinking the spinner stayed up for 5-8 seconds and the user
+      // saw nothing for queries Xtream metadata could already
+      // answer. The spinner now goes away in ~50 ms and the user
+      // has *something* to look at even if the AI tier never
+      // returns.
+      final repo = ref.read(contentRepositoryProvider);
+      final plain = await Future.wait([
+        repo.searchChannelsByType(trimmed, 'movie', limit: 60),
+        repo.searchChannelsByType(trimmed, 'series', limit: 60),
+        repo.searchChannelsByType(trimmed, 'live', limit: 60),
+      ]);
       if (!mounted || requestId != _searchRequestId) return;
+      final gemini = ref.read(geminiServiceProvider);
       setState(() {
-        _movieResults = results.movies;
-        _seriesResults = results.series;
-        _liveResults = results.live;
+        _movieResults = plain[0];
+        _seriesResults = plain[1];
+        _liveResults = plain[2];
         _isSearching = false;
-        _activeIntent = results.intent;
-        _curatorReasons = results.curatorReasons;
+        // Show the "AI yorumluyor…" badge only when there's actually
+        // an AI tier in flight.
+        _aiRefining = gemini != null;
+        _activeIntent = null;
+        _curatorReasons = const {};
+      });
+
+      // Phase 2 — opportunistic AI enrichment. If the user has no
+      // Gemini key, or the AI call fails/times out, plain results
+      // stay on screen.
+      if (gemini == null) return;
+      final aiResults = await _runAiSearch(trimmed, requestId, gemini);
+      if (!mounted || requestId != _searchRequestId) return;
+      if (aiResults == null) {
+        setState(() => _aiRefining = false);
+        return;
+      }
+      setState(() {
+        _movieResults = aiResults.movies;
+        _seriesResults = aiResults.series;
+        _liveResults = aiResults.live;
+        _activeIntent = aiResults.intent;
+        _curatorReasons = aiResults.curatorReasons;
+        _aiRefining = false;
       });
     });
   }
 
-  /// Three-tier search dispatcher.
+  /// Phase-2 AI enrichment of an already-shown plain result set.
   ///
-  /// Tier 1 — Plain LIKE: always runs, ships ~50 ms results so the
-  /// grid is never empty while the AI thinks.
+  /// Returns `null` when the AI call(s) errored, timed out, or had
+  /// nothing to add — caller leaves the plain results on screen.
   ///
-  /// Tier 2 — Intent-aware LIKE: when Gemini extracts structured
-  /// filters from the query (genres, year range, cast / director
-  /// name, theme keywords), we re-query the repo with those
-  /// filters and swap results.
-  ///
-  /// Tier 3 — Library curator: in parallel with the intent parse,
-  /// Gemini *reads a sample of the user's library* and returns
-  /// streamIds that match the query using its general knowledge
-  /// of titles — independent of the plot text the catalog
-  /// happens to carry. This catches the "Mad Max → 'dünyanın
-  /// sonu konulu'" case the keyword path cannot.
-  ///
-  /// Curator picks land first (with per-card reasons); intent
-  /// results follow, deduplicated. Without a Gemini key, only
-  /// Tier 1 runs.
-  Future<_SearchResults> _runSearch(String query, int requestId) async {
+  /// Internally:
+  ///   * Tier 2 — `parseSearchQuery` extracts structured filters
+  ///     and we re-query the repo with them.
+  ///   * Tier 3 — `curateLibraryByQuery` reads a library sample and
+  ///     hand-picks IDs by general knowledge of titles.
+  /// Both run in parallel under a single 8-second timeout so a
+  /// hung Gemini can't permanently freeze the search experience.
+  Future<_SearchResults?> _runAiSearch(
+    String query,
+    int requestId,
+    GeminiService gemini,
+  ) async {
     final repo = ref.read(contentRepositoryProvider);
-    final gemini = ref.read(geminiServiceProvider); // nullable
+    final lang = _userLanguageCode();
 
-    // Tier 1 — always run.
-    final plainFuture = Future.wait([
-      repo.searchChannelsByType(query, 'movie', limit: 60),
-      repo.searchChannelsByType(query, 'series', limit: 60),
-      repo.searchChannelsByType(query, 'live', limit: 60),
-    ]);
-
-    if (gemini == null) {
-      final plain = await plainFuture;
-      return _SearchResults(
-        movies: plain[0],
-        series: plain[1],
-        live: plain[2],
-        intent: null,
-        curatorReasons: const {},
-      );
-    }
-
-    // Tier 2 + 3 — start in parallel. Curator gets a library sample
-    // it can read; intent parse only sees the query string.
-    final intentFuture = gemini.parseSearchQuery(query);
-
-    // Pull a broad sample for the curator. Channels objects are
-    // kept locally so we can resolve picks back to full rows
-    // without a second DB hit.
+    // Library sample. Trimmed down from the previous 140 to ~80
+    // — fewer tokens per call, much faster turnaround, and still
+    // enough for the curator to find good matches.
     final librarySample = await repo.sampleLibraryForAi(
-      moviesPerType: 60,
-      seriesPerType: 60,
-      livePerType: 20,
+      moviesPerType: 35,
+      seriesPerType: 35,
+      livePerType: 10,
     );
+    if (requestId != _searchRequestId) return null;
     final sampleByStreamId = {for (final c in librarySample) c.streamId: c};
     final compactSample = librarySample
         .map((c) => {
@@ -222,40 +240,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             })
         .toList();
 
-    final lang = _userLanguageCode();
-    final curatorFuture = gemini.curateLibraryByQuery(
-      query: query,
-      librarySample: compactSample,
-      targetLanguage: lang,
-    );
+    // Fire both Gemini calls in parallel, gated by a single deadline.
+    // Whichever doesn't return inside 8 s falls back to "no AI input"
+    // for that tier rather than holding the whole search up.
+    Future<R?> withTimeout<R>(Future<R?> f) =>
+        f.timeout(const Duration(seconds: 8), onTimeout: () => null);
 
-    final intent = await intentFuture;
-    if (requestId != _searchRequestId) {
-      // User typed something else — drop everything, give them the
-      // plain Tier-1 result so the grid isn't empty.
-      final plain = await plainFuture;
-      return _SearchResults(
-        movies: plain[0],
-        series: plain[1],
-        live: plain[2],
-        intent: null,
-        curatorReasons: const {},
-      );
-    }
+    final results = await Future.wait([
+      withTimeout(gemini.parseSearchQuery(query)),
+      withTimeout(gemini.curateLibraryByQuery(
+        query: query,
+        librarySample: compactSample,
+        targetLanguage: lang,
+      )),
+    ]);
+    if (requestId != _searchRequestId) return null;
 
-    // Wait for the curator too — its result drives the per-card
-    // "AI seçti çünkü…" reasons.
-    final curatorPicks = await curatorFuture;
-    if (requestId != _searchRequestId) {
-      final plain = await plainFuture;
-      return _SearchResults(
-        movies: plain[0],
-        series: plain[1],
-        live: plain[2],
-        intent: null,
-        curatorReasons: const {},
-      );
-    }
+    final intent = results[0] as SearchIntent?;
+    final curatorPicks =
+        results[1] as List<({int streamId, String reason})>?;
 
     final reasonByStreamId = <int, String>{};
     final curatorChannels = <Channel>[];
@@ -268,30 +271,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     }
 
-    // If both AI tiers came up empty, fall through to Tier 1.
     final hasIntent = intent != null &&
         !intent.isEmpty &&
         intent.hasStructuredFilters;
-    if (!hasIntent && curatorChannels.isEmpty) {
-      final plain = await plainFuture;
-      return _SearchResults(
-        movies: plain[0],
-        series: plain[1],
-        live: plain[2],
-        intent: null,
-        curatorReasons: const {},
-      );
-    }
+    // Nothing to upgrade with — keep the plain Tier-1 results on
+    // screen by returning null.
+    if (!hasIntent && curatorChannels.isEmpty) return null;
 
-    // Intent-driven LIKE search (skipped if intent had nothing useful).
     final intentChannels = hasIntent
         ? await repo.searchChannelsByIntent(intent, limit: 180)
         : const <Channel>[];
+    if (requestId != _searchRequestId) return null;
 
-    // Merge: curator first (so reasons surface near the top), then
-    // any intent result we haven't seen yet. Same dedup key — stream
-    // id is unique across types in practice because the section
-    // bucketing keys off `type` below.
+    // Merge: curator first (reasons surface near the top), then any
+    // intent result we haven't seen, deduped by stream id.
     final seen = <int>{};
     final merged = <Channel>[];
     for (final ch in curatorChannels) {
@@ -584,6 +577,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
                                     child: _AiIntentChips(intent: _activeIntent!),
+                                  ),
+                                // While Tier 2/3 are still in flight,
+                                // surface a small "AI yorumluyor…"
+                                // badge above the plain results so
+                                // the user knows further refinement
+                                // is coming.
+                                if (_aiRefining)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(bottom: 12),
+                                    child: Row(children: [
+                                      const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: AppColors.primary),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        l10n.aiThinking,
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ]),
                                   ),
                                 // Movies section
                                 if (_movieResults.isNotEmpty) ...[
