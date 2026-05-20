@@ -1049,4 +1049,13 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'AI';
+
+  @override
+  String get aiRecapPrompt => 'Tiştên berê qewimîne bîne bîra min';
+
+  @override
+  String get aiRecapHide => 'Kurtenivîs veşêre';
+
+  @override
+  String get aiRecapTag => 'Kurtenivîs';
 }

@@ -20,6 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
+import 'package:lifeostv/presentation/widgets/ai/series_recap_inline.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
@@ -1882,6 +1883,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       ),
                                     ],
                                   ),
+                                  // Inline AI series recap — only renders
+                                  // when an AI key is set AND the user has
+                                  // a "next episode" target from
+                                  // continue-watching state. Sits between
+                                  // the action buttons and the plot so
+                                  // it's discoverable without screaming.
+                                  if (_lastEpisodeProgress != null &&
+                                      _lastEpisodeLabel.isNotEmpty)
+                                    SeriesRecapInline(
+                                      series: ch,
+                                      nextEpisodeLabel: _lastEpisodeLabel,
+                                    ),
                                   const SizedBox(height: 24),
                                   // Plot (max-width constrained for readability).
                                   // AI-aware wrapper — pixel-identical to

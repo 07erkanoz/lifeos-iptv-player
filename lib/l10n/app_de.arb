@@ -360,5 +360,8 @@
   "aiPlotEnriching": "Bereite vor…",
   "aiPlotError": "Nicht abgerufen — erneut versuchen",
   "aiPlotShowOriginal": "Original anzeigen",
-  "aiPlotEnrichedTag": "KI"
+  "aiPlotEnrichedTag": "KI",
+  "aiRecapPrompt": "Erinnere mich, was bisher geschah",
+  "aiRecapHide": "Zusammenfassung ausblenden",
+  "aiRecapTag": "Recap"
 }

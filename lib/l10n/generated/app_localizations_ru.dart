@@ -1051,4 +1051,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'ИИ';
+
+  @override
+  String get aiRecapPrompt => 'Напомни, что было раньше';
+
+  @override
+  String get aiRecapHide => 'Скрыть резюме';
+
+  @override
+  String get aiRecapTag => 'Резюме';
 }

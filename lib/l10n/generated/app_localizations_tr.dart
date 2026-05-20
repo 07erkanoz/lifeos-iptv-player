@@ -1046,4 +1046,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'AI';
+
+  @override
+  String get aiRecapPrompt => 'Şimdiye kadar olanı hatırlat';
+
+  @override
+  String get aiRecapHide => 'Özeti gizle';
+
+  @override
+  String get aiRecapTag => 'Özet';
 }

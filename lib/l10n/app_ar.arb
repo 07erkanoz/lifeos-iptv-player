@@ -360,5 +360,8 @@
   "aiPlotEnriching": "يحضّر…",
   "aiPlotError": "تعذّر الجلب — حاول مجدداً",
   "aiPlotShowOriginal": "عرض الأصلي",
-  "aiPlotEnrichedTag": "ذكاء اصطناعي"
+  "aiPlotEnrichedTag": "ذكاء اصطناعي",
+  "aiRecapPrompt": "ذكّرني بما حدث حتى الآن",
+  "aiRecapHide": "إخفاء الملخص",
+  "aiRecapTag": "ملخص"
 }

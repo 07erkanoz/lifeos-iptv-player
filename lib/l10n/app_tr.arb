@@ -368,5 +368,8 @@
   "aiPlotEnriching": "Hazırlıyor…",
   "aiPlotError": "Alınamadı — tekrar dene",
   "aiPlotShowOriginal": "Orijinali göster",
-  "aiPlotEnrichedTag": "AI"
+  "aiPlotEnrichedTag": "AI",
+  "aiRecapPrompt": "Şimdiye kadar olanı hatırlat",
+  "aiRecapHide": "Özeti gizle",
+  "aiRecapTag": "Özet"
 }

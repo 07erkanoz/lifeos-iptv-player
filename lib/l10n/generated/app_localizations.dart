@@ -2089,6 +2089,24 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'AI'**
   String get aiPlotEnrichedTag;
+
+  /// No description provided for @aiRecapPrompt.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdiye kadar olanı hatırlat'**
+  String get aiRecapPrompt;
+
+  /// No description provided for @aiRecapHide.
+  ///
+  /// In tr, this message translates to:
+  /// **'Özeti gizle'**
+  String get aiRecapHide;
+
+  /// No description provided for @aiRecapTag.
+  ///
+  /// In tr, this message translates to:
+  /// **'Özet'**
+  String get aiRecapTag;
 }
 
 class _AppLocalizationsDelegate

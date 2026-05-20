@@ -1055,4 +1055,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'KI';
+
+  @override
+  String get aiRecapPrompt => 'Erinnere mich, was bisher geschah';
+
+  @override
+  String get aiRecapHide => 'Zusammenfassung ausblenden';
+
+  @override
+  String get aiRecapTag => 'Recap';
 }

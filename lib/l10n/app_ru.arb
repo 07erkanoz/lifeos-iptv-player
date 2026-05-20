@@ -360,5 +360,8 @@
   "aiPlotEnriching": "Готовлю…",
   "aiPlotError": "Не удалось — попробуйте снова",
   "aiPlotShowOriginal": "Показать оригинал",
-  "aiPlotEnrichedTag": "ИИ"
+  "aiPlotEnrichedTag": "ИИ",
+  "aiRecapPrompt": "Напомни, что было раньше",
+  "aiRecapHide": "Скрыть резюме",
+  "aiRecapTag": "Резюме"
 }

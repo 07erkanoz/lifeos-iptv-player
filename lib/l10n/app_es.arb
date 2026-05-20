@@ -360,5 +360,8 @@
   "aiPlotEnriching": "Preparando…",
   "aiPlotError": "No se pudo obtener — reintentar",
   "aiPlotShowOriginal": "Ver original",
-  "aiPlotEnrichedTag": "IA"
+  "aiPlotEnrichedTag": "IA",
+  "aiRecapPrompt": "Recuérdame lo que pasó",
+  "aiRecapHide": "Ocultar resumen",
+  "aiRecapTag": "Resumen"
 }

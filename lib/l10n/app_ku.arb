@@ -360,5 +360,8 @@
   "aiPlotEnriching": "Amade dike…",
   "aiPlotError": "Nehate anîn — careke din biceribîne",
   "aiPlotShowOriginal": "Orjînalê nîşan bide",
-  "aiPlotEnrichedTag": "AI"
+  "aiPlotEnrichedTag": "AI",
+  "aiRecapPrompt": "Tiştên berê qewimîne bîne bîra min",
+  "aiRecapHide": "Kurtenivîs veşêre",
+  "aiRecapTag": "Kurtenivîs"
 }

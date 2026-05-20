@@ -350,5 +350,8 @@
   "aiPlotEnriching": "Preparing…",
   "aiPlotError": "Couldn't fetch — try again",
   "aiPlotShowOriginal": "Show original",
-  "aiPlotEnrichedTag": "AI"
+  "aiPlotEnrichedTag": "AI",
+  "aiRecapPrompt": "Remind me what happened so far",
+  "aiRecapHide": "Hide recap",
+  "aiRecapTag": "Recap"
 }

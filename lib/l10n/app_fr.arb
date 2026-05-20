@@ -360,5 +360,8 @@
   "aiPlotEnriching": "Préparation…",
   "aiPlotError": "Échec — réessayer",
   "aiPlotShowOriginal": "Voir l'original",
-  "aiPlotEnrichedTag": "IA"
+  "aiPlotEnrichedTag": "IA",
+  "aiRecapPrompt": "Rappelle-moi ce qui s'est passé",
+  "aiRecapHide": "Masquer le résumé",
+  "aiRecapTag": "Résumé"
 }

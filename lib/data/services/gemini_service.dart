@@ -386,6 +386,116 @@ caller drops the result.
     }
   }
 
+  /// Spoiler-free recap of a series, scoped to "what happened up to
+  /// the episode the user is about to play".
+  ///
+  /// Drives the small "Şimdiye kadar olanı hatırlat" link that
+  /// appears next to the Continue Watching button on series detail
+  /// pages. The user has typically been away from a series for
+  /// days/weeks and needs the broad strokes back before resuming —
+  /// without us blowing the next episode's twists.
+  ///
+  /// `nextEpisodeLabel` is the season/episode tag attached to the
+  /// upcoming play (e.g. `"S1E10"`). The system prompt tells Gemini
+  /// to recap *up to but not including* that episode, so a user
+  /// resuming at S1E10 gets S1E1–S1E9 caught up.
+  ///
+  /// Returns the recap text, or `null` if Gemini can't confidently
+  /// summarise (UNKNOWN sentinel) or the call fails for any reason.
+  Future<String?> recapSeriesUpTo({
+    required String title,
+    String? year,
+    String? genre,
+    String? plot,
+    required String nextEpisodeLabel,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || title.isEmpty) return null;
+
+    final systemPrompt = '''
+You write spoiler-free recaps of TV series for viewers who are about
+to resume after a break. Output language: $targetLanguage.
+
+The user is about to watch the episode labeled $nextEpisodeLabel.
+Recap events that happened in earlier episodes only — strictly
+*before* $nextEpisodeLabel. Never mention anything that happens at
+or after that episode. Do not name the upcoming episode.
+
+Cover:
+  • Where the story started (premise)
+  • The main characters and their arcs so far
+  • Where the story stands right before $nextEpisodeLabel
+
+Keep it to 3–5 short paragraphs separated by blank lines. Plain
+text. No markdown headings, no preamble, no "Here's the recap:"
+framing.
+
+If you genuinely don't recognise the series or can't confidently
+recap it without inventing details, reply with the single word
+"UNKNOWN" (uppercase, no punctuation) — caller drops the result.
+''';
+
+    final userTurn = StringBuffer()
+      ..writeln('Series: $title${year != null && year.isNotEmpty ? " ($year)" : ""}');
+    if (genre != null && genre.isNotEmpty) {
+      userTurn.writeln('Genre: $genre');
+    }
+    if (plot != null && plot.trim().isNotEmpty) {
+      userTurn
+        ..writeln()
+        ..writeln('Synopsis on file (may be incomplete):')
+        ..writeln(plot);
+    }
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn.toString()},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'temperature': 0.5,
+            'maxOutputTokens': 900,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] recapSeriesUpTo status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString().trim();
+      if (text == null || text.isEmpty) return null;
+      if (text.toUpperCase() == 'UNKNOWN') return null;
+      return text;
+    } catch (e) {
+      debugPrint('[Gemini] recapSeriesUpTo failed: $e');
+      return null;
+    }
+  }
+
   // ─── Prompt + schema ─────────────────────────────────────────────
 
   /// System prompt is terse and example-driven — Gemini follows few-

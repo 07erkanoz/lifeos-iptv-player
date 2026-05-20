@@ -1044,4 +1044,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'ذكاء اصطناعي';
+
+  @override
+  String get aiRecapPrompt => 'ذكّرني بما حدث حتى الآن';
+
+  @override
+  String get aiRecapHide => 'إخفاء الملخص';
+
+  @override
+  String get aiRecapTag => 'ملخص';
 }

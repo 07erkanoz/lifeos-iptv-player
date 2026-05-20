@@ -1058,4 +1058,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiPlotEnrichedTag => 'IA';
+
+  @override
+  String get aiRecapPrompt => 'Rappelle-moi ce qui s\'est passé';
+
+  @override
+  String get aiRecapHide => 'Masquer le résumé';
+
+  @override
+  String get aiRecapTag => 'Résumé';
 }
