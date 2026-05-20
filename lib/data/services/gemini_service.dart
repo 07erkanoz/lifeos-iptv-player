@@ -853,6 +853,141 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
     'required': ['picks'],
   };
 
+  /// Per-episode mini-recaps for a season.
+  ///
+  /// Xtream rarely ships meaningful episode-level plot text — most
+  /// providers leave the `info.plot` field empty or copy the whole
+  /// series synopsis in. This method asks Gemini to fill those gaps
+  /// with one-sentence spoiler-free descriptions of each requested
+  /// episode, drawing on its training knowledge of the series.
+  ///
+  /// Returns a map of `episodeNumber → summary`. Missing entries
+  /// mean Gemini either didn't recognise the series or chose to
+  /// stay silent (a deliberate fallback signal we ask for in the
+  /// prompt — caller leaves those rows un-AI'd).
+  ///
+  /// Batching: one HTTP round-trip for the whole list. Cost-wise
+  /// this is much cheaper than per-episode calls — typical season
+  /// of 10–16 episodes lands at ~300 input + ~600 output tokens.
+  Future<Map<int, String>?> summarizeEpisodes({
+    required String seriesTitle,
+    String? seriesYear,
+    String? seriesGenre,
+    required int season,
+    required List<int> episodeNumbers,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || episodeNumbers.isEmpty) return null;
+
+    // Deduplicate + sort so the prompt is deterministic for cache
+    // observers and the AI sees a tidy list.
+    final eps = (episodeNumbers.toSet().toList())..sort();
+
+    final systemPrompt = '''
+You write one-sentence spoiler-free episode descriptions for TV
+series. Output language: $targetLanguage.
+
+You'll receive a series title, season number, and a list of episode
+numbers. Return a JSON object where each key is the episode number
+(as a string) and each value is a single short sentence describing
+that episode without revealing twists, endings, character deaths,
+or season-arc turns.
+
+Rules:
+  1. ONE sentence per episode. Plain text, no preamble.
+  2. Spoiler-free — describe the premise of the episode, not its
+     resolution.
+  3. If you don't know a specific episode well, omit the key
+     entirely. Don't guess.
+  4. If you don't recognise the series at all, return an empty
+     object: {"episodes": {}}.
+  5. Only include keys for episodes that were requested.
+
+Return JSON: {"episodes":{"1":"…","2":"…",…}}.
+''';
+
+    final userTurn =
+        'Series: $seriesTitle${seriesYear != null && seriesYear.isNotEmpty ? " ($seriesYear)" : ""}\n'
+        '${seriesGenre != null && seriesGenre.isNotEmpty ? "Genre: $seriesGenre\n" : ""}'
+        'Season: $season\n'
+        'Episodes: ${eps.join(", ")}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'temperature': 0.4,
+            // ~50 tokens/episode + JSON overhead. 1500 tokens is
+            // enough for a 25-episode season — uncommon but possible.
+            'maxOutputTokens': 1500,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] summarizeEpisodes status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+
+      final startIdx = text.indexOf('{');
+      final endIdx = text.lastIndexOf('}');
+      if (startIdx < 0 || endIdx <= startIdx) return null;
+      final jsonStr = text.substring(startIdx, endIdx + 1);
+
+      Object? decoded;
+      try {
+        decoded = jsonDecode(jsonStr);
+      } catch (e) {
+        debugPrint('[Gemini] summarizeEpisodes JSON decode failed: $e');
+        return null;
+      }
+      if (decoded is! Map<String, dynamic>) return null;
+      final rawEpisodes = decoded['episodes'];
+      if (rawEpisodes is! Map<String, dynamic>) return null;
+
+      final result = <int, String>{};
+      for (final entry in rawEpisodes.entries) {
+        final epNum = int.tryParse(entry.key);
+        if (epNum == null) continue;
+        final summary = entry.value?.toString().trim() ?? '';
+        if (summary.isEmpty) continue;
+        result[epNum] = summary;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('[Gemini] summarizeEpisodes failed: $e');
+      return null;
+    }
+  }
+
   // ─── Prompt + schema ─────────────────────────────────────────────
 
   /// System prompt is terse and example-driven — Gemini follows few-

@@ -17,8 +17,11 @@ import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
+import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/ai/series_recap_inline.dart';
@@ -76,6 +79,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   String? _lastEpisodeExt;
   String _lastEpisodeLabel = '';
   int _lastEpisodeResumeFromMs = 0;
+
+  /// AI-generated mini-recaps for episodes whose `info.plot` is
+  /// empty in the Xtream payload. Key shape: `"$season:$epNum"`.
+  ///
+  /// Populated lazily when the active season's episode panel
+  /// renders — see [_fetchEpisodeAiSummariesForActiveSeason]. Cache
+  /// survives only as long as the detail page is open; closing
+  /// and reopening triggers a fresh fetch.
+  final Map<String, String> _episodeAiSummaries = {};
+
+  /// Seasons that have already been (or are currently being)
+  /// summarised, to prevent duplicate Gemini calls when the user
+  /// taps the same tab repeatedly.
+  final Set<int> _episodeSummaryRequestedSeasons = {};
 
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
@@ -295,6 +312,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _lastEpisodeExt = null;
         _lastEpisodeLabel = '';
         _lastEpisodeResumeFromMs = 0;
+        _episodeAiSummaries.clear();
+        _episodeSummaryRequestedSeasons.clear();
       });
       _focusDetailBackButton();
       _fetchLastEpisodeProgress(cachedInfo);
@@ -312,6 +331,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _lastEpisodeExt = null;
       _lastEpisodeLabel = '';
       _lastEpisodeResumeFromMs = 0;
+      _episodeAiSummaries.clear();
+      _episodeSummaryRequestedSeasons.clear();
     });
     _focusDetailBackButton();
 
@@ -403,6 +424,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       setState(() => _seriesInfo = info);
       _cacheMetadata(current, info);
       _fetchLastEpisodeProgress(info);
+      // First-open AI episode summaries for whichever season the
+      // UI is parking on (initially S1, or whatever the season
+      // resolver picked).
+      _fetchEpisodeAiSummariesForActiveSeason();
       ref.read(contentRepositoryProvider).markNewEpisodesSeen(current.streamId);
     } catch (_) {}
   }
@@ -483,6 +508,77 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  /// Resolve the user's UI locale to an ISO-639-1 language code so
+  /// Gemini's reply matches whatever the rest of the app is
+  /// rendering in.
+  String _userLanguageCode() {
+    final appLang = ref.read(settingsProvider).language;
+    if (appLang == AppLanguage.system) {
+      return Localizations.localeOf(context).languageCode;
+    }
+    return appLang.name;
+  }
+
+  /// Fire-and-forget batch fetch of AI-generated mini-recaps for
+  /// the active season's episodes — but only the ones whose Xtream
+  /// `info.plot` field is empty. We never override real metadata;
+  /// the AI fill-in is purely a gap filler.
+  ///
+  /// Called from the season picker handler (each tap on a tab) and
+  /// from `_fetchLastEpisodeProgress` once `_seriesInfo` is
+  /// populated. Guarded by `_episodeSummaryRequestedSeasons` so the
+  /// same season never gets fetched twice in one detail-page open.
+  Future<void> _fetchEpisodeAiSummariesForActiveSeason() async {
+    final ch = _detailChannel;
+    if (ch == null) return;
+    final season = _activeSeason;
+    if (_episodeSummaryRequestedSeasons.contains(season)) return;
+
+    // Cheap pre-check: only spend Gemini calls when there's
+    // actually nothing to fill in for this season.
+    final epsRaw = _seriesInfo?['episodes'];
+    final eps = _asStringKeyMap(epsRaw);
+    if (eps == null) return;
+    final seasonList = eps['$season'] is List
+        ? eps['$season'] as List
+        : <dynamic>[];
+    final missing = <int>[];
+    for (final raw in seasonList) {
+      final epMap = _asStringKeyMap(raw);
+      if (epMap == null) continue;
+      final epPlot =
+          (_asStringKeyMap(epMap['info'])?['plot']?.toString() ?? '')
+              .trim();
+      if (epPlot.isNotEmpty) continue; // Xtream gave us real text — skip
+      final epNum = int.tryParse(epMap['episode_num']?.toString() ?? '');
+      if (epNum != null) missing.add(epNum);
+    }
+    if (missing.isEmpty) return;
+
+    // Only round-trip Gemini if we actually have a key. Don't
+    // mark the season as "requested" when AI is off, so toggling
+    // the key on mid-session can trigger a fetch on the next
+    // season switch.
+    final gemini = ref.read(geminiServiceProvider);
+    if (gemini == null) return;
+    _episodeSummaryRequestedSeasons.add(season);
+
+    final result = await gemini.summarizeEpisodes(
+      seriesTitle: ch.name,
+      seriesYear: ch.year,
+      seriesGenre: ch.genre,
+      season: season,
+      episodeNumbers: missing,
+      targetLanguage: _userLanguageCode(),
+    );
+    if (!mounted || result == null || result.isEmpty) return;
+    setState(() {
+      for (final entry in result.entries) {
+        _episodeAiSummaries['$season:${entry.key}'] = entry.value;
+      }
+    });
   }
 
   void _cacheMetadata(Channel ch, Map<String, dynamic>? seriesInfo) {
@@ -2077,7 +2173,15 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         return _FocusableSeasonTab(
                           label: '${l10n.season} $num',
                           isActive: isActive,
-                          onTap: () => setState(() => _activeSeason = num),
+                          onTap: () {
+                            setState(() => _activeSeason = num);
+                            // Lazy-fetch AI summaries for this
+                            // season's empty-plot episodes. The
+                            // method is idempotent per (series,
+                            // season) so retapping the same tab is
+                            // free.
+                            _fetchEpisodeAiSummariesForActiveSeason();
+                          },
                         );
                       }).toList(),
                     ),
@@ -2208,6 +2312,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         : int.parse(ep['id'].toString());
     final ext = ep['container_extension']?.toString() ?? 'mp4';
 
+    // Look up the AI-generated fill-in by (season, epNum). Only
+    // consumed by the card when the Xtream plot is empty.
+    final epNumInt = int.tryParse(epNum);
+    final aiSummary = epNumInt != null
+        ? _episodeAiSummaries['$_activeSeason:$epNumInt']
+        : null;
+
     return _EpisodeCard(
       epNum: epNum,
       title: epTitle,
@@ -2216,6 +2327,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       thumbnail: epThumb,
       onTap: () => _playEpisode(epId, ext),
       l10n: l10n,
+      aiSummary: aiSummary,
     );
   }
 
@@ -2529,6 +2641,11 @@ class _EpisodeCard extends StatefulWidget {
   final VoidCallback onTap;
   final AppLocalizations l10n;
 
+  /// Spoiler-free one-sentence summary supplied by Gemini for
+  /// episodes whose Xtream `info.plot` came back empty. Only
+  /// consulted when [plot] is empty — real metadata wins.
+  final String? aiSummary;
+
   const _EpisodeCard({
     required this.epNum,
     required this.title,
@@ -2537,6 +2654,7 @@ class _EpisodeCard extends StatefulWidget {
     required this.thumbnail,
     required this.onTap,
     required this.l10n,
+    this.aiSummary,
   });
 
   @override
@@ -2649,6 +2767,38 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                          ] else if (widget.aiSummary != null) ...[
+                            // Xtream gave us nothing for this episode
+                            // and Gemini filled the gap. Rendered in
+                            // primary-tinted italic with a small ✨
+                            // glyph so power users can distinguish
+                            // AI-generated text from real metadata.
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 10,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    widget.aiSummary!,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                           if (widget.duration.isNotEmpty) ...[
