@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 // generated drift `Category` row class.
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -115,6 +116,95 @@ class ContentRepository {
         .where((ch) => ch.name.toLowerCase().contains(lowerQuery))
         .take(limit)
         .toList();
+  }
+
+  /// Search powered by a [SearchIntent] from Gemini.
+  ///
+  /// Every field on the intent is optional; missing fields don't
+  /// constrain the result set. Filters are applied as follows:
+  ///
+  /// * `contentType` → strict equality on `channels.type`
+  /// * `genres` → case-insensitive substring match against the
+  ///    comma-separated `channels.genre` column. ANY of the supplied
+  ///    genres counts as a hit (OR semantics), so "romantik komedi"
+  ///    matches rows tagged with either "Romance" or "Comedy".
+  /// * `minYear` / `maxYear` → numeric parse of `channels.year`
+  ///    (it's nullable text). Rows with unparseable years are
+  ///    excluded only when a year filter is requested.
+  /// * `minRating` → numeric compare against `channels.rating`
+  ///    (nullable double). Rows with no rating are excluded only
+  ///    when a rating threshold is set.
+  /// * `keywords` → multi-column case-insensitive substring across
+  ///    name + plot + cast + director.
+  ///
+  /// We load the candidate rows in SQL (cheap, single join), then
+  /// apply Dart-side predicates for the fuzzy comma-separated /
+  /// case-insensitive bits. SQLite LIKE is ASCII-only for case
+  /// folding, which doesn't play well with Turkish characters —
+  /// matching in Dart sidesteps that.
+  Future<List<Channel>> searchChannelsByIntent(
+    SearchIntent intent, {
+    int limit = 100,
+  }) async {
+    final query = _db.select(_db.channels).join([
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
+    ])..where(_db.categories.isHidden.equals(false));
+
+    if (intent.contentType != null) {
+      query.where(_db.channels.type.equals(intent.contentType!));
+    }
+
+    final rows = await query.get();
+    final channels = rows.map((row) => row.readTable(_db.channels));
+
+    final keywordsLower = intent.keywords?.trim().toLowerCase();
+    final genres = intent.genres
+        ?.map((g) => g.trim().toLowerCase())
+        .where((g) => g.isNotEmpty)
+        .toList();
+
+    final filtered = channels.where((ch) {
+      // Keywords: substring across name/plot/cast/director.
+      if (keywordsLower != null && keywordsLower.isNotEmpty) {
+        final haystack = [
+          ch.name,
+          ch.plot ?? '',
+          ch.cast ?? '',
+          ch.director ?? '',
+        ].join('  ').toLowerCase();
+        if (!haystack.contains(keywordsLower)) return false;
+      }
+
+      // Genres: any-match against the comma-separated genre column.
+      if (genres != null && genres.isNotEmpty) {
+        final g = (ch.genre ?? '').toLowerCase();
+        if (g.isEmpty) return false;
+        final hit = genres.any((wanted) => g.contains(wanted));
+        if (!hit) return false;
+      }
+
+      // Year range.
+      if (intent.minYear != null || intent.maxYear != null) {
+        final y = int.tryParse(ch.year ?? '');
+        if (y == null) return false;
+        if (intent.minYear != null && y < intent.minYear!) return false;
+        if (intent.maxYear != null && y > intent.maxYear!) return false;
+      }
+
+      // Rating threshold.
+      if (intent.minRating != null) {
+        final r = ch.rating;
+        if (r == null || r < intent.minRating!) return false;
+      }
+
+      return true;
+    });
+
+    return filtered.take(limit).toList();
   }
 
   /// Full sync: categories + all streams

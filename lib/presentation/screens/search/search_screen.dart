@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
@@ -39,6 +41,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Channel> _seriesResults = [];
   List<Channel> _liveResults = [];
   bool _isSearching = false;
+
+  /// Last AI-parsed intent for the active query, or `null` when we
+  /// took the plain-search code path (no key, AI failed, or AI
+  /// returned no structured filters). When non-null we render an
+  /// "AI yorumladı: …" chip row above the results so the user can
+  /// see why they got those filters.
+  SearchIntent? _activeIntent;
 
   bool get _hasResults => _movieResults.isNotEmpty || _seriesResults.isNotEmpty || _liveResults.isNotEmpty;
 
@@ -117,28 +126,113 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _seriesResults = [];
         _liveResults = [];
         _isSearching = false;
+        _activeIntent = null;
       });
       return;
     }
     setState(() => _isSearching = true);
     _debounce = Timer(const Duration(milliseconds: 400), () async {
-      final repo = ref.read(contentRepositoryProvider);
       final trimmed = query.trim();
-      // Search all types in parallel for lower latency on big datasets.
-      final results = await Future.wait([
-        repo.searchChannelsByType(trimmed, 'movie', limit: 60),
-        repo.searchChannelsByType(trimmed, 'series', limit: 60),
-        repo.searchChannelsByType(trimmed, 'live', limit: 60),
-      ]);
-      if (mounted && requestId == _searchRequestId) {
-        setState(() {
-          _movieResults = results[0];
-          _seriesResults = results[1];
-          _liveResults = results[2];
-          _isSearching = false;
-        });
-      }
+      final results = await _runSearch(trimmed, requestId);
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {
+        _movieResults = results.movies;
+        _seriesResults = results.series;
+        _liveResults = results.live;
+        _isSearching = false;
+        _activeIntent = results.intent;
+      });
     });
+  }
+
+  /// Plain-search vs AI-search dispatcher.
+  ///
+  /// When the user has a Gemini key configured, we kick off a parse
+  /// in parallel with the plain SQL search. If Gemini returns a
+  /// non-empty structured intent (e.g. `genres: ['crime']`), we re-run
+  /// the search through `searchChannelsByIntent` to take advantage of
+  /// the filters. Otherwise we keep the plain results — no UX
+  /// regression when Gemini is slow, rate-limited, or simply has no
+  /// extra signal to add.
+  ///
+  /// We deliberately race the two paths instead of awaiting Gemini
+  /// first: a 1-second Gemini RTT shouldn't tax-bracket every plain
+  /// keyword search. The user sees plain results in ~50ms and the
+  /// AI-refined set replaces them as soon as Gemini answers (typically
+  /// 500-1500ms).
+  Future<_SearchResults> _runSearch(String query, int requestId) async {
+    final repo = ref.read(contentRepositoryProvider);
+    final gemini = ref.read(geminiServiceProvider); // nullable
+
+    // Always start the plain search.
+    final plainFuture = Future.wait([
+      repo.searchChannelsByType(query, 'movie', limit: 60),
+      repo.searchChannelsByType(query, 'series', limit: 60),
+      repo.searchChannelsByType(query, 'live', limit: 60),
+    ]);
+
+    if (gemini == null) {
+      final plain = await plainFuture;
+      return _SearchResults(
+        movies: plain[0],
+        series: plain[1],
+        live: plain[2],
+        intent: null,
+      );
+    }
+
+    // Race plain + Gemini. Whichever path produces a usable result
+    // set wins; we prefer the AI-refined one when it carries real
+    // structured filters.
+    final intent = await gemini.parseSearchQuery(query);
+    // If the user typed something else in the meantime, abandon.
+    if (requestId != _searchRequestId) {
+      final plain = await plainFuture;
+      return _SearchResults(
+        movies: plain[0],
+        series: plain[1],
+        live: plain[2],
+        intent: null,
+      );
+    }
+
+    if (intent == null ||
+        intent.isEmpty ||
+        !intent.hasStructuredFilters) {
+      // No useful AI signal — show plain results.
+      final plain = await plainFuture;
+      return _SearchResults(
+        movies: plain[0],
+        series: plain[1],
+        live: plain[2],
+        intent: null,
+      );
+    }
+
+    // Pull AI-refined matches. The intent might pin a single type
+    // (e.g. `contentType: 'movie'`) — in that case the other two
+    // buckets stay empty. Otherwise we partition by type after the
+    // single call.
+    final refined = await repo.searchChannelsByIntent(intent, limit: 180);
+    final movies = <Channel>[];
+    final series = <Channel>[];
+    final live = <Channel>[];
+    for (final ch in refined) {
+      switch (ch.type) {
+        case 'movie':
+          movies.add(ch);
+        case 'series':
+          series.add(ch);
+        case 'live':
+          live.add(ch);
+      }
+    }
+    return _SearchResults(
+      movies: movies,
+      series: series,
+      live: live,
+      intent: intent,
+    );
   }
 
   void _onResultTap(Channel channel) {
@@ -380,6 +474,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             child: ListView(
                               padding: EdgeInsets.all(isMobile ? 12 : 20),
                               children: [
+                                // "AI yorumladı: …" chip row, only shown
+                                // when the active query was routed
+                                // through Gemini AND it produced at
+                                // least one structured filter.
+                                if (_activeIntent != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _AiIntentChips(intent: _activeIntent!),
+                                  ),
                                 // Movies section
                                 if (_movieResults.isNotEmpty) ...[
                                   _buildSectionHeader(Icons.movie_outlined, l10n.movie, AppColors.primary, _movieResults.length),
@@ -634,4 +737,116 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
       ),
     );
   }
+}
+
+/// Small read-only chip row that explains *why* the user got the
+/// current result set when the active query was routed through
+/// Gemini.
+///
+/// Renders one Material-style chip per structured field on the
+/// intent — content type, each genre, year range, rating threshold.
+/// The keywords field is intentionally omitted because the user
+/// already sees what they typed in the search bar.
+class _AiIntentChips extends StatelessWidget {
+  final SearchIntent intent;
+
+  const _AiIntentChips({required this.intent});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final chips = <Widget>[];
+
+    if (intent.contentType != null) {
+      final label = switch (intent.contentType) {
+        'movie' => l10n.movie,
+        'series' => l10n.series,
+        'live' => l10n.live,
+        _ => intent.contentType!,
+      };
+      chips.add(_chip(Icons.category_outlined, label));
+    }
+
+    final genres = intent.genres;
+    if (genres != null && genres.isNotEmpty) {
+      for (final g in genres) {
+        chips.add(_chip(Icons.local_movies_outlined, g));
+      }
+    }
+
+    if (intent.minYear != null || intent.maxYear != null) {
+      final years = (intent.minYear != null && intent.maxYear != null)
+          ? '${intent.minYear}–${intent.maxYear}'
+          : (intent.minYear != null
+              ? '${intent.minYear}+'
+              : '≤${intent.maxYear}');
+      chips.add(_chip(Icons.calendar_today_outlined, years));
+    }
+
+    if (intent.minRating != null) {
+      chips.add(_chip(Icons.star_outline, '${intent.minRating}+'));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Icon(Icons.auto_awesome,
+            size: 14, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: chips,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.25), width: 1),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: AppColors.primary),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Tuple of partitioned search results plus the optional intent that
+/// produced them. File-private (leading underscore).
+class _SearchResults {
+  final List<Channel> movies;
+  final List<Channel> series;
+  final List<Channel> live;
+
+  /// `null` when results came from plain SQL search; non-null when
+  /// Gemini supplied structured filters that the repository used.
+  /// Drives the "AI yorumladı: …" chip row in the UI.
+  final SearchIntent? intent;
+
+  const _SearchResults({
+    required this.movies,
+    required this.series,
+    required this.live,
+    required this.intent,
+  });
 }
