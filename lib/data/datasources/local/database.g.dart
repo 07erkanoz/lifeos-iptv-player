@@ -3955,6 +3955,444 @@ class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
   }
 }
 
+class $PlotAiCacheTable extends PlotAiCache
+    with TableInfo<$PlotAiCacheTable, PlotAiCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlotAiCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
+  @override
+  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
+    'mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetLanguageMeta = const VerificationMeta(
+    'targetLanguage',
+  );
+  @override
+  late final GeneratedColumn<String> targetLanguage = GeneratedColumn<String>(
+    'target_language',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceHashMeta = const VerificationMeta(
+    'sourceHash',
+  );
+  @override
+  late final GeneratedColumn<String> sourceHash = GeneratedColumn<String>(
+    'source_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    mode,
+    targetLanguage,
+    content,
+    sourceHash,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plot_ai_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlotAiCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('mode')) {
+      context.handle(
+        _modeMeta,
+        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modeMeta);
+    }
+    if (data.containsKey('target_language')) {
+      context.handle(
+        _targetLanguageMeta,
+        targetLanguage.isAcceptableOrUnknown(
+          data['target_language']!,
+          _targetLanguageMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_targetLanguageMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('source_hash')) {
+      context.handle(
+        _sourceHashMeta,
+        sourceHash.isAcceptableOrUnknown(data['source_hash']!, _sourceHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceHashMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, mode, targetLanguage};
+  @override
+  PlotAiCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlotAiCacheData(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      mode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mode'],
+      )!,
+      targetLanguage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_language'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      sourceHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_hash'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PlotAiCacheTable createAlias(String alias) {
+    return $PlotAiCacheTable(attachedDatabase, alias);
+  }
+}
+
+class PlotAiCacheData extends DataClass implements Insertable<PlotAiCacheData> {
+  /// `Channel.streamId` of the title this enrichment was generated for.
+  final int streamId;
+
+  /// One of the [PlotEnrichMode] enum names — kept as a string so the
+  /// table doesn't break when modes are added/renamed.
+  final String mode;
+
+  /// ISO-639-1 code (e.g. "tr", "en") of the response language. Cached
+  /// separately per language because translate(tr) and translate(en)
+  /// of the same plot are different outputs.
+  final String targetLanguage;
+
+  /// The AI-produced text. Whatever `enrichPlot` returned.
+  final String content;
+
+  /// Cheap fingerprint of the metadata we fed Gemini (title, year,
+  /// genre, director, cast, rating, originalPlot). Changing any of
+  /// those changes the hash, invalidating the row on next read.
+  final String sourceHash;
+  final DateTime createdAt;
+  const PlotAiCacheData({
+    required this.streamId,
+    required this.mode,
+    required this.targetLanguage,
+    required this.content,
+    required this.sourceHash,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['mode'] = Variable<String>(mode);
+    map['target_language'] = Variable<String>(targetLanguage);
+    map['content'] = Variable<String>(content);
+    map['source_hash'] = Variable<String>(sourceHash);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PlotAiCacheCompanion toCompanion(bool nullToAbsent) {
+    return PlotAiCacheCompanion(
+      streamId: Value(streamId),
+      mode: Value(mode),
+      targetLanguage: Value(targetLanguage),
+      content: Value(content),
+      sourceHash: Value(sourceHash),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PlotAiCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlotAiCacheData(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      mode: serializer.fromJson<String>(json['mode']),
+      targetLanguage: serializer.fromJson<String>(json['targetLanguage']),
+      content: serializer.fromJson<String>(json['content']),
+      sourceHash: serializer.fromJson<String>(json['sourceHash']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'mode': serializer.toJson<String>(mode),
+      'targetLanguage': serializer.toJson<String>(targetLanguage),
+      'content': serializer.toJson<String>(content),
+      'sourceHash': serializer.toJson<String>(sourceHash),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PlotAiCacheData copyWith({
+    int? streamId,
+    String? mode,
+    String? targetLanguage,
+    String? content,
+    String? sourceHash,
+    DateTime? createdAt,
+  }) => PlotAiCacheData(
+    streamId: streamId ?? this.streamId,
+    mode: mode ?? this.mode,
+    targetLanguage: targetLanguage ?? this.targetLanguage,
+    content: content ?? this.content,
+    sourceHash: sourceHash ?? this.sourceHash,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PlotAiCacheData copyWithCompanion(PlotAiCacheCompanion data) {
+    return PlotAiCacheData(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      mode: data.mode.present ? data.mode.value : this.mode,
+      targetLanguage: data.targetLanguage.present
+          ? data.targetLanguage.value
+          : this.targetLanguage,
+      content: data.content.present ? data.content.value : this.content,
+      sourceHash: data.sourceHash.present
+          ? data.sourceHash.value
+          : this.sourceHash,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlotAiCacheData(')
+          ..write('streamId: $streamId, ')
+          ..write('mode: $mode, ')
+          ..write('targetLanguage: $targetLanguage, ')
+          ..write('content: $content, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    streamId,
+    mode,
+    targetLanguage,
+    content,
+    sourceHash,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlotAiCacheData &&
+          other.streamId == this.streamId &&
+          other.mode == this.mode &&
+          other.targetLanguage == this.targetLanguage &&
+          other.content == this.content &&
+          other.sourceHash == this.sourceHash &&
+          other.createdAt == this.createdAt);
+}
+
+class PlotAiCacheCompanion extends UpdateCompanion<PlotAiCacheData> {
+  final Value<int> streamId;
+  final Value<String> mode;
+  final Value<String> targetLanguage;
+  final Value<String> content;
+  final Value<String> sourceHash;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PlotAiCacheCompanion({
+    this.streamId = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.targetLanguage = const Value.absent(),
+    this.content = const Value.absent(),
+    this.sourceHash = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlotAiCacheCompanion.insert({
+    required int streamId,
+    required String mode,
+    required String targetLanguage,
+    required String content,
+    required String sourceHash,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       mode = Value(mode),
+       targetLanguage = Value(targetLanguage),
+       content = Value(content),
+       sourceHash = Value(sourceHash);
+  static Insertable<PlotAiCacheData> custom({
+    Expression<int>? streamId,
+    Expression<String>? mode,
+    Expression<String>? targetLanguage,
+    Expression<String>? content,
+    Expression<String>? sourceHash,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (mode != null) 'mode': mode,
+      if (targetLanguage != null) 'target_language': targetLanguage,
+      if (content != null) 'content': content,
+      if (sourceHash != null) 'source_hash': sourceHash,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlotAiCacheCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? mode,
+    Value<String>? targetLanguage,
+    Value<String>? content,
+    Value<String>? sourceHash,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PlotAiCacheCompanion(
+      streamId: streamId ?? this.streamId,
+      mode: mode ?? this.mode,
+      targetLanguage: targetLanguage ?? this.targetLanguage,
+      content: content ?? this.content,
+      sourceHash: sourceHash ?? this.sourceHash,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(mode.value);
+    }
+    if (targetLanguage.present) {
+      map['target_language'] = Variable<String>(targetLanguage.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (sourceHash.present) {
+      map['source_hash'] = Variable<String>(sourceHash.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlotAiCacheCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('mode: $mode, ')
+          ..write('targetLanguage: $targetLanguage, ')
+          ..write('content: $content, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3969,6 +4407,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $WatchlistTable watchlist = $WatchlistTable(this);
   late final $SeriesTrackingTable seriesTracking = $SeriesTrackingTable(this);
   late final $IntroMarkersTable introMarkers = $IntroMarkersTable(this);
+  late final $PlotAiCacheTable plotAiCache = $PlotAiCacheTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3983,6 +4422,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     watchlist,
     seriesTracking,
     introMarkers,
+    plotAiCache,
   ];
 }
 
@@ -6485,6 +6925,229 @@ typedef $$IntroMarkersTableProcessedTableManager =
       IntroMarker,
       PrefetchHooks Function()
     >;
+typedef $$PlotAiCacheTableCreateCompanionBuilder =
+    PlotAiCacheCompanion Function({
+      required int streamId,
+      required String mode,
+      required String targetLanguage,
+      required String content,
+      required String sourceHash,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$PlotAiCacheTableUpdateCompanionBuilder =
+    PlotAiCacheCompanion Function({
+      Value<int> streamId,
+      Value<String> mode,
+      Value<String> targetLanguage,
+      Value<String> content,
+      Value<String> sourceHash,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PlotAiCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $PlotAiCacheTable> {
+  $$PlotAiCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlotAiCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlotAiCacheTable> {
+  $$PlotAiCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlotAiCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlotAiCacheTable> {
+  $$PlotAiCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  GeneratedColumn<String> get targetLanguage => $composableBuilder(
+    column: $table.targetLanguage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PlotAiCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlotAiCacheTable,
+          PlotAiCacheData,
+          $$PlotAiCacheTableFilterComposer,
+          $$PlotAiCacheTableOrderingComposer,
+          $$PlotAiCacheTableAnnotationComposer,
+          $$PlotAiCacheTableCreateCompanionBuilder,
+          $$PlotAiCacheTableUpdateCompanionBuilder,
+          (
+            PlotAiCacheData,
+            BaseReferences<_$AppDatabase, $PlotAiCacheTable, PlotAiCacheData>,
+          ),
+          PlotAiCacheData,
+          PrefetchHooks Function()
+        > {
+  $$PlotAiCacheTableTableManager(_$AppDatabase db, $PlotAiCacheTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlotAiCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlotAiCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlotAiCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> mode = const Value.absent(),
+                Value<String> targetLanguage = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> sourceHash = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlotAiCacheCompanion(
+                streamId: streamId,
+                mode: mode,
+                targetLanguage: targetLanguage,
+                content: content,
+                sourceHash: sourceHash,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String mode,
+                required String targetLanguage,
+                required String content,
+                required String sourceHash,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlotAiCacheCompanion.insert(
+                streamId: streamId,
+                mode: mode,
+                targetLanguage: targetLanguage,
+                content: content,
+                sourceHash: sourceHash,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlotAiCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlotAiCacheTable,
+      PlotAiCacheData,
+      $$PlotAiCacheTableFilterComposer,
+      $$PlotAiCacheTableOrderingComposer,
+      $$PlotAiCacheTableAnnotationComposer,
+      $$PlotAiCacheTableCreateCompanionBuilder,
+      $$PlotAiCacheTableUpdateCompanionBuilder,
+      (
+        PlotAiCacheData,
+        BaseReferences<_$AppDatabase, $PlotAiCacheTable, PlotAiCacheData>,
+      ),
+      PlotAiCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6507,6 +7170,8 @@ class $AppDatabaseManager {
       $$SeriesTrackingTableTableManager(_db, _db.seriesTracking);
   $$IntroMarkersTableTableManager get introMarkers =>
       $$IntroMarkersTableTableManager(_db, _db.introMarkers);
+  $$PlotAiCacheTableTableManager get plotAiCache =>
+      $$PlotAiCacheTableTableManager(_db, _db.plotAiCache);
 }
 
 // **************************************************************************

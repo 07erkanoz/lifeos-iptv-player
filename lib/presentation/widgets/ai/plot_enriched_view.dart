@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/plot_ai_cache_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -110,15 +111,49 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
   Future<void> _enrich(PlotEnrichMode mode) async {
     final gemini = ref.read(geminiServiceProvider);
     if (gemini == null) return;
+    final cacheRepo = ref.read(plotAiCacheRepositoryProvider);
+    final lang = _userLanguageCode();
+    final hash = PlotAiCacheRepository.fingerprint(
+      title: widget.channel.name,
+      year: widget.channel.year,
+      genre: widget.channel.genre,
+      director: widget.channel.director,
+      cast: widget.channel.cast,
+      rating: widget.channel.rating,
+      originalPlot: widget.plotText,
+    );
+
+    // Cache check first. A persisted match — same channel, same
+    // mode, same target language, same source fingerprint — short-
+    // circuits the network round-trip and the model bill. Stale
+    // rows (different fingerprint) and absent rows both fall
+    // through to the Gemini call below.
+    final cached = await cacheRepo.lookup(
+      streamId: widget.channel.streamId,
+      mode: mode,
+      targetLanguage: lang,
+      sourceHash: hash,
+    );
+    if (cached != null && cached.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _lastCallFailed = false;
+        _enriched = cached;
+        _enrichedMode = mode;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _lastCallFailed = false;
     });
-    // Pass every metadata field we have. fillIn/detailedInfo
+    // Pass every metadata field we have. fillIn / detailedInfo
     // especially benefit — without director/cast/rating those
     // modes had only `title + year + genre` to synthesise from,
-    // which produced thin generic answers for any title the model
-    // didn't already know.
+    // which produced thin generic answers for any title the
+    // model didn't already know.
     final result = await gemini.enrichPlot(
       title: widget.channel.name,
       year: widget.channel.year,
@@ -128,8 +163,20 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
       rating: widget.channel.rating,
       originalPlot: widget.plotText,
       mode: mode,
-      targetLanguage: _userLanguageCode(),
+      targetLanguage: lang,
     );
+    if (!mounted) return;
+    if (result != null && result.isNotEmpty) {
+      // Persist before showing — write failure here would only
+      // mean we re-fetch next time, never a crash on the UI path.
+      await cacheRepo.store(
+        streamId: widget.channel.streamId,
+        mode: mode,
+        targetLanguage: lang,
+        sourceHash: hash,
+        content: result,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _loading = false;

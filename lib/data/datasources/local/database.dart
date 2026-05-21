@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers])
+@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +58,11 @@ class AppDatabase extends _$AppDatabase {
        if (from < 12) {
          // Skip-Intro feature: per-series intro position markers.
          await m.createTable(introMarkers);
+       }
+       if (from < 13) {
+         // AI plot enrichment cache (translate / summarize /
+         // fillIn / detailedInfo).
+         await m.createTable(plotAiCache);
        }
     },
   );

@@ -106,6 +106,46 @@ class SeriesTracking extends Table {
   Set<Column> get primaryKey => {seriesId};
 }
 
+/// AI-enriched plot text cache.
+///
+/// One row per (streamId, mode, language) combination. The detail
+/// page reads from this table before hitting Gemini, so repeated
+/// visits to the same title's "Detaylı bilgi" / translate / summarize
+/// link return instantly from disk rather than burning quota.
+///
+/// `sourceHash` is a fingerprint of the metadata + plot text we sent
+/// to the model when this row was generated. If the underlying
+/// Channel row updates (sync refreshes plot/cast/year/etc.) the hash
+/// won't match and the cache miss triggers a fresh fetch, so stale
+/// content can't outlive its source.
+class PlotAiCache extends Table {
+  /// `Channel.streamId` of the title this enrichment was generated for.
+  IntColumn get streamId => integer()();
+
+  /// One of the [PlotEnrichMode] enum names — kept as a string so the
+  /// table doesn't break when modes are added/renamed.
+  TextColumn get mode => text()();
+
+  /// ISO-639-1 code (e.g. "tr", "en") of the response language. Cached
+  /// separately per language because translate(tr) and translate(en)
+  /// of the same plot are different outputs.
+  TextColumn get targetLanguage => text()();
+
+  /// The AI-produced text. Whatever `enrichPlot` returned.
+  TextColumn get content => text()();
+
+  /// Cheap fingerprint of the metadata we fed Gemini (title, year,
+  /// genre, director, cast, rating, originalPlot). Changing any of
+  /// those changes the hash, invalidating the row on next read.
+  TextColumn get sourceHash => text()();
+
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, mode, targetLanguage};
+}
+
 /// Per-series intro position markers used to drive the "Skip Intro"
 /// affordance in the player. A series usually has a fixed-length intro
 /// reused across every episode, so we store *one* marker per series and
