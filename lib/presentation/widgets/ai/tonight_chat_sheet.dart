@@ -380,7 +380,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// the id no longer exists (sync ran between snapshot and tap), do
   /// nothing. (UI never shows the option, so this is defensive.)
   Future<void> _playRecommendation(TonightRecommendation rec) async {
-    final ch = _resolveChannel(rec);
+    final ch = await _resolveChannel(rec);
     if (ch == null) return;
     final acc = ref.read(currentAccountProvider).value;
     if (acc == null) return;
@@ -414,10 +414,11 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// channel provider. Each section screen watches that provider and
   /// opens its own detail panel when a value is set — this is the
   /// same path the search results use, so behaviour stays consistent.
-  void _openDetails(TonightRecommendation rec) {
-    final ch = _resolveChannel(rec);
+  Future<void> _openDetails(TonightRecommendation rec) async {
+    final ch = await _resolveChannel(rec);
     if (ch == null) return;
     ref.read(pendingDetailChannelProvider.notifier).set(ch);
+    if (!mounted) return;
     Navigator.of(context).pop();
     switch (ch.type) {
       case 'movie':
@@ -431,15 +432,48 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     }
   }
 
-  Channel? _resolveChannel(TonightRecommendation rec) {
+  /// Resolve a rec's streamId to a Channel for play / details
+  /// routing.
+  ///
+  /// First sweeps the message-local `resolvedChannels` maps — these
+  /// were populated by the DB lookup we run right after the AI
+  /// response lands, so they always contain the items the AI just
+  /// recommended regardless of which pool they came from (queryMatches
+  /// / library / favourites / history).
+  ///
+  /// Falls back to a direct DB query as a last resort so play and
+  /// details survive even on legacy message objects that didn't get
+  /// the resolved map populated.
+  Future<Channel?> _resolveChannel(TonightRecommendation rec) async {
+    // 1. Check the resolved map on every AI message in the session —
+    //    walk newest first so the latest answer wins on duplicates.
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m.fromUser) continue;
+      final ch = m.resolvedChannels[rec.streamId];
+      if (ch is Channel) return ch;
+    }
+    // 2. Legacy in-memory context pools (kept for safety).
     final ctx = ref.read(tonightContextProvider).value;
-    if (ctx == null) return null;
-    for (final pool in [ctx.librarySample, ctx.favorites, ctx.recentlyWatched]) {
-      for (final ch in pool) {
-        if (ch.streamId == rec.streamId) return ch;
+    if (ctx != null) {
+      for (final pool in [
+        ctx.librarySample,
+        ctx.favorites,
+        ctx.recentlyWatched,
+      ]) {
+        for (final ch in pool) {
+          if (ch.streamId == rec.streamId) return ch;
+        }
       }
     }
-    return null;
+    // 3. Direct DB lookup — last-resort safety net. ~5 ms on this
+    //    catalogue, dwarfed by the navigation transition anyway.
+    final db = ref.read(appDatabaseProvider);
+    final row = await (db.select(db.channels)
+          ..where((t) => t.streamId.equals(rec.streamId))
+          ..limit(1))
+        .getSingleOrNull();
+    return row;
   }
 
   VideoType _videoTypeFromString(String type) {

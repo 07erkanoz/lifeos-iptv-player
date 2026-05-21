@@ -2072,6 +2072,28 @@ content" if a relevant category exists in `categories` OR an item
 appears in queryMatches. Instead, recommend from those items or
 mention the category by name.
 
+YOUR ACTUAL VALUE — read carefully:
+The user could already filter by category locally; that's NOT what
+they're asking you to do. Your job is to use your training-data
+knowledge of which titles are *genuinely good or famous* to pick
+the best subset, NOT to rank them by the catalogue's own rating
+column (which is unreliable on IPTV catalogues — many series have
+rating=null or rating=0).
+
+For "en iyi / popüler Kore dizileri": YOU know that Squid Game,
+Crash Landing on You, Goblin, Reply 1988, Mr. Sunshine, Sky Castle,
+Vincenzo, Itaewon Class, Hospital Playlist, Misaeng, etc. are the
+genuinely acclaimed K-dramas of the last decade. SCAN queryMatches
+for ANY title-match (Turkish or original) to those, even if rating
+column is empty, and put those at the top of your picks. If the
+user's catalogue uses Turkish-translated names like "Kalp Çarpıntısı"
+for "Heartbeat" — recognise the title across translations and
+include it.
+
+When unsure whether a title is the famous one or a similarly-named
+local production, lean toward the ones whose year + cast field
+match what you know about the famous version.
+
 Hard rules:
   - Only return streamIds that appear in queryMatches OR library.
   - Match the user's language in both `message` and per-pick
