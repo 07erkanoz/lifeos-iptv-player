@@ -381,12 +381,23 @@ need to express low confidence, do it inline with phrasing like
           ],
           'generationConfig': {
             'temperature': mode == PlotEnrichMode.translate ? 0.2 : 0.5,
-            // detailedInfo writes 4–6 short paragraphs. The earlier
-            // 900-token cap was clipping Turkish output (~30 % less
-            // dense than English) mid-paragraph. 1800 has plenty of
-            // headroom without being wasteful for the other modes.
+            // detailedInfo writes 4–6 short paragraphs. Token budget
+            // history:
+            //   *  900 → first try, Turkish kept getting clipped
+            //      mid-word for any prose-heavy answer.
+            //   * 1800 → still clipped — Turkish output averages
+            //      ~2 tokens per syllable with Gemini's BPE, much
+            //      heavier than English.
+            //   * 4096 → comfortable headroom; the model still
+            //      stops at "natural" lengths for shorter titles
+            //      and only stretches when the content warrants
+            //      it. Well under the 8192 per-response cap.
+            //
+            // Other modes (translate/summarize/fillIn) stay at 500
+            // because they're explicitly short-form and a runaway
+            // response is more annoying than a truncated one.
             'maxOutputTokens':
-                mode == PlotEnrichMode.detailedInfo ? 1800 : 500,
+                mode == PlotEnrichMode.detailedInfo ? 4096 : 500,
           },
         },
       );

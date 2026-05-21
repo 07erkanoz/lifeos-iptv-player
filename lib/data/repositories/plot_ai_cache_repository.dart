@@ -79,10 +79,29 @@ class PlotAiCacheRepository {
         .go();
   }
 
+  /// Hardcoded prompt-and-config version. Bumped whenever the
+  /// system prompt or generation config in
+  /// [GeminiService.enrichPlot] materially changes — old cache
+  /// rows produced under the previous configuration carry a
+  /// different hash and re-fetch automatically.
+  ///
+  /// Bump history:
+  ///   * v1 — initial (900-token detailedInfo budget,
+  ///     UNKNOWN sentinel).
+  ///   * v2 — UNKNOWN sentinel removed.
+  ///   * v3 — director/cast/rating added to the user turn,
+  ///     detailedInfo token budget raised to 4096.
+  static const _promptVersion = 'v3';
+
   /// Cheap fingerprint of the metadata we feed Gemini. Same input →
   /// same hash → cache hit. Any change to any field (sync ran and
   /// the plot is now different, user updated the channel, etc.)
   /// changes the hash and invalidates the row.
+  ///
+  /// Includes [_promptVersion] so bumping the prompt or output
+  /// budget invalidates the cache even with identical channel
+  /// metadata. Users who paid for a truncated reply don't stay
+  /// stuck with it after the budget is raised.
   ///
   /// Static so callers don't need a repo instance just to compute
   /// a hash — they can hash the channel locally and only touch
@@ -97,6 +116,7 @@ class PlotAiCacheRepository {
     String? originalPlot,
   }) {
     final blob = [
+      _promptVersion,
       title,
       year ?? '',
       genre ?? '',
