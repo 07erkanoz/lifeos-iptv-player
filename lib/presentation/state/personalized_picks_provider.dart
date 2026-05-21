@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 /// One personalised pick resolved to a real channel row, paired with
@@ -28,6 +33,95 @@ class _PersonalizedPicksRefreshSeed extends Notifier<int> {
   int build() => 0;
 
   void bump() => state = DateTime.now().millisecondsSinceEpoch;
+}
+
+/// SharedPreferences key under which we persist a JSON snapshot of
+/// the last-rendered rail. Read SYNCHRONOUSLY on app start by
+/// [personalizedPicksSnapshotProvider] so the dashboard can paint
+/// the rail in the first frame instead of flashing the shimmer
+/// for the duration of the async cache lookup + Channel resolve
+/// chain (~100-300 ms even on a warm Drift cache hit).
+const _personalizedSnapshotKey = 'personalized_picks_snapshot_v1';
+
+/// Synchronous fallback provider for the rail.
+///
+/// Reads the last-rendered snapshot directly from SharedPreferences
+/// (which is initialised before Riverpod and exposes getString()
+/// synchronously). The widget renders this on the first frame while
+/// the async [personalizedPicksProvider] runs in the background.
+/// Once the async provider lands fresh data the widget swaps over.
+///
+/// Returns null when:
+///   * the user has no Gemini key (matching the rest of the rail's
+///     hide-when-no-key behaviour),
+///   * the snapshot was never written, or
+///   * the snapshot fails to parse.
+final personalizedPicksSnapshotProvider =
+    Provider<List<PersonalizedPickCard>?>((ref) {
+  // Mirror the async provider's no-key gate so the snapshot doesn't
+  // briefly flash for users who later removed their key.
+  final gemini = ref.watch(geminiServiceProvider);
+  if (gemini == null) return null;
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final raw = prefs.getString(_personalizedSnapshotKey);
+  if (raw == null) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return null;
+    final out = <PersonalizedPickCard>[];
+    for (final item in decoded) {
+      if (item is! Map<String, dynamic>) continue;
+      final streamId = (item['streamId'] as num?)?.toInt();
+      final name = item['name']?.toString();
+      final type = item['type']?.toString();
+      if (streamId == null || name == null || type == null) continue;
+      // Construct a *minimal* Channel object — enough to render the
+      // tile and route the onTap callback. Other fields default to
+      // null; downstream consumers (detail page) re-fetch the full
+      // row by (streamId, type) from Drift.
+      final channel = Channel(
+        streamId: streamId,
+        name: name,
+        type: type,
+        categoryId: '',
+        streamIcon: item['streamIcon'] as String?,
+      );
+      out.add(PersonalizedPickCard(
+        channel: channel,
+        reason: item['reason']?.toString() ?? '',
+      ));
+    }
+    return out.isEmpty ? null : out;
+  } catch (e) {
+    debugPrint('[snapshot] decode failed: $e');
+    return null;
+  }
+});
+
+/// Persist the resolved rail snapshot for the next cold start.
+/// Called by the async provider after every successful resolve so
+/// the snapshot stays accurate as the user's taste drifts.
+Future<void> _savePersonalizedSnapshot(
+  Ref ref,
+  List<PersonalizedPickCard> cards,
+) async {
+  try {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final json = jsonEncode([
+      for (final c in cards)
+        {
+          'streamId': c.channel.streamId,
+          'name': c.channel.name,
+          'type': c.channel.type,
+          'streamIcon': c.channel.streamIcon,
+          'reason': c.reason,
+        },
+    ]);
+    await prefs.setString(_personalizedSnapshotKey, json);
+  } catch (_) {
+    // Snapshot write is best-effort; failure just means the next
+    // cold start falls back to the standard shimmer + async fetch.
+  }
 }
 
 final personalizedPicksRefreshSeedProvider =
@@ -120,7 +214,7 @@ final personalizedPicksProvider =
   if (refreshSeed == 0) {
     final cached = await cacheRepo.lookup(sourceHash: sourceHash);
     if (cached != null && cached.isNotEmpty) {
-      return _resolve(cached, db);
+      return _resolveAndSnapshot(cached, db, ref);
     }
 
     // ── Stale-while-revalidate ──────────────────────────────────
@@ -146,7 +240,7 @@ final personalizedPicksProvider =
             favSignals: favSignals,
             sourceHash: sourceHash,
           ));
-      return _resolve(stale, db);
+      return _resolveAndSnapshot(stale, db, ref);
     }
   }
 
@@ -195,7 +289,7 @@ final personalizedPicksProvider =
 
   if (picks != null && picks.isNotEmpty) {
     await cacheRepo.store(sourceHash: sourceHash, picks: picks);
-    return _resolve(picks, db);
+    return _resolveAndSnapshot(picks, db, ref);
   }
 
   // AI returned null (failure) or empty (no good matches). Try
@@ -203,7 +297,7 @@ final personalizedPicksProvider =
   // out-of-date rail beats an empty one.
   final fallback = await cacheRepo.lookupLatest();
   if (fallback != null && fallback.isNotEmpty) {
-    return _resolve(fallback, db);
+    return _resolveAndSnapshot(fallback, db, ref);
   }
 
   // Last resort: synthesise a rail from the top-rated sample we
@@ -353,6 +447,24 @@ bool _claimDedupeSlot(Channel ch, Set<String> seen) {
 /// silently dropped. Cards are deduped by normalised title so
 /// multi-category Xtream catalogues that carry the same VOD under
 /// multiple stream ids don't render the same poster five times.
+/// Wrapper around [_resolve] that also persists the rendered cards
+/// to the synchronous snapshot used by [personalizedPicksSnapshotProvider].
+/// All happy-path resolves in the provider should go through this
+/// so the next cold start can paint instantly from SharedPreferences.
+Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
+  List<PersonalizedPick> picks,
+  AppDatabase db,
+  Ref ref,
+) async {
+  final resolved = await _resolve(picks, db);
+  if (resolved.isNotEmpty) {
+    // Fire-and-forget — snapshot write should never block the
+    // rail rendering.
+    unawaited(_savePersonalizedSnapshot(ref, resolved));
+  }
+  return resolved;
+}
+
 Future<List<PersonalizedPickCard>> _resolve(
   List<PersonalizedPick> picks,
   AppDatabase db,

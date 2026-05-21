@@ -29,56 +29,49 @@ class PersonalizedPicksRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncPicks = ref.watch(personalizedPicksProvider);
+    // SYNCHRONOUS snapshot from SharedPreferences — read on the
+    // first frame so the dashboard paints the rail instantly when
+    // we have a previous-session snapshot, instead of flashing the
+    // shimmer for the duration of the async cache lookup.
+    final snapshot = ref.watch(personalizedPicksSnapshotProvider);
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return asyncPicks.when(
-      // skipLoadingOnRefresh=true (the default): when the provider
-      // invalidates — either user-driven refresh or our stale-while-
-      // revalidate background fetch — we keep the previous cards on
-      // screen rather than swapping in the shimmer. With the cache
-      // upgrade landing fresh picks within ~10s, a flash of shimmer
-      // is more jarring than just letting the cards transition in.
-      skipLoadingOnRefresh: true,
-      // null means "no key" — render nothing.
-      data: (cards) {
-        if (cards == null || cards.isEmpty) return const SizedBox.shrink();
-        return _RailBody(
-          cards: cards,
-          onTap: onTap,
-          title: l10n.dashboardForYouTitle,
-          subtitle: l10n.dashboardForYouSubtitle,
-          refreshTooltip: l10n.dashboardForYouRefresh,
-          onRefresh: () async {
-            // Force a fresh AI fetch:
-            //   1. Wipe the singleton cache row so a stale value
-            //      can never come back on the next lookup.
-            //   2. Bump the refresh seed — the provider watches it
-            //      and (a) skips its cache lookup when non-zero,
-            //      (b) passes the seed to Gemini as a variety hint
-            //      so the new picks visibly differ.
-            //   3. Bumping the StateProvider auto-invalidates the
-            //      FutureProvider (since it `ref.watch`es the seed),
-            //      so the widget rebuilds and shows the shimmer
-            //      while Gemini runs.
-            await ref.read(personalizedPicksRepositoryProvider).clear();
-            ref.read(personalizedPicksRefreshSeedProvider.notifier).bump();
-          },
-          isDark: isDark,
-        );
-      },
-      // First-time load with no cached fallback. Show a slim
-      // shimmer of the right height so the dashboard doesn't
-      // reflow when the real rail lands.
-      loading: () => _LoadingShimmer(
+    // Effective cards to render:
+    //   1. If the async provider has data → use that (always fresh).
+    //   2. Otherwise (loading / error) → fall back to the sync
+    //      snapshot so the user sees the previous rail immediately.
+    //   3. No async data + no snapshot → fall through to the shimmer
+    //      (genuine first-ever cold start).
+    final asyncCards = asyncPicks.asData?.value;
+    final cards = asyncCards ?? snapshot;
+
+    if (cards != null) {
+      if (cards.isEmpty) return const SizedBox.shrink();
+      return _RailBody(
+        cards: cards,
+        onTap: onTap,
+        title: l10n.dashboardForYouTitle,
+        subtitle: l10n.dashboardForYouSubtitle,
+        refreshTooltip: l10n.dashboardForYouRefresh,
+        onRefresh: () async {
+          await ref.read(personalizedPicksRepositoryProvider).clear();
+          ref.read(personalizedPicksRefreshSeedProvider.notifier).bump();
+        },
+        isDark: isDark,
+      );
+    }
+
+    // No snapshot + still loading → show the shimmer.
+    if (asyncPicks.isLoading) {
+      return _LoadingShimmer(
         title: l10n.dashboardForYouTitle,
         subtitle: l10n.dashboardForYouLoading,
         isDark: isDark,
-      ),
-      // Repository or AI threw; treat as "hide the rail" — keeps
-      // the dashboard quiet rather than nagging.
-      error: (_, _) => const SizedBox.shrink(),
-    );
+      );
+    }
+    // No snapshot + error or null data → hide the rail entirely.
+    return const SizedBox.shrink();
   }
 }
 
