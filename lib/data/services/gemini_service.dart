@@ -1119,7 +1119,12 @@ emojis, no preamble, no quotes.
           ],
           'generationConfig': {
             'temperature': 0.7,
-            'maxOutputTokens': 220,
+            // 220 was clipping Turkish output mid-sentence ("Öğle
+            // keyfi için harika bir" with no continuation). 500
+            // is comfortable headroom for any plausible 1-2
+            // sentence greeting in any of the 8 supported
+            // languages.
+            'maxOutputTokens': 500,
           },
         },
       );

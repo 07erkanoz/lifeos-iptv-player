@@ -135,34 +135,46 @@ final personalizedPicksProvider =
       ? 'tr'
       : ref.read(settingsProvider).language.name;
 
-  final picks = await gemini.recommendForYou(
-    recentlyWatched: history.map(compactWatch).toList(),
-    favorites: favorites.map(compactWatch).toList(),
-    librarySample: librarySample,
-    targetLanguage: lang,
+  // Hard 20-second cap on the AI call. Without this, a hung
+  // Gemini would leave the provider in an indefinite loading
+  // state and the rail would shimmer forever.
+  final picks = await gemini
+      .recommendForYou(
+        recentlyWatched: history.map(compactWatch).toList(),
+        favorites: favorites.map(compactWatch).toList(),
+        librarySample: librarySample,
+        targetLanguage: lang,
+      )
+      .timeout(const Duration(seconds: 20), onTimeout: () => null);
+
+  if (picks != null && picks.isNotEmpty) {
+    await cacheRepo.store(sourceHash: sourceHash, picks: picks);
+    return _resolve(picks, db);
+  }
+
+  // AI returned null (failure) or empty (no good matches). Try
+  // a stale cache row first — slightly-out-of-date picks beat an
+  // empty rail.
+  final fallback = await cacheRepo.lookup(
+    sourceHash: sourceHash,
+    ttl: const Duration(days: 7),
   );
-
-  if (picks == null) {
-    // AI failure — keep last known good if any, otherwise null.
-    // We deliberately bypass the fingerprint check here because
-    // showing slightly-stale picks is better than blinking the
-    // whole rail out.
-    final fallback = await cacheRepo.lookup(
-      sourceHash: sourceHash,
-      ttl: const Duration(days: 7),
-    );
-    if (fallback != null && fallback.isNotEmpty) {
-      return _resolve(fallback, db);
-    }
-    return null;
+  if (fallback != null && fallback.isNotEmpty) {
+    return _resolve(fallback, db);
   }
 
-  if (picks.isEmpty) {
-    return const [];
-  }
-
-  await cacheRepo.store(sourceHash: sourceHash, picks: picks);
-  return _resolve(picks, db);
+  // Last resort: synthesise a rail from the top-rated sample we
+  // already pulled. No ✨ reasons (the cards just render bare
+  // posters in this state), but the user sees a populated rail
+  // instead of blank space. The rail header still reads "Sana
+  // özel" since this only kicks in when the user has a key on
+  // file and AI was just unreachable transiently.
+  if (sample.isEmpty) return null;
+  final fallbackPicks = sample.take(15).toList();
+  return [
+    for (final ch in fallbackPicks)
+      PersonalizedPickCard(channel: ch, reason: ''),
+  ];
 });
 
 /// Resolve a list of picks (id + reason) into renderable cards by

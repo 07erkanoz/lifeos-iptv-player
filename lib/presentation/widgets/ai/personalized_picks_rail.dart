@@ -220,31 +220,36 @@ class _PickCardState extends State<_PickCard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 10,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        widget.card.reason,
-                        style: TextStyle(
-                          color: AppColors.primary.withValues(alpha: 0.9),
-                          fontSize: 10.5,
-                          fontStyle: FontStyle.italic,
-                          height: 1.3,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                // Reason line — hidden when blank (the fallback
+                // path supplies empty reasons so cards stay clean
+                // when AI couldn't generate the rail).
+                if (widget.card.reason.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 10,
+                        color: AppColors.primary,
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          widget.card.reason,
+                          style: TextStyle(
+                            color: AppColors.primary.withValues(alpha: 0.9),
+                            fontSize: 10.5,
+                            fontStyle: FontStyle.italic,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
