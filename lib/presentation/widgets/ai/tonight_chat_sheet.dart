@@ -92,8 +92,12 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // returned "yok" because no Korean drama is in the rating-sorted
     // top-30 — even though the catalogue has 173 of them.
     final contentRepo = ref.read(contentRepositoryProvider);
+    // Pull a generous slice — when the user says "tümünü listele"
+    // the AI may want to surface 10+ items, and we want it to have
+    // room to pick the best ones from a wider pool rather than be
+    // capped at 60. Cost is ~50 ms of bounded DB scan.
     final queryMatches =
-        await contentRepo.librarySearchByKeywords(text, limit: 60);
+        await contentRepo.librarySearchByKeywords(text, limit: 120);
     final categoryOverview = await contentRepo.categoryOverview();
 
     final response = await gemini.recommendForTonight(

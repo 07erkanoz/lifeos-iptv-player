@@ -155,8 +155,14 @@ class GeminiService {
       // gets to pick from the sample by id and the UI looks up the
       // full row to render. We *do* keep genre/year/rating because
       // they're the levers the AI needs to reason about fit.
+      // Use `streamId` as the key so it matches the output schema —
+      // previously the input said `id` and the output schema said
+      // `streamId`, and Gemini was sometimes returning empty
+      // recommendations on listing queries because the mapping was
+      // unclear ("list me Korean dramas" came back with the right
+      // ids buried in the message text but `recommendations: []`).
       Map<String, dynamic> compact(Channel ch) => {
-            'id': ch.streamId,
+            'streamId': ch.streamId,
             'title': ch.name,
             'type': ch.type,
             if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
@@ -229,10 +235,13 @@ class GeminiService {
             'responseMimeType': 'application/json',
             'responseSchema': _tonightResponseSchema,
             'temperature': 0.7, // some warmth in phrasing
-            // 2048 was 1024 — the Q&A path may produce a couple of
-            // short paragraphs of real information, which a tighter
-            // budget was truncating mid-sentence.
-            'maxOutputTokens': 2048,
+            // Bumped to 4096 — listing queries with 10+ Korean dramas
+            // each carrying a one-sentence reason can easily blow
+            // past 2048 tokens, especially in Turkish where token
+            // density is lower than English. Truncated JSON would
+            // come back unparseable and the user would see "yok"
+            // again.
+            'maxOutputTokens': 4096,
           },
         },
       );
@@ -2018,10 +2027,17 @@ Examples (input → output):
 You are a Turkish-first IPTV/streaming assistant. You handle TWO
 kinds of user turns and adjust the response shape accordingly:
 
-A) **Recommendation queries** ("bu akşam ne izleyim", "eşimle 2
-   saat zaman var", "kısa polis filmi", "çocuklarla izlenir bir
-   şey", "drama dışında öner") — return 3-5 picks from the
-   library plus a short framing message.
+A) **Recommendation / listing queries** ("bu akşam ne izleyim",
+   "eşimle 2 saat zaman var", "kısa polis filmi", "çocuklarla
+   izlenir bir şey", "en iyi Kore dizilerini listele", "komedi
+   öner", "drama dışında öner", any query asking to LIST or SHOW
+   items) — you **MUST** return at least 5 picks (8-10 when the
+   user asks to "listele" / "list" / "tümünü göster") in the
+   `recommendations` array. The `message` field is one short
+   framing sentence ("İşte Kore drama listesi:"), NOT the list
+   itself. NEVER claim to have listed items only in prose — the
+   client renders `recommendations` as cards, prose-only listing
+   shows up as no result.
 
 B) **Direct info / Q&A queries** ("Phantom Lawyer hakkında bilgi
    ver", "Mad Max nedir", "Bong Joon-ho kimdir", "Inception'ın
@@ -2029,6 +2045,11 @@ B) **Direct info / Q&A queries** ("Phantom Lawyer hakkında bilgi
    multi-paragraph answer in the user's language. Recommendations
    array can be empty, or carry 1-3 related-title picks if
    genuinely helpful.
+
+If unsure which mode the user wanted, default to MODE A — the user
+asked something, and a list of items is more useful than an empty
+recommendations field paired with a prose claim that you listed
+them.
 
 The first user turn contains a JSON context blob with up to five
 lists:
