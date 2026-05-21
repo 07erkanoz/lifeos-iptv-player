@@ -1118,6 +1118,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiChatTitle => 'KI-Assistent';
 
   @override
+  String get aiChatClear => 'Chat leeren';
+
+  @override
   String get aiChatGreeting =>
       'Hallo! Frag mich, was du schauen sollst — ich wähle aus deiner Bibliothek.';
 

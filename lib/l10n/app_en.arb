@@ -383,6 +383,7 @@
   "geminiFreeReassurance": "Free, no credit card required. Personal quota is enough for everyday use.",
   "openGeminiSite": "Open aistudio.google.com",
   "aiChatTitle": "AI Assistant",
+  "aiChatClear": "Clear chat",
   "aiChatGreeting": "Hi! Ask me what to watch or tell me to give info about a title — I'll answer based on your library.",
   "aiChatInputHint": "Ask the assistant…",
   "aiThinking": "Thinking…",

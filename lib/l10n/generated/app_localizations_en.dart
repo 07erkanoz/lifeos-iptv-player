@@ -1109,6 +1109,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiChatTitle => 'AI Assistant';
 
   @override
+  String get aiChatClear => 'Clear chat';
+
+  @override
   String get aiChatGreeting =>
       'Hi! Ask me what to watch or tell me to give info about a title — I\'ll answer based on your library.';
 

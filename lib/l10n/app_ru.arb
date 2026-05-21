@@ -393,6 +393,7 @@
   "geminiFreeReassurance": "Бесплатно, без банковской карты. Личной квоты достаточно для повседневного использования.",
   "openGeminiSite": "Открыть aistudio.google.com",
   "aiChatTitle": "ИИ-ассистент",
+  "aiChatClear": "Очистить чат",
   "aiChatGreeting": "Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.",
   "aiChatInputHint": "Спроси ассистента…",
   "aiThinking": "Думаю…",

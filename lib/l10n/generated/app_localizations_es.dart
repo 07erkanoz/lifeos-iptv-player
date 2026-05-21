@@ -1113,6 +1113,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiChatTitle => 'Asistente de IA';
 
   @override
+  String get aiChatClear => 'Borrar chat';
+
+  @override
   String get aiChatGreeting =>
       '¡Hola! Pregúntame qué ver — elegiré de tu biblioteca.';
 

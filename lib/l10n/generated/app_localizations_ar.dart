@@ -1107,6 +1107,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get aiChatTitle => 'مساعد الذكاء الاصطناعي';
 
   @override
+  String get aiChatClear => 'مسح المحادثة';
+
+  @override
   String get aiChatGreeting => 'مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.';
 
   @override

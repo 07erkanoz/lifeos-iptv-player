@@ -2192,6 +2192,12 @@ abstract class AppLocalizations {
   /// **'AI Asistan'**
   String get aiChatTitle;
 
+  /// No description provided for @aiChatClear.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sohbeti temizle'**
+  String get aiChatClear;
+
   /// No description provided for @aiChatGreeting.
   ///
   /// In tr, this message translates to:

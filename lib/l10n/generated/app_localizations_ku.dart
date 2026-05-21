@@ -1110,6 +1110,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiChatTitle => 'Alîkarê AI';
 
   @override
+  String get aiChatClear => 'Axaftinê pak bike';
+
+  @override
   String get aiChatGreeting =>
       'Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.';
 

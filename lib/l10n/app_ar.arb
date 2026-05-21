@@ -393,6 +393,7 @@
   "geminiFreeReassurance": "مجاني، لا حاجة لبطاقة ائتمان. الحصة الشخصية كافية للاستخدام اليومي.",
   "openGeminiSite": "فتح aistudio.google.com",
   "aiChatTitle": "مساعد الذكاء الاصطناعي",
+  "aiChatClear": "مسح المحادثة",
   "aiChatGreeting": "مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.",
   "aiChatInputHint": "اسأل المساعد…",
   "aiThinking": "يفكر…",

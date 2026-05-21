@@ -1110,6 +1110,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiChatTitle => 'ИИ-ассистент';
 
   @override
+  String get aiChatClear => 'Очистить чат';
+
+  @override
   String get aiChatGreeting =>
       'Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.';
 

@@ -32,11 +32,38 @@ class TonightChatSheet extends ConsumerStatefulWidget {
   ConsumerState<TonightChatSheet> createState() => _TonightChatSheetState();
 }
 
+/// Chat history Notifier — survives modal open/close so the user
+/// can dismiss the sheet, navigate around the app, and come back
+/// to a still-populated conversation. Cleared explicitly via the
+/// trash button in the header, or implicitly on app restart.
+class _ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
+  @override
+  List<ChatMessage> build() => const [];
+
+  void add(ChatMessage message) {
+    state = [...state, message];
+  }
+
+  void clear() {
+    state = const [];
+  }
+}
+
+final tonightChatHistoryProvider =
+    NotifierProvider<_ChatHistoryNotifier, List<ChatMessage>>(
+  _ChatHistoryNotifier.new,
+);
+
 class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  final List<ChatMessage> _messages = [];
   bool _waitingForAi = false;
+
+  /// Read the persisted chat history. Backed by Riverpod so the list
+  /// survives the modal closing — we used to keep it in a local
+  /// `_messages` field that got wiped every time the user dismissed
+  /// the sheet.
+  List<ChatMessage> get _messages => ref.read(tonightChatHistoryProvider);
 
   @override
   void dispose() {
@@ -61,8 +88,10 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       return;
     }
 
+    ref.read(tonightChatHistoryProvider.notifier).add(
+          ChatMessage(fromUser: true, text: text),
+        );
     setState(() {
-      _messages.add(ChatMessage(fromUser: true, text: text));
       _input.clear();
       _waitingForAi = true;
     });
@@ -75,13 +104,10 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     if (ctx == null || ctx.librarySample.isEmpty) {
       // Library hasn't loaded (provider error) or really is empty.
       // Show a helpful bubble instead of a hung spinner.
-      setState(() {
-        _messages.add(ChatMessage(
-          fromUser: false,
-          text: l10n.aiEmptyLibrary,
-        ));
-        _waitingForAi = false;
-      });
+      ref.read(tonightChatHistoryProvider.notifier).add(
+            ChatMessage(fromUser: false, text: l10n.aiEmptyLibrary),
+          );
+      setState(() => _waitingForAi = false);
       _scrollToBottom();
       return;
     }
@@ -114,13 +140,10 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     if (!mounted) return;
 
     if (response == null || response.isEmpty) {
-      setState(() {
-        _messages.add(ChatMessage(
-          fromUser: false,
-          text: l10n.aiError,
-        ));
-        _waitingForAi = false;
-      });
+      ref.read(tonightChatHistoryProvider.notifier).add(
+            ChatMessage(fromUser: false, text: l10n.aiError),
+          );
+      setState(() => _waitingForAi = false);
     } else {
       // Resolve every recommended streamId from the DB directly so
       // the rec card renders no matter where the id came from
@@ -146,19 +169,19 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         }
       }
       if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(
-          fromUser: false,
-          text: response.message.isNotEmpty
-              ? response.message
-              : (response.recommendations.isEmpty
-                  ? l10n.aiNoMatches
-                  : ''),
-          recommendations: response.recommendations,
-          resolvedChannels: resolved,
-        ));
-        _waitingForAi = false;
-      });
+      ref.read(tonightChatHistoryProvider.notifier).add(
+            ChatMessage(
+              fromUser: false,
+              text: response.message.isNotEmpty
+                  ? response.message
+                  : (response.recommendations.isEmpty
+                      ? l10n.aiNoMatches
+                      : ''),
+              recommendations: response.recommendations,
+              resolvedChannels: resolved,
+            ),
+          );
+      setState(() => _waitingForAi = false);
     }
     _scrollToBottom();
   }
@@ -180,6 +203,10 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ctxAsync = ref.watch(tonightContextProvider);
+    // ref.watch the chat-history provider so this widget rebuilds
+    // when add()/clear() fires elsewhere (e.g. mid-stream while we
+    // _send and the modal is technically still showing the old list).
+    final messages = ref.watch(tonightChatHistoryProvider);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -220,6 +247,17 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 ),
               ),
               const Spacer(),
+              if (messages.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  color: AppColors.textSecondaryDark,
+                  tooltip: l10n.aiChatClear,
+                  onPressed: _waitingForAi
+                      ? null
+                      : () => ref
+                          .read(tonightChatHistoryProvider.notifier)
+                          .clear(),
+                ),
               IconButton(
                 icon: const Icon(Icons.close),
                 color: AppColors.textSecondaryDark,
@@ -244,18 +282,18 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                   ),
                 ),
               ),
-              data: (_) => _messages.isEmpty
+              data: (_) => messages.isEmpty
                   ? _buildEmptyState(l10n, isDark)
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.all(16),
-                      itemCount: _messages.length + (_waitingForAi ? 1 : 0),
+                      itemCount: messages.length + (_waitingForAi ? 1 : 0),
                       itemBuilder: (context, i) {
-                        if (i == _messages.length && _waitingForAi) {
+                        if (i == messages.length && _waitingForAi) {
                           return _ThinkingBubble(label: l10n.aiThinking);
                         }
                         return _MessageBubble(
-                          message: _messages[i],
+                          message: messages[i],
                           onPlay: _playRecommendation,
                           onOpenDetails: _openDetails,
                         );
