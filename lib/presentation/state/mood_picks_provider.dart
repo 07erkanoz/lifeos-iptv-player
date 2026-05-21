@@ -73,17 +73,33 @@ final selectedMoodProvider =
   _SelectedMoodNotifier.new,
 );
 
+/// Process-wide ephemeral cache for mood rails.
+///
+/// Keyed by [MoodChip], holds the resolved card list. Survives the
+/// user toggling between chips during a single dashboard session
+/// (so tapping Heyecan → Gülmek → Heyecan again doesn't fire 3 AI
+/// calls — the second Heyecan tap returns instantly). Reset when
+/// the provider is invalidated or the app restarts.
+final _moodSessionCache = <MoodChip, List<PersonalizedPickCard>>{};
+
 /// Future provider for the active mood rail. Returns null when no
 /// mood is selected (the rail hides itself). Returns an empty list
 /// when AI failed — caller hides too. Otherwise returns the picks
 /// ordered by mood fit.
 ///
-/// Not cached — every mood tap is a fresh call. Moods are
-/// intent-of-the-moment.
+/// In-memory session cache keyed by mood, see [_moodSessionCache].
 final moodPicksProvider =
     FutureProvider<List<PersonalizedPickCard>?>((ref) async {
   final mood = ref.watch(selectedMoodProvider);
   if (mood == null) return null;
+
+  // Session cache — instant return when the user re-taps a mood
+  // they already saw earlier in this session.
+  final cached = _moodSessionCache[mood];
+  if (cached != null && cached.isNotEmpty) {
+    debugPrint('[mood] session cache hit for ${mood.key}');
+    return cached;
+  }
 
   final gemini = ref.watch(geminiServiceProvider);
   if (gemini == null) return null;
@@ -188,7 +204,9 @@ final moodPicksProvider =
   if (picks == null || picks.isEmpty) {
     debugPrint('[mood] AI returned empty for ${mood.key}, '
         'querying DB for genre match');
-    return _dbGenreFallback(mood, db);
+    final fb = await _dbGenreFallback(mood, db);
+    if (fb.isNotEmpty) _moodSessionCache[mood] = fb;
+    return fb;
   }
 
   // Resolve ids to Channel rows. Channels' primary key is
@@ -249,8 +267,11 @@ final moodPicksProvider =
   if (out.isEmpty) {
     debugPrint('[mood] ${mood.key}: all picks dropped, '
         'falling back to DB genre match');
-    return _dbGenreFallback(mood, db);
+    final fb = await _dbGenreFallback(mood, db);
+    if (fb.isNotEmpty) _moodSessionCache[mood] = fb;
+    return fb;
   }
+  _moodSessionCache[mood] = out;
   return out;
 });
 

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -42,6 +44,7 @@ final weeklyDigestProvider =
   }
 
   final db = ref.watch(appDatabaseProvider);
+  final cache = ref.watch(aiRailCacheRepositoryProvider);
 
   // Pull VOD/series and rank by the Xtream-provided `added` string
   // (Unix timestamp as text). We can't push the comparison into the
@@ -75,6 +78,52 @@ final weeklyDigestProvider =
     recentRows = sorted.take(30).toList();
   }
   if (recentRows.length < 4) return null;
+
+  // ── Cache check ───────────────────────────────────────────────────
+  // Fingerprint over the ids of the chosen recent slice + language.
+  // The slice changes when new content arrives, so the fingerprint
+  // auto-invalidates next week without us having to track it.
+  final lang = ref.read(settingsProvider).language.name == 'system'
+      ? 'tr'
+      : ref.read(settingsProvider).language.name;
+  final recentIds = recentRows.map((c) => c.streamId).toList()..sort();
+  final fpBlob =
+      'digest-v1|lang=$lang|r=${recentIds.take(50).join(",")}';
+  final sourceHash = AiRailCacheRepository.fingerprint(fpBlob);
+
+  // 3-day TTL — the rail is supposed to feel weekly but we want it
+  // to react reasonably promptly when the user marks something
+  // unwatched or favorites a new title (those don't bump the
+  // fingerprint, but the TTL bound means the digest never stays
+  // truly stale for more than a few days).
+  final cached = cache.lookup(
+    cacheKey: 'weekly_digest',
+    sourceHash: sourceHash,
+    ttl: const Duration(days: 3),
+  );
+  if (cached != null) {
+    final headline = cached['headline'] as String? ?? '';
+    final ids = (cached['ids'] as List?)?.cast<int>() ?? const [];
+    final reasonMap =
+        (cached['reasons'] as Map?)?.cast<String, String>() ?? const {};
+    if (headline.isNotEmpty && ids.isNotEmpty) {
+      final byId = {for (final c in recentRows) c.streamId: c};
+      final channels = <Channel>[];
+      final reasons = <int, String>{};
+      for (final id in ids) {
+        final ch = byId[id];
+        if (ch == null) continue;
+        channels.add(ch);
+        reasons[id] = reasonMap[id.toString()] ?? '';
+      }
+      if (channels.isNotEmpty) {
+        debugPrint('[digest] cache hit ($sourceHash)');
+        return WeeklyDigest(
+            headline: headline, channels: channels, reasons: reasons);
+      }
+    }
+  }
+  debugPrint('[digest] cache miss, calling Gemini');
 
   // Taste signals — favourites + history, smaller pull than the
   // rail provider since the digest is tightly scoped to "this week".
@@ -131,10 +180,6 @@ final weeklyDigestProvider =
           'director': c.director,
       };
 
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
-
   final result = await gemini
       .weeklyDigest(
         recentAdditions: recentAdditions,
@@ -157,6 +202,20 @@ final weeklyDigestProvider =
     reasons[pick.streamId] = pick.reason;
   }
   if (channels.isEmpty) return null;
+
+  // Persist for the next 3 days.
+  await cache.store(
+    cacheKey: 'weekly_digest',
+    sourceHash: sourceHash,
+    payload: {
+      'headline': result.headline,
+      'ids': channels.map((c) => c.streamId).toList(),
+      'reasons':
+          reasons.map((k, v) => MapEntry(k.toString(), v)),
+    },
+  );
+  debugPrint('[digest] cached ${channels.length} picks under $sourceHash');
+
   return WeeklyDigest(
     headline: result.headline,
     channels: channels,

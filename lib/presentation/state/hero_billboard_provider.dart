@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -35,7 +37,77 @@ final heroBillboardProvider =
 
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
+  final cache = ref.watch(aiRailCacheRepositoryProvider);
 
+  // ── Compute the fingerprint we'll use as a cache key ─────────────
+  // Pull just the IDs of the user's top taste signals (small query)
+  // before deciding whether we need the heavy sample + AI work. If
+  // the fingerprint matches and cache is fresh, we skip everything
+  // below and return cached picks directly.
+  final histIds = await (db.select(db.playbackProgress)
+        ..where((t) => t.position.isBiggerThanValue(0))
+        ..orderBy([
+          (t) => OrderingTerm(
+              expression: t.updatedAt, mode: OrderingMode.desc),
+        ])
+        ..limit(10))
+      .get();
+  final favIds = await (db.select(db.favorites)
+        ..orderBy([
+          (t) => OrderingTerm(
+              expression: t.addedAt, mode: OrderingMode.desc),
+        ])
+        ..limit(10))
+      .get();
+  final lang = ref.read(settingsProvider).language.name == 'system'
+      ? 'tr'
+      : ref.read(settingsProvider).language.name;
+  final timeOfDay = _bucketOfDay(DateTime.now());
+
+  // Fold language + time-bucket into the fingerprint so a morning
+  // hero doesn't get reused as an evening hero (and vice versa).
+  final fpBlob = 'hero-v1|lang=$lang|tod=$timeOfDay'
+      '|h=${(histIds.map((r) => r.streamId).toList()..sort()).join(",")}'
+      '|f=${(favIds.map((r) => r.streamId).toList()..sort()).join(",")}';
+  final sourceHash = AiRailCacheRepository.fingerprint(fpBlob);
+
+  // Cache lookup — 24 h TTL. The hero rotates every day-ish, which
+  // matches how often the time-bucket bumps the fingerprint too.
+  final cached = cache.lookup(
+    cacheKey: 'hero_billboard',
+    sourceHash: sourceHash,
+    ttl: const Duration(hours: 24),
+  );
+  if (cached != null) {
+    final ids = (cached['ids'] as List?)?.cast<int>() ?? const [];
+    final taglineMap =
+        (cached['taglines'] as Map?)?.cast<String, String>() ?? const {};
+    if (ids.isNotEmpty) {
+      final rows = await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(ids)))
+          .get();
+      final byId = <int, Channel>{};
+      for (final c in rows) {
+        byId.putIfAbsent(c.streamId, () => c);
+      }
+      final channels = <Channel>[];
+      final taglines = <int, String>{};
+      for (final id in ids) {
+        final ch = byId[id];
+        if (ch == null) continue;
+        channels.add(ch);
+        taglines[id] = taglineMap[id.toString()] ?? '';
+      }
+      if (channels.isNotEmpty) {
+        debugPrint('[hero] cache hit ($sourceHash), '
+            '${channels.length} channels resolved');
+        return HeroBillboard(channels: channels, taglines: taglines);
+      }
+    }
+  }
+  debugPrint('[hero] cache miss, calling Gemini');
+
+  // ── Cache miss → full pipeline ────────────────────────────────────
   // Taste signals — same as the rail providers but slightly smaller
   // since the hero is a tighter pick.
   final historyRows = await (db.select(db.channels).join([
@@ -108,11 +180,6 @@ final heroBillboardProvider =
         if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
       };
 
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
-  final timeOfDay = _bucketOfDay(DateTime.now());
-
   final picks = await gemini
       .generateHeroBillboard(
         recentlyWatched: history.map(compactWatch).toList(),
@@ -142,6 +209,21 @@ final heroBillboardProvider =
     taglines[pick.streamId] = pick.tagline;
   }
   if (ordered.isEmpty) return null;
+
+  // Persist for the next 24 h. Only ids + taglines go to disk;
+  // the heavy Channel rows are re-hydrated on cache hit, so even
+  // if the underlying metadata changes the cards stay accurate.
+  await cache.store(
+    cacheKey: 'hero_billboard',
+    sourceHash: sourceHash,
+    payload: {
+      'ids': ordered.map((c) => c.streamId).toList(),
+      'taglines':
+          taglines.map((k, v) => MapEntry(k.toString(), v)),
+    },
+  );
+  debugPrint('[hero] cached ${ordered.length} picks under $sourceHash');
+
   return HeroBillboard(channels: ordered, taglines: taglines);
 });
 

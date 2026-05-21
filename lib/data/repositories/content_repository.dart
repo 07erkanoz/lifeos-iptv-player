@@ -104,16 +104,23 @@ class ContentRepository {
   /// sheet — tap an actor, see their other appearances in your
   /// catalogue.
   ///
-  /// Matching is case-insensitive substring against both `cast` and
-  /// `director` columns. Live TV is excluded — it doesn't carry
-  /// person metadata. Hidden categories are filtered out the same
-  /// way the rest of the search does.
+  /// Pushes the LIKE filter down into SQL so a 30k-row catalogue
+  /// stays a sub-second query rather than the all-fetch-then-filter
+  /// pattern the first iteration used. Live TV is excluded — it
+  /// doesn't carry person metadata. Hidden categories are filtered
+  /// out the same way the rest of the search does.
   Future<List<Channel>> searchChannelsByCastMember(
     String personName, {
     int limit = 30,
   }) async {
-    final lower = personName.trim().toLowerCase();
-    if (lower.isEmpty) return const [];
+    final trimmed = personName.trim();
+    if (trimmed.isEmpty) return const [];
+    // Use a parameterised LIKE pattern. Drift exposes `like` on
+    // text columns which lowers to SQL `LIKE` — SQLite's LIKE is
+    // case-insensitive for ASCII but not for full Unicode; that's
+    // acceptable here since person names are ASCII-dominant.
+    // Wrap with %…% for substring matching.
+    final pattern = '%${trimmed.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
     final rows = await (_db.select(_db.channels).join([
       innerJoin(_db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
@@ -121,15 +128,12 @@ class ContentRepository {
     ])
           ..where(_db.channels.type.equals('movie') |
               _db.channels.type.equals('series'))
-          ..where(_db.categories.isHidden.equals(false)))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_db.channels.cast.like(pattern) |
+              _db.channels.director.like(pattern))
+          ..limit(limit))
         .get();
-    return rows
-        .map((row) => row.readTable(_db.channels))
-        .where((ch) =>
-            (ch.cast?.toLowerCase().contains(lower) ?? false) ||
-            (ch.director?.toLowerCase().contains(lower) ?? false))
-        .take(limit)
-        .toList();
+    return rows.map((row) => row.readTable(_db.channels)).toList();
   }
 
   /// Search channels by name filtered by type (movie/series/live).
