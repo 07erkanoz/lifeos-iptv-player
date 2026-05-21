@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
@@ -75,41 +74,41 @@ final personalizedPicksProvider =
   // so it samples differently from its last response.
   final refreshSeed = ref.watch(personalizedPicksRefreshSeedProvider);
 
-  // Gather current taste state. Both queries are cheap joins,
-  // single round-trip apiece.
-  final historyRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.playbackProgress,
-      db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-          db.playbackProgress.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..where(db.playbackProgress.position.isBiggerThanValue(0))
-        ..orderBy([
-          OrderingTerm(
-              expression: db.playbackProgress.updatedAt,
-              mode: OrderingMode.desc),
-        ])
-        ..limit(20))
-      .get();
-  final history =
-      historyRows.map((row) => row.readTable(db.channels)).toList();
+  // Gather current taste state. The repository helpers join
+  // channels with categories so each signal map includes the
+  // category label — critical signal since `channels.genre` is
+  // mostly NULL on Xtream catalogues. We pull more favourites
+  // than history because favourites are the stronger signal and
+  // we want the AI to see the full saved-for-later pattern.
+  final historySignals =
+      await contentRepo.tasteSignalsFromHistory(limit: 25);
+  final favSignals =
+      await contentRepo.tasteSignalsFromFavorites(limit: 25);
 
-  final favRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.favorites,
-      db.favorites.streamId.equalsExp(db.channels.streamId) &
-          db.favorites.streamType.equalsExp(db.channels.type),
-    ),
-  ])
-        ..orderBy([
-          OrderingTerm(
-              expression: db.favorites.addedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(20))
+  // Channel-row lookups still needed for the background-refresh
+  // fingerprint + the resolver. We pull the IDs from the signal
+  // maps and rehydrate Channel rows in one round-trip below.
+  final historyIds = historySignals
+      .map((m) => (m['id'] as num?)?.toInt())
+      .whereType<int>()
+      .toList();
+  final favoriteIds = favSignals
+      .map((m) => (m['id'] as num?)?.toInt())
+      .whereType<int>()
+      .toList();
+  final channelRows = await (db.select(db.channels)
+        ..where((t) =>
+            t.streamId.isIn({...historyIds, ...favoriteIds})))
       .get();
-  final favorites =
-      favRows.map((row) => row.readTable(db.channels)).toList();
+  final byId = {for (final c in channelRows) c.streamId: c};
+  final history = [
+    for (final id in historyIds)
+      if (byId[id] != null) byId[id]!,
+  ];
+  final favorites = [
+    for (final id in favoriteIds)
+      if (byId[id] != null) byId[id]!,
+  ];
 
   final sourceHash = PersonalizedPicksRepository.fingerprint(
     recentlyWatchedIds: history.map((c) => c.streamId),
@@ -143,8 +142,8 @@ final personalizedPicksProvider =
             gemini: gemini,
             contentRepo: contentRepo,
             cacheRepo: cacheRepo,
-            history: history,
-            favorites: favorites,
+            historySignals: historySignals,
+            favSignals: favSignals,
             sourceHash: sourceHash,
           ));
       return _resolve(stale, db);
@@ -173,16 +172,6 @@ final personalizedPicksProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  Map<String, dynamic> compactWatch(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-        if (c.director != null && c.director!.isNotEmpty)
-          'director': c.director,
-      };
-
   final lang = ref.read(settingsProvider).language.name == 'system'
       ? 'tr'
       : ref.read(settingsProvider).language.name;
@@ -190,10 +179,14 @@ final personalizedPicksProvider =
   // Hard 20-second cap on the AI call. Without this, a hung
   // Gemini would leave the provider in an indefinite loading
   // state and the rail would shimmer forever.
+  //
+  // The taste-signal maps come from the repository helpers, which
+  // include the category label — the real genre signal on this
+  // catalogue since channels.genre is mostly NULL.
   final picks = await gemini
       .recommendForYou(
-        recentlyWatched: history.map(compactWatch).toList(),
-        favorites: favorites.map(compactWatch).toList(),
+        recentlyWatched: historySignals,
+        favorites: favSignals,
         librarySample: librarySample,
         targetLanguage: lang,
         varietySeed: refreshSeed,
@@ -251,8 +244,8 @@ Future<void> _refreshInBackground({
   required GeminiService gemini,
   required ContentRepository contentRepo,
   required PersonalizedPicksRepository cacheRepo,
-  required List<Channel> history,
-  required List<Channel> favorites,
+  required List<Map<String, dynamic>> historySignals,
+  required List<Map<String, dynamic>> favSignals,
   required String sourceHash,
 }) async {
   try {
@@ -271,22 +264,13 @@ Future<void> _refreshInBackground({
     final librarySample = [
       {'_format': 'pipe-separated rows', '_rows': libraryRows},
     ];
-    Map<String, dynamic> compactWatch(Channel c) => {
-          'id': c.streamId,
-          'title': c.name,
-          'type': c.type,
-          if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-          if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-          if (c.director != null && c.director!.isNotEmpty)
-            'director': c.director,
-        };
     final lang = ref.read(settingsProvider).language.name == 'system'
         ? 'tr'
         : ref.read(settingsProvider).language.name;
     final picks = await gemini
         .recommendForYou(
-          recentlyWatched: history.map(compactWatch).toList(),
-          favorites: favorites.map(compactWatch).toList(),
+          recentlyWatched: historySignals,
+          favorites: favSignals,
           librarySample: librarySample,
           targetLanguage: lang,
         )

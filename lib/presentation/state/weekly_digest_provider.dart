@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -125,40 +126,13 @@ final weeklyDigestProvider =
   }
   debugPrint('[digest] cache miss, calling Gemini');
 
-  // Taste signals — favourites + history, smaller pull than the
-  // rail provider since the digest is tightly scoped to "this week".
-  final favRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.favorites,
-      db.favorites.streamId.equalsExp(db.channels.streamId) &
-          db.favorites.streamType.equalsExp(db.channels.type),
-    ),
-  ])
-        ..orderBy([
-          OrderingTerm(
-              expression: db.favorites.addedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final favorites =
-      favRows.map((row) => row.readTable(db.channels)).toList();
-
-  final histRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.playbackProgress,
-      db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-          db.playbackProgress.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..orderBy([
-          OrderingTerm(
-              expression: db.playbackProgress.updatedAt,
-              mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final history =
-      histRows.map((row) => row.readTable(db.channels)).toList();
+  // Rich taste signals via repository helpers — these JOIN with
+  // categories so the AI sees the actual catalog genre labels.
+  final contentRepo = ref.watch(contentRepositoryProvider);
+  final favSignals =
+      await contentRepo.tasteSignalsFromFavorites(limit: 12);
+  final historySignals =
+      await contentRepo.tasteSignalsFromHistory(limit: 12);
 
   String escape(String? s) =>
       (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
@@ -171,20 +145,11 @@ final weeklyDigestProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  Map<String, dynamic> compact(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-        if (c.director != null && c.director!.isNotEmpty)
-          'director': c.director,
-      };
-
   final result = await gemini
       .weeklyDigest(
         recentAdditions: recentAdditions,
-        favorites: favorites.map(compact).toList(),
-        recentlyWatched: history.map(compact).toList(),
+        favorites: favSignals,
+        recentlyWatched: historySignals,
         targetLanguage: lang,
       )
       .timeout(const Duration(seconds: 20), onTimeout: () => null);

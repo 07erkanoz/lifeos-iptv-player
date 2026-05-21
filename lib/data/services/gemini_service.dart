@@ -946,32 +946,39 @@ they open the app, so the picks should feel intentional — never
 generic "popular movies", always grounded in this user's taste.
 
 Inputs (in the first user turn, JSON):
-  * RECENTLY_WATCHED — what they've actively been viewing.
-  * FAVORITES — their explicit "save for later" picks.
-  * LIBRARY — a cross-section of the catalogue (top-rated +
-    recent additions). Items are in the pipe-separated rows
-    format with header
-    `id|title|type|year|genre|director|cast|rating`.
+  * FAVORITES — items the user explicitly saved. STRONGEST taste
+    signal — they actively chose these. Each item carries title,
+    year, category (the Xtream category label, often where the
+    real genre lives e.g. "KOMEDi & ROMANTiK"), director, and the
+    top-billed cast.
+  * RECENTLY_WATCHED — what they've actively been viewing in the
+    last days. Strong signal but noisier than favourites — sometimes
+    people watch out of curiosity rather than love.
+  * LIBRARY — a cross-section of the catalogue, pipe-separated rows
+    with header `id|title|type|year|genre|director|cast|rating`.
 
-Your job: pick 12–15 items from LIBRARY (only IDs you see in
-LIBRARY) that match this user's pattern. Use both:
-  * Direct echoes — same director / cast / sub-genre as recent
-    watches.
-  * Tasteful jumps — items that fit the *vibe* of what they're
-    watching but explore a related corner they may not have
-    tried yet.
+Your job: pick 12–15 items from LIBRARY that match this user's
+taste, with explicit weight on FAVORITES > RECENTLY_WATCHED. Mix:
+  * Direct echoes — same director / cast / category / sub-genre
+    as their favourites or recent watches.
+  * Tasteful jumps — items that fit the *vibe* of what they love
+    but explore a related corner they haven't tried yet.
 
 Rules:
   1. Only return streamIds present in LIBRARY.
   2. 12–15 picks, ordered by personal fit (best first).
   3. `reason` is ONE short sentence in $targetLanguage, with
-     concrete facts ("Aynı yönetmenden", "Phantom Lawyer'a
-     benzer kara mizah") — generic "you might like this" is
-     useless.
+     concrete facts that name the signal you used: same director
+     ("Aynı yönetmenden — X"), same lead actor ("Y'nin başka bir
+     filmi"), same category ("KOMEDi & ROMANTiK favorilerine
+     benziyor"), parallel vibe ("Phantom Lawyer'a benzer kara
+     mizah"). Generic "you might like this" is useless.
   4. Skip items already in RECENTLY_WATCHED or FAVORITES.
-  5. Spread across types where it makes sense (movie + series).
-  6. If RECENTLY_WATCHED + FAVORITES are both empty, fall back
-     to the highest-rated LIBRARY items + variety across genres.
+  5. When a favourite and a recently-watched item disagree on
+     genre, lean toward the favourite — saving beats sampling.
+  6. Spread across types where it makes sense (movie + series).
+  7. If FAVORITES + RECENTLY_WATCHED are both empty, fall back
+     to highest-rated LIBRARY items + variety across categories.
 
 Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
 ''';

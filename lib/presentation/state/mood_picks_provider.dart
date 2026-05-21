@@ -109,40 +109,12 @@ final moodPicksProvider =
 
   // Same taste signals as the "Sana Özel" rail — the mood
   // overrides genre but the AI still wants context for tone +
-  // production quality preferences.
-  final historyRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.playbackProgress,
-      db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-          db.playbackProgress.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..where(db.playbackProgress.position.isBiggerThanValue(0))
-        ..orderBy([
-          OrderingTerm(
-              expression: db.playbackProgress.updatedAt,
-              mode: OrderingMode.desc),
-        ])
-        ..limit(15))
-      .get();
-  final history =
-      historyRows.map((row) => row.readTable(db.channels)).toList();
-
-  final favRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.favorites,
-      db.favorites.streamId.equalsExp(db.channels.streamId) &
-          db.favorites.streamType.equalsExp(db.channels.type),
-    ),
-  ])
-        ..orderBy([
-          OrderingTerm(
-              expression: db.favorites.addedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(15))
-      .get();
-  final favorites =
-      favRows.map((row) => row.readTable(db.channels)).toList();
+  // production quality preferences. Repository helpers JOIN with
+  // categories so the AI sees the actual genre signal.
+  final historySignals =
+      await contentRepo.tasteSignalsFromHistory(limit: 15);
+  final favSignals =
+      await contentRepo.tasteSignalsFromFavorites(limit: 15);
 
   // Slightly smaller pool than "Sana Özel" — mood is laser-focused
   // so the AI doesn't need 450 candidates.
@@ -163,14 +135,6 @@ final moodPicksProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  Map<String, dynamic> compactWatch(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-      };
-
   final lang = ref.read(settingsProvider).language.name == 'system'
       ? 'tr'
       : ref.read(settingsProvider).language.name;
@@ -183,8 +147,8 @@ final moodPicksProvider =
         moodKey: mood.key,
         moodLabel: mood.key, // localised label happens in the widget
         moodDescription: mood.englishVibe,
-        recentlyWatched: history.map(compactWatch).toList(),
-        favorites: favorites.map(compactWatch).toList(),
+        recentlyWatched: historySignals,
+        favorites: favSignals,
         librarySample: librarySample,
         targetLanguage: lang,
       )

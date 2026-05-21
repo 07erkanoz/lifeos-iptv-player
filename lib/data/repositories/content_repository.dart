@@ -99,6 +99,114 @@ class ContentRepository {
         .toList();
   }
 
+  /// Compact taste-signal records used by every AI recommendation
+  /// provider. Joins channels with categories so the per-item map
+  /// includes the category label — critical because the user's
+  /// catalogue stores almost no data in `channels.genre` (the genre
+  /// is encoded in the category name like "KOMEDi & ROMANTiK").
+  ///
+  /// Without the category join the AI gets `{title, year}` triples
+  /// with no taste signal beyond the title, leading to bland
+  /// recommendations.
+  Future<List<Map<String, dynamic>>> tasteSignalsFromHistory({
+    int limit = 25,
+  }) async {
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(
+        _db.playbackProgress,
+        _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
+            _db.playbackProgress.type.equalsExp(_db.channels.type),
+      ),
+      leftOuterJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
+    ])
+          ..where(_db.playbackProgress.position.isBiggerThanValue(0))
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.playbackProgress.updatedAt,
+                mode: OrderingMode.desc),
+          ])
+          ..limit(limit))
+        .get();
+    return rows.map((r) {
+      final ch = r.readTable(_db.channels);
+      final cat = r.readTableOrNull(_db.categories);
+      return <String, dynamic>{
+        'id': ch.streamId,
+        'title': ch.name,
+        'type': ch.type,
+        if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
+        if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
+        if (cat != null && cat.name.isNotEmpty) 'category': cat.name,
+        if (ch.director != null && ch.director!.isNotEmpty)
+          'director': ch.director,
+        if (ch.cast != null && ch.cast!.isNotEmpty)
+          'cast': _trimCast(ch.cast!),
+      };
+    }).toList();
+  }
+
+  /// Same shape as [tasteSignalsFromHistory] but sourced from the
+  /// favourites table. Favourites are a stronger taste signal than
+  /// recently-watched (users save what they love; they watch what
+  /// happens to be available), so callers usually weight these
+  /// higher in their prompts.
+  Future<List<Map<String, dynamic>>> tasteSignalsFromFavorites({
+    int limit = 25,
+  }) async {
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(
+        _db.favorites,
+        _db.favorites.streamId.equalsExp(_db.channels.streamId) &
+            _db.favorites.streamType.equalsExp(_db.channels.type),
+      ),
+      leftOuterJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
+    ])
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.favorites.addedAt,
+                mode: OrderingMode.desc),
+          ])
+          ..limit(limit))
+        .get();
+    return rows.map((r) {
+      final ch = r.readTable(_db.channels);
+      final cat = r.readTableOrNull(_db.categories);
+      return <String, dynamic>{
+        'id': ch.streamId,
+        'title': ch.name,
+        'type': ch.type,
+        if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
+        if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
+        if (cat != null && cat.name.isNotEmpty) 'category': cat.name,
+        if (ch.director != null && ch.director!.isNotEmpty)
+          'director': ch.director,
+        if (ch.cast != null && ch.cast!.isNotEmpty)
+          'cast': _trimCast(ch.cast!),
+      };
+    }).toList();
+  }
+
+  /// Trim a comma-separated cast string to the first 3 names so the
+  /// taste-signal payload doesn't balloon. Three top-billed names
+  /// are enough for the AI to spot recurring actor patterns.
+  static String _trimCast(String raw) {
+    final names = raw
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .take(3)
+        .toList();
+    return names.join(', ');
+  }
+
   /// Find every movie/series in the library whose cast OR director
   /// metadata mentions [personName]. Used by the cast-deep-dive
   /// sheet — tap an actor, see their other appearances in your

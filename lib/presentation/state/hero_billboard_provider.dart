@@ -108,41 +108,14 @@ final heroBillboardProvider =
   debugPrint('[hero] cache miss, calling Gemini');
 
   // ── Cache miss → full pipeline ────────────────────────────────────
-  // Taste signals — same as the rail providers but slightly smaller
-  // since the hero is a tighter pick.
-  final historyRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.playbackProgress,
-      db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-          db.playbackProgress.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..where(db.playbackProgress.position.isBiggerThanValue(0))
-        ..orderBy([
-          OrderingTerm(
-              expression: db.playbackProgress.updatedAt,
-              mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final history =
-      historyRows.map((row) => row.readTable(db.channels)).toList();
-
-  final favRows = await (db.select(db.channels).join([
-    innerJoin(
-      db.favorites,
-      db.favorites.streamId.equalsExp(db.channels.streamId) &
-          db.favorites.streamType.equalsExp(db.channels.type),
-    ),
-  ])
-        ..orderBy([
-          OrderingTerm(
-              expression: db.favorites.addedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final favorites =
-      favRows.map((row) => row.readTable(db.channels)).toList();
+  // Rich taste signals via the repository helpers — these JOIN with
+  // categories so the per-item map includes the catalog category
+  // label, which is the only place the genre actually lives on this
+  // user's Xtream feed.
+  final historySignals =
+      await contentRepo.tasteSignalsFromHistory(limit: 12);
+  final favSignals =
+      await contentRepo.tasteSignalsFromFavorites(limit: 12);
 
   // The hero NEEDS backdrops to look right. Bias the sample toward
   // well-rated mainstream titles so AI has good candidates.
@@ -172,18 +145,10 @@ final heroBillboardProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  Map<String, dynamic> compactWatch(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-      };
-
   final picks = await gemini
       .generateHeroBillboard(
-        recentlyWatched: history.map(compactWatch).toList(),
-        favorites: favorites.map(compactWatch).toList(),
+        recentlyWatched: historySignals,
+        favorites: favSignals,
         librarySample: librarySample,
         timeOfDay: timeOfDay,
         targetLanguage: lang,
