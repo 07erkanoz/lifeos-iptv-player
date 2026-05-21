@@ -122,6 +122,30 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         _waitingForAi = false;
       });
     } else {
+      // Resolve every recommended streamId from the DB directly so
+      // the rec card renders no matter where the id came from
+      // (queryMatches / library / recently watched / favourites).
+      // Without this, AI picks from queryMatches were dropped as
+      // "hallucinated" because the card widget only searched the
+      // standard pools.
+      final db = ref.read(appDatabaseProvider);
+      final ids = response.recommendations
+          .map((r) => r.streamId)
+          .toSet()
+          .toList();
+      final resolved = <int, Channel>{};
+      if (ids.isNotEmpty) {
+        final rows = await (db.select(db.channels)
+              ..where((t) => t.streamId.isIn(ids)))
+            .get();
+        for (final c in rows) {
+          // Composite primary key (streamId, type) — keep the first
+          // we see; subsequent collisions across types are rare and
+          // the chat doesn't disambiguate them anyway.
+          resolved.putIfAbsent(c.streamId, () => c);
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _messages.add(ChatMessage(
           fromUser: false,
@@ -131,6 +155,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                   ? l10n.aiNoMatches
                   : ''),
           recommendations: response.recommendations,
+          resolvedChannels: resolved,
         ));
         _waitingForAi = false;
       });
@@ -481,6 +506,7 @@ class _MessageBubble extends StatelessWidget {
             for (final rec in message.recommendations)
               _RecCard(
                 rec: rec,
+                resolved: message.resolvedChannels[rec.streamId],
                 onPlay: onPlay,
                 onOpenDetails: onOpenDetails,
               ),
@@ -501,11 +527,19 @@ class _MessageBubble extends StatelessWidget {
 /// + details actions.
 class _RecCard extends ConsumerWidget {
   final TonightRecommendation rec;
+
+  /// Pre-resolved Channel for this rec's streamId. Sourced from the
+  /// DB lookup the chat sheet does right after the AI response lands,
+  /// so the card always renders regardless of whether the id was in
+  /// queryMatches, library, recently-watched or favourites.
+  final Channel? resolved;
+
   final Future<void> Function(TonightRecommendation) onPlay;
   final void Function(TonightRecommendation) onOpenDetails;
 
   const _RecCard({
     required this.rec,
+    required this.resolved,
     required this.onPlay,
     required this.onOpenDetails,
   });
@@ -513,21 +547,30 @@ class _RecCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final ctx = ref.watch(tonightContextProvider).value;
-    if (ctx == null) return const SizedBox.shrink();
-    Channel? ch;
-    for (final pool in [ctx.librarySample, ctx.favorites, ctx.recentlyWatched]) {
-      for (final c in pool) {
-        if (c.streamId == rec.streamId) {
-          ch = c;
-          break;
+    // Prefer the DB-resolved channel passed in from the parent.
+    // Fall back to the context pools for backward compatibility, in
+    // case any code path still constructs a ChatMessage without
+    // populating resolvedChannels.
+    Channel? ch = resolved;
+    if (ch == null) {
+      final ctx = ref.watch(tonightContextProvider).value;
+      if (ctx == null) return const SizedBox.shrink();
+      for (final pool in [
+        ctx.librarySample,
+        ctx.favorites,
+        ctx.recentlyWatched,
+      ]) {
+        for (final c in pool) {
+          if (c.streamId == rec.streamId) {
+            ch = c;
+            break;
+          }
         }
+        if (ch != null) break;
       }
-      if (ch != null) break;
     }
     if (ch == null) {
-      // Hallucinated id — drop the card. Logged through devtools
-      // already via the service; no UI breadcrumb needed.
+      // Genuine hallucination — id doesn't exist in the DB at all.
       return const SizedBox.shrink();
     }
 

@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/datasources/local/database.dart';
+
 /// One AI-picked title in a "what should I watch?" response.
 ///
 /// Gemini returns the [streamId] of an item from the library sample
@@ -90,9 +92,19 @@ class ChatMessage {
   /// chat bubble renders the cards inline.
   final List<TonightRecommendation> recommendations;
 
+  /// Pre-resolved Channel rows for the [recommendations] streamIds.
+  /// Populated by the caller right after the AI response lands so
+  /// the rec-card widget doesn't have to search through cached
+  /// context pools (which historically didn't include the
+  /// query-search results, causing cards to silently drop as
+  /// "hallucinated ids" when the AI legitimately recommended items
+  /// from outside the standard top-rated sample).
+  final Map<int, Channel> resolvedChannels;
+
   const ChatMessage({
     required this.fromUser,
     required this.text,
     this.recommendations = const [],
+    this.resolvedChannels = const {},
   });
 }
