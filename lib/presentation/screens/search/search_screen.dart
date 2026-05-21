@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final FocusNode _firstResultFocus = FocusNode(debugLabel: 'SearchFirstResult');
   Timer? _debounce;
   int _searchRequestId = 0;
+
+  /// Separate debouncer for the AI auto-suggest pipeline. Fires
+  /// faster than the main search (300 ms vs 400 ms) so chips appear
+  /// before plain results so the user can pivot if they pick a
+  /// suggestion mid-stream.
+  Timer? _suggestDebounce;
+  int _suggestRequestId = 0;
+  List<String> _aiSuggestions = const [];
+  bool _loadingSuggestions = false;
   List<Channel> _movieResults = [];
   List<Channel> _seriesResults = [];
   List<Channel> _liveResults = [];
@@ -90,11 +100,53 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _suggestDebounce?.cancel();
     _controller.dispose();
     _textFocus.dispose();
     _gridFocus.dispose();
     _firstResultFocus.dispose();
     super.dispose();
+  }
+
+  /// Fire-and-forget AI auto-suggest. Runs in parallel with the main
+  /// search debouncer — the chip row appears above the results and
+  /// lets the user pivot to a more specific query without thinking
+  /// of the phrasing.
+  void _scheduleSuggest(String query) {
+    _suggestDebounce?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.length < 2) {
+      if (_aiSuggestions.isNotEmpty || _loadingSuggestions) {
+        setState(() {
+          _aiSuggestions = const [];
+          _loadingSuggestions = false;
+        });
+      }
+      return;
+    }
+    final gemini = ref.read(geminiServiceProvider);
+    if (gemini == null) {
+      // No AI key — keep chip row hidden entirely.
+      return;
+    }
+    final requestId = ++_suggestRequestId;
+    setState(() => _loadingSuggestions = true);
+    _suggestDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final lang = ref.read(settingsProvider).language.name == 'system'
+          ? 'tr'
+          : ref.read(settingsProvider).language.name;
+      final out = await gemini
+          .suggestSearchRefinements(
+            partialQuery: trimmed,
+            targetLanguage: lang,
+          )
+          .timeout(const Duration(seconds: 8), onTimeout: () => null);
+      if (!mounted || requestId != _suggestRequestId) return;
+      setState(() {
+        _aiSuggestions = out ?? const [];
+        _loadingSuggestions = false;
+      });
+    });
   }
 
   /// Move focus to the first result card. Called when the user
@@ -132,6 +184,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _onSearchChanged(String query) {
     _debounce?.cancel();
     final requestId = ++_searchRequestId;
+    // Kick the AI suggest pipeline in parallel — it has its own
+    // debouncer and its own request id, so it doesn't fight the
+    // main search timeline.
+    _scheduleSuggest(query);
     if (query.trim().isEmpty) {
       setState(() {
         _movieResults = [];
@@ -416,6 +472,76 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
+  /// Horizontal chip row of AI-generated refinement suggestions.
+  /// Hidden when the user has no key, the query is too short, or
+  /// Gemini hasn't returned anything yet. While loading, shows a
+  /// slim spinner row so the user knows AI is on it without
+  /// pushing the result grid down.
+  Widget _buildSuggestionRow() {
+    final hasAi = ref.watch(geminiServiceProvider) != null;
+    if (!hasAi) return const SizedBox.shrink();
+    final hasQuery = _controller.text.trim().length >= 2;
+    if (!hasQuery) return const SizedBox.shrink();
+    if (_aiSuggestions.isEmpty && !_loadingSuggestions) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
+      child: SizedBox(
+        height: 36,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: const {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+            },
+          ),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              const Icon(Icons.auto_awesome,
+                  color: AppColors.primary, size: 14),
+              const SizedBox(width: 6),
+              if (_loadingSuggestions && _aiSuggestions.isEmpty) ...[
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: AppColors.primary),
+                ),
+                const SizedBox(width: 8),
+                Center(
+                  child: Text(
+                    AppLocalizations.of(context)!.searchSuggestLoading,
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ] else
+                for (final s in _aiSuggestions) ...[
+                  _SuggestionChip(
+                    label: s,
+                    onTap: () {
+                      _controller.text = s;
+                      _controller.selection = TextSelection.collapsed(
+                          offset: s.length);
+                      _onSearchChanged(s);
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(IconData icon, String title, Color color, int count) {
     return Row(
       children: [
@@ -599,6 +725,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ],
                 ),
               ),
+
+              // AI suggestion chips — appear below the search input
+              // when the user is typing and Gemini has returned
+              // refinement directions. Hidden entirely when there
+              // are no suggestions, the user has no AI key, or the
+              // query is too short. The chips fill the search field
+              // on tap and re-fire the search pipeline.
+              _buildSuggestionRow(),
 
               // Results — grouped by type
               Expanded(
@@ -1180,4 +1314,62 @@ class _SearchResults {
     required this.intent,
     required this.curatorReasons,
   });
+}
+
+/// Tappable AI-suggestion pill rendered in the chip row above the
+/// search results. Tap fills the search field and re-fires the
+/// pipeline — no separate handler needed.
+class _SuggestionChip extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _SuggestionChip({required this.label, required this.onTap});
+
+  @override
+  State<_SuggestionChip> createState() => _SuggestionChipState();
+}
+
+class _SuggestionChipState extends State<_SuggestionChip> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = _hovered || _focused;
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.primary.withValues(alpha: 0.22)
+                  : AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _focused
+                    ? AppColors.primary
+                    : AppColors.primary.withValues(alpha: 0.35),
+                width: _focused ? 1.5 : 1.0,
+              ),
+            ),
+            child: Text(
+              widget.label,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

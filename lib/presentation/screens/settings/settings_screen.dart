@@ -1515,6 +1515,60 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
               height: 1.4,
             ),
           ),
+          // Taste-wizard reset — only when there's a key, since the
+          // wizard is gated on hasAiKey too. Resets the flag and the
+          // dashboard re-prompts on next open.
+          if (hasKey) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.auto_awesome_outlined,
+                  size: 16, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.tasteWizardReset,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textDark
+                            : AppColors.textLight,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.tasteWizardResetDesc,
+                      style: TextStyle(
+                        color: AppColors.textTertiary(context),
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  ref.read(settingsProvider.notifier).updateSettings(
+                      widget.settings.copyWith(
+                          tasteWizardCompleted: false));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.tasteWizardDone),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                },
+                child: Text(l10n.tasteWizardReset),
+              ),
+            ]),
+          ],
         ]),
       ),
       const SizedBox(height: 16),

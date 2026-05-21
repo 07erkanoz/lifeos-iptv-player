@@ -99,6 +99,39 @@ class ContentRepository {
         .toList();
   }
 
+  /// Find every movie/series in the library whose cast OR director
+  /// metadata mentions [personName]. Used by the cast-deep-dive
+  /// sheet — tap an actor, see their other appearances in your
+  /// catalogue.
+  ///
+  /// Matching is case-insensitive substring against both `cast` and
+  /// `director` columns. Live TV is excluded — it doesn't carry
+  /// person metadata. Hidden categories are filtered out the same
+  /// way the rest of the search does.
+  Future<List<Channel>> searchChannelsByCastMember(
+    String personName, {
+    int limit = 30,
+  }) async {
+    final lower = personName.trim().toLowerCase();
+    if (lower.isEmpty) return const [];
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(_db.categories,
+          _db.categories.id.equalsExp(_db.channels.categoryId) &
+              _db.categories.type.equalsExp(_db.channels.type)),
+    ])
+          ..where(_db.channels.type.equals('movie') |
+              _db.channels.type.equals('series'))
+          ..where(_db.categories.isHidden.equals(false)))
+        .get();
+    return rows
+        .map((row) => row.readTable(_db.channels))
+        .where((ch) =>
+            (ch.cast?.toLowerCase().contains(lower) ?? false) ||
+            (ch.director?.toLowerCase().contains(lower) ?? false))
+        .take(limit)
+        .toList();
+  }
+
   /// Search channels by name filtered by type (movie/series/live).
   /// Filters out channels from hidden categories.
   Future<List<Channel>> searchChannelsByType(String query, String type, {int limit = 100}) async {

@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "Для тебя",
   "dashboardForYouSubtitle": "Подборка ИИ по твоим просмотрам",
   "dashboardForYouLoading": "Подбираю для тебя...",
+  "dashboardForYouRefresh": "Подобрать заново",
+  "moodChipsTitle": "Какое у тебя настроение?",
+  "moodChipsSubtitle": "Выбери настроение, мы подберём подходящее",
+  "moodRelax": "Расслабиться",
+  "moodThrill": "Острые ощущения",
+  "moodLaugh": "Посмеяться",
+  "moodThink": "Поразмыслить",
+  "moodNostalgia": "Ностальгия",
+  "moodSurprise": "Удиви меня",
+  "tasteWizardTitle": "Начнём со вкуса",
+  "tasteWizardSubtitle": "Выбери, что нравится — ИИ узнает тебя. Выборы попадут в избранное, удалить можно в любой момент.",
+  "tasteWizardHint": "Выбери минимум 3",
+  "tasteWizardSelectedCount": "Выбрано: {count}",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Продолжить",
+  "tasteWizardSkip": "Пропустить",
+  "tasteWizardError": "Не удалось загрузить библиотеку.",
+  "tasteWizardEmpty": "Библиотека ещё не готова.",
+  "tasteWizardDone": "Готово — обнови страницу.",
+  "tasteWizardReset": "Запустить мастер вкуса заново",
+  "tasteWizardResetDesc": "Сбрасывает профиль вкуса и спросит снова при открытии дашборда.",
+  "searchSuggestLoading": "ИИ предлагает...",
+  "castSheetAiSummary": "ИИ-СПРАВКА",
+  "castSheetAiLoading": "Готовится справка о карьере...",
+  "castSheetAiUnavailable": "Справка недоступна.",
+  "castSheetLibraryAppearances": "В ТВОЕЙ БИБЛИОТЕКЕ",
+  "castSheetLoadingAppearances": "Поиск...",
+  "castSheetAppearancesCount": "найдено: {count}",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Других появлений в библиотеке нет.",
+  "weeklyDigestTitle": "НА ЭТОЙ НЕДЕЛЕ ДЛЯ ТЕБЯ",
+  "weeklyDigestDismiss": "Закрыть баннер",
+  "moodLoading": "Подбираю под это настроение...",
+  "moodEmpty": "Не нашёл хорошего совпадения, попробуй другое.",
+  "moodRailTitle": "Подборка: {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Показывать PiP-трейлер",
   "showTrailerSettingDesc": "Плавающий YouTube-трейлер в правом верхнем углу страниц деталей. Отключите для статичной панели.",
   "aiAssistant": "ИИ-ассистент",

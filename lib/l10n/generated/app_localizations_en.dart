@@ -894,6 +894,114 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardForYouLoading => 'Picking for you...';
 
   @override
+  String get dashboardForYouRefresh => 'Pick again';
+
+  @override
+  String get moodChipsTitle => 'What\'s your mood?';
+
+  @override
+  String get moodChipsSubtitle => 'Pick a vibe, we\'ll curate to match';
+
+  @override
+  String get moodRelax => 'Relax';
+
+  @override
+  String get moodThrill => 'Thrill';
+
+  @override
+  String get moodLaugh => 'Laugh';
+
+  @override
+  String get moodThink => 'Think';
+
+  @override
+  String get moodNostalgia => 'Nostalgia';
+
+  @override
+  String get moodSurprise => 'Surprise me';
+
+  @override
+  String get tasteWizardTitle => 'Let\'s start with your taste';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'Pick what you like so AI gets you. Picks go to your favourites — remove any time.';
+
+  @override
+  String get tasteWizardHint => 'Pick at least 3';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'Continue';
+
+  @override
+  String get tasteWizardSkip => 'Skip for now';
+
+  @override
+  String get tasteWizardError => 'Couldn\'t load library, try again later.';
+
+  @override
+  String get tasteWizardEmpty => 'Library isn\'t ready yet.';
+
+  @override
+  String get tasteWizardDone => 'Ready — refresh the page.';
+
+  @override
+  String get tasteWizardReset => 'Restart taste wizard';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'Resets your taste profile and re-prompts on next dashboard open.';
+
+  @override
+  String get searchSuggestLoading => 'AI is suggesting...';
+
+  @override
+  String get castSheetAiSummary => 'AI SUMMARY';
+
+  @override
+  String get castSheetAiLoading => 'Preparing career summary...';
+
+  @override
+  String get castSheetAiUnavailable => 'No summary available for this person.';
+
+  @override
+  String get castSheetLibraryAppearances => 'IN YOUR LIBRARY';
+
+  @override
+  String get castSheetLoadingAppearances => 'Searching...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return '$count appearance(s) found';
+  }
+
+  @override
+  String get castSheetNoAppearances => 'No other appearances in your library.';
+
+  @override
+  String get weeklyDigestTitle => 'THIS WEEK FOR YOU';
+
+  @override
+  String get weeklyDigestDismiss => 'Dismiss banner';
+
+  @override
+  String get moodLoading => 'Picking for this mood...';
+
+  @override
+  String get moodEmpty =>
+      'Couldn\'t find a good match for this mood, try another.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return 'Picks for $mood';
+  }
+
+  @override
   String get showTrailerSetting => 'Show trailer PiP';
 
   @override

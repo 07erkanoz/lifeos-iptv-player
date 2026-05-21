@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "Ji bo te",
   "dashboardForYouSubtitle": "Bijartinên AI li gorî temaşekirina te",
   "dashboardForYouLoading": "Ji bo te dibijêre...",
+  "dashboardForYouRefresh": "Dîsa bibijêre",
+  "moodChipsTitle": "Halê te çawa ye?",
+  "moodChipsSubtitle": "Halekî hilbijêre, em ji te re hilbijêrin",
+  "moodRelax": "Rihetbûn",
+  "moodThrill": "Heyecan",
+  "moodLaugh": "Ken",
+  "moodThink": "Ramanê",
+  "moodNostalgia": "Bîranîn",
+  "moodSurprise": "Min surprîz bike",
+  "tasteWizardTitle": "Em bi tama te dest pê bikin",
+  "tasteWizardSubtitle": "Tişt yên ku tu jê hez dikî hilbijêre da ku AI te baş nas bike. Hilbijartin diçin favoriyan — her çaxê kanî rakî.",
+  "tasteWizardHint": "Bi kêmî 3 hilbijêre",
+  "tasteWizardSelectedCount": "{count} hilbijartî",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Berdewam",
+  "tasteWizardSkip": "Niha bavêje",
+  "tasteWizardError": "Pirtûkxane neyê barkirin, paşê biceribîne.",
+  "tasteWizardEmpty": "Pirtûkxane hêj amade nîn e.",
+  "tasteWizardDone": "Amade — rûpelê nû bike.",
+  "tasteWizardReset": "Sêhrbaza tama vekirinê",
+  "tasteWizardResetDesc": "Profîla te paqij dike û li dashboard pirsê dîsa dipirse.",
+  "searchSuggestLoading": "AI pêşniyaran çêdike...",
+  "castSheetAiSummary": "KURTEYÊN AI",
+  "castSheetAiLoading": "Kurteya kariyerê tê amadekirin...",
+  "castSheetAiUnavailable": "Kurteyek tune.",
+  "castSheetLibraryAppearances": "DI PIRTÛKXANEYA TE DE",
+  "castSheetLoadingAppearances": "Lê tê gerîn...",
+  "castSheetAppearancesCount": "{count} hatî dîtin",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Di pirtûkxaneya te de bêhtir tune.",
+  "weeklyDigestTitle": "VÊ HEFTE JI BO TE",
+  "weeklyDigestDismiss": "Bannerê bigire",
+  "moodLoading": "Ji bo vê halê dibijêre...",
+  "moodEmpty": "Ji bo vê halê tiştek baş nedît, yekî din biceribîne.",
+  "moodRailTitle": "Hilbijartin ji bo {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Fragmanê piçûk nîşan bide",
   "showTrailerSettingDesc": "Fragmanê YouTube ya li jora rastê ya rûpelên hûragahî. Ji bo panelek statîk wê bigire.",
   "aiAssistant": "Alîkarê AI",

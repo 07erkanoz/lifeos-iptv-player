@@ -894,6 +894,114 @@ class AppLocalizationsTr extends AppLocalizations {
   String get dashboardForYouLoading => 'Senin için seçiyor...';
 
   @override
+  String get dashboardForYouRefresh => 'Yeniden seç';
+
+  @override
+  String get moodChipsTitle => 'Ruh halin nasıl?';
+
+  @override
+  String get moodChipsSubtitle => 'Bir mod seç, sana ona göre derleyelim';
+
+  @override
+  String get moodRelax => 'Rahatlamak';
+
+  @override
+  String get moodThrill => 'Heyecan';
+
+  @override
+  String get moodLaugh => 'Gülmek';
+
+  @override
+  String get moodThink => 'Düşündürücü';
+
+  @override
+  String get moodNostalgia => 'Nostalji';
+
+  @override
+  String get moodSurprise => 'Sürpriz';
+
+  @override
+  String get tasteWizardTitle => 'Tadına göre başlayalım';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'Beğendiklerini seç, AI seni daha iyi tanısın. Seçimlerin favorilere eklenir, istediğin zaman kaldırabilirsin.';
+
+  @override
+  String get tasteWizardHint => 'En az 3 seçim yap';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return '$count seçildi';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'Devam et';
+
+  @override
+  String get tasteWizardSkip => 'Şimdilik atla';
+
+  @override
+  String get tasteWizardError => 'Kütüphane okunamadı, daha sonra tekrar dene.';
+
+  @override
+  String get tasteWizardEmpty => 'Kütüphane henüz hazır değil.';
+
+  @override
+  String get tasteWizardDone => 'Hazır — sayfayı yenile.';
+
+  @override
+  String get tasteWizardReset => 'Beğeni sihirbazını yeniden çalıştır';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'Tat profili sıfırlanır ve dashboard açıldığında tekrar sorulur.';
+
+  @override
+  String get searchSuggestLoading => 'AI öneri üretiyor...';
+
+  @override
+  String get castSheetAiSummary => 'AI ÖZETİ';
+
+  @override
+  String get castSheetAiLoading => 'Kariyer özeti hazırlanıyor...';
+
+  @override
+  String get castSheetAiUnavailable => 'Bu kişi hakkında özet bulunamadı.';
+
+  @override
+  String get castSheetLibraryAppearances => 'KÜTÜPHANEDE';
+
+  @override
+  String get castSheetLoadingAppearances => 'Aranıyor...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return '$count eşleşme bulundu';
+  }
+
+  @override
+  String get castSheetNoAppearances => 'Kütüphanende başka eşleşme yok.';
+
+  @override
+  String get weeklyDigestTitle => 'BU HAFTA SENİN İÇİN';
+
+  @override
+  String get weeklyDigestDismiss => 'Banner\'ı kapat';
+
+  @override
+  String get moodLoading => 'Bu ruh haline göre seçiyor...';
+
+  @override
+  String get moodEmpty =>
+      'Bu modda iyi bir eşleşme bulamadım, başka bir mod dene.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return '$mood için seçimler';
+  }
+
+  @override
   String get showTrailerSetting => 'Fragman göster';
 
   @override

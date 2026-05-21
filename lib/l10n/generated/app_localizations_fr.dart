@@ -898,6 +898,116 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dashboardForYouLoading => 'Sélection en cours...';
 
   @override
+  String get dashboardForYouRefresh => 'Re-sélectionner';
+
+  @override
+  String get moodChipsTitle => 'Quelle est ton humeur ?';
+
+  @override
+  String get moodChipsSubtitle =>
+      'Choisis une ambiance, on adapte la sélection';
+
+  @override
+  String get moodRelax => 'Détente';
+
+  @override
+  String get moodThrill => 'Frisson';
+
+  @override
+  String get moodLaugh => 'Rire';
+
+  @override
+  String get moodThink => 'Réfléchir';
+
+  @override
+  String get moodNostalgia => 'Nostalgie';
+
+  @override
+  String get moodSurprise => 'Surprends-moi';
+
+  @override
+  String get tasteWizardTitle => 'Partons de tes goûts';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'Choisis ce que tu aimes pour que l\'IA te cerne. Tes choix vont dans tes favoris — retirables à tout moment.';
+
+  @override
+  String get tasteWizardHint => 'Choisis-en au moins 3';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return '$count sélectionné(s)';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'Continuer';
+
+  @override
+  String get tasteWizardSkip => 'Passer pour l\'instant';
+
+  @override
+  String get tasteWizardError => 'Impossible de charger la bibliothèque.';
+
+  @override
+  String get tasteWizardEmpty => 'Bibliothèque pas encore prête.';
+
+  @override
+  String get tasteWizardDone => 'Prêt — actualise la page.';
+
+  @override
+  String get tasteWizardReset => 'Relancer l\'assistant de goûts';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'Réinitialise ton profil et reposera la question à l\'ouverture.';
+
+  @override
+  String get searchSuggestLoading => 'L\'IA propose...';
+
+  @override
+  String get castSheetAiSummary => 'RÉSUMÉ IA';
+
+  @override
+  String get castSheetAiLoading => 'Préparation du résumé de carrière...';
+
+  @override
+  String get castSheetAiUnavailable => 'Aucun résumé disponible.';
+
+  @override
+  String get castSheetLibraryAppearances => 'DANS TA BIBLIOTHÈQUE';
+
+  @override
+  String get castSheetLoadingAppearances => 'Recherche...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return '$count apparition(s) trouvée(s)';
+  }
+
+  @override
+  String get castSheetNoAppearances =>
+      'Pas d\'autres apparitions dans ta bibliothèque.';
+
+  @override
+  String get weeklyDigestTitle => 'CETTE SEMAINE POUR TOI';
+
+  @override
+  String get weeklyDigestDismiss => 'Fermer la bannière';
+
+  @override
+  String get moodLoading => 'Sélection pour cette humeur...';
+
+  @override
+  String get moodEmpty =>
+      'Pas de bonne correspondance pour cette humeur, essaie-en une autre.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return 'Sélection pour $mood';
+  }
+
+  @override
   String get showTrailerSetting => 'Afficher la bande-annonce PiP';
 
   @override

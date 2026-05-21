@@ -301,6 +301,54 @@
   "dashboardForYouTitle": "For you",
   "dashboardForYouSubtitle": "AI picks based on your viewing",
   "dashboardForYouLoading": "Picking for you...",
+  "dashboardForYouRefresh": "Pick again",
+  "moodChipsTitle": "What's your mood?",
+  "moodChipsSubtitle": "Pick a vibe, we'll curate to match",
+  "moodRelax": "Relax",
+  "moodThrill": "Thrill",
+  "moodLaugh": "Laugh",
+  "moodThink": "Think",
+  "moodNostalgia": "Nostalgia",
+  "moodSurprise": "Surprise me",
+  "tasteWizardTitle": "Let's start with your taste",
+  "tasteWizardSubtitle": "Pick what you like so AI gets you. Picks go to your favourites — remove any time.",
+  "tasteWizardHint": "Pick at least 3",
+  "tasteWizardSelectedCount": "{count} selected",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Continue",
+  "tasteWizardSkip": "Skip for now",
+  "tasteWizardError": "Couldn't load library, try again later.",
+  "tasteWizardEmpty": "Library isn't ready yet.",
+  "tasteWizardDone": "Ready — refresh the page.",
+  "tasteWizardReset": "Restart taste wizard",
+  "tasteWizardResetDesc": "Resets your taste profile and re-prompts on next dashboard open.",
+  "searchSuggestLoading": "AI is suggesting...",
+  "castSheetAiSummary": "AI SUMMARY",
+  "castSheetAiLoading": "Preparing career summary...",
+  "castSheetAiUnavailable": "No summary available for this person.",
+  "castSheetLibraryAppearances": "IN YOUR LIBRARY",
+  "castSheetLoadingAppearances": "Searching...",
+  "castSheetAppearancesCount": "{count} appearance(s) found",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "No other appearances in your library.",
+  "weeklyDigestTitle": "THIS WEEK FOR YOU",
+  "weeklyDigestDismiss": "Dismiss banner",
+  "moodLoading": "Picking for this mood...",
+  "moodEmpty": "Couldn't find a good match for this mood, try another.",
+  "moodRailTitle": "Picks for {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Show trailer PiP",
   "showTrailerSettingDesc": "Floating YouTube trailer in the upper-right of detail pages. Turn off to keep the panel static.",
   "aiAssistant": "AI Assistant",

@@ -18,6 +18,24 @@ class PersonalizedPickCard {
   });
 }
 
+/// Bumped each time the user taps the rail's refresh button. The
+/// main provider watches this — non-zero values force the cache
+/// lookup to be skipped and are passed to Gemini as a variety seed
+/// so the new picks visibly differ from the previous ones.
+///
+/// Riverpod 3 dropped `StateProvider`, hence the tiny Notifier.
+class _PersonalizedPicksRefreshSeed extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state = DateTime.now().millisecondsSinceEpoch;
+}
+
+final personalizedPicksRefreshSeedProvider =
+    NotifierProvider<_PersonalizedPicksRefreshSeed, int>(
+  _PersonalizedPicksRefreshSeed.new,
+);
+
 /// Future provider for the "Sana Özel" dashboard rail.
 ///
 /// Returns `null` when:
@@ -51,6 +69,11 @@ final personalizedPicksProvider =
   final cacheRepo = ref.watch(personalizedPicksRepositoryProvider);
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
+
+  // Refresh nonce — bumped by the rail's refresh button. When
+  // non-zero we skip the cache entirely and pass the seed to Gemini
+  // so it samples differently from its last response.
+  final refreshSeed = ref.watch(personalizedPicksRefreshSeedProvider);
 
   // Gather current taste state. Both queries are cheap joins,
   // single round-trip apiece.
@@ -93,10 +116,13 @@ final personalizedPicksProvider =
     favoriteIds: favorites.map((c) => c.streamId),
   );
 
-  // Cache check.
-  final cached = await cacheRepo.lookup(sourceHash: sourceHash);
-  if (cached != null && cached.isNotEmpty) {
-    return _resolve(cached, db);
+  // Cache check — skipped entirely on an explicit refresh so the
+  // user always gets a fresh AI run when they hit the button.
+  if (refreshSeed == 0) {
+    final cached = await cacheRepo.lookup(sourceHash: sourceHash);
+    if (cached != null && cached.isNotEmpty) {
+      return _resolve(cached, db);
+    }
   }
 
   // Library sample — bigger than the search curator's because
@@ -144,6 +170,7 @@ final personalizedPicksProvider =
         favorites: favorites.map(compactWatch).toList(),
         librarySample: librarySample,
         targetLanguage: lang,
+        varietySeed: refreshSeed,
       )
       .timeout(const Duration(seconds: 20), onTimeout: () => null);
 
@@ -166,21 +193,92 @@ final personalizedPicksProvider =
   // Last resort: synthesise a rail from the top-rated sample we
   // already pulled. No ✨ reasons (the cards just render bare
   // posters in this state), but the user sees a populated rail
-  // instead of blank space. The rail header still reads "Sana
-  // özel" since this only kicks in when the user has a key on
-  // file and AI was just unreachable transiently.
+  // instead of blank space.
   if (sample.isEmpty) return null;
-  final fallbackPicks = sample.take(15).toList();
+  // Dedupe by *normalised title + poster URL* — multi-category
+  // Xtream catalogues routinely re-list the same VOD under several
+  // stream ids, sometimes with different localised titles (e.g.
+  // "La Disparue de la cabine 10" + "10 Numaralı Kamara" pointing
+  // at the same TMDB poster). Two-key dedupe catches both flavours.
+  final seen = <String>{};
+  final fallbackPicks = <Channel>[];
+  for (final ch in sample) {
+    if (!_claimDedupeSlot(ch, seen)) continue;
+    fallbackPicks.add(ch);
+    if (fallbackPicks.length >= 15) break;
+  }
+  if (fallbackPicks.isEmpty) return null;
   return [
     for (final ch in fallbackPicks)
       PersonalizedPickCard(channel: ch, reason: ''),
   ];
 });
 
+/// Aggressively normalise a title for dedupe: lowercase, strip
+/// punctuation, drop year suffixes like " (2020)" / " [2020]", drop
+/// quality suffixes like " 4K"/" HD", collapse whitespace.
+///
+/// Xtream catalogues sometimes re-list the same VOD with subtle
+/// variations ("Mike & Nick" vs "Mike and Nick (2020)" vs "Mike &
+/// Nick HD"). Plain lowercase-trim missed those; this catches them.
+String _normaliseTitle(String raw) {
+  var s = raw.toLowerCase().trim();
+  // Strip trailing year markers, language tags, quality tags.
+  s = s.replaceAll(RegExp(r'\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*'), ' ');
+  s = s.replaceAll(
+      RegExp(r'\b(4k|uhd|hd|fhd|sd|2160p|1080p|720p|480p)\b'), ' ');
+  // & → and so variants collapse.
+  s = s.replaceAll('&', ' and ');
+  // Strip everything that isn't a letter/digit/space.
+  s = s.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+  // Collapse whitespace.
+  s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return s;
+}
+
+/// Normalise a poster URL so two slightly different URLs pointing
+/// at the same TMDB poster collapse. Strips protocol + query string
+/// + trailing slash; the path itself is what identifies the asset.
+String _normalisePoster(String? raw) {
+  if (raw == null) return '';
+  var s = raw.trim().toLowerCase();
+  if (s.isEmpty) return '';
+  s = s.replaceFirst(RegExp(r'^https?:\/\/'), '');
+  final q = s.indexOf('?');
+  if (q != -1) s = s.substring(0, q);
+  if (s.endsWith('/')) s = s.substring(0, s.length - 1);
+  return s;
+}
+
+/// Returns true if [ch] is a fresh entry — registers its dedupe
+/// keys in [seen] and reports back. Returns false if either the
+/// normalised title or the poster URL has been seen before.
+///
+/// Two-key dedupe catches Xtream's multi-language re-listings:
+/// "La Disparue de la cabine 10" (FR) and "10 Numaralı Kamara" (TR)
+/// are textually unrelated, but they share the same TMDB poster, so
+/// the URL fingerprint collapses them. Title-only dedupe still
+/// catches "Mike & Nick" vs "Mike and Nick (2020)" where titles
+/// are close but posters might be missing.
+bool _claimDedupeSlot(Channel ch, Set<String> seen) {
+  final titleKey = 't:${_normaliseTitle(ch.name)}';
+  final posterKey = 'p:${_normalisePoster(ch.streamIcon)}';
+  final hasTitle = titleKey != 't:';
+  final hasPoster = posterKey != 'p:';
+  if (!hasTitle && !hasPoster) return false;
+  if (hasTitle && seen.contains(titleKey)) return false;
+  if (hasPoster && seen.contains(posterKey)) return false;
+  if (hasTitle) seen.add(titleKey);
+  if (hasPoster) seen.add(posterKey);
+  return true;
+}
+
 /// Resolve a list of picks (id + reason) into renderable cards by
 /// looking up the full Channel row for each id. Missing ids — e.g.
 /// the channel was deleted between caching and rendering — are
-/// silently dropped.
+/// silently dropped. Cards are deduped by normalised title so
+/// multi-category Xtream catalogues that carry the same VOD under
+/// multiple stream ids don't render the same poster five times.
 Future<List<PersonalizedPickCard>> _resolve(
   List<PersonalizedPick> picks,
   AppDatabase db,
@@ -192,11 +290,12 @@ Future<List<PersonalizedPickCard>> _resolve(
       .get();
   final byId = {for (final c in rows) c.streamId: c};
   final out = <PersonalizedPickCard>[];
+  final seen = <String>{};
   for (final pick in picks) {
     final ch = byId[pick.streamId];
-    if (ch != null) {
-      out.add(PersonalizedPickCard(channel: ch, reason: pick.reason));
-    }
+    if (ch == null) continue;
+    if (!_claimDedupeSlot(ch, seen)) continue;
+    out.add(PersonalizedPickCard(channel: ch, reason: pick.reason));
   }
   return out;
 }

@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "Pour toi",
   "dashboardForYouSubtitle": "Sélection IA selon ce que tu regardes",
   "dashboardForYouLoading": "Sélection en cours...",
+  "dashboardForYouRefresh": "Re-sélectionner",
+  "moodChipsTitle": "Quelle est ton humeur ?",
+  "moodChipsSubtitle": "Choisis une ambiance, on adapte la sélection",
+  "moodRelax": "Détente",
+  "moodThrill": "Frisson",
+  "moodLaugh": "Rire",
+  "moodThink": "Réfléchir",
+  "moodNostalgia": "Nostalgie",
+  "moodSurprise": "Surprends-moi",
+  "tasteWizardTitle": "Partons de tes goûts",
+  "tasteWizardSubtitle": "Choisis ce que tu aimes pour que l'IA te cerne. Tes choix vont dans tes favoris — retirables à tout moment.",
+  "tasteWizardHint": "Choisis-en au moins 3",
+  "tasteWizardSelectedCount": "{count} sélectionné(s)",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Continuer",
+  "tasteWizardSkip": "Passer pour l'instant",
+  "tasteWizardError": "Impossible de charger la bibliothèque.",
+  "tasteWizardEmpty": "Bibliothèque pas encore prête.",
+  "tasteWizardDone": "Prêt — actualise la page.",
+  "tasteWizardReset": "Relancer l'assistant de goûts",
+  "tasteWizardResetDesc": "Réinitialise ton profil et reposera la question à l'ouverture.",
+  "searchSuggestLoading": "L'IA propose...",
+  "castSheetAiSummary": "RÉSUMÉ IA",
+  "castSheetAiLoading": "Préparation du résumé de carrière...",
+  "castSheetAiUnavailable": "Aucun résumé disponible.",
+  "castSheetLibraryAppearances": "DANS TA BIBLIOTHÈQUE",
+  "castSheetLoadingAppearances": "Recherche...",
+  "castSheetAppearancesCount": "{count} apparition(s) trouvée(s)",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Pas d'autres apparitions dans ta bibliothèque.",
+  "weeklyDigestTitle": "CETTE SEMAINE POUR TOI",
+  "weeklyDigestDismiss": "Fermer la bannière",
+  "moodLoading": "Sélection pour cette humeur...",
+  "moodEmpty": "Pas de bonne correspondance pour cette humeur, essaie-en une autre.",
+  "moodRailTitle": "Sélection pour {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Afficher la bande-annonce PiP",
   "showTrailerSettingDesc": "Bande-annonce YouTube flottante en haut à droite des pages de détail. Désactivez pour un panneau statique.",
   "aiAssistant": "Assistant IA",

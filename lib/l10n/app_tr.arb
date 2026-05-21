@@ -319,6 +319,54 @@
   "dashboardForYouTitle": "Sana özel",
   "dashboardForYouSubtitle": "İzleme alışkanlığına göre AI seçimleri",
   "dashboardForYouLoading": "Senin için seçiyor...",
+  "dashboardForYouRefresh": "Yeniden seç",
+  "moodChipsTitle": "Ruh halin nasıl?",
+  "moodChipsSubtitle": "Bir mod seç, sana ona göre derleyelim",
+  "moodRelax": "Rahatlamak",
+  "moodThrill": "Heyecan",
+  "moodLaugh": "Gülmek",
+  "moodThink": "Düşündürücü",
+  "moodNostalgia": "Nostalji",
+  "moodSurprise": "Sürpriz",
+  "tasteWizardTitle": "Tadına göre başlayalım",
+  "tasteWizardSubtitle": "Beğendiklerini seç, AI seni daha iyi tanısın. Seçimlerin favorilere eklenir, istediğin zaman kaldırabilirsin.",
+  "tasteWizardHint": "En az 3 seçim yap",
+  "tasteWizardSelectedCount": "{count} seçildi",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Devam et",
+  "tasteWizardSkip": "Şimdilik atla",
+  "tasteWizardError": "Kütüphane okunamadı, daha sonra tekrar dene.",
+  "tasteWizardEmpty": "Kütüphane henüz hazır değil.",
+  "tasteWizardDone": "Hazır — sayfayı yenile.",
+  "tasteWizardReset": "Beğeni sihirbazını yeniden çalıştır",
+  "tasteWizardResetDesc": "Tat profili sıfırlanır ve dashboard açıldığında tekrar sorulur.",
+  "searchSuggestLoading": "AI öneri üretiyor...",
+  "castSheetAiSummary": "AI ÖZETİ",
+  "castSheetAiLoading": "Kariyer özeti hazırlanıyor...",
+  "castSheetAiUnavailable": "Bu kişi hakkında özet bulunamadı.",
+  "castSheetLibraryAppearances": "KÜTÜPHANEDE",
+  "castSheetLoadingAppearances": "Aranıyor...",
+  "castSheetAppearancesCount": "{count} eşleşme bulundu",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Kütüphanende başka eşleşme yok.",
+  "weeklyDigestTitle": "BU HAFTA SENİN İÇİN",
+  "weeklyDigestDismiss": "Banner'ı kapat",
+  "moodLoading": "Bu ruh haline göre seçiyor...",
+  "moodEmpty": "Bu modda iyi bir eşleşme bulamadım, başka bir mod dene.",
+  "moodRailTitle": "{mood} için seçimler",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Fragman göster",
   "showTrailerSettingDesc": "Detay sayfasının sağ üstündeki küçük YouTube fragmanı. Statik bir panel istiyorsan kapat.",
   "aiAssistant": "AI Asistan",

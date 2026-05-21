@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart';
 
@@ -31,6 +33,11 @@ class PersonalizedPicksRail extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return asyncPicks.when(
+      // skipLoadingOnRefresh=false: when the user hits the refresh
+      // button we want them to see the shimmer immediately instead
+      // of staring at the old cards for 5–15 seconds while Gemini
+      // recomputes.
+      skipLoadingOnRefresh: false,
       // null means "no key" — render nothing.
       data: (cards) {
         if (cards == null || cards.isEmpty) return const SizedBox.shrink();
@@ -39,6 +46,22 @@ class PersonalizedPicksRail extends ConsumerWidget {
           onTap: onTap,
           title: l10n.dashboardForYouTitle,
           subtitle: l10n.dashboardForYouSubtitle,
+          refreshTooltip: l10n.dashboardForYouRefresh,
+          onRefresh: () async {
+            // Force a fresh AI fetch:
+            //   1. Wipe the singleton cache row so a stale value
+            //      can never come back on the next lookup.
+            //   2. Bump the refresh seed — the provider watches it
+            //      and (a) skips its cache lookup when non-zero,
+            //      (b) passes the seed to Gemini as a variety hint
+            //      so the new picks visibly differ.
+            //   3. Bumping the StateProvider auto-invalidates the
+            //      FutureProvider (since it `ref.watch`es the seed),
+            //      so the widget rebuilds and shows the shimmer
+            //      while Gemini runs.
+            await ref.read(personalizedPicksRepositoryProvider).clear();
+            ref.read(personalizedPicksRefreshSeedProvider.notifier).bump();
+          },
           isDark: isDark,
         );
       },
@@ -62,6 +85,8 @@ class _RailBody extends StatelessWidget {
   final void Function(Channel channel) onTap;
   final String title;
   final String subtitle;
+  final String refreshTooltip;
+  final Future<void> Function()? onRefresh;
   final bool isDark;
 
   const _RailBody({
@@ -69,6 +94,8 @@ class _RailBody extends StatelessWidget {
     required this.onTap,
     required this.title,
     required this.subtitle,
+    required this.refreshTooltip,
+    required this.onRefresh,
     required this.isDark,
   });
 
@@ -105,21 +132,51 @@ class _RailBody extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onRefresh != null)
+                IconButton(
+                  tooltip: refreshTooltip,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  iconSize: 18,
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: AppColors.primary,
+                  ),
+                  onPressed: () => onRefresh!(),
+                ),
             ]),
           ),
           SizedBox(
             // Card is 140 wide, poster 140×210 + 100 of text below
             // = ~310 total height including reason text.
             height: 320,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: cards.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) => _PickCard(
-                card: cards[i],
-                onTap: () => onTap(cards[i].channel),
-                isDark: isDark,
+            // ScrollConfiguration override: on Linux/Windows/macOS
+            // desktop the default ScrollBehavior excludes mouse drag,
+            // so users on a regular cursor cannot pull the rail
+            // sideways. We opt mouse + trackpad back in here.
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: const {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.trackpad,
+                  PointerDeviceKind.stylus,
+                },
+              ),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: cards.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, i) => _PickCard(
+                  card: cards[i],
+                  onTap: () => onTap(cards[i].channel),
+                  isDark: isDark,
+                ),
               ),
             ),
           ),

@@ -18,6 +18,7 @@ import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
+import 'package:lifeostv/presentation/widgets/ai/cast_deep_dive_sheet.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -1117,10 +1118,18 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                           width: 80,
                                           child: Text(l10n.cast, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
                                         ),
-                                        Expanded(child: Text(
-                                          cast.toString().length > 100 ? '${cast.toString().substring(0, 100)}...' : cast.toString(),
-                                          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4),
-                                        )),
+                                        Expanded(
+                                          child: CastChipRow(
+                                            raw: cast.toString(),
+                                            currentTitle: ch.name,
+                                            onChannelTap: (c) {
+                                              // Defer-pop the bottom sheet,
+                                              // then switch the detail page
+                                              // to the new channel.
+                                              setState(() => _hoveredChannel = c);
+                                            },
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1355,7 +1364,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         if (director.toString().isNotEmpty)
           _buildCreditRow(l10n.director, director.toString()),
         if (cast.toString().isNotEmpty)
-          _buildCreditRow(l10n.cast, cast.toString().length > 100 ? '${cast.toString().substring(0, 100)}...' : cast.toString()),
+          _buildCastCreditRow(l10n.cast, cast.toString(), ch),
         if (genre.toString().isNotEmpty)
           _buildCreditRow(l10n.genre, genre.toString()),
         const SizedBox(height: 30),
@@ -1368,6 +1377,39 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         ),
         const SizedBox(height: 40),
       ],
+    );
+  }
+
+  /// Like [_buildCreditRow] but renders the value through a
+  /// CastChipRow so each name is tappable and opens the cast
+  /// deep-dive sheet. Used for the cast field on the mobile/narrow
+  /// detail layout; the wide layout above already swapped in the
+  /// chip row inline.
+  Widget _buildCastCreditRow(String label, String rawCast, Channel current) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label,
+                style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
+          ),
+          Expanded(
+            child: CastChipRow(
+              raw: rawCast,
+              currentTitle: current.name,
+              onChannelTap: (c) {
+                setState(() => _hoveredChannel = c);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

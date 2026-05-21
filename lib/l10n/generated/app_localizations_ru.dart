@@ -896,6 +896,113 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dashboardForYouLoading => 'Подбираю для тебя...';
 
   @override
+  String get dashboardForYouRefresh => 'Подобрать заново';
+
+  @override
+  String get moodChipsTitle => 'Какое у тебя настроение?';
+
+  @override
+  String get moodChipsSubtitle => 'Выбери настроение, мы подберём подходящее';
+
+  @override
+  String get moodRelax => 'Расслабиться';
+
+  @override
+  String get moodThrill => 'Острые ощущения';
+
+  @override
+  String get moodLaugh => 'Посмеяться';
+
+  @override
+  String get moodThink => 'Поразмыслить';
+
+  @override
+  String get moodNostalgia => 'Ностальгия';
+
+  @override
+  String get moodSurprise => 'Удиви меня';
+
+  @override
+  String get tasteWizardTitle => 'Начнём со вкуса';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'Выбери, что нравится — ИИ узнает тебя. Выборы попадут в избранное, удалить можно в любой момент.';
+
+  @override
+  String get tasteWizardHint => 'Выбери минимум 3';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return 'Выбрано: $count';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'Продолжить';
+
+  @override
+  String get tasteWizardSkip => 'Пропустить';
+
+  @override
+  String get tasteWizardError => 'Не удалось загрузить библиотеку.';
+
+  @override
+  String get tasteWizardEmpty => 'Библиотека ещё не готова.';
+
+  @override
+  String get tasteWizardDone => 'Готово — обнови страницу.';
+
+  @override
+  String get tasteWizardReset => 'Запустить мастер вкуса заново';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'Сбрасывает профиль вкуса и спросит снова при открытии дашборда.';
+
+  @override
+  String get searchSuggestLoading => 'ИИ предлагает...';
+
+  @override
+  String get castSheetAiSummary => 'ИИ-СПРАВКА';
+
+  @override
+  String get castSheetAiLoading => 'Готовится справка о карьере...';
+
+  @override
+  String get castSheetAiUnavailable => 'Справка недоступна.';
+
+  @override
+  String get castSheetLibraryAppearances => 'В ТВОЕЙ БИБЛИОТЕКЕ';
+
+  @override
+  String get castSheetLoadingAppearances => 'Поиск...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return 'найдено: $count';
+  }
+
+  @override
+  String get castSheetNoAppearances => 'Других появлений в библиотеке нет.';
+
+  @override
+  String get weeklyDigestTitle => 'НА ЭТОЙ НЕДЕЛЕ ДЛЯ ТЕБЯ';
+
+  @override
+  String get weeklyDigestDismiss => 'Закрыть баннер';
+
+  @override
+  String get moodLoading => 'Подбираю под это настроение...';
+
+  @override
+  String get moodEmpty => 'Не нашёл хорошего совпадения, попробуй другое.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return 'Подборка: $mood';
+  }
+
+  @override
   String get showTrailerSetting => 'Показывать PiP-трейлер';
 
   @override

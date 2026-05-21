@@ -1796,6 +1796,204 @@ abstract class AppLocalizations {
   /// **'Senin için seçiyor...'**
   String get dashboardForYouLoading;
 
+  /// No description provided for @dashboardForYouRefresh.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yeniden seç'**
+  String get dashboardForYouRefresh;
+
+  /// No description provided for @moodChipsTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ruh halin nasıl?'**
+  String get moodChipsTitle;
+
+  /// No description provided for @moodChipsSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bir mod seç, sana ona göre derleyelim'**
+  String get moodChipsSubtitle;
+
+  /// No description provided for @moodRelax.
+  ///
+  /// In tr, this message translates to:
+  /// **'Rahatlamak'**
+  String get moodRelax;
+
+  /// No description provided for @moodThrill.
+  ///
+  /// In tr, this message translates to:
+  /// **'Heyecan'**
+  String get moodThrill;
+
+  /// No description provided for @moodLaugh.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gülmek'**
+  String get moodLaugh;
+
+  /// No description provided for @moodThink.
+  ///
+  /// In tr, this message translates to:
+  /// **'Düşündürücü'**
+  String get moodThink;
+
+  /// No description provided for @moodNostalgia.
+  ///
+  /// In tr, this message translates to:
+  /// **'Nostalji'**
+  String get moodNostalgia;
+
+  /// No description provided for @moodSurprise.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sürpriz'**
+  String get moodSurprise;
+
+  /// No description provided for @tasteWizardTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tadına göre başlayalım'**
+  String get tasteWizardTitle;
+
+  /// No description provided for @tasteWizardSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Beğendiklerini seç, AI seni daha iyi tanısın. Seçimlerin favorilere eklenir, istediğin zaman kaldırabilirsin.'**
+  String get tasteWizardSubtitle;
+
+  /// No description provided for @tasteWizardHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'En az 3 seçim yap'**
+  String get tasteWizardHint;
+
+  /// No description provided for @tasteWizardSelectedCount.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} seçildi'**
+  String tasteWizardSelectedCount(int count);
+
+  /// No description provided for @tasteWizardConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'Devam et'**
+  String get tasteWizardConfirm;
+
+  /// No description provided for @tasteWizardSkip.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdilik atla'**
+  String get tasteWizardSkip;
+
+  /// No description provided for @tasteWizardError.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kütüphane okunamadı, daha sonra tekrar dene.'**
+  String get tasteWizardError;
+
+  /// No description provided for @tasteWizardEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kütüphane henüz hazır değil.'**
+  String get tasteWizardEmpty;
+
+  /// No description provided for @tasteWizardDone.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hazır — sayfayı yenile.'**
+  String get tasteWizardDone;
+
+  /// No description provided for @tasteWizardReset.
+  ///
+  /// In tr, this message translates to:
+  /// **'Beğeni sihirbazını yeniden çalıştır'**
+  String get tasteWizardReset;
+
+  /// No description provided for @tasteWizardResetDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tat profili sıfırlanır ve dashboard açıldığında tekrar sorulur.'**
+  String get tasteWizardResetDesc;
+
+  /// No description provided for @searchSuggestLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI öneri üretiyor...'**
+  String get searchSuggestLoading;
+
+  /// No description provided for @castSheetAiSummary.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI ÖZETİ'**
+  String get castSheetAiSummary;
+
+  /// No description provided for @castSheetAiLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kariyer özeti hazırlanıyor...'**
+  String get castSheetAiLoading;
+
+  /// No description provided for @castSheetAiUnavailable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu kişi hakkında özet bulunamadı.'**
+  String get castSheetAiUnavailable;
+
+  /// No description provided for @castSheetLibraryAppearances.
+  ///
+  /// In tr, this message translates to:
+  /// **'KÜTÜPHANEDE'**
+  String get castSheetLibraryAppearances;
+
+  /// No description provided for @castSheetLoadingAppearances.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aranıyor...'**
+  String get castSheetLoadingAppearances;
+
+  /// No description provided for @castSheetAppearancesCount.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} eşleşme bulundu'**
+  String castSheetAppearancesCount(int count);
+
+  /// No description provided for @castSheetNoAppearances.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kütüphanende başka eşleşme yok.'**
+  String get castSheetNoAppearances;
+
+  /// No description provided for @weeklyDigestTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'BU HAFTA SENİN İÇİN'**
+  String get weeklyDigestTitle;
+
+  /// No description provided for @weeklyDigestDismiss.
+  ///
+  /// In tr, this message translates to:
+  /// **'Banner\'ı kapat'**
+  String get weeklyDigestDismiss;
+
+  /// No description provided for @moodLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu ruh haline göre seçiyor...'**
+  String get moodLoading;
+
+  /// No description provided for @moodEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu modda iyi bir eşleşme bulamadım, başka bir mod dene.'**
+  String get moodEmpty;
+
+  /// No description provided for @moodRailTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'{mood} için seçimler'**
+  String moodRailTitle(String mood);
+
   /// No description provided for @showTrailerSetting.
   ///
   /// In tr, this message translates to:

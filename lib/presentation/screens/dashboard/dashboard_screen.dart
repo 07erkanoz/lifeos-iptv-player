@@ -8,8 +8,12 @@ import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/state/hero_billboard_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/dashboard_greeting.dart';
+import 'package:lifeostv/presentation/widgets/ai/mood_selector.dart';
 import 'package:lifeostv/presentation/widgets/ai/personalized_picks_rail.dart';
+import 'package:lifeostv/presentation/widgets/ai/taste_wizard_sheet.dart';
+import 'package:lifeostv/presentation/widgets/ai/weekly_digest_banner.dart';
 import 'package:lifeostv/presentation/widgets/ai/tonight_chat_sheet.dart';
 import 'package:lifeostv/presentation/widgets/content/content_list.dart';
 import 'package:lifeostv/presentation/widgets/content/hero_banner.dart';
@@ -60,7 +64,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             TvBranchIndex.dashboard,
             _branchPrimaryCb,
           );
+      _maybeShowTasteWizard();
     });
+  }
+
+  /// Show the AI taste-onboarding wizard exactly once per user.
+  ///
+  /// Fires only when:
+  ///   * the user has a Gemini key configured,
+  ///   * the wizard hasn't been completed before, and
+  ///   * the AI providers truly have no signal to ground on
+  ///     (< 3 favourites AND < 5 history rows).
+  ///
+  /// Waits 1.2 seconds after first paint so the dashboard finishes
+  /// settling before the modal slides up — appearing during the
+  /// hero shimmer feels janky.
+  Future<void> _maybeShowTasteWizard() async {
+    final settings = ref.read(settingsProvider);
+    if (!settings.hasAiKey) return;
+    if (settings.tasteWizardCompleted) return;
+
+    final db = ref.read(appDatabaseProvider);
+    final favCount = await (db.select(db.favorites)..limit(3)).get();
+    if (favCount.length >= 3) {
+      // Already has favourites — they have a taste profile.
+      // Flip the flag so we don't re-check this on every open.
+      ref.read(settingsProvider.notifier).updateSettings(
+          settings.copyWith(tasteWizardCompleted: true));
+      return;
+    }
+    final histCount =
+        await (db.select(db.playbackProgress)..limit(5)).get();
+    if (histCount.length >= 5) {
+      ref.read(settingsProvider.notifier).updateSettings(
+          settings.copyWith(tasteWizardCompleted: true));
+      return;
+    }
+
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+    await TasteWizardSheet.show(context);
   }
 
   @override
@@ -230,7 +273,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final account = ref.watch(currentAccountProvider);
 
     // Hero items: combine movies + series, prioritize those with backdrop
-    final heroItems = [
+    final fallbackHeroItems = [
       ...?recentMoviesAsync.value?.take(5),
       ...?recentSeriesAsync.value?.take(5),
     ]..sort((a, b) {
@@ -238,6 +281,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final bHas = b.backdropPath != null ? 0 : 1;
       return aHas.compareTo(bHas);
     });
+
+    // AI hero billboard — present only when the user has a Gemini
+    // key and the provider successfully resolved. Replaces the
+    // recent-movies/series hero items with a tighter AI-curated
+    // selection that includes per-item hook taglines. Falls back
+    // to [fallbackHeroItems] otherwise so the dashboard for non-AI
+    // users (or while the provider is loading / failed) looks
+    // identical to before this commit.
+    final aiBillboard = ref.watch(heroBillboardProvider).value;
+    final heroItems = (aiBillboard != null && !aiBillboard.isEmpty)
+        ? aiBillboard.channels
+        : fallbackHeroItems;
+    final aiTaglines = aiBillboard?.taglines;
 
     // AI assistant entry — only renders when the user has a Gemini
     // key configured. We hide the FAB entirely rather than showing
@@ -334,6 +390,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     onTrailer: _openTrailer,
                     playFocusNode: _heroFocusNode,
                     onLeftEdge: _focusMainSidebar,
+                    aiTaglines: aiTaglines,
                   ),
 
                   const SizedBox(height: 18),
@@ -386,11 +443,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     error: (_, _) => const SizedBox.shrink(),
                   ),
 
+                  // Weekly digest — once-a-week AI banner of new
+                  // additions matching the user's taste. Hides
+                  // itself when there's no key, no recent content,
+                  // or the user dismissed within the last 7 days.
+                  WeeklyDigestBanner(onTap: _openDetail),
+
                   // "Sana Özel" — AI-curated personalised rail.
                   // Hides itself entirely when the user has no
                   // Gemini key, so the dashboard for non-AI users
                   // looks identical to before this commit.
                   PersonalizedPicksRail(onTap: _openDetail),
+
+                  // Mood chip selector — taps spawn an ephemeral
+                  // mood-based rail right below the chips. Also
+                  // hides itself when no Gemini key is configured.
+                  MoodSelector(onTap: _openDetail),
 
                   // Continue Watching (movies + series with unfinished progress)
                   continueWatchingAsync.when(

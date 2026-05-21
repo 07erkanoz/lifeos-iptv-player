@@ -58,6 +58,14 @@ class HeroBanner extends StatefulWidget {
   /// the nav.
   final VoidCallback? onLeftEdge;
 
+  /// Optional map from streamId → AI-generated hook tagline. When
+  /// the currently-displayed hero item's streamId has an entry, the
+  /// hero overlay renders the tagline right below the title with a
+  /// ✨ marker. Null/empty when the user has no Gemini key or the
+  /// billboard provider hasn't finished yet — in that case the hero
+  /// looks identical to its pre-AI baseline.
+  final Map<int, String>? aiTaglines;
+
   const HeroBanner({
     super.key,
     required this.channels,
@@ -68,6 +76,7 @@ class HeroBanner extends StatefulWidget {
     this.vodInfo,
     this.playFocusNode,
     this.onLeftEdge,
+    this.aiTaglines,
   });
 
   @override
@@ -391,6 +400,43 @@ class _HeroBannerState extends State<HeroBanner> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+
+                // ── AI tagline ──────────────────────────────────
+                // Rendered only when the parent passed a non-null
+                // [aiTaglines] map and the current channel has an
+                // entry. Without a Gemini key the parent passes
+                // null here, so the hero falls back to the
+                // pre-AI title → chips → plot layout pixel-for-pixel.
+                if (widget.aiTaglines != null &&
+                    (widget.aiTaglines![channel.streamId]?.isNotEmpty ??
+                        false)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          widget.aiTaglines![channel.streamId]!,
+                          style: TextStyle(
+                            color: AppColors.primary.withValues(alpha: 0.95),
+                            fontSize: mobile ? 12 : 13,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
 
                 // Genre chips (same style as movies hero)
                 if (!mobile && _genreText(channel) != null) ...[

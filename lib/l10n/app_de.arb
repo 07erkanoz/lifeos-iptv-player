@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "Für dich",
   "dashboardForYouSubtitle": "KI-Auswahl nach deinen Sehgewohnheiten",
   "dashboardForYouLoading": "Auswahl wird erstellt...",
+  "dashboardForYouRefresh": "Neu auswählen",
+  "moodChipsTitle": "Wie ist deine Stimmung?",
+  "moodChipsSubtitle": "Wähle eine Stimmung, wir kuratieren passend",
+  "moodRelax": "Entspannen",
+  "moodThrill": "Spannung",
+  "moodLaugh": "Lachen",
+  "moodThink": "Nachdenklich",
+  "moodNostalgia": "Nostalgie",
+  "moodSurprise": "Überrasch mich",
+  "tasteWizardTitle": "Lass uns mit deinem Geschmack beginnen",
+  "tasteWizardSubtitle": "Wähle, was dir gefällt, damit die KI dich kennt. Auswahl landet in deinen Favoriten — jederzeit entfernbar.",
+  "tasteWizardHint": "Wähle mindestens 3",
+  "tasteWizardSelectedCount": "{count} ausgewählt",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Weiter",
+  "tasteWizardSkip": "Jetzt überspringen",
+  "tasteWizardError": "Bibliothek konnte nicht geladen werden.",
+  "tasteWizardEmpty": "Bibliothek noch nicht bereit.",
+  "tasteWizardDone": "Bereit — Seite aktualisieren.",
+  "tasteWizardReset": "Geschmacks-Assistenten neu starten",
+  "tasteWizardResetDesc": "Setzt dein Geschmacksprofil zurück und fragt beim nächsten Öffnen erneut.",
+  "searchSuggestLoading": "KI macht Vorschläge...",
+  "castSheetAiSummary": "KI-ZUSAMMENFASSUNG",
+  "castSheetAiLoading": "Karriere-Zusammenfassung wird erstellt...",
+  "castSheetAiUnavailable": "Keine Zusammenfassung verfügbar.",
+  "castSheetLibraryAppearances": "IN DEINER BIBLIOTHEK",
+  "castSheetLoadingAppearances": "Suche...",
+  "castSheetAppearancesCount": "{count} Auftritt(e) gefunden",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Keine weiteren Auftritte in deiner Bibliothek.",
+  "weeklyDigestTitle": "DIESE WOCHE FÜR DICH",
+  "weeklyDigestDismiss": "Banner schließen",
+  "moodLoading": "Wähle für diese Stimmung aus...",
+  "moodEmpty": "Keine gute Übereinstimmung für diese Stimmung, versuche eine andere.",
+  "moodRailTitle": "Auswahl für {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Trailer-PiP anzeigen",
   "showTrailerSettingDesc": "Schwebender YouTube-Trailer rechts oben auf Detailseiten. Zum statischen Panel: ausschalten.",
   "aiAssistant": "KI-Assistent",

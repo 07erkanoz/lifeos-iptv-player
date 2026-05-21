@@ -894,6 +894,114 @@ class AppLocalizationsKu extends AppLocalizations {
   String get dashboardForYouLoading => 'Ji bo te dibijêre...';
 
   @override
+  String get dashboardForYouRefresh => 'Dîsa bibijêre';
+
+  @override
+  String get moodChipsTitle => 'Halê te çawa ye?';
+
+  @override
+  String get moodChipsSubtitle => 'Halekî hilbijêre, em ji te re hilbijêrin';
+
+  @override
+  String get moodRelax => 'Rihetbûn';
+
+  @override
+  String get moodThrill => 'Heyecan';
+
+  @override
+  String get moodLaugh => 'Ken';
+
+  @override
+  String get moodThink => 'Ramanê';
+
+  @override
+  String get moodNostalgia => 'Bîranîn';
+
+  @override
+  String get moodSurprise => 'Min surprîz bike';
+
+  @override
+  String get tasteWizardTitle => 'Em bi tama te dest pê bikin';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'Tişt yên ku tu jê hez dikî hilbijêre da ku AI te baş nas bike. Hilbijartin diçin favoriyan — her çaxê kanî rakî.';
+
+  @override
+  String get tasteWizardHint => 'Bi kêmî 3 hilbijêre';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return '$count hilbijartî';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'Berdewam';
+
+  @override
+  String get tasteWizardSkip => 'Niha bavêje';
+
+  @override
+  String get tasteWizardError => 'Pirtûkxane neyê barkirin, paşê biceribîne.';
+
+  @override
+  String get tasteWizardEmpty => 'Pirtûkxane hêj amade nîn e.';
+
+  @override
+  String get tasteWizardDone => 'Amade — rûpelê nû bike.';
+
+  @override
+  String get tasteWizardReset => 'Sêhrbaza tama vekirinê';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'Profîla te paqij dike û li dashboard pirsê dîsa dipirse.';
+
+  @override
+  String get searchSuggestLoading => 'AI pêşniyaran çêdike...';
+
+  @override
+  String get castSheetAiSummary => 'KURTEYÊN AI';
+
+  @override
+  String get castSheetAiLoading => 'Kurteya kariyerê tê amadekirin...';
+
+  @override
+  String get castSheetAiUnavailable => 'Kurteyek tune.';
+
+  @override
+  String get castSheetLibraryAppearances => 'DI PIRTÛKXANEYA TE DE';
+
+  @override
+  String get castSheetLoadingAppearances => 'Lê tê gerîn...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return '$count hatî dîtin';
+  }
+
+  @override
+  String get castSheetNoAppearances => 'Di pirtûkxaneya te de bêhtir tune.';
+
+  @override
+  String get weeklyDigestTitle => 'VÊ HEFTE JI BO TE';
+
+  @override
+  String get weeklyDigestDismiss => 'Bannerê bigire';
+
+  @override
+  String get moodLoading => 'Ji bo vê halê dibijêre...';
+
+  @override
+  String get moodEmpty =>
+      'Ji bo vê halê tiştek baş nedît, yekî din biceribîne.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return 'Hilbijartin ji bo $mood';
+  }
+
+  @override
   String get showTrailerSetting => 'Fragmanê piçûk nîşan bide';
 
   @override

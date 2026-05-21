@@ -35,6 +35,18 @@ class AppSettings {
   // background extraction runs.
   final bool showTrailer;
 
+  // Taste-wizard one-shot onboarding. Flipped to true after the
+  // wizard finishes (whether the user picked items or dismissed).
+  // The dashboard checks this on startup and shows the wizard at
+  // most once — re-runnable from Settings → "Beğeni profilini
+  // sıfırla".
+  final bool tasteWizardCompleted;
+
+  // Timestamp of the last time the user dismissed the weekly
+  // digest banner. Null = never seen. The digest provider rate-
+  // limits itself to once-per-week using this field.
+  final DateTime? lastDigestDismissedAt;
+
   // OpenSubtitles
   final String? opensubtitlesApiKey;
 
@@ -88,6 +100,8 @@ class AppSettings {
     this.continueWatchingEnabled = true,
     this.showSkipIntroButton = true,
     this.showTrailer = true,
+    this.tasteWizardCompleted = false,
+    this.lastDigestDismissedAt,
     this.opensubtitlesApiKey,
     this.geminiApiKey,
     this.subtitlePreferredLanguage = 'tr',
@@ -117,6 +131,8 @@ class AppSettings {
     bool? continueWatchingEnabled,
     bool? showSkipIntroButton,
     bool? showTrailer,
+    bool? tasteWizardCompleted,
+    DateTime? lastDigestDismissedAt,
     String? opensubtitlesApiKey,
     String? geminiApiKey,
     bool clearGeminiApiKey = false,
@@ -147,6 +163,10 @@ class AppSettings {
       continueWatchingEnabled: continueWatchingEnabled ?? this.continueWatchingEnabled,
       showSkipIntroButton: showSkipIntroButton ?? this.showSkipIntroButton,
       showTrailer: showTrailer ?? this.showTrailer,
+      tasteWizardCompleted:
+          tasteWizardCompleted ?? this.tasteWizardCompleted,
+      lastDigestDismissedAt:
+          lastDigestDismissedAt ?? this.lastDigestDismissedAt,
       opensubtitlesApiKey: opensubtitlesApiKey ?? this.opensubtitlesApiKey,
       geminiApiKey: clearGeminiApiKey
           ? null

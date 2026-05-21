@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "لك",
   "dashboardForYouSubtitle": "اختيارات الذكاء الاصطناعي حسب مشاهداتك",
   "dashboardForYouLoading": "يختار لك...",
+  "dashboardForYouRefresh": "اختر مجدداً",
+  "moodChipsTitle": "كيف مزاجك؟",
+  "moodChipsSubtitle": "اختر مزاجاً ونرتب لك ما يناسبه",
+  "moodRelax": "استرخاء",
+  "moodThrill": "إثارة",
+  "moodLaugh": "ضحك",
+  "moodThink": "تأمل",
+  "moodNostalgia": "حنين",
+  "moodSurprise": "فاجئني",
+  "tasteWizardTitle": "لنبدأ بذوقك",
+  "tasteWizardSubtitle": "اختر ما يعجبك ليتعرف عليك الذكاء الاصطناعي. اختياراتك تُحفظ في المفضلة — يمكنك حذفها متى شئت.",
+  "tasteWizardHint": "اختر 3 على الأقل",
+  "tasteWizardSelectedCount": "{count} مختار",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "متابعة",
+  "tasteWizardSkip": "تخطى الآن",
+  "tasteWizardError": "تعذر تحميل المكتبة، أعد المحاولة لاحقاً.",
+  "tasteWizardEmpty": "المكتبة ليست جاهزة بعد.",
+  "tasteWizardDone": "جاهز — حدّث الصفحة.",
+  "tasteWizardReset": "إعادة تشغيل معالج الذوق",
+  "tasteWizardResetDesc": "يُعيد تهيئة ملف الذوق ويظهر السؤال عند فتح اللوحة.",
+  "searchSuggestLoading": "يقترح الذكاء الاصطناعي...",
+  "castSheetAiSummary": "ملخص الذكاء الاصطناعي",
+  "castSheetAiLoading": "تحضير ملخص المسيرة...",
+  "castSheetAiUnavailable": "لا يوجد ملخص متاح.",
+  "castSheetLibraryAppearances": "في مكتبتك",
+  "castSheetLoadingAppearances": "جاري البحث...",
+  "castSheetAppearancesCount": "تم العثور على {count} ظهور",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "لا ظهورات أخرى في مكتبتك.",
+  "weeklyDigestTitle": "هذا الأسبوع لك",
+  "weeklyDigestDismiss": "إغلاق الشريط",
+  "moodLoading": "نختار لهذا المزاج...",
+  "moodEmpty": "لم أجد تطابقاً جيداً لهذا المزاج، جرب آخر.",
+  "moodRailTitle": "اختيارات لـ {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "إظهار العرض المصغّر",
   "showTrailerSettingDesc": "عرض YouTube عائم في أعلى يمين صفحات التفاصيل. أوقفه إن أردت لوحة ثابتة.",
   "aiAssistant": "مساعد الذكاء الاصطناعي",

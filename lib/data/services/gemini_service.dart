@@ -935,6 +935,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
     required List<Map<String, dynamic>> favorites,
     required List<Map<String, dynamic>> librarySample,
     required String targetLanguage,
+    int varietySeed = 0,
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
@@ -975,9 +976,21 @@ Rules:
 Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
 ''';
 
+    // When the user explicitly hits the refresh button on the rail
+    // the provider bumps varietySeed. Folding it into the user turn
+    // nudges Gemini's sampler into a different region of the
+    // candidate space so the rail visibly changes rather than
+    // returning the same picks the user just saw.
+    final varietyHint = varietySeed > 0
+        ? '\nVARIETY_SEED: $varietySeed — the user just asked for a '
+            'fresh pick, so prefer different items from your previous '
+            'response, explore adjacent genres/eras, and reshuffle the '
+            'order.'
+        : '';
+
     final userTurn = 'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'LIBRARY: ${jsonEncode(librarySample)}';
+        'LIBRARY: ${jsonEncode(librarySample)}$varietyHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -999,7 +1012,9 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _curateResponseSchema,
-            'temperature': 0.6,
+            // Bump warmth on explicit refresh so the sampler explores
+            // further from its previous best response.
+            'temperature': varietySeed > 0 ? 0.95 : 0.6,
             'maxOutputTokens': 2048,
           },
         },
@@ -1063,6 +1078,595 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     }
   }
 
+  /// Weekly digest — picks 3-5 newly-added items the AI thinks
+  /// match the user's taste, plus a one-sentence headline ("Bu hafta
+  /// için 4 yeni keşif").
+  ///
+  /// Distinguishes itself from [recommendForYou] by being explicitly
+  /// scoped to fresh-this-week content. The dashboard banner only
+  /// surfaces when there's enough new content AND the AI can find
+  /// at least one match. Otherwise we hide rather than show a stale
+  /// "this week" widget.
+  Future<({String headline, List<({int streamId, String reason})> picks})?>
+      weeklyDigest({
+    required List<Map<String, dynamic>> recentAdditions,
+    required List<Map<String, dynamic>> favorites,
+    required List<Map<String, dynamic>> recentlyWatched,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || recentAdditions.isEmpty) return null;
+
+    final systemPrompt = '''
+You write a one-line weekly digest headline for an IPTV / streaming
+app, then pick 3-5 items from RECENT_ADDITIONS that match the
+user's taste.
+
+Inputs (first user turn, JSON):
+  * RECENT_ADDITIONS — items added to the library in the last 7
+    days, pipe-separated rows
+    `id|title|type|year|genre|director|cast|rating`.
+  * FAVORITES + RECENTLY_WATCHED — taste signals.
+
+Rules:
+  1. `headline` is ONE short sentence in $targetLanguage that
+     summarises why these picks are worth the user's attention.
+     Example: "Sevdiğin kara mizah dizilerinin yeni kuzenleri bu
+     hafta kütüphanene düştü." NOT "Here are some new shows".
+  2. `picks` is 3-5 streamIds from RECENT_ADDITIONS only — never
+     fall back to older items. Quality over quantity.
+  3. Each `reason` is ONE short $targetLanguage sentence tying
+     the pick to a concrete signal — director / cast / genre /
+     vibe overlap with the user's history. "Yeni eklendi" alone
+     is NOT a reason.
+  4. If RECENT_ADDITIONS is small or doesn't fit the user's
+     taste at all, return at minimum 1 pick rather than nothing.
+
+Return strict JSON:
+  {"headline":<str>,"picks":[{"streamId":<int>,"reason":<str>},…]}.
+''';
+
+    final userTurn = 'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
+        'FAVORITES: ${jsonEncode(favorites)}\n'
+        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': {
+              'type': 'object',
+              'properties': {
+                'headline': {'type': 'string'},
+                'picks': {
+                  'type': 'array',
+                  'items': {
+                    'type': 'object',
+                    'properties': {
+                      'streamId': {'type': 'integer'},
+                      'reason': {'type': 'string'},
+                    },
+                    'required': ['streamId', 'reason'],
+                  },
+                },
+              },
+              'required': ['headline', 'picks'],
+            },
+            'temperature': 0.6,
+            'maxOutputTokens': 1024,
+          },
+        },
+      );
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      Map<String, dynamic>? parsed;
+      try {
+        parsed = jsonDecode(text) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+      final headline = parsed['headline']?.toString().trim() ?? '';
+      final rawPicks = parsed['picks'];
+      if (headline.isEmpty || rawPicks is! List) return null;
+      final picks = <({int streamId, String reason})>[];
+      for (final item in rawPicks) {
+        if (item is! Map<String, dynamic>) continue;
+        final sidRaw = item['streamId'];
+        int? sid;
+        if (sidRaw is int) {
+          sid = sidRaw;
+        } else if (sidRaw is num) {
+          sid = sidRaw.toInt();
+        } else if (sidRaw != null) {
+          sid = int.tryParse(sidRaw.toString());
+        }
+        final reason = item['reason']?.toString().trim() ?? '';
+        if (sid != null && sid > 0 && reason.isNotEmpty) {
+          picks.add((streamId: sid, reason: reason));
+        }
+      }
+      if (picks.isEmpty) return null;
+      return (headline: headline, picks: picks);
+    } catch (e) {
+      debugPrint('[Gemini] weeklyDigest failed: $e');
+      return null;
+    }
+  }
+
+  /// One-paragraph career summary for an actor / director, plus a
+  /// few iconic roles they're known for. Used by the cast deep-dive
+  /// sheet on detail pages — tap a name, get a short brief that
+  /// gives context without leaving the app.
+  ///
+  /// Hands back null on failure so the sheet can collapse the
+  /// AI panel and just show the library matches below.
+  Future<String?> actorCareerSummary({
+    required String name,
+    String? appearsInTitle, // current movie/series for grounding
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || name.trim().isEmpty) return null;
+
+    final systemPrompt = '''
+You write short career summaries for actors and filmmakers in a
+streaming-app modal. Output is ONE compact paragraph in
+$targetLanguage, 2-4 sentences max.
+
+Cover, in order:
+  1. Who they are — country, era, primary medium.
+  2. What they're best known for — 2-3 most iconic roles or films.
+  3. A characterising note — recurring genre, working partners,
+     awards if landmark (Oscar/Cannes/Palme/etc).
+
+Style rules:
+  * No "${"Name"} is a ${"nationality"} actor born in…" boilerplate
+    — start with the most interesting fact.
+  * Plain prose, no bullet points, no list.
+  * Don't invent. If you don't know the person confidently,
+    return the empty string.
+  * Don't reference the streaming app or any UI.
+''';
+
+    final ctxLine = appearsInTitle != null && appearsInTitle.isNotEmpty
+        ? '\nCURRENT_TITLE: ${jsonEncode(appearsInTitle)} '
+            '(the user is viewing this — you may mention it but '
+            'don\'t pad with it).'
+        : '';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': 'NAME: ${jsonEncode(name)}$ctxLine'},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'temperature': 0.4,
+            'maxOutputTokens': 512,
+          },
+        },
+      );
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      return text;
+    } catch (e) {
+      debugPrint('[Gemini] actorCareerSummary failed: $e');
+      return null;
+    }
+  }
+
+  /// As the user types in the search box, generate 3-5 short
+  /// refinement suggestions that disambiguate / narrow the partial
+  /// query. Tapping one fills the search field, kicking off the
+  /// normal search pipeline.
+  ///
+  /// Example: user types "uzay" → ["Uzay temalı bilim kurgu",
+  /// "Uzay belgeselleri", "Uzay aile filmleri", "Yalnız uzayda
+  /// hayatta kalma"]. The chips give the user an instant menu of
+  /// directions without having to think of the phrasing.
+  ///
+  /// Returns null on failure; caller hides the chip row so the
+  /// search screen falls back to its pre-AI behaviour.
+  Future<List<String>?> suggestSearchRefinements({
+    required String partialQuery,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || partialQuery.trim().length < 2) return null;
+
+    final systemPrompt = '''
+You are the auto-suggest brain for a streaming app's search box.
+The user is mid-typing. Generate 3-5 short refinement suggestions
+that branch off their partial query into specific, browseable
+directions.
+
+Rules:
+  1. Each suggestion is a SHORT noun-phrase in $targetLanguage,
+     under 6 words. Not a full sentence.
+  2. Cover DIFFERENT directions — don't give 4 variations of the
+     same idea. Mix genre, theme, era, format.
+  3. Stay grounded — the user typed something concrete; expand
+     it, don't invent. "uzay" → space sci-fi, space docs, etc.
+     NOT "horror films" (too far).
+  4. Skip the trivial echo. "uzay" → DON'T suggest "uzay" alone.
+  5. Localised: if the input language differs from
+     $targetLanguage, translate the suggestions to
+     $targetLanguage.
+
+Return strict JSON: {"suggestions":["<str>","<str>",…]}.
+''';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': 'PARTIAL_QUERY: ${jsonEncode(partialQuery)}'},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': {
+              'type': 'object',
+              'properties': {
+                'suggestions': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                },
+              },
+              'required': ['suggestions'],
+            },
+            'temperature': 0.7,
+            'maxOutputTokens': 256,
+          },
+        },
+      );
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      Map<String, dynamic>? parsed;
+      try {
+        parsed = jsonDecode(text) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+      final raw = parsed['suggestions'];
+      if (raw is! List) return null;
+      final out = <String>[];
+      for (final s in raw) {
+        final str = s?.toString().trim();
+        if (str == null || str.isEmpty) continue;
+        if (str.toLowerCase() == partialQuery.trim().toLowerCase()) {
+          continue; // skip trivial echo
+        }
+        out.add(str);
+        if (out.length >= 5) break;
+      }
+      return out.isEmpty ? null : out;
+    } catch (e) {
+      debugPrint('[Gemini] suggestSearchRefinements failed: $e');
+      return null;
+    }
+  }
+
+  /// Pick 3-5 items the AI thinks deserve front-page billboard
+  /// treatment, each paired with a short hook tagline.
+  ///
+  /// The hero banner cycles through these and shows the tagline
+  /// alongside the title. Unlike [recommendForYou] (a rail of 12)
+  /// this is a tight selection — the AI is asked to be choosy. A
+  /// dud here is much more visible than a dud in row 7 of a rail.
+  ///
+  /// Returns null on failure — caller falls back to the non-AI
+  /// hero item selection so the dashboard never goes dark.
+  Future<List<({int streamId, String tagline})>?> generateHeroBillboard({
+    required List<Map<String, dynamic>> recentlyWatched,
+    required List<Map<String, dynamic>> favorites,
+    required List<Map<String, dynamic>> librarySample,
+    required String timeOfDay,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || librarySample.isEmpty) return null;
+
+    final systemPrompt = '''
+You program the hero billboard at the top of an IPTV / streaming
+app's dashboard. The user sees this big, immediately. Pick 3-5
+items from LIBRARY that should be billboarded right now, with a
+short hook tagline for each.
+
+Inputs (first user turn, JSON):
+  * TIME_OF_DAY — "sabah" / "öğle" / "akşam" / "gece" — adjust the
+    vibe (gentle in the morning, bigger in the evening).
+  * RECENTLY_WATCHED + FAVORITES — taste signals.
+  * LIBRARY — pipe-separated rows
+    `id|title|type|year|genre|director|cast|rating`.
+
+Rules:
+  1. Only return streamIds present in LIBRARY.
+  2. 3-5 picks. Quality over quantity — a dud at the top of the
+     dashboard is far worse than a dud in row 7.
+  3. `tagline` is ONE short hook sentence in $targetLanguage —
+     under 12 words, NOT a plot summary. It's the line that makes
+     the user click "Play" right now. Examples:
+       "Bu akşam için tam ihtiyacın olan tempo."
+       "İzlediğin Mike & Nick'in yönetmeninden."
+       "Yeni eklendi — kütüphanenin en konuşulan adayı."
+  4. Mix types: at least one movie + one series if the library
+     has both. Lean toward items the user hasn't watched yet.
+  5. Prefer items likely to have a backdrop image — well-rated
+     mainstream titles. Obscure niche stuff goes on the rails,
+     not the billboard.
+  6. Time-of-day awareness: gece = darker / introspective allowed,
+     sabah = lighter, akşam = primetime crowd-pleaser.
+
+Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
+''';
+
+    final userTurn = 'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
+        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
+        'FAVORITES: ${jsonEncode(favorites)}\n'
+        'LIBRARY: ${jsonEncode(librarySample)}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': {
+              'type': 'object',
+              'properties': {
+                'billboard': {
+                  'type': 'array',
+                  'items': {
+                    'type': 'object',
+                    'properties': {
+                      'streamId': {'type': 'integer'},
+                      'tagline': {'type': 'string'},
+                    },
+                    'required': ['streamId', 'tagline'],
+                  },
+                },
+              },
+              'required': ['billboard'],
+            },
+            'temperature': 0.7,
+            'maxOutputTokens': 1024,
+          },
+        },
+      );
+      debugPrint(
+          '[Gemini] generateHeroBillboard status=${res.statusCode}');
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      Map<String, dynamic>? parsed;
+      try {
+        parsed = jsonDecode(text) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('[Gemini] generateHeroBillboard decode failed: $e');
+        return null;
+      }
+      final rawList = parsed['billboard'];
+      if (rawList is! List) return null;
+      final picks = <({int streamId, String tagline})>[];
+      for (final item in rawList) {
+        if (item is! Map<String, dynamic>) continue;
+        final sidRaw = item['streamId'];
+        int? sid;
+        if (sidRaw is int) {
+          sid = sidRaw;
+        } else if (sidRaw is num) {
+          sid = sidRaw.toInt();
+        } else if (sidRaw != null) {
+          sid = int.tryParse(sidRaw.toString());
+        }
+        final tagline = item['tagline']?.toString().trim() ?? '';
+        if (sid != null && sid > 0 && tagline.isNotEmpty) {
+          picks.add((streamId: sid, tagline: tagline));
+        }
+      }
+      return picks;
+    } catch (e) {
+      debugPrint('[Gemini] generateHeroBillboard failed: $e');
+      return null;
+    }
+  }
+
+  /// Mood-based one-shot picks for the dashboard's chip row.
+  ///
+  /// The user taps a mood chip ("rahatlamak", "heyecan", "gülmek",
+  /// …) and we ask Gemini for a tight rail of 8-10 items from the
+  /// library that fit that vibe, weighted by the user's existing
+  /// taste signals so it doesn't feel like a generic "happy movies"
+  /// playlist.
+  ///
+  /// Unlike [recommendForYou] this is **not** cached — every tap is
+  /// a fresh call. Moods are intent-of-the-moment.
+  Future<List<({int streamId, String reason})>?> recommendForMood({
+    required String moodKey, // 'relax' | 'thrill' | 'laugh' | …
+    required String moodLabel, // localised label shown to user
+    required String moodDescription, // English explainer for the AI
+    required List<Map<String, dynamic>> recentlyWatched,
+    required List<Map<String, dynamic>> favorites,
+    required List<Map<String, dynamic>> librarySample,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || librarySample.isEmpty) return null;
+
+    final systemPrompt = '''
+You curate a *mood-of-the-moment* rail for an IPTV / streaming app.
+The user just tapped a mood chip; pick 8-10 items from LIBRARY that
+fit the mood AND respect their taste signals.
+
+Inputs (first user turn, JSON):
+  * MOOD — the chip the user tapped: key + localised label +
+    English description of the mood's vibe.
+  * RECENTLY_WATCHED — what they've actively been viewing.
+  * FAVORITES — their explicit "save for later" picks.
+  * LIBRARY — a cross-section of the catalogue in pipe-separated
+    rows with header `id|title|type|year|genre|director|cast|rating`.
+
+Rules:
+  1. Only return streamIds present in LIBRARY.
+  2. 8-10 picks ordered by mood fit (best first).
+  3. `reason` is ONE short sentence in $targetLanguage tying the
+     pick to BOTH the mood AND a concrete signal — "Aksiyon
+     yoğun, izlediğin Mike & Nick'in temposunda" beats "iyi bir
+     gerilim".
+  4. Skip items already in RECENTLY_WATCHED or FAVORITES.
+  5. Spread across types (movie + series) when it makes sense.
+  6. Mood overrides past taste a little — if the user usually
+     watches horror but picked "laugh", lean into comedy even if
+     it's outside their usual genres.
+
+Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
+''';
+
+    final userTurn =
+        'MOOD: ${jsonEncode({"key": moodKey, "label": moodLabel, "vibe": moodDescription})}\n'
+        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
+        'FAVORITES: ${jsonEncode(favorites)}\n'
+        'LIBRARY: ${jsonEncode(librarySample)}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _curateResponseSchema,
+            'temperature': 0.8, // mood needs a bit of spice
+            'maxOutputTokens': 1536,
+          },
+        },
+      );
+      debugPrint(
+          '[Gemini] recommendForMood($moodKey) status=${res.statusCode}');
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      Map<String, dynamic>? parsed;
+      try {
+        parsed = jsonDecode(text) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('[Gemini] recommendForMood JSON decode failed: $e');
+        return null;
+      }
+      final rawPicks = parsed['picks'];
+      if (rawPicks is! List) {
+        debugPrint('[Gemini] recommendForMood: picks not a list');
+        return null;
+      }
+      final picks = <({int streamId, String reason})>[];
+      for (final item in rawPicks) {
+        if (item is! Map<String, dynamic>) continue;
+        final sidRaw = item['streamId'];
+        int? sid;
+        if (sidRaw is int) {
+          sid = sidRaw;
+        } else if (sidRaw is num) {
+          sid = sidRaw.toInt();
+        } else if (sidRaw != null) {
+          sid = int.tryParse(sidRaw.toString());
+        }
+        // Accept picks even when the AI forgets the reason —
+        // showing a poster with no explainer beats showing nothing.
+        // The mood label itself serves as the implicit reason.
+        final reason = item['reason']?.toString().trim() ?? '';
+        if (sid != null && sid > 0) {
+          picks.add((streamId: sid, reason: reason));
+        }
+      }
+      debugPrint(
+          '[Gemini] recommendForMood($moodKey): parsed ${picks.length} picks');
+      return picks;
+    } catch (e) {
+      debugPrint('[Gemini] recommendForMood failed: $e');
+      return null;
+    }
+  }
+
   /// Generate a 1-2 sentence localised dashboard greeting that
   /// mentions the time of day, the user's most recent unfinished
   /// item (if any), and any clear weekly pattern in their watch
@@ -1119,12 +1723,14 @@ emojis, no preamble, no quotes.
           ],
           'generationConfig': {
             'temperature': 0.7,
-            // 220 was clipping Turkish output mid-sentence ("Öğle
-            // keyfi için harika bir" with no continuation). 500
-            // is comfortable headroom for any plausible 1-2
-            // sentence greeting in any of the 8 supported
-            // languages.
-            'maxOutputTokens': 500,
+            // Gemini 2.5-flash spends tokens on internal reasoning
+            // ("thinking") before emitting the actual response.
+            // With 500 the user-visible text was still being cut
+            // off mid-sentence ("Gibi kaldığ") because the model
+            // burned most of the budget reasoning. 1500 gives a
+            // generous ceiling so even chatty thinking + a 2-sentence
+            // greeting in any of the 8 languages lands intact.
+            'maxOutputTokens': 1500,
           },
         },
       );

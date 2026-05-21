@@ -893,6 +893,113 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dashboardForYouLoading => 'يختار لك...';
 
   @override
+  String get dashboardForYouRefresh => 'اختر مجدداً';
+
+  @override
+  String get moodChipsTitle => 'كيف مزاجك؟';
+
+  @override
+  String get moodChipsSubtitle => 'اختر مزاجاً ونرتب لك ما يناسبه';
+
+  @override
+  String get moodRelax => 'استرخاء';
+
+  @override
+  String get moodThrill => 'إثارة';
+
+  @override
+  String get moodLaugh => 'ضحك';
+
+  @override
+  String get moodThink => 'تأمل';
+
+  @override
+  String get moodNostalgia => 'حنين';
+
+  @override
+  String get moodSurprise => 'فاجئني';
+
+  @override
+  String get tasteWizardTitle => 'لنبدأ بذوقك';
+
+  @override
+  String get tasteWizardSubtitle =>
+      'اختر ما يعجبك ليتعرف عليك الذكاء الاصطناعي. اختياراتك تُحفظ في المفضلة — يمكنك حذفها متى شئت.';
+
+  @override
+  String get tasteWizardHint => 'اختر 3 على الأقل';
+
+  @override
+  String tasteWizardSelectedCount(int count) {
+    return '$count مختار';
+  }
+
+  @override
+  String get tasteWizardConfirm => 'متابعة';
+
+  @override
+  String get tasteWizardSkip => 'تخطى الآن';
+
+  @override
+  String get tasteWizardError => 'تعذر تحميل المكتبة، أعد المحاولة لاحقاً.';
+
+  @override
+  String get tasteWizardEmpty => 'المكتبة ليست جاهزة بعد.';
+
+  @override
+  String get tasteWizardDone => 'جاهز — حدّث الصفحة.';
+
+  @override
+  String get tasteWizardReset => 'إعادة تشغيل معالج الذوق';
+
+  @override
+  String get tasteWizardResetDesc =>
+      'يُعيد تهيئة ملف الذوق ويظهر السؤال عند فتح اللوحة.';
+
+  @override
+  String get searchSuggestLoading => 'يقترح الذكاء الاصطناعي...';
+
+  @override
+  String get castSheetAiSummary => 'ملخص الذكاء الاصطناعي';
+
+  @override
+  String get castSheetAiLoading => 'تحضير ملخص المسيرة...';
+
+  @override
+  String get castSheetAiUnavailable => 'لا يوجد ملخص متاح.';
+
+  @override
+  String get castSheetLibraryAppearances => 'في مكتبتك';
+
+  @override
+  String get castSheetLoadingAppearances => 'جاري البحث...';
+
+  @override
+  String castSheetAppearancesCount(int count) {
+    return 'تم العثور على $count ظهور';
+  }
+
+  @override
+  String get castSheetNoAppearances => 'لا ظهورات أخرى في مكتبتك.';
+
+  @override
+  String get weeklyDigestTitle => 'هذا الأسبوع لك';
+
+  @override
+  String get weeklyDigestDismiss => 'إغلاق الشريط';
+
+  @override
+  String get moodLoading => 'نختار لهذا المزاج...';
+
+  @override
+  String get moodEmpty => 'لم أجد تطابقاً جيداً لهذا المزاج، جرب آخر.';
+
+  @override
+  String moodRailTitle(String mood) {
+    return 'اختيارات لـ $mood';
+  }
+
+  @override
   String get showTrailerSetting => 'إظهار العرض المصغّر';
 
   @override

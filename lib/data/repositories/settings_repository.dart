@@ -21,6 +21,8 @@ class SettingsRepository {
   static const _keyContinueWatching = 'continue_watching_enabled';
   static const _keyShowSkipIntro = 'show_skip_intro_button';
   static const _keyShowTrailer = 'show_trailer';
+  static const _keyTasteWizardDone = 'taste_wizard_completed';
+  static const _keyLastDigestDismissed = 'last_digest_dismissed_at';
   static const _keyParentalEnabled = 'parental_control_enabled';
   static const _keyParentalPin = 'parental_pin';
   static const _keyOpenSubsApiKey = 'opensubtitles_api_key';
@@ -51,6 +53,13 @@ class SettingsRepository {
       continueWatchingEnabled: _prefs.getBool(_keyContinueWatching) ?? true,
       showSkipIntroButton: _prefs.getBool(_keyShowSkipIntro) ?? true,
       showTrailer: _prefs.getBool(_keyShowTrailer) ?? true,
+      tasteWizardCompleted: _prefs.getBool(_keyTasteWizardDone) ?? false,
+      lastDigestDismissedAt: () {
+        final raw = _prefs.getInt(_keyLastDigestDismissed);
+        return raw == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(raw);
+      }(),
       parentalControlEnabled: _prefs.getBool(_keyParentalEnabled) ?? false,
       parentalPin: _prefs.getString(_keyParentalPin),
       opensubtitlesApiKey: _prefs.getString(_keyOpenSubsApiKey),
@@ -79,6 +88,13 @@ class SettingsRepository {
     await _prefs.setBool(_keyContinueWatching, settings.continueWatchingEnabled);
     await _prefs.setBool(_keyShowSkipIntro, settings.showSkipIntroButton);
     await _prefs.setBool(_keyShowTrailer, settings.showTrailer);
+    await _prefs.setBool(_keyTasteWizardDone, settings.tasteWizardCompleted);
+    if (settings.lastDigestDismissedAt != null) {
+      await _prefs.setInt(_keyLastDigestDismissed,
+          settings.lastDigestDismissedAt!.millisecondsSinceEpoch);
+    } else {
+      await _prefs.remove(_keyLastDigestDismissed);
+    }
     await _prefs.setBool(_keyParentalEnabled, settings.parentalControlEnabled);
     if (settings.parentalPin != null) {
       await _prefs.setString(_keyParentalPin, settings.parentalPin!);

@@ -20,6 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
+import 'package:lifeostv/presentation/widgets/ai/cast_deep_dive_sheet.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
@@ -2083,16 +2084,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                                   ),
                                                 ),
                                                 Expanded(
-                                                  child: Text(
-                                                    cast.toString().length > 100
-                                                        ? '${cast.toString().substring(0, 100)}...'
-                                                        : cast.toString(),
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textSecondaryDark,
-                                                      fontSize: 13,
-                                                      height: 1.4,
-                                                    ),
+                                                  child: CastChipRow(
+                                                    raw: cast.toString(),
+                                                    currentTitle: ch.name,
+                                                    onChannelTap: (c) {
+                                                      setState(() =>
+                                                          _hoveredChannel = c);
+                                                    },
                                                   ),
                                                 ),
                                               ],

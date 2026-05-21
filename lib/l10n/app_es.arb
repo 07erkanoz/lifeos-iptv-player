@@ -311,6 +311,54 @@
   "dashboardForYouTitle": "Para ti",
   "dashboardForYouSubtitle": "Selección IA según lo que ves",
   "dashboardForYouLoading": "Eligiendo para ti...",
+  "dashboardForYouRefresh": "Volver a elegir",
+  "moodChipsTitle": "¿Cuál es tu ánimo?",
+  "moodChipsSubtitle": "Elige una vibra, te curamos a juego",
+  "moodRelax": "Relajarse",
+  "moodThrill": "Emoción",
+  "moodLaugh": "Reír",
+  "moodThink": "Pensar",
+  "moodNostalgia": "Nostalgia",
+  "moodSurprise": "Sorpréndeme",
+  "tasteWizardTitle": "Empecemos por tu gusto",
+  "tasteWizardSubtitle": "Elige lo que te gusta para que la IA te conozca. Tus elecciones van a favoritos — quítalas cuando quieras.",
+  "tasteWizardHint": "Elige al menos 3",
+  "tasteWizardSelectedCount": "{count} seleccionado(s)",
+  "@tasteWizardSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tasteWizardConfirm": "Continuar",
+  "tasteWizardSkip": "Omitir por ahora",
+  "tasteWizardError": "No se pudo cargar la biblioteca.",
+  "tasteWizardEmpty": "La biblioteca aún no está lista.",
+  "tasteWizardDone": "Listo — actualiza la página.",
+  "tasteWizardReset": "Reiniciar el asistente de gusto",
+  "tasteWizardResetDesc": "Reinicia tu perfil y vuelve a preguntar al abrir el panel.",
+  "searchSuggestLoading": "La IA está sugiriendo...",
+  "castSheetAiSummary": "RESUMEN IA",
+  "castSheetAiLoading": "Preparando resumen de carrera...",
+  "castSheetAiUnavailable": "No hay resumen disponible.",
+  "castSheetLibraryAppearances": "EN TU BIBLIOTECA",
+  "castSheetLoadingAppearances": "Buscando...",
+  "castSheetAppearancesCount": "{count} aparición(es) encontrada(s)",
+  "@castSheetAppearancesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "castSheetNoAppearances": "Sin más apariciones en tu biblioteca.",
+  "weeklyDigestTitle": "ESTA SEMANA PARA TI",
+  "weeklyDigestDismiss": "Cerrar banner",
+  "moodLoading": "Eligiendo para este ánimo...",
+  "moodEmpty": "No encontré buena coincidencia para este ánimo, prueba otro.",
+  "moodRailTitle": "Selección para {mood}",
+  "@moodRailTitle": {
+    "placeholders": {
+      "mood": { "type": "String" }
+    }
+  },
   "showTrailerSetting": "Mostrar tráiler PiP",
   "showTrailerSettingDesc": "Tráiler flotante de YouTube arriba a la derecha en las páginas de detalle. Apágalo para un panel estático.",
   "aiAssistant": "Asistente de IA",
