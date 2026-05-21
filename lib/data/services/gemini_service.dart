@@ -144,6 +144,8 @@ class GeminiService {
     required List<Channel> recentlyWatched,
     required List<Channel> favorites,
     required List<Channel> librarySample,
+    List<Channel> queryMatches = const [],
+    List<Map<String, dynamic>> categoryOverview = const [],
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
 
@@ -162,10 +164,35 @@ class GeminiService {
             if (ch.rating != null) 'rating': ch.rating,
           };
 
-      final contextBlob = {
+      // Dedupe queryMatches against librarySample (and itself by id)
+      // so the AI doesn't see the same id twice in different buckets.
+      final sampleIds = librarySample.map((c) => c.streamId).toSet();
+      final dedupedMatches = <Channel>[];
+      final seenMatchIds = <int>{};
+      for (final c in queryMatches) {
+        if (sampleIds.contains(c.streamId)) continue;
+        if (!seenMatchIds.add(c.streamId)) continue;
+        dedupedMatches.add(c);
+      }
+
+      final contextBlob = <String, dynamic>{
         'recentlyWatched': recentlyWatched.map(compact).toList(),
         'favorites': favorites.map(compact).toList(),
+        // queryMatches: pre-search results matching the user's latest
+        // question. The standard top-rated `library` slice often
+        // doesn't contain niche categories (e.g. Korean dramas in a
+        // TR-localised catalogue) so the AI used to say "yok" when
+        // asked about them. queryMatches surfaces those items.
+        if (dedupedMatches.isNotEmpty)
+          'queryMatches': dedupedMatches.map(compact).toList(),
         'library': librarySample.map(compact).toList(),
+        // categoryOverview: tiny `[{name, type, count}]` list of the
+        // top non-hidden categories in the catalogue. Gives the AI
+        // a structural view of what exists so it can suggest browsing
+        // a category by name when asked about something outside the
+        // sample.
+        if (categoryOverview.isNotEmpty)
+          'categories': categoryOverview,
       };
 
       // Build Gemini chat history. The first user turn carries the
@@ -2003,14 +2030,29 @@ B) **Direct info / Q&A queries** ("Phantom Lawyer hakkında bilgi
    array can be empty, or carry 1-3 related-title picks if
    genuinely helpful.
 
-The first user turn contains a JSON context blob with three lists
-("recentlyWatched", "favorites", "library"). Use these for taste
-context AND for resolving title references — if the user says
-"Phantom Lawyer hakkında bilgi ver" and that title exists in the
-library, prefer that streamId when picking a related title.
+The first user turn contains a JSON context blob with up to five
+lists:
+  * "recentlyWatched" + "favorites" — the user's taste signals.
+  * "queryMatches" — items pre-searched from the library using the
+    user's last question's keywords. This is the AUTHORITATIVE list
+    for "do I have X?" style queries: if the user asks for Korean
+    dramas and queryMatches contains 173 Korean series, the answer
+    is YES and you must list them from queryMatches.
+  * "library" — broader top-rated cross-section. Use as fallback /
+    variety when queryMatches doesn't fully answer.
+  * "categories" — `[{name, type, count}]` overview of the catalogue
+    structure. Tells you what kinds of content exist in the library
+    EVEN if no item from that category landed in queryMatches or
+    library. Reference this when explaining what's available.
+
+CRITICAL: queryMatches and library together represent what's
+ACTUALLY in the user's catalogue. NEVER say "yok" / "no such
+content" if a relevant category exists in `categories` OR an item
+appears in queryMatches. Instead, recommend from those items or
+mention the category by name.
 
 Hard rules:
-  - Only return streamIds that appear in the library list.
+  - Only return streamIds that appear in queryMatches OR library.
   - Match the user's language in both `message` and per-pick
     `reason` strings.
   - For Q&A turns the `message` may be 2-5 short paragraphs of

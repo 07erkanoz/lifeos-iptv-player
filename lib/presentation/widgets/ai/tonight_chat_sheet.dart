@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -85,6 +86,16 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       return;
     }
 
+    // Pre-search the library by the user's latest question so the
+    // AI sees actual items even when they're not in the top-rated
+    // sample. Without this, asking "en iyi Kore dizilerini listele"
+    // returned "yok" because no Korean drama is in the rating-sorted
+    // top-30 — even though the catalogue has 173 of them.
+    final contentRepo = ref.read(contentRepositoryProvider);
+    final queryMatches =
+        await contentRepo.librarySearchByKeywords(text, limit: 60);
+    final categoryOverview = await contentRepo.categoryOverview();
+
     final response = await gemini.recommendForTonight(
       conversation: _messages
           .map((m) => (fromUser: m.fromUser, text: m.text))
@@ -92,6 +103,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       recentlyWatched: ctx.recentlyWatched,
       favorites: ctx.favorites,
       librarySample: ctx.librarySample,
+      queryMatches: queryMatches,
+      categoryOverview: categoryOverview,
     );
 
     if (!mounted) return;

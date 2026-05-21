@@ -207,6 +207,177 @@ class ContentRepository {
     return names.join(', ');
   }
 
+  /// Common Turkish ↔ English country/language synonyms. The chat
+  /// assistant matches user-typed words like "korean" against the
+  /// catalogue's Turkish-labelled categories like "KORE DiZiLERi"
+  /// (and vice versa) by expanding through this map before the
+  /// haystack search. Without this expansion, "best Korean dramas"
+  /// returned zero results on a TR-localised catalogue even though
+  /// the user had 173 series under KORE DiZiLERi.
+  static const Map<String, List<String>> _countrySynonyms = {
+    'korean': ['korean', 'kore'],
+    'kore': ['kore', 'korean'],
+    'japanese': ['japanese', 'japon'],
+    'japon': ['japon', 'japanese'],
+    'chinese': ['chinese', 'çin', 'cin'],
+    'çin': ['çin', 'cin', 'chinese'],
+    'cin': ['cin', 'çin', 'chinese'],
+    'spanish': ['spanish', 'ispanyol', 'latino'],
+    'ispanyol': ['ispanyol', 'spanish'],
+    'french': ['french', 'fransız', 'fransiz'],
+    'fransız': ['fransız', 'fransiz', 'french'],
+    'fransiz': ['fransız', 'fransiz', 'french'],
+    'turkish': ['turkish', 'türk', 'turk', 'türkiye'],
+    'türk': ['türk', 'turk', 'turkish'],
+    'turk': ['turk', 'türk', 'turkish'],
+    'german': ['german', 'alman'],
+    'alman': ['alman', 'german'],
+    'italian': ['italian', 'italyan'],
+    'italyan': ['italyan', 'italian'],
+    'russian': ['russian', 'rus'],
+    'rus': ['rus', 'russian'],
+    'indian': ['indian', 'hint', 'bollywood'],
+    'hint': ['hint', 'indian', 'bollywood'],
+    'bollywood': ['bollywood', 'hint', 'indian'],
+    'series': ['series', 'dizi', 'dizisi', 'dizileri'],
+    'dizi': ['dizi', 'dizisi', 'dizileri', 'series'],
+    'movie': ['movie', 'film', 'filmler'],
+    'film': ['film', 'filmler', 'movie'],
+    'drama': ['drama', 'dram'],
+    'dram': ['dram', 'drama'],
+  };
+
+  /// Stopwords stripped from the chat-assistant keyword query so a
+  /// prompt like "en iyi Kore dizilerini listele" lowers to {kore,
+  /// dizileri, listele} → {kore, dizi, dizileri, dizisi, series}.
+  static const Set<String> _chatStopwords = {
+    'the', 'and', 'for', 'with', 'from', 'best', 'good', 'great',
+    'top', 'list', 'show', 'recommend', 'tell', 'find',
+    've', 'ile', 'için', 'icin', 'bir', 'bana', 'sen', 'ben',
+    'en', 'iyi', 'güzel', 'guzel', 'liste', 'listele', 'göster',
+    'goster', 'öner', 'oner', 'söyle', 'soyle', 'bul', 'getir',
+    'var', 'mi', 'mı', 'mu', 'mü', 'olan', 'olanları', 'olanlari',
+    'uygulamada', 'uygulama', 'kütüphane', 'kutuphane',
+    'kütüphanede', 'kutuphanede',
+  };
+
+  /// Free-text library search used by the chat assistant before the
+  /// recommendForTonight call. Expands query words through the
+  /// country/language synonym map, then matches against an aggregate
+  /// haystack of (channel name + category name + cast + director +
+  /// genre).
+  ///
+  /// Critical for queries like "en iyi Kore dizilerini listele" —
+  /// the standard 30-row top-rated sample never contained Korean
+  /// dramas (they're not top-rated in this user's catalogue), so the
+  /// AI confidently said "yok" even though 173 sat under
+  /// KORE DiZiLERi. This pre-search pumps the actual matches into
+  /// the AI's prompt context.
+  Future<List<Channel>> librarySearchByKeywords(
+    String query, {
+    int limit = 60,
+  }) async {
+    final tokens = query
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^\p{L}\p{N}\s]", unicode: true), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 3 && !_chatStopwords.contains(w))
+        .toSet();
+    if (tokens.isEmpty) return const [];
+
+    // Expand synonyms — both country/language and genre.
+    final expanded = <String>{};
+    for (final t in tokens) {
+      expanded.add(t);
+      final cs = _countrySynonyms[t];
+      if (cs != null) expanded.addAll(cs);
+      final gs = _genreSynonyms[t];
+      if (gs != null) expanded.addAll(gs);
+    }
+
+    // Pull a wide VOD slice joined with categories, ranked by
+    // rating. We filter in Dart because building dynamic-OR LIKE
+    // chains across both Channel and Category columns in Drift gets
+    // verbose and the bounded 5k-row scan is sub-50 ms on the
+    // user's catalogue.
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
+    ])
+          ..where((_db.channels.type.equals('movie') |
+                  _db.channels.type.equals('series')) &
+              _db.categories.isHidden.equals(false))
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.channels.rating,
+                mode: OrderingMode.desc),
+          ])
+          ..limit(5000))
+        .get();
+
+    final out = <Channel>[];
+    for (final r in rows) {
+      if (out.length >= limit) break;
+      final ch = r.readTable(_db.channels);
+      final cat = r.readTable(_db.categories);
+      final haystack = [
+        ch.name,
+        cat.name,
+        ch.cast ?? '',
+        ch.director ?? '',
+        ch.genre ?? '',
+      ].join(' ').toLowerCase();
+      if (expanded.any(haystack.contains)) {
+        out.add(ch);
+      }
+    }
+    return out;
+  }
+
+  /// Compact summary of the library's category structure used by the
+  /// chat assistant prompt — gives the AI an at-a-glance view of
+  /// what's actually in the user's catalogue beyond the top-rated
+  /// sample, so it doesn't say "yok" when asked about niche genres
+  /// like Korean dramas that just aren't in the rating-sorted slice.
+  ///
+  /// Returns the top [limit] non-hidden categories by item count,
+  /// each as `{name, type, count}`. Adult categories are stripped
+  /// the same way the rest of the AI surface treats them.
+  Future<List<Map<String, dynamic>>> categoryOverview({
+    int limit = 60,
+  }) async {
+    final countExpr = _db.channels.streamId.count();
+    final rows = await (_db.select(_db.categories).join([
+      innerJoin(
+        _db.channels,
+        _db.channels.categoryId.equalsExp(_db.categories.id) &
+            _db.channels.type.equalsExp(_db.categories.type),
+      ),
+    ])
+          ..addColumns([countExpr])
+          ..where(_db.categories.isHidden.equals(false))
+          ..groupBy([_db.categories.id, _db.categories.type])
+          ..orderBy([
+            OrderingTerm(expression: countExpr, mode: OrderingMode.desc),
+          ]))
+        .get();
+    final adultRe = RegExp(r'adult|erotic|xxx|porn|dorcel|brazzers',
+        caseSensitive: false);
+    final out = <Map<String, dynamic>>[];
+    for (final r in rows) {
+      if (out.length >= limit) break;
+      final cat = r.readTable(_db.categories);
+      final n = r.read(countExpr) ?? 0;
+      if (n <= 0) continue;
+      if (adultRe.hasMatch(cat.name)) continue;
+      out.add({'name': cat.name, 'type': cat.type, 'count': n});
+    }
+    return out;
+  }
+
   /// Find every movie/series in the library whose cast OR director
   /// metadata mentions [personName]. Used by the cast-deep-dive
   /// sheet — tap an actor, see their other appearances in your
