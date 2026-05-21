@@ -123,6 +123,32 @@ final personalizedPicksProvider =
     if (cached != null && cached.isNotEmpty) {
       return _resolve(cached, db);
     }
+
+    // ── Stale-while-revalidate ──────────────────────────────────
+    // Fingerprint missed (the user's taste signals drifted since
+    // the cache was written — they watched something new, favourited
+    // something, etc.). Rather than block the rail behind a fresh
+    // 5-15 second AI call, return the previous cached row instantly
+    // and kick off the refresh in the background. Next dashboard
+    // open lands the fresh result.
+    final stale = await cacheRepo.lookupLatest();
+    if (stale != null && stale.isNotEmpty) {
+      // Fire-and-forget background refresh. Wrapped in microtask so
+      // the provider returns the stale picks immediately rather than
+      // racing the AI call. When the call lands we update the cache
+      // and invalidate the provider so the UI re-renders with the
+      // fresh picks on the next paint.
+      Future.microtask(() => _refreshInBackground(
+            ref: ref,
+            gemini: gemini,
+            contentRepo: contentRepo,
+            cacheRepo: cacheRepo,
+            history: history,
+            favorites: favorites,
+            sourceHash: sourceHash,
+          ));
+      return _resolve(stale, db);
+    }
   }
 
   // Library sample — bigger than the search curator's because
@@ -180,12 +206,9 @@ final personalizedPicksProvider =
   }
 
   // AI returned null (failure) or empty (no good matches). Try
-  // a stale cache row first — slightly-out-of-date picks beat an
-  // empty rail.
-  final fallback = await cacheRepo.lookup(
-    sourceHash: sourceHash,
-    ttl: const Duration(days: 7),
-  );
+  // the latest cached row regardless of fingerprint — a slightly-
+  // out-of-date rail beats an empty one.
+  final fallback = await cacheRepo.lookupLatest();
   if (fallback != null && fallback.isNotEmpty) {
     return _resolve(fallback, db);
   }
@@ -213,6 +236,73 @@ final personalizedPicksProvider =
       PersonalizedPickCard(channel: ch, reason: ''),
   ];
 });
+
+/// Fire-and-forget background refresh used by the stale-while-
+/// revalidate path. Runs the full Gemini pipeline silently in the
+/// background; when it succeeds, writes the fresh row to the cache
+/// and invalidates the provider so the UI re-renders with the new
+/// picks on the next paint.
+///
+/// Wrapped in `try/catch` because any error here would surface as
+/// an unhandled future — a refresh failing shouldn't crash the app,
+/// the user already has stale-but-usable data on screen.
+Future<void> _refreshInBackground({
+  required Ref ref,
+  required GeminiService gemini,
+  required ContentRepository contentRepo,
+  required PersonalizedPicksRepository cacheRepo,
+  required List<Channel> history,
+  required List<Channel> favorites,
+  required String sourceHash,
+}) async {
+  try {
+    final sample = await contentRepo.sampleLibraryForAi(
+      moviesPerType: 200,
+      seriesPerType: 200,
+      livePerType: 30,
+    );
+    String escape(String? s) =>
+        (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
+    final libraryRows = <String>[
+      'id|title|type|year|genre|director|cast|rating',
+      for (final c in sample.take(450))
+        '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
+    ];
+    final librarySample = [
+      {'_format': 'pipe-separated rows', '_rows': libraryRows},
+    ];
+    Map<String, dynamic> compactWatch(Channel c) => {
+          'id': c.streamId,
+          'title': c.name,
+          'type': c.type,
+          if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+          if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+          if (c.director != null && c.director!.isNotEmpty)
+            'director': c.director,
+        };
+    final lang = ref.read(settingsProvider).language.name == 'system'
+        ? 'tr'
+        : ref.read(settingsProvider).language.name;
+    final picks = await gemini
+        .recommendForYou(
+          recentlyWatched: history.map(compactWatch).toList(),
+          favorites: favorites.map(compactWatch).toList(),
+          librarySample: librarySample,
+          targetLanguage: lang,
+        )
+        .timeout(const Duration(seconds: 20), onTimeout: () => null);
+    if (picks == null || picks.isEmpty) return;
+    await cacheRepo.store(sourceHash: sourceHash, picks: picks);
+    // Surface the fresh data by invalidating the provider. Any
+    // exception (e.g. the container has already been disposed
+    // because the user navigated away) is swallowed below — the
+    // cache write already landed for the next session.
+    ref.invalidate(personalizedPicksProvider);
+  } catch (_) {
+    // Silent — the user already has stale picks on screen, and a
+    // background failure shouldn't surface as anything visible.
+  }
+}
 
 /// Aggressively normalise a title for dedupe: lowercase, strip
 /// punctuation, drop year suffixes like " (2020)" / " [2020]", drop

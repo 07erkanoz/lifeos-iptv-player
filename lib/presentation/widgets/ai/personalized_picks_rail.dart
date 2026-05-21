@@ -33,11 +33,13 @@ class PersonalizedPicksRail extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return asyncPicks.when(
-      // skipLoadingOnRefresh=false: when the user hits the refresh
-      // button we want them to see the shimmer immediately instead
-      // of staring at the old cards for 5–15 seconds while Gemini
-      // recomputes.
-      skipLoadingOnRefresh: false,
+      // skipLoadingOnRefresh=true (the default): when the provider
+      // invalidates — either user-driven refresh or our stale-while-
+      // revalidate background fetch — we keep the previous cards on
+      // screen rather than swapping in the shimmer. With the cache
+      // upgrade landing fresh picks within ~10s, a flash of shimmer
+      // is more jarring than just letting the cards transition in.
+      skipLoadingOnRefresh: true,
       // null means "no key" — render nothing.
       data: (cards) {
         if (cards == null || cards.isEmpty) return const SizedBox.shrink();

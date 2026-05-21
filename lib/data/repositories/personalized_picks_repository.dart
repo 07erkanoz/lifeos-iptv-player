@@ -50,6 +50,29 @@ class PersonalizedPicksRepository {
     return _decodePicks(row.picksJson);
   }
 
+  /// Return whatever row exists, regardless of [sourceHash] — as
+  /// long as the row is younger than [maxAge].
+  ///
+  /// Used by the stale-while-revalidate path in the provider:
+  /// when the user's taste signals have drifted since the cache
+  /// was written (new history rows, favourites churn), the strict
+  /// [lookup] above will miss, but a slightly-stale "Sana Özel"
+  /// rail is still vastly better UX than a 5-15 second shimmer
+  /// while a fresh Gemini call lands. The provider returns the
+  /// stale row instantly and kicks off the fresh call in the
+  /// background.
+  Future<List<PersonalizedPick>?> lookupLatest({
+    Duration maxAge = const Duration(days: 14),
+  }) async {
+    final row = await (_db.select(_db.personalizedPicksCache)
+          ..where((t) => t.id.equals(0))
+          ..limit(1))
+        .getSingleOrNull();
+    if (row == null) return null;
+    if (DateTime.now().difference(row.generatedAt) > maxAge) return null;
+    return _decodePicks(row.picksJson);
+  }
+
   /// Upsert the singleton row.
   Future<void> store({
     required String sourceHash,
