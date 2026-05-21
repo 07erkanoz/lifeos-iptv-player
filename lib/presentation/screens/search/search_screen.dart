@@ -278,20 +278,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     // Thematic queries (no exact name match, but the AI extracted
-    // theme/genre keywords) need a substantially bigger
-    // cross-section so the curator can find titles like
-    // "Train to Busan" for "zombi filmleri" even when the catalog
-    // doesn't have the word "zombi" anywhere in the metadata.
+    // theme/genre keywords) need a *much* bigger cross-section so
+    // the curator can recognise titles like "Train to Busan" for
+    // "zombi filmleri" even when the catalog doesn't have the word
+    // "zombi" anywhere. We previously sampled ~210 top-rated items
+    // — for a 5–10k catalogue that's <3% of the library, which is
+    // why thematic results felt thin.
+    //
+    // New strategy: when the pool is small, pad up to 800 with a
+    // wide top-rated + recent-added stratification. The compact
+    // serialisation below keeps the prompt under ~12 K tokens.
     final isThematic = plainResults.isEmpty &&
         intent != null &&
         ((intent.themeKeywords?.isNotEmpty ?? false) ||
             (intent.genres?.isNotEmpty ?? false));
-    final padTarget = isThematic ? 250 : 30;
+    final padTarget = isThematic ? 800 : 60;
     if (pool.length < padTarget) {
       final pad = await repo.sampleLibraryForAi(
-        moviesPerType: isThematic ? 90 : 25,
-        seriesPerType: isThematic ? 90 : 25,
-        livePerType: isThematic ? 30 : 10,
+        moviesPerType: isThematic ? 320 : 35,
+        seriesPerType: isThematic ? 320 : 35,
+        livePerType: isThematic ? 80 : 15,
       );
       if (requestId != _searchRequestId) return null;
       for (final ch in pad) {
@@ -299,24 +305,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     }
 
-    // Cap at 220 for the curator's prompt budget — comfortably
-    // under the 1M-context model and around ~12 KB of compact JSON.
-    final sampleEntries = pool.values.take(220).toList();
+    // Cap at 800 for the curator's prompt budget. Each row is
+    // serialised in an ultra-compact `id|title|year|genre|director`
+    // pipe-separated form (~60 bytes each) → 800 × 60 ≈ 48 KB ≈
+    // 12 K tokens, well inside Gemini Flash's 1 M context with
+    // headroom for the system prompt + query.
+    final sampleEntries = pool.values.take(800).toList();
     if (sampleEntries.isEmpty) return null;
 
-    final compactSample = sampleEntries
-        .map((c) => {
-              'streamId': c.streamId,
-              'title': c.name,
-              'type': c.type,
-              if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-              if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-              if (c.cast != null && c.cast!.isNotEmpty) 'cast': c.cast,
-              if (c.director != null && c.director!.isNotEmpty)
-                'director': c.director,
-              if (c.rating != null) 'rating': c.rating,
-            })
-        .toList();
+    // Compact format trades JSON keys (eight per item × 800 = 6.4 K
+    // wasted tokens just on "streamId"/"title"/etc.) for a single
+    // pipe-separated string with a leading legend line. AI parses
+    // this fine and we fit ~4× more items into the same budget.
+    String escape(String? s) =>
+        (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
+    final compactLines = <String>[
+      'id|title|type|year|genre|director|cast|rating',
+      for (final c in sampleEntries)
+        '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
+    ];
+    final compactSample = [
+      {'_format': 'pipe-separated rows', '_rows': compactLines}
+    ];
 
     // Step 3 — Curator ranks + annotates.
     final curatorPicks = await withTimeout(gemini.curateLibraryByQuery(

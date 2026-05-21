@@ -286,19 +286,23 @@ markdown headings, no preamble.
 ''',
       PlotEnrichMode.fillIn => '''
 The user is viewing a title whose plot field is empty or missing.
-Generate a 2–3 sentence plot description based on what's
-generally known about the title. Reply in the user's language
-($targetLanguage), plain text, no preamble, no disclaimers. If
-you genuinely don't recognise the title, reply with the single
-word "UNKNOWN" (uppercase, no punctuation) — caller drops the
-result in that case.
+Reply in the user's language ($targetLanguage), 2-3 sentence plot
+description, plain text, no preamble, no disclaimers.
+
+If you have specific knowledge of the title, use it. If not, fall
+back to the metadata you were given (title, year, genre, director,
+cast) and synthesise an informative one-paragraph blurb from that —
+title parsing alone often signals the premise ("Phantom Lawyer"
++ drama genre + 2026 → a drama about a lawyer with some
+supernatural element). Never reply with "UNKNOWN" or refuse to
+answer — produce something useful from whatever signal is present.
 ''',
       PlotEnrichMode.detailedInfo => '''
 The user wants comprehensive information about this title, in
 their language ($targetLanguage). The plot field they currently
 see is unreliable (often machine-translated, truncated, or in
 the wrong language) — write a richer description from your
-general knowledge of the title instead.
+general knowledge instead.
 
 Cover these in 4–6 short paragraphs, separated by blank lines:
   1. Premise — what's the setup, who's the protagonist
@@ -309,12 +313,16 @@ Cover these in 4–6 short paragraphs, separated by blank lines:
   5. Recommended viewer — who'll enjoy this most
 
 Spoiler-free. No reveals, no ending hints, no twists. Plain text
-with paragraph breaks (use blank lines between paragraphs). No
-markdown headings, no preamble, no "Here's the info:" framing.
+with paragraph breaks. No markdown headings, no preamble.
 
-If you genuinely don't recognise the title with confidence, reply
-with the single word "UNKNOWN" (uppercase, no punctuation) —
-caller drops the result.
+When you don't recognise the specific title, DO NOT reply with
+"UNKNOWN" or refuse. Instead synthesise the most informative
+write-up you can from the metadata supplied (title, year, genre,
+director, cast). Use the genre to set tone, the title to infer
+premise, the director and cast to flag style — even a sparse
+write-up is more useful to the viewer than no write-up. If you
+need to express low confidence, do it inline with phrasing like
+"görünüşe göre" / "muhtemelen" — never with a bare refusal.
 ''',
     };
 
@@ -375,14 +383,13 @@ caller drops the result.
       if (parts is! List || parts.isEmpty) return null;
       final text = parts.first['text']?.toString().trim();
       if (text == null || text.isEmpty) return null;
-      // Modes that can opt out with the UNKNOWN sentinel when the
-      // model can't confidently describe the title. UI keeps the
-      // original plot in that case.
-      if ((mode == PlotEnrichMode.fillIn ||
-              mode == PlotEnrichMode.detailedInfo) &&
-          text.toUpperCase() == 'UNKNOWN') {
-        return null;
-      }
+      // Legacy compatibility — earlier prompt versions instructed
+      // the model to reply with "UNKNOWN" for unrecognised titles.
+      // We now ask the model to synthesise from metadata instead,
+      // but a stale cache or older prompt run can still emit the
+      // sentinel; treat it as a soft failure and let the caller
+      // keep the original plot.
+      if (text.toUpperCase() == 'UNKNOWN') return null;
       return text;
     } catch (e) {
       debugPrint('[Gemini] enrichPlot failed: $e');
@@ -729,10 +736,14 @@ languages and decades. The user types a query (any language, often
 Turkish) describing what they want to watch.
 
 LIBRARY_SAMPLE is a candidate pool drawn from the user's library
-(plain keyword hits + genre-filter matches + occasionally a
-top-rated cross-section). Items in it may include false positives
-that look like matches by name alone — your job is to **filter and
-rank using actual knowledge of each title**.
+(plain keyword hits + genre-filter matches + a wide top-rated
+cross-section). It may carry up to ~800 items in a single
+pipe-separated rows wrapper (the first row is the column header,
+each subsequent row is one library item). Parse the rows yourself
+— `id|title|type|year|genre|director|cast|rating`. Items may
+include false positives that look like matches by name alone —
+your job is to **filter and rank using actual knowledge of each
+title**.
 
 Your output is the top 12–25 items, ranked by genuine fit, with a
 one-sentence justification each.
