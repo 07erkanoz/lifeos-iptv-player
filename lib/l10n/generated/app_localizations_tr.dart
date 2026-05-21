@@ -942,6 +942,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get tasteWizardSkip => 'Şimdilik atla';
 
   @override
+  String get tasteWizardShuffle => 'Karıştır';
+
+  @override
   String get tasteWizardError => 'Kütüphane okunamadı, daha sonra tekrar dene.';
 
   @override

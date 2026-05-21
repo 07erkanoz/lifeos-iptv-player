@@ -331,6 +331,7 @@
   },
   "tasteWizardConfirm": "Продолжить",
   "tasteWizardSkip": "Пропустить",
+  "tasteWizardShuffle": "Перемешать",
   "tasteWizardError": "Не удалось загрузить библиотеку.",
   "tasteWizardEmpty": "Библиотека ещё не готова.",
   "tasteWizardDone": "Готово — обнови страницу.",

@@ -942,6 +942,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get tasteWizardSkip => 'Niha bavêje';
 
   @override
+  String get tasteWizardShuffle => 'Têkel bike';
+
+  @override
   String get tasteWizardError => 'Pirtûkxane neyê barkirin, paşê biceribîne.';
 
   @override

@@ -321,6 +321,7 @@
   },
   "tasteWizardConfirm": "Continue",
   "tasteWizardSkip": "Skip for now",
+  "tasteWizardShuffle": "Shuffle",
   "tasteWizardError": "Couldn't load library, try again later.",
   "tasteWizardEmpty": "Library isn't ready yet.",
   "tasteWizardDone": "Ready — refresh the page.",

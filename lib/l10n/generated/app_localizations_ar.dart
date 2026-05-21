@@ -941,6 +941,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tasteWizardSkip => 'تخطى الآن';
 
   @override
+  String get tasteWizardShuffle => 'خلط';
+
+  @override
   String get tasteWizardError => 'تعذر تحميل المكتبة، أعد المحاولة لاحقاً.';
 
   @override

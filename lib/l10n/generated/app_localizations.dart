@@ -1886,6 +1886,12 @@ abstract class AppLocalizations {
   /// **'Şimdilik atla'**
   String get tasteWizardSkip;
 
+  /// No description provided for @tasteWizardShuffle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Karıştır'**
+  String get tasteWizardShuffle;
+
   /// No description provided for @tasteWizardError.
   ///
   /// In tr, this message translates to:

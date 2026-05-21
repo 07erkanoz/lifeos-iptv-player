@@ -331,6 +331,7 @@
   },
   "tasteWizardConfirm": "متابعة",
   "tasteWizardSkip": "تخطى الآن",
+  "tasteWizardShuffle": "خلط",
   "tasteWizardError": "تعذر تحميل المكتبة، أعد المحاولة لاحقاً.",
   "tasteWizardEmpty": "المكتبة ليست جاهزة بعد.",
   "tasteWizardDone": "جاهز — حدّث الصفحة.",

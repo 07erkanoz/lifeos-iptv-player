@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
-import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -72,51 +72,113 @@ class _TasteWizardSheetState extends ConsumerState<TasteWizardSheet> {
 
   String _selectionKey(Channel c) => '${c.type}:${c.streamId}';
 
+  /// Number of posters to surface in one wizard view. 48 gives the
+  /// user enough breadth to find 3+ titles they actually love without
+  /// scrolling becoming a chore. The "Karıştır" button reshuffles.
+  static const _gridSize = 48;
+
   Future<void> _loadCandidates() async {
     try {
-      final repo = ref.read(contentRepositoryProvider);
-      // Larger sample than the rails — the wizard wants visual
-      // diversity. We filter to items WITH posters since posterless
-      // tiles look broken in a poster grid.
-      final pool = await repo.sampleLibraryForAi(
-        moviesPerType: 80,
-        seriesPerType: 80,
-        livePerType: 0,
-      );
-      final withPoster = pool
-          .where((c) => c.streamIcon != null && c.streamIcon!.isNotEmpty)
-          .toList();
-      // Genre diversity — bucket by primary genre and round-robin
-      // across buckets so the grid doesn't degenerate into 20 horror
-      // posters in a row.
-      final byGenre = <String, List<Channel>>{};
-      for (final c in withPoster) {
-        final g = (c.genre?.split(',').first.trim().toLowerCase() ?? '')
-            .isEmpty
-            ? 'other'
-            : c.genre!.split(',').first.trim().toLowerCase();
-        byGenre.putIfAbsent(g, () => []).add(c);
+      final db = ref.read(appDatabaseProvider);
+
+      // Pull a wide swath of VOD joined with categories. We need the
+      // category label as the actual diversity signal because
+      // `channels.genre` is mostly NULL on Xtream catalogues — the
+      // genre data lives in category names like "KOMEDi & ROMANTiK"
+      // or "AKSiYON & MACERA". Bucketing by the empty `genre` column
+      // dumped everything into one "other" bucket, defeating the
+      // diversity logic. Joining categories fixes that completely.
+      final rows = await (db.select(db.channels).join([
+        innerJoin(
+          db.categories,
+          db.categories.id.equalsExp(db.channels.categoryId) &
+              db.categories.type.equalsExp(db.channels.type),
+        ),
+      ])
+            ..where((db.channels.type.equals('movie') |
+                    db.channels.type.equals('series')) &
+                db.categories.isHidden.equals(false))
+            ..orderBy([
+              OrderingTerm(
+                  expression: db.channels.rating,
+                  mode: OrderingMode.desc),
+            ])
+            ..limit(2500))
+          .get();
+
+      // Bucket by category name + apply hard filters in one pass.
+      final byCategory = <String, List<Channel>>{};
+      final adultRegex = RegExp(r'adult|erotic|xxx|porn|dorcel|brazzers',
+          caseSensitive: false);
+      for (final r in rows) {
+        final ch = r.readTable(db.channels);
+        final cat = r.readTable(db.categories);
+        // Drop posterless rows — empty tiles look broken in the grid.
+        if (ch.streamIcon == null || ch.streamIcon!.isEmpty) continue;
+        // Drop adult content from the wizard (the user can still
+        // favourite those manually if they want).
+        final catName = cat.name;
+        if (adultRegex.hasMatch(catName)) continue;
+        if (ch.name.toLowerCase().startsWith('adlt')) continue;
+        byCategory.putIfAbsent(catName, () => []).add(ch);
       }
-      final genres = byGenre.keys.toList()
-        ..sort((a, b) => byGenre[b]!.length.compareTo(byGenre[a]!.length));
+
+      if (byCategory.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _candidates = const [];
+          _loading = false;
+        });
+        return;
+      }
+
+      // Shuffle category order so the wizard doesn't always lead
+      // with the alphabetically-first category. The "Karıştır"
+      // button re-calls this same method which re-shuffles → fresh
+      // grid each tap.
+      final categories = byCategory.keys.toList()..shuffle();
+
+      // Round-robin pull: take 1 item from each category per pass.
+      // Posters are roughly rating-sorted within each bucket (we
+      // ordered by rating DESC in SQL), so passes 1-3 are top-tier
+      // and later passes broaden into the long tail.
       final interleaved = <Channel>[];
-      var changed = true;
-      var idx = 0;
-      while (interleaved.length < 24 && changed) {
-        changed = false;
-        for (final g in genres) {
-          final list = byGenre[g]!;
-          if (idx < list.length) {
-            interleaved.add(list[idx]);
-            changed = true;
-            if (interleaved.length >= 24) break;
+      var pass = 0;
+      while (interleaved.length < _gridSize) {
+        var added = false;
+        for (final cat in categories) {
+          final list = byCategory[cat]!;
+          if (pass < list.length) {
+            interleaved.add(list[pass]);
+            added = true;
+            if (interleaved.length >= _gridSize) break;
           }
         }
-        idx++;
+        if (!added) break;
+        pass++;
       }
+
+      // Two-key dedupe (title + poster URL) so the multi-category
+      // Xtream re-listing case (e.g. "Inception" appearing under
+      // both DRAM and AKSiYON) doesn't show twice in the grid.
+      final seenTitle = <String>{};
+      final seenPoster = <String>{};
+      final unique = <Channel>[];
+      for (final c in interleaved) {
+        final tKey = c.name.trim().toLowerCase();
+        final pKey = (c.streamIcon ?? '').toLowerCase();
+        if (tKey.isNotEmpty && !seenTitle.add(tKey)) continue;
+        if (pKey.isNotEmpty && !seenPoster.add(pKey)) continue;
+        unique.add(c);
+      }
+
+      // Light shuffle of the final list so the grid doesn't visibly
+      // descend by rating top-left → bottom-right.
+      unique.shuffle();
+
       if (!mounted) return;
       setState(() {
-        _candidates = interleaved;
+        _candidates = unique;
         _loading = false;
       });
     } catch (e) {
@@ -126,6 +188,19 @@ class _TasteWizardSheetState extends ConsumerState<TasteWizardSheet> {
         _loading = false;
       });
     }
+  }
+
+  /// "Karıştır" — reshuffle the grid with a fresh round of picks
+  /// from different categories. Clears the user's selections so
+  /// they don't accidentally commit something from the previous
+  /// view.
+  void _reshuffle() {
+    setState(() {
+      _candidates = null;
+      _loading = true;
+      _selected.clear();
+    });
+    _loadCandidates();
   }
 
   Future<void> _commit() async {
@@ -226,6 +301,13 @@ class _TasteWizardSheetState extends ConsumerState<TasteWizardSheet> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.shuffle),
+                    color: AppColors.primary,
+                    onPressed:
+                        (_committing || _loading) ? null : _reshuffle,
+                    tooltip: l10n.tasteWizardShuffle,
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),

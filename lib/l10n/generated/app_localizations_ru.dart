@@ -944,6 +944,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tasteWizardSkip => 'Пропустить';
 
   @override
+  String get tasteWizardShuffle => 'Перемешать';
+
+  @override
   String get tasteWizardError => 'Не удалось загрузить библиотеку.';
 
   @override

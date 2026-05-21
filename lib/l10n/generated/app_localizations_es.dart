@@ -944,6 +944,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get tasteWizardSkip => 'Omitir por ahora';
 
   @override
+  String get tasteWizardShuffle => 'Barajar';
+
+  @override
   String get tasteWizardError => 'No se pudo cargar la biblioteca.';
 
   @override

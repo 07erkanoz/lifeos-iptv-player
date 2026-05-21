@@ -946,6 +946,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tasteWizardSkip => 'Jetzt überspringen';
 
   @override
+  String get tasteWizardShuffle => 'Mischen';
+
+  @override
   String get tasteWizardError => 'Bibliothek konnte nicht geladen werden.';
 
   @override

@@ -331,6 +331,7 @@
   },
   "tasteWizardConfirm": "Continuer",
   "tasteWizardSkip": "Passer pour l'instant",
+  "tasteWizardShuffle": "Mélanger",
   "tasteWizardError": "Impossible de charger la bibliothèque.",
   "tasteWizardEmpty": "Bibliothèque pas encore prête.",
   "tasteWizardDone": "Prêt — actualise la page.",

@@ -947,6 +947,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tasteWizardSkip => 'Passer pour l\'instant';
 
   @override
+  String get tasteWizardShuffle => 'Mélanger';
+
+  @override
   String get tasteWizardError => 'Impossible de charger la bibliothèque.';
 
   @override

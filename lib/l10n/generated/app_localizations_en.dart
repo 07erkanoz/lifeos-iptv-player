@@ -942,6 +942,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tasteWizardSkip => 'Skip for now';
 
   @override
+  String get tasteWizardShuffle => 'Shuffle';
+
+  @override
   String get tasteWizardError => 'Couldn\'t load library, try again later.';
 
   @override

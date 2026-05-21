@@ -339,6 +339,7 @@
   },
   "tasteWizardConfirm": "Devam et",
   "tasteWizardSkip": "Şimdilik atla",
+  "tasteWizardShuffle": "Karıştır",
   "tasteWizardError": "Kütüphane okunamadı, daha sonra tekrar dene.",
   "tasteWizardEmpty": "Kütüphane henüz hazır değil.",
   "tasteWizardDone": "Hazır — sayfayı yenile.",

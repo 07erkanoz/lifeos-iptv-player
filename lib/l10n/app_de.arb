@@ -331,6 +331,7 @@
   },
   "tasteWizardConfirm": "Weiter",
   "tasteWizardSkip": "Jetzt überspringen",
+  "tasteWizardShuffle": "Mischen",
   "tasteWizardError": "Bibliothek konnte nicht geladen werden.",
   "tasteWizardEmpty": "Bibliothek noch nicht bereit.",
   "tasteWizardDone": "Bereit — Seite aktualisieren.",
