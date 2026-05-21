@@ -885,6 +885,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get introMarkInvalid => 'End time must be after start time.';
 
   @override
+  String get dashboardForYouTitle => 'For you';
+
+  @override
+  String get dashboardForYouSubtitle => 'AI picks based on your viewing';
+
+  @override
+  String get dashboardForYouLoading => 'Picking for you...';
+
+  @override
   String get showTrailerSetting => 'Show trailer PiP';
 
   @override

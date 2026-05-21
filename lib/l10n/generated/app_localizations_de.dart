@@ -888,6 +888,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get introMarkInvalid => 'Endzeit muss nach Startzeit liegen.';
 
   @override
+  String get dashboardForYouTitle => 'Für dich';
+
+  @override
+  String get dashboardForYouSubtitle =>
+      'KI-Auswahl nach deinen Sehgewohnheiten';
+
+  @override
+  String get dashboardForYouLoading => 'Auswahl wird erstellt...';
+
+  @override
   String get showTrailerSetting => 'Trailer-PiP anzeigen';
 
   @override

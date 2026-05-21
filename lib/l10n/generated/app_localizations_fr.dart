@@ -889,6 +889,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get introMarkInvalid => 'La fin doit être après le début.';
 
   @override
+  String get dashboardForYouTitle => 'Pour toi';
+
+  @override
+  String get dashboardForYouSubtitle => 'Sélection IA selon ce que tu regardes';
+
+  @override
+  String get dashboardForYouLoading => 'Sélection en cours...';
+
+  @override
   String get showTrailerSetting => 'Afficher la bande-annonce PiP';
 
   @override

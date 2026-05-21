@@ -887,6 +887,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get introMarkInvalid => 'El fin debe ser posterior al inicio.';
 
   @override
+  String get dashboardForYouTitle => 'Para ti';
+
+  @override
+  String get dashboardForYouSubtitle => 'Selección IA según lo que ves';
+
+  @override
+  String get dashboardForYouLoading => 'Eligiendo para ti...';
+
+  @override
   String get showTrailerSetting => 'Mostrar tráiler PiP';
 
   @override

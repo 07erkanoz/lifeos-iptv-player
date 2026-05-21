@@ -885,6 +885,15 @@ class AppLocalizationsKu extends AppLocalizations {
   String get introMarkInvalid => 'Dema dawî divê piştî dema destpêkê be.';
 
   @override
+  String get dashboardForYouTitle => 'Ji bo te';
+
+  @override
+  String get dashboardForYouSubtitle => 'Bijartinên AI li gorî temaşekirina te';
+
+  @override
+  String get dashboardForYouLoading => 'Ji bo te dibijêre...';
+
+  @override
   String get showTrailerSetting => 'Fragmanê piçûk nîşan bide';
 
   @override

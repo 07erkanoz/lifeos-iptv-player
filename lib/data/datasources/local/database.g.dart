@@ -4393,6 +4393,327 @@ class PlotAiCacheCompanion extends UpdateCompanion<PlotAiCacheData> {
   }
 }
 
+class $PersonalizedPicksCacheTable extends PersonalizedPicksCache
+    with TableInfo<$PersonalizedPicksCacheTable, PersonalizedPicksCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PersonalizedPicksCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _picksJsonMeta = const VerificationMeta(
+    'picksJson',
+  );
+  @override
+  late final GeneratedColumn<String> picksJson = GeneratedColumn<String>(
+    'picks_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceHashMeta = const VerificationMeta(
+    'sourceHash',
+  );
+  @override
+  late final GeneratedColumn<String> sourceHash = GeneratedColumn<String>(
+    'source_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _generatedAtMeta = const VerificationMeta(
+    'generatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> generatedAt = GeneratedColumn<DateTime>(
+    'generated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    picksJson,
+    sourceHash,
+    generatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'personalized_picks_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PersonalizedPicksCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('picks_json')) {
+      context.handle(
+        _picksJsonMeta,
+        picksJson.isAcceptableOrUnknown(data['picks_json']!, _picksJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_picksJsonMeta);
+    }
+    if (data.containsKey('source_hash')) {
+      context.handle(
+        _sourceHashMeta,
+        sourceHash.isAcceptableOrUnknown(data['source_hash']!, _sourceHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceHashMeta);
+    }
+    if (data.containsKey('generated_at')) {
+      context.handle(
+        _generatedAtMeta,
+        generatedAt.isAcceptableOrUnknown(
+          data['generated_at']!,
+          _generatedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PersonalizedPicksCacheData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PersonalizedPicksCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      picksJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}picks_json'],
+      )!,
+      sourceHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_hash'],
+      )!,
+      generatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}generated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PersonalizedPicksCacheTable createAlias(String alias) {
+    return $PersonalizedPicksCacheTable(attachedDatabase, alias);
+  }
+}
+
+class PersonalizedPicksCacheData extends DataClass
+    implements Insertable<PersonalizedPicksCacheData> {
+  /// Singleton row — always 0. Avoids accidental multi-row state.
+  final int id;
+
+  /// JSON-encoded `[{streamId: int, reason: string}, ...]` —
+  /// preserves order so the rail renders best-first as Gemini
+  /// ranked it.
+  final String picksJson;
+
+  /// FNV-1a fingerprint of (history-ids + favourite-ids + prompt
+  /// version). Mismatch on read invalidates the row.
+  final String sourceHash;
+  final DateTime generatedAt;
+  const PersonalizedPicksCacheData({
+    required this.id,
+    required this.picksJson,
+    required this.sourceHash,
+    required this.generatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['picks_json'] = Variable<String>(picksJson);
+    map['source_hash'] = Variable<String>(sourceHash);
+    map['generated_at'] = Variable<DateTime>(generatedAt);
+    return map;
+  }
+
+  PersonalizedPicksCacheCompanion toCompanion(bool nullToAbsent) {
+    return PersonalizedPicksCacheCompanion(
+      id: Value(id),
+      picksJson: Value(picksJson),
+      sourceHash: Value(sourceHash),
+      generatedAt: Value(generatedAt),
+    );
+  }
+
+  factory PersonalizedPicksCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PersonalizedPicksCacheData(
+      id: serializer.fromJson<int>(json['id']),
+      picksJson: serializer.fromJson<String>(json['picksJson']),
+      sourceHash: serializer.fromJson<String>(json['sourceHash']),
+      generatedAt: serializer.fromJson<DateTime>(json['generatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'picksJson': serializer.toJson<String>(picksJson),
+      'sourceHash': serializer.toJson<String>(sourceHash),
+      'generatedAt': serializer.toJson<DateTime>(generatedAt),
+    };
+  }
+
+  PersonalizedPicksCacheData copyWith({
+    int? id,
+    String? picksJson,
+    String? sourceHash,
+    DateTime? generatedAt,
+  }) => PersonalizedPicksCacheData(
+    id: id ?? this.id,
+    picksJson: picksJson ?? this.picksJson,
+    sourceHash: sourceHash ?? this.sourceHash,
+    generatedAt: generatedAt ?? this.generatedAt,
+  );
+  PersonalizedPicksCacheData copyWithCompanion(
+    PersonalizedPicksCacheCompanion data,
+  ) {
+    return PersonalizedPicksCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      picksJson: data.picksJson.present ? data.picksJson.value : this.picksJson,
+      sourceHash: data.sourceHash.present
+          ? data.sourceHash.value
+          : this.sourceHash,
+      generatedAt: data.generatedAt.present
+          ? data.generatedAt.value
+          : this.generatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalizedPicksCacheData(')
+          ..write('id: $id, ')
+          ..write('picksJson: $picksJson, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('generatedAt: $generatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, picksJson, sourceHash, generatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PersonalizedPicksCacheData &&
+          other.id == this.id &&
+          other.picksJson == this.picksJson &&
+          other.sourceHash == this.sourceHash &&
+          other.generatedAt == this.generatedAt);
+}
+
+class PersonalizedPicksCacheCompanion
+    extends UpdateCompanion<PersonalizedPicksCacheData> {
+  final Value<int> id;
+  final Value<String> picksJson;
+  final Value<String> sourceHash;
+  final Value<DateTime> generatedAt;
+  const PersonalizedPicksCacheCompanion({
+    this.id = const Value.absent(),
+    this.picksJson = const Value.absent(),
+    this.sourceHash = const Value.absent(),
+    this.generatedAt = const Value.absent(),
+  });
+  PersonalizedPicksCacheCompanion.insert({
+    this.id = const Value.absent(),
+    required String picksJson,
+    required String sourceHash,
+    this.generatedAt = const Value.absent(),
+  }) : picksJson = Value(picksJson),
+       sourceHash = Value(sourceHash);
+  static Insertable<PersonalizedPicksCacheData> custom({
+    Expression<int>? id,
+    Expression<String>? picksJson,
+    Expression<String>? sourceHash,
+    Expression<DateTime>? generatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (picksJson != null) 'picks_json': picksJson,
+      if (sourceHash != null) 'source_hash': sourceHash,
+      if (generatedAt != null) 'generated_at': generatedAt,
+    });
+  }
+
+  PersonalizedPicksCacheCompanion copyWith({
+    Value<int>? id,
+    Value<String>? picksJson,
+    Value<String>? sourceHash,
+    Value<DateTime>? generatedAt,
+  }) {
+    return PersonalizedPicksCacheCompanion(
+      id: id ?? this.id,
+      picksJson: picksJson ?? this.picksJson,
+      sourceHash: sourceHash ?? this.sourceHash,
+      generatedAt: generatedAt ?? this.generatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (picksJson.present) {
+      map['picks_json'] = Variable<String>(picksJson.value);
+    }
+    if (sourceHash.present) {
+      map['source_hash'] = Variable<String>(sourceHash.value);
+    }
+    if (generatedAt.present) {
+      map['generated_at'] = Variable<DateTime>(generatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalizedPicksCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('picksJson: $picksJson, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('generatedAt: $generatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4408,6 +4729,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SeriesTrackingTable seriesTracking = $SeriesTrackingTable(this);
   late final $IntroMarkersTable introMarkers = $IntroMarkersTable(this);
   late final $PlotAiCacheTable plotAiCache = $PlotAiCacheTable(this);
+  late final $PersonalizedPicksCacheTable personalizedPicksCache =
+      $PersonalizedPicksCacheTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4423,6 +4746,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     seriesTracking,
     introMarkers,
     plotAiCache,
+    personalizedPicksCache,
   ];
 }
 
@@ -7148,6 +7472,204 @@ typedef $$PlotAiCacheTableProcessedTableManager =
       PlotAiCacheData,
       PrefetchHooks Function()
     >;
+typedef $$PersonalizedPicksCacheTableCreateCompanionBuilder =
+    PersonalizedPicksCacheCompanion Function({
+      Value<int> id,
+      required String picksJson,
+      required String sourceHash,
+      Value<DateTime> generatedAt,
+    });
+typedef $$PersonalizedPicksCacheTableUpdateCompanionBuilder =
+    PersonalizedPicksCacheCompanion Function({
+      Value<int> id,
+      Value<String> picksJson,
+      Value<String> sourceHash,
+      Value<DateTime> generatedAt,
+    });
+
+class $$PersonalizedPicksCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $PersonalizedPicksCacheTable> {
+  $$PersonalizedPicksCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get picksJson => $composableBuilder(
+    column: $table.picksJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PersonalizedPicksCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $PersonalizedPicksCacheTable> {
+  $$PersonalizedPicksCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get picksJson => $composableBuilder(
+    column: $table.picksJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PersonalizedPicksCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PersonalizedPicksCacheTable> {
+  $$PersonalizedPicksCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get picksJson =>
+      $composableBuilder(column: $table.picksJson, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$PersonalizedPicksCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PersonalizedPicksCacheTable,
+          PersonalizedPicksCacheData,
+          $$PersonalizedPicksCacheTableFilterComposer,
+          $$PersonalizedPicksCacheTableOrderingComposer,
+          $$PersonalizedPicksCacheTableAnnotationComposer,
+          $$PersonalizedPicksCacheTableCreateCompanionBuilder,
+          $$PersonalizedPicksCacheTableUpdateCompanionBuilder,
+          (
+            PersonalizedPicksCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $PersonalizedPicksCacheTable,
+              PersonalizedPicksCacheData
+            >,
+          ),
+          PersonalizedPicksCacheData,
+          PrefetchHooks Function()
+        > {
+  $$PersonalizedPicksCacheTableTableManager(
+    _$AppDatabase db,
+    $PersonalizedPicksCacheTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PersonalizedPicksCacheTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PersonalizedPicksCacheTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PersonalizedPicksCacheTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> picksJson = const Value.absent(),
+                Value<String> sourceHash = const Value.absent(),
+                Value<DateTime> generatedAt = const Value.absent(),
+              }) => PersonalizedPicksCacheCompanion(
+                id: id,
+                picksJson: picksJson,
+                sourceHash: sourceHash,
+                generatedAt: generatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String picksJson,
+                required String sourceHash,
+                Value<DateTime> generatedAt = const Value.absent(),
+              }) => PersonalizedPicksCacheCompanion.insert(
+                id: id,
+                picksJson: picksJson,
+                sourceHash: sourceHash,
+                generatedAt: generatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PersonalizedPicksCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PersonalizedPicksCacheTable,
+      PersonalizedPicksCacheData,
+      $$PersonalizedPicksCacheTableFilterComposer,
+      $$PersonalizedPicksCacheTableOrderingComposer,
+      $$PersonalizedPicksCacheTableAnnotationComposer,
+      $$PersonalizedPicksCacheTableCreateCompanionBuilder,
+      $$PersonalizedPicksCacheTableUpdateCompanionBuilder,
+      (
+        PersonalizedPicksCacheData,
+        BaseReferences<
+          _$AppDatabase,
+          $PersonalizedPicksCacheTable,
+          PersonalizedPicksCacheData
+        >,
+      ),
+      PersonalizedPicksCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7172,6 +7694,11 @@ class $AppDatabaseManager {
       $$IntroMarkersTableTableManager(_db, _db.introMarkers);
   $$PlotAiCacheTableTableManager get plotAiCache =>
       $$PlotAiCacheTableTableManager(_db, _db.plotAiCache);
+  $$PersonalizedPicksCacheTableTableManager get personalizedPicksCache =>
+      $$PersonalizedPicksCacheTableTableManager(
+        _db,
+        _db.personalizedPicksCache,
+      );
 }
 
 // **************************************************************************

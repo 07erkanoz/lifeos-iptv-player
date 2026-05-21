@@ -920,6 +920,229 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
     'required': ['picks'],
   };
 
+  /// Dashboard "Sana Özel" personalised recommendations.
+  ///
+  /// Different from `recommendForTonight` (interactive chat) — this
+  /// is the passive daily-refresh rail. Gemini receives the user's
+  /// recent watch history + favourites + a library cross-section
+  /// and picks ~12–15 items that fit the user's taste profile, in
+  /// ranked order with concrete reasons.
+  ///
+  /// Returns `null` on failure; caller hides the rail entirely so
+  /// the dashboard never shows broken AI surfaces.
+  Future<List<({int streamId, String reason})>?> recommendForYou({
+    required List<Map<String, dynamic>> recentlyWatched,
+    required List<Map<String, dynamic>> favorites,
+    required List<Map<String, dynamic>> librarySample,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || librarySample.isEmpty) return null;
+
+    final systemPrompt = '''
+You curate a personalised "For You" rail on the dashboard of an
+IPTV / streaming app. The user comes back to this rail every time
+they open the app, so the picks should feel intentional — never
+generic "popular movies", always grounded in this user's taste.
+
+Inputs (in the first user turn, JSON):
+  * RECENTLY_WATCHED — what they've actively been viewing.
+  * FAVORITES — their explicit "save for later" picks.
+  * LIBRARY — a cross-section of the catalogue (top-rated +
+    recent additions). Items are in the pipe-separated rows
+    format with header
+    `id|title|type|year|genre|director|cast|rating`.
+
+Your job: pick 12–15 items from LIBRARY (only IDs you see in
+LIBRARY) that match this user's pattern. Use both:
+  * Direct echoes — same director / cast / sub-genre as recent
+    watches.
+  * Tasteful jumps — items that fit the *vibe* of what they're
+    watching but explore a related corner they may not have
+    tried yet.
+
+Rules:
+  1. Only return streamIds present in LIBRARY.
+  2. 12–15 picks, ordered by personal fit (best first).
+  3. `reason` is ONE short sentence in $targetLanguage, with
+     concrete facts ("Aynı yönetmenden", "Phantom Lawyer'a
+     benzer kara mizah") — generic "you might like this" is
+     useless.
+  4. Skip items already in RECENTLY_WATCHED or FAVORITES.
+  5. Spread across types where it makes sense (movie + series).
+  6. If RECENTLY_WATCHED + FAVORITES are both empty, fall back
+     to the highest-rated LIBRARY items + variety across genres.
+
+Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
+''';
+
+    final userTurn = 'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
+        'FAVORITES: ${jsonEncode(favorites)}\n'
+        'LIBRARY: ${jsonEncode(librarySample)}';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _curateResponseSchema,
+            'temperature': 0.6,
+            'maxOutputTokens': 2048,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint(
+            '[Gemini] recommendForYou status=${res.statusCode} body=${res.data}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+
+      final startIdx = text.indexOf('{');
+      final endIdx = text.lastIndexOf('}');
+      if (startIdx < 0 || endIdx <= startIdx) return null;
+      final jsonStr = text.substring(startIdx, endIdx + 1);
+
+      Object? decoded;
+      try {
+        decoded = jsonDecode(jsonStr);
+      } catch (e) {
+        debugPrint('[Gemini] recommendForYou JSON decode failed: $e');
+        return null;
+      }
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final raw = decoded['picks'];
+      if (raw is! List) return null;
+      final picks = <({int streamId, String reason})>[];
+      for (final item in raw) {
+        if (item is! Map<String, dynamic>) continue;
+        final sidRaw = item['streamId'];
+        int? sid;
+        if (sidRaw is int) {
+          sid = sidRaw;
+        } else if (sidRaw is num) {
+          sid = sidRaw.toInt();
+        } else if (sidRaw != null) {
+          sid = int.tryParse(sidRaw.toString());
+        }
+        final reason = item['reason']?.toString().trim() ?? '';
+        if (sid != null && sid > 0 && reason.isNotEmpty) {
+          picks.add((streamId: sid, reason: reason));
+        }
+      }
+      return picks;
+    } catch (e) {
+      debugPrint('[Gemini] recommendForYou failed: $e');
+      return null;
+    }
+  }
+
+  /// Generate a 1-2 sentence localised dashboard greeting that
+  /// mentions the time of day, the user's most recent unfinished
+  /// item (if any), and any clear weekly pattern in their watch
+  /// history.
+  ///
+  /// Plain text reply, no JSON, no preamble. Returns null on
+  /// failure — caller hides the banner so the dashboard never
+  /// shows an empty greeting strip.
+  Future<String?> dashboardGreeting({
+    required String timeOfDay, // 'sabah' | 'öğle' | 'akşam' | 'gece'
+    required String dayOfWeek, // localised name
+    required String? resumeTitle, // e.g. "Phantom Lawyer S1E10"
+    required List<String> recentTitles, // last 3 titles
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty) return null;
+
+    final systemPrompt = '''
+You write a single 1-2 sentence greeting banner for an IPTV
+dashboard in $targetLanguage. Tone: warm, casual, brief.
+Reference the time of day and, when present, the user's resume
+target so the banner feels personalised. If they show a weekly
+pattern in the recent-titles list, you may nod to it ("bu hafta
+polisiye günlerin" / "aksiyon ağırlıklı"). Plain text only — no
+emojis, no preamble, no quotes.
+''';
+
+    final userTurn = StringBuffer()
+      ..writeln('Time of day: $timeOfDay')
+      ..writeln('Day: $dayOfWeek');
+    if (resumeTitle != null && resumeTitle.isNotEmpty) {
+      userTurn.writeln('Resume target: $resumeTitle');
+    }
+    if (recentTitles.isNotEmpty) {
+      userTurn.writeln('Recent titles: ${recentTitles.join(", ")}');
+    }
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn.toString()},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'temperature': 0.7,
+            'maxOutputTokens': 220,
+          },
+        },
+      );
+      if (res.statusCode != 200) return null;
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final first = candidates.first;
+      if (first is! Map<String, dynamic>) return null;
+      final content = first['content'];
+      if (content is! Map<String, dynamic>) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = parts.first['text']?.toString().trim();
+      if (text == null || text.isEmpty) return null;
+      return text;
+    } catch (e) {
+      debugPrint('[Gemini] dashboardGreeting failed: $e');
+      return null;
+    }
+  }
+
   /// Per-episode mini-recaps for a season.
   ///
   /// Xtream rarely ships meaningful episode-level plot text — most

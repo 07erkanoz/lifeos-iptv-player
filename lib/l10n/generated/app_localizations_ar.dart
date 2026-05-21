@@ -883,6 +883,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get introMarkInvalid => 'يجب أن يكون وقت النهاية بعد وقت البداية.';
 
   @override
+  String get dashboardForYouTitle => 'لك';
+
+  @override
+  String get dashboardForYouSubtitle =>
+      'اختيارات الذكاء الاصطناعي حسب مشاهداتك';
+
+  @override
+  String get dashboardForYouLoading => 'يختار لك...';
+
+  @override
   String get showTrailerSetting => 'إظهار العرض المصغّر';
 
   @override

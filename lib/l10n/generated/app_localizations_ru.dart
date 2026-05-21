@@ -887,6 +887,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get introMarkInvalid => 'Конец должен быть позже начала.';
 
   @override
+  String get dashboardForYouTitle => 'Для тебя';
+
+  @override
+  String get dashboardForYouSubtitle => 'Подборка ИИ по твоим просмотрам';
+
+  @override
+  String get dashboardForYouLoading => 'Подбираю для тебя...';
+
+  @override
   String get showTrailerSetting => 'Показывать PiP-трейлер';
 
   @override

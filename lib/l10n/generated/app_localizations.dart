@@ -1778,6 +1778,24 @@ abstract class AppLocalizations {
   /// **'Bitiş zamanı başlangıçtan sonra olmalı.'**
   String get introMarkInvalid;
 
+  /// No description provided for @dashboardForYouTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sana özel'**
+  String get dashboardForYouTitle;
+
+  /// No description provided for @dashboardForYouSubtitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleme alışkanlığına göre AI seçimleri'**
+  String get dashboardForYouSubtitle;
+
+  /// No description provided for @dashboardForYouLoading.
+  ///
+  /// In tr, this message translates to:
+  /// **'Senin için seçiyor...'**
+  String get dashboardForYouLoading;
+
   /// No description provided for @showTrailerSetting.
   ///
   /// In tr, this message translates to:

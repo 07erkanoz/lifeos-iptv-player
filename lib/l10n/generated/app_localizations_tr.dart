@@ -884,6 +884,16 @@ class AppLocalizationsTr extends AppLocalizations {
   String get introMarkInvalid => 'Bitiş zamanı başlangıçtan sonra olmalı.';
 
   @override
+  String get dashboardForYouTitle => 'Sana özel';
+
+  @override
+  String get dashboardForYouSubtitle =>
+      'İzleme alışkanlığına göre AI seçimleri';
+
+  @override
+  String get dashboardForYouLoading => 'Senin için seçiyor...';
+
+  @override
   String get showTrailerSetting => 'Fragman göster';
 
   @override

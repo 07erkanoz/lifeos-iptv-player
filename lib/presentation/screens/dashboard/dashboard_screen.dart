@@ -8,6 +8,8 @@ import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/dashboard_greeting.dart';
+import 'package:lifeostv/presentation/widgets/ai/personalized_picks_rail.dart';
 import 'package:lifeostv/presentation/widgets/ai/tonight_chat_sheet.dart';
 import 'package:lifeostv/presentation/widgets/content/content_list.dart';
 import 'package:lifeostv/presentation/widgets/content/hero_banner.dart';
@@ -317,6 +319,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     ),
 
+                  // AI greeting banner — renders nothing without a
+                  // Gemini key (no fallback hardcoded text either,
+                  // the dashboard for non-AI users looks unchanged).
+                  const DashboardGreeting(),
+
                   // Hero Banner with VOD info
                   HeroBanner(
                     channels: heroItems,
@@ -378,6 +385,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     loading: () => const SizedBox.shrink(),
                     error: (_, _) => const SizedBox.shrink(),
                   ),
+
+                  // "Sana Özel" — AI-curated personalised rail.
+                  // Hides itself entirely when the user has no
+                  // Gemini key, so the dashboard for non-AI users
+                  // looks identical to before this commit.
+                  PersonalizedPicksRail(onTap: _openDetail),
 
                   // Continue Watching (movies + series with unfinished progress)
                   continueWatchingAsync.when(

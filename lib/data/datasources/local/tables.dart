@@ -106,6 +106,38 @@ class SeriesTracking extends Table {
   Set<Column> get primaryKey => {seriesId};
 }
 
+/// Dashboard "Sana Özel" AI pick cache.
+///
+/// One singleton row keyed by id=0. Holds the most recent AI-curated
+/// personalized recommendation list as JSON, plus a fingerprint of
+/// the user-state we asked Gemini about (watch history + favourites
+/// snapshot + prompt version). The dashboard reads this on every
+/// render and rebuilds only when stale.
+///
+/// "Stale" means either:
+///   * `generatedAt` is older than the TTL the provider enforces
+///     (default 12 h), or
+///   * `sourceHash` no longer matches the current user-state.
+class PersonalizedPicksCache extends Table {
+  /// Singleton row — always 0. Avoids accidental multi-row state.
+  IntColumn get id => integer()();
+
+  /// JSON-encoded `[{streamId: int, reason: string}, ...]` —
+  /// preserves order so the rail renders best-first as Gemini
+  /// ranked it.
+  TextColumn get picksJson => text()();
+
+  /// FNV-1a fingerprint of (history-ids + favourite-ids + prompt
+  /// version). Mismatch on read invalidates the row.
+  TextColumn get sourceHash => text()();
+
+  DateTimeColumn get generatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// AI-enriched plot text cache.
 ///
 /// One row per (streamId, mode, language) combination. The detail
