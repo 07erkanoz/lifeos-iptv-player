@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -452,7 +453,7 @@ class _TasteWizardSheetState extends ConsumerState<TasteWizardSheet> {
   }
 }
 
-class _PosterTile extends StatelessWidget {
+class _PosterTile extends StatefulWidget {
   final Channel channel;
   final bool isSelected;
   final bool isDark;
@@ -466,88 +467,114 @@ class _PosterTile extends StatelessWidget {
   });
 
   @override
+  State<_PosterTile> createState() => _PosterTileState();
+}
+
+class _PosterTileState extends State<_PosterTile> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : Colors.transparent,
-            width: isSelected ? 2.5 : 0,
+    // Focus + key handler so Android TV D-pad can land on the tile
+    // and Select / Enter toggles the selection. Without this the
+    // wizard was unusable on TV — D-pad couldn't traverse the grid.
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: widget.isSelected
+                  ? AppColors.primary
+                  : (_focused
+                      ? AppColors.primary.withValues(alpha: 0.6)
+                      : Colors.transparent),
+              width: widget.isSelected
+                  ? 2.5
+                  : (_focused ? 2.0 : 0),
+            ),
+            boxShadow: (widget.isSelected || _focused)
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : null,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  )
-                ]
-              : null,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CachedNetworkImage(
-                imageUrl: channel.streamIcon!,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) => Container(
-                  color: AppColors.surfaceElevatedDark,
-                  child: const Icon(Icons.movie_outlined,
-                      color: AppColors.textTertiaryDark),
-                ),
-              ),
-              // Bottom title overlay.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.85),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    channel.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CachedNetworkImage(
+                  imageUrl: widget.channel.streamIcon!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => Container(
+                    color: AppColors.surfaceElevatedDark,
+                    child: const Icon(Icons.movie_outlined,
+                        color: AppColors.textTertiaryDark),
                   ),
                 ),
-              ),
-              if (isSelected)
+                // Bottom title overlay.
                 Positioned(
-                  top: 6,
-                  right: 6,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.85),
+                          Colors.transparent,
+                        ],
+                      ),
                     ),
-                    padding: const EdgeInsets.all(4),
-                    child: const Icon(Icons.check,
-                        size: 14, color: Colors.white),
+                    child: Text(
+                      widget.channel.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-            ],
+                if (widget.isSelected)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: const Icon(Icons.check,
+                          size: 14, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
