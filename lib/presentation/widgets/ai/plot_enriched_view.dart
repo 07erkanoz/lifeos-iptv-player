@@ -114,10 +114,18 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
       _loading = true;
       _lastCallFailed = false;
     });
+    // Pass every metadata field we have. fillIn/detailedInfo
+    // especially benefit — without director/cast/rating those
+    // modes had only `title + year + genre` to synthesise from,
+    // which produced thin generic answers for any title the model
+    // didn't already know.
     final result = await gemini.enrichPlot(
       title: widget.channel.name,
       year: widget.channel.year,
       genre: widget.channel.genre,
+      director: widget.channel.director,
+      cast: widget.channel.cast,
+      rating: widget.channel.rating,
       originalPlot: widget.plotText,
       mode: mode,
       targetLanguage: _userLanguageCode(),

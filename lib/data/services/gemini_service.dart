@@ -252,7 +252,7 @@ class GeminiService {
     }
   }
 
-  /// Three "fix this plot" use-cases the detail page wires to small
+  /// Four "fix this plot" use-cases the detail page wires to small
   /// inline links underneath the synopsis text. Each maps to a
   /// different system prompt — the user-visible action stays the
   /// same shape ("ask Gemini → swap the text"), only the framing
@@ -260,10 +260,19 @@ class GeminiService {
   ///
   /// Returns the AI-produced plot text, or `null` on any failure.
   /// Caller falls back to keeping the original.
+  ///
+  /// All metadata fields are optional but cumulative — pass as
+  /// many as the catalog has. The model gets a stronger signal to
+  /// work with, especially for `fillIn` / `detailedInfo` where it
+  /// has to synthesise from this metadata when it doesn't
+  /// recognise the title.
   Future<String?> enrichPlot({
     required String title,
     String? year,
     String? genre,
+    String? director,
+    String? cast,
+    double? rating,
     String? originalPlot,
     required PlotEnrichMode mode,
     required String targetLanguage,
@@ -326,16 +335,31 @@ need to express low confidence, do it inline with phrasing like
 ''',
     };
 
+    // Build the metadata header — same for all modes, gives the
+    // model maximal signal to work with. detailedInfo and fillIn
+    // *especially* benefit from director/cast because they have
+    // to synthesise without the original plot text.
+    final metaLines = <String>[
+      'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}',
+      if (genre != null && genre.isNotEmpty) 'Genre: $genre',
+      if (director != null && director.isNotEmpty) 'Director: $director',
+      if (cast != null && cast.isNotEmpty) 'Cast: $cast',
+      if (rating != null) 'Rating: ${rating.toStringAsFixed(1)}/10',
+    ];
+
     final userTurn = switch (mode) {
       PlotEnrichMode.translate ||
       PlotEnrichMode.summarize =>
-        'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
-            '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}'
-            '\n\nPlot:\n${originalPlot ?? ""}',
+        '${metaLines.join("\n")}\n\nPlot:\n${originalPlot ?? ""}',
       PlotEnrichMode.fillIn ||
       PlotEnrichMode.detailedInfo =>
-        'Title: $title${year != null && year.isNotEmpty ? " ($year)" : ""}'
-            '${genre != null && genre.isNotEmpty ? "\nGenre: $genre" : ""}',
+        // Send the existing plot too, even if it's poor — gives
+        // the model another hook (sometimes the metadata is wrong
+        // or in another language but the plot has the real
+        // premise).
+        originalPlot != null && originalPlot.trim().isNotEmpty
+            ? '${metaLines.join("\n")}\n\nExisting (possibly poor) plot text:\n$originalPlot'
+            : metaLines.join("\n"),
     };
 
     try {
@@ -357,11 +381,12 @@ need to express low confidence, do it inline with phrasing like
           ],
           'generationConfig': {
             'temperature': mode == PlotEnrichMode.translate ? 0.2 : 0.5,
-            // detailedInfo needs a roomier budget — 4-6 short paragraphs
-            // can comfortably exceed 400 tokens, and a truncated reply
-            // looks worse than no reply at all.
+            // detailedInfo writes 4–6 short paragraphs. The earlier
+            // 900-token cap was clipping Turkish output (~30 % less
+            // dense than English) mid-paragraph. 1800 has plenty of
+            // headroom without being wasteful for the other modes.
             'maxOutputTokens':
-                mode == PlotEnrichMode.detailedInfo ? 900 : 400,
+                mode == PlotEnrichMode.detailedInfo ? 1800 : 500,
           },
         },
       );
