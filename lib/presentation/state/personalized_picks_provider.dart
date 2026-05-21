@@ -212,25 +212,30 @@ final personalizedPicksProvider =
   // Cache check — skipped entirely on an explicit refresh so the
   // user always gets a fresh AI run when they hit the button.
   if (refreshSeed == 0) {
-    final cached = await cacheRepo.lookup(sourceHash: sourceHash);
-    if (cached != null && cached.isNotEmpty) {
-      return _resolveAndSnapshot(cached, db, ref);
+    // ── Generous read: any cache row younger than 24 h wins ───────
+    // The rail should refresh **at most once per day** for a given
+    // user. Strict fingerprint matching was forcing re-runs every
+    // time the user watched a new title (history list ids drift) —
+    // expensive and pointless because the previous picks are still
+    // fine for 24 h.
+    final recent = await cacheRepo.lookupLatest(
+      maxAge: const Duration(hours: 24),
+    );
+    if (recent != null && recent.isNotEmpty) {
+      debugPrint('[picks] cache hit (<24h), no AI call');
+      return _resolveAndSnapshot(recent, db, ref);
     }
 
-    // ── Stale-while-revalidate ──────────────────────────────────
-    // Fingerprint missed (the user's taste signals drifted since
-    // the cache was written — they watched something new, favourited
-    // something, etc.). Rather than block the rail behind a fresh
-    // 5-15 second AI call, return the previous cached row instantly
-    // and kick off the refresh in the background. Next dashboard
-    // open lands the fresh result.
-    final stale = await cacheRepo.lookupLatest();
+    // ── Stale-while-revalidate (24h-7d window) ───────────────────
+    // Cache exists but older than the 24 h freshness window. Return
+    // the stale row immediately and kick off a background refresh
+    // so the next open lands the fresh data without blocking the
+    // user behind a 5-15 s shimmer.
+    final stale = await cacheRepo.lookupLatest(
+      maxAge: const Duration(days: 7),
+    );
     if (stale != null && stale.isNotEmpty) {
-      // Fire-and-forget background refresh. Wrapped in microtask so
-      // the provider returns the stale picks immediately rather than
-      // racing the AI call. When the call lands we update the cache
-      // and invalidate the provider so the UI re-renders with the
-      // fresh picks on the next paint.
+      debugPrint('[picks] stale cache hit (1-7d), refreshing in bg');
       Future.microtask(() => _refreshInBackground(
             ref: ref,
             gemini: gemini,
@@ -318,10 +323,25 @@ final personalizedPicksProvider =
     if (fallbackPicks.length >= 15) break;
   }
   if (fallbackPicks.isEmpty) return null;
-  return [
+  final lastResort = [
     for (final ch in fallbackPicks)
       PersonalizedPickCard(channel: ch, reason: ''),
   ];
+  // Persist the last-resort cards as a Drift cache row AND the
+  // sync snapshot. Without this, an AI that consistently fails
+  // (rate-limited, offline, …) would never seed the cache, every
+  // open would re-run the failing pipeline, and the shimmer would
+  // always come back. Synthetic picks are better than no cache.
+  await cacheRepo.store(
+    sourceHash: sourceHash,
+    picks: lastResort
+        .map((c) => (streamId: c.channel.streamId, reason: c.reason))
+        .toList(),
+  );
+  unawaited(_savePersonalizedSnapshot(ref, lastResort));
+  debugPrint('[picks] AI unavailable, seeded ${lastResort.length} '
+      'top-rated fallback cards into cache + snapshot');
+  return lastResort;
 });
 
 /// Fire-and-forget background refresh used by the stale-while-
@@ -458,9 +478,13 @@ Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
 ) async {
   final resolved = await _resolve(picks, db);
   if (resolved.isNotEmpty) {
-    // Fire-and-forget — snapshot write should never block the
-    // rail rendering.
-    unawaited(_savePersonalizedSnapshot(ref, resolved));
+    // Block on the snapshot write — it's a single tiny prefs.setString
+    // (~5 ms), and we'd rather guarantee the next cold start sees the
+    // snapshot than save the round-trip here. The fire-and-forget
+    // version we had before could lose the write if the provider was
+    // auto-disposed before the unawaited Future resolved.
+    await _savePersonalizedSnapshot(ref, resolved);
+    debugPrint('[picks] snapshot written, ${resolved.length} cards');
   }
   return resolved;
 }
