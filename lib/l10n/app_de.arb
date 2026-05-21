@@ -308,6 +308,8 @@
   "introMarked": "Intro gespeichert. Die nächste Folge bietet das Überspringen an.",
   "introCleared": "Intro-Markierung entfernt.",
   "introMarkInvalid": "Endzeit muss nach Startzeit liegen.",
+  "showTrailerSetting": "Trailer-PiP anzeigen",
+  "showTrailerSettingDesc": "Schwebender YouTube-Trailer rechts oben auf Detailseiten. Zum statischen Panel: ausschalten.",
   "aiAssistant": "KI-Assistent",
   "aiAssistantSubtitle": "Optional — Füge einen kostenlosen Google Gemini API-Key ein, um smarte Funktionen freizuschalten.",
   "aiAssistantWhy": "Was du mit einem Key bekommst",

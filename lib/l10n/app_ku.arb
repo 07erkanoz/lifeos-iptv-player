@@ -308,6 +308,8 @@
   "introMarked": "Destpêk hate tomarkirin. Beşa pêş wê derbasbûnê pêşniyar bike.",
   "introCleared": "Nîşana destpêkê hate jêbirin.",
   "introMarkInvalid": "Dema dawî divê piştî dema destpêkê be.",
+  "showTrailerSetting": "Fragmanê piçûk nîşan bide",
+  "showTrailerSettingDesc": "Fragmanê YouTube ya li jora rastê ya rûpelên hûragahî. Ji bo panelek statîk wê bigire.",
   "aiAssistant": "Alîkarê AI",
   "aiAssistantSubtitle": "Bijarî — bişopa Google Gemini API ya belaş binivîsîne ji bo vekirina taybetmendiyên jîr.",
   "aiAssistantWhy": "Bi bişopê tu çi qezenc dikî",

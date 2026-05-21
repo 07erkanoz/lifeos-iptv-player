@@ -316,6 +316,8 @@
   "introMarked": "İntro kaydedildi. Sonraki bölümde atlamayı önerecek.",
   "introCleared": "İntro işareti silindi.",
   "introMarkInvalid": "Bitiş zamanı başlangıçtan sonra olmalı.",
+  "showTrailerSetting": "Fragman göster",
+  "showTrailerSettingDesc": "Detay sayfasının sağ üstündeki küçük YouTube fragmanı. Statik bir panel istiyorsan kapat.",
   "aiAssistant": "AI Asistan",
   "aiAssistantSubtitle": "Opsiyonel — ücretsiz Google Gemini API key'i yapıştırarak akıllı özellikleri aç.",
   "aiAssistantWhy": "Key girince neler kazanırsın",

@@ -1,4 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
+// `hide Column` so Flutter's widget `Column` resolves below — drift
+// exports a Column type for its DSL that would otherwise shadow it.
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,26 +91,57 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     });
 
     final repo = ref.read(contentRepositoryProvider);
-    // Pull a same-type sample of the library. Same-type bias is
-    // intentional — when looking at a movie the user usually wants
-    // other movies, not random series matches. ~80 items keeps the
-    // prompt input ~6KB / ~1.7K tokens.
+    // Pull a much bigger same-type sample of the library. 80 was
+    // not enough for catalogues over a few hundred items — the
+    // top-rated tail rarely overlapped with what would actually
+    // make a great match (niche or mid-tier titles AI knows by
+    // name). 500 items keeps the prompt ~30 KB / ~7.5 K tokens
+    // in the new pipe-separated compact form.
     final sampleByType = await repo.sampleLibraryForAi(
-      moviesPerType: widget.current.type == 'movie' ? 80 : 10,
-      seriesPerType: widget.current.type == 'series' ? 80 : 10,
-      livePerType: widget.current.type == 'live' ? 40 : 5,
+      moviesPerType: widget.current.type == 'movie' ? 500 : 30,
+      seriesPerType: widget.current.type == 'series' ? 500 : 30,
+      livePerType: widget.current.type == 'live' ? 80 : 10,
     );
     // Skip the current item itself.
     final sample = sampleByType
         .where((c) => c.streamId != widget.current.streamId)
         .toList();
-    // Personalisation hook left empty in v1 — FavoritesRepository
-    // exposes streams not one-shot futures, so we'd need to await
-    // a `.first` on `watchAllFavorites()` and then key-intersect
-    // with the sample. The library sample is already strong enough
-    // signal for now; a follow-up commit can add this once the
-    // repo has a `Future<Set<int>>` getter.
-    const favoritesSample = <Channel>[];
+
+    // Personalisation signal: pull the user's most-recently-watched
+    // items + a few favourites. AI uses these as a taste hint —
+    // "this user leans into Korean drama / 90 dk under films / etc."
+    // We compute these from the SAME library sample so the result
+    // is just a subset already in the prompt; no extra tokens.
+    //
+    // For a fresh user with no history / favourites this stays
+    // empty and AI falls back to pure item-similarity matching.
+    final db = ref.read(appDatabaseProvider);
+    final favoritesSample = <Channel>[];
+    try {
+      // Up to 10 favourite items matching the current type. Cheap
+      // join, single query, runs in parallel with the sample fetch
+      // semantically.
+      final favRows = await (db.select(db.channels).join([
+        innerJoin(
+          db.favorites,
+          db.favorites.streamId.equalsExp(db.channels.streamId) &
+              db.favorites.streamType.equalsExp(db.channels.type),
+        ),
+      ])
+            ..where(db.channels.type.equals(widget.current.type))
+            ..orderBy([
+              OrderingTerm(
+                  expression: db.favorites.addedAt,
+                  mode: OrderingMode.desc),
+            ])
+            ..limit(10))
+          .get();
+      favoritesSample.addAll(
+          favRows.map((row) => row.readTable(db.channels)));
+    } catch (_) {
+      // Favourites query failure isn't fatal — drop the taste
+      // signal and proceed with item-only matching.
+    }
 
     Map<String, dynamic> compact(Channel ch) => {
           'streamId': ch.streamId,

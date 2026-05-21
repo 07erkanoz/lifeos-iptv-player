@@ -889,6 +889,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get introMarkInvalid => 'La fin doit être après le début.';
 
   @override
+  String get showTrailerSetting => 'Afficher la bande-annonce PiP';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Bande-annonce YouTube flottante en haut à droite des pages de détail. Désactivez pour un panneau statique.';
+
+  @override
   String get aiAssistant => 'Assistant IA';
 
   @override

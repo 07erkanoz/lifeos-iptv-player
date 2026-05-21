@@ -29,6 +29,12 @@ class AppSettings {
   // whenever playback is inside that range.
   final bool showSkipIntroButton;
 
+  // Floating YouTube trailer PiP on the desktop/TV detail page.
+  // Default on — most users like it. Power users / slow connections
+  // can switch it off so the detail panel stays static and no
+  // background extraction runs.
+  final bool showTrailer;
+
   // OpenSubtitles
   final String? opensubtitlesApiKey;
 
@@ -81,6 +87,7 @@ class AppSettings {
     this.autoHideAdult = true,
     this.continueWatchingEnabled = true,
     this.showSkipIntroButton = true,
+    this.showTrailer = true,
     this.opensubtitlesApiKey,
     this.geminiApiKey,
     this.subtitlePreferredLanguage = 'tr',
@@ -109,6 +116,7 @@ class AppSettings {
     bool? autoHideAdult,
     bool? continueWatchingEnabled,
     bool? showSkipIntroButton,
+    bool? showTrailer,
     String? opensubtitlesApiKey,
     String? geminiApiKey,
     bool clearGeminiApiKey = false,
@@ -138,6 +146,7 @@ class AppSettings {
       autoHideAdult: autoHideAdult ?? this.autoHideAdult,
       continueWatchingEnabled: continueWatchingEnabled ?? this.continueWatchingEnabled,
       showSkipIntroButton: showSkipIntroButton ?? this.showSkipIntroButton,
+      showTrailer: showTrailer ?? this.showTrailer,
       opensubtitlesApiKey: opensubtitlesApiKey ?? this.opensubtitlesApiKey,
       geminiApiKey: clearGeminiApiKey
           ? null

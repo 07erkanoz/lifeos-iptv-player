@@ -20,6 +20,7 @@ class SettingsRepository {
   static const _keyAutoHideAdult = 'auto_hide_adult';
   static const _keyContinueWatching = 'continue_watching_enabled';
   static const _keyShowSkipIntro = 'show_skip_intro_button';
+  static const _keyShowTrailer = 'show_trailer';
   static const _keyParentalEnabled = 'parental_control_enabled';
   static const _keyParentalPin = 'parental_pin';
   static const _keyOpenSubsApiKey = 'opensubtitles_api_key';
@@ -49,6 +50,7 @@ class SettingsRepository {
       autoHideAdult: _prefs.getBool(_keyAutoHideAdult) ?? true,
       continueWatchingEnabled: _prefs.getBool(_keyContinueWatching) ?? true,
       showSkipIntroButton: _prefs.getBool(_keyShowSkipIntro) ?? true,
+      showTrailer: _prefs.getBool(_keyShowTrailer) ?? true,
       parentalControlEnabled: _prefs.getBool(_keyParentalEnabled) ?? false,
       parentalPin: _prefs.getString(_keyParentalPin),
       opensubtitlesApiKey: _prefs.getString(_keyOpenSubsApiKey),
@@ -76,6 +78,7 @@ class SettingsRepository {
     await _prefs.setBool(_keyAutoHideAdult, settings.autoHideAdult);
     await _prefs.setBool(_keyContinueWatching, settings.continueWatchingEnabled);
     await _prefs.setBool(_keyShowSkipIntro, settings.showSkipIntroButton);
+    await _prefs.setBool(_keyShowTrailer, settings.showTrailer);
     await _prefs.setBool(_keyParentalEnabled, settings.parentalControlEnabled);
     if (settings.parentalPin != null) {
       await _prefs.setString(_keyParentalPin, settings.parentalPin!);

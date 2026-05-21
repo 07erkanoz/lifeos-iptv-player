@@ -20,6 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
@@ -892,6 +893,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         genreText: genre.toString().isNotEmpty ? genre.toString() : ch.genre,
         baseDirector: director.toString().isNotEmpty ? director.toString() : ch.director,
         baseCast: cast.toString().isNotEmpty ? cast.toString() : ch.cast,
+        basePlot: plot.toString().isNotEmpty ? plot.toString() : ch.plot,
         personalizationSeed: [...favoriteMovies, ...historyMovies],
       ),
       loading: () => const <Channel>[],
@@ -1172,7 +1174,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           // the same `showExpandedTrailer` dialog directly, which is
           // the right entry point for a touch UI without burning
           // cellular data / battery on silent autoplay.
-          if (!isMobilePlatform)
+          //
+          // Also gated on the user's `showTrailer` setting — turning
+          // it off keeps the detail panel static and stops the
+          // background YouTube extraction from running.
+          if (!isMobilePlatform &&
+              ref.watch(settingsProvider).showTrailer)
             Positioned(
               top: 88,
               right: 32,
@@ -1515,12 +1522,20 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     String? genreText,
     String? baseDirector,
     String? baseCast,
+    String? basePlot,
     List<Channel> personalizationSeed = const [],
     int limit = 12,
   }) {
     final baseGenres = _genreTokens(genreText ?? current.genre ?? '');
     final baseDirectors = _textTokens(baseDirector ?? current.director ?? '');
     final baseCastTokens = _textTokens(baseCast ?? current.cast ?? '', minLength: 4);
+    // Plot tokens — meaningful content words from the current item's
+    // plot. Drives a thematic-overlap score so e.g. an action film
+    // about "kidnapping a daughter" surfaces other films whose
+    // plots include "kidnapping". Stopword-filtered + length-gated
+    // to drop "the", "and", "için", etc.
+    final basePlotTokens =
+        _plotTokens(basePlot ?? current.plot ?? '');
     final seedItems = personalizationSeed.where((c) => c.streamId != current.streamId).toList();
     final seedIds = seedItems.map((c) => c.streamId).toSet();
     final prefGenres = <String>{};
@@ -1555,6 +1570,19 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       if (baseCastTokens.isNotEmpty && itemCast.isNotEmpty) {
         final castOverlap = itemCast.where(baseCastTokens.contains).length;
         score += (castOverlap * 2).clamp(0, 6).toInt();
+      }
+
+      // Plot keyword overlap — thematic match independent of
+      // genre/cast/director. Counts shared meaningful words in
+      // the plot column and weights moderately (each shared word
+      // is worth 1 point, capped at 5).
+      if (basePlotTokens.isNotEmpty) {
+        final itemPlotTokens = _plotTokens(channel.plot ?? '');
+        if (itemPlotTokens.isNotEmpty) {
+          final plotOverlap =
+              itemPlotTokens.where(basePlotTokens.contains).length;
+          score += plotOverlap.clamp(0, 5);
+        }
       }
 
       if (prefGenres.isNotEmpty && itemGenres.isNotEmpty) {
@@ -1594,8 +1622,69 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       return (b.key.rating ?? 0).compareTo(a.key.rating ?? 0);
     });
 
-    return scored.take(limit).map((e) => e.key).toList();
+    // Diversity guard — without it the top-N tends to be a clone
+    // strip of the same series / franchise (e.g. "Korku Seansı 1,
+    // 2, 3, 4…"). Cap items with the same primary genre at half
+    // the result set; if we hit the cap, skip subsequent
+    // same-genre candidates and pick from lower-scored buckets so
+    // the user still sees variety.
+    final picked = <Channel>[];
+    final genreCount = <String, int>{};
+    final maxPerGenre = (limit / 2).ceil();
+    for (final entry in scored) {
+      final ch = entry.key;
+      final primary = (_genreTokens(ch.genre ?? '').isNotEmpty)
+          ? _genreTokens(ch.genre ?? '').first
+          : '__nogenre__';
+      final count = genreCount[primary] ?? 0;
+      if (count >= maxPerGenre) continue;
+      picked.add(ch);
+      genreCount[primary] = count + 1;
+      if (picked.length >= limit) break;
+    }
+    // If diversity capping starved us, top up from the original
+    // ranking — better to over-cluster than to return too few.
+    if (picked.length < limit) {
+      for (final entry in scored) {
+        if (picked.contains(entry.key)) continue;
+        picked.add(entry.key);
+        if (picked.length >= limit) break;
+      }
+    }
+    return picked;
   }
+
+  /// Plot tokens for thematic similarity. Lowercase, longer than
+  /// 3 chars, alphabetic, and minus a Turkish + English stopword
+  /// list so common connectives don't pollute the signal.
+  Set<String> _plotTokens(String raw) {
+    if (raw.trim().isEmpty) return const {};
+    final words = raw
+        .toLowerCase()
+        .split(RegExp(r'[^a-zçğıöşü0-9]+'))
+        .where((w) => w.length > 3 && !_plotStopwords.contains(w));
+    return words.toSet();
+  }
+
+  static const _plotStopwords = {
+    // English
+    'this', 'that', 'with', 'from', 'they', 'their', 'them', 'have',
+    'will', 'when', 'what', 'where', 'which', 'while', 'into', 'about',
+    'after', 'before', 'because', 'against', 'between', 'through',
+    'during', 'above', 'below', 'over', 'under', 'than', 'just',
+    'only', 'also', 'even', 'some', 'such', 'each', 'most', 'more',
+    'much', 'many', 'other', 'another', 'these', 'those', 'there',
+    'been', 'being', 'were', 'would', 'could', 'should', 'might',
+    'must', 'film', 'movie', 'story', 'tale', 'series',
+    // Turkish
+    'için', 'olan', 'olarak', 'bir', 'ile', 'gibi', 'ama', 'fakat',
+    'ancak', 'çünkü', 'eğer', 'değil', 'olur', 'olabilir', 'üzerine',
+    'kadar', 'sonra', 'önce', 'bunu', 'bunun', 'şunu', 'onun', 'onlar',
+    'biri', 'kendisi', 'kendi', 'her', 'tüm', 'tümü', 'birçok',
+    'dizi', 'hikaye', 'hikayesi', 'konu', 'konusu', 'karakter',
+    'karakteri', 'karakterler', 'kişi', 'kişisi', 'olduğu', 'olduğunu',
+    'olduğunda', 'sırasında', 'üzerinde', 'altında', 'arasında',
+  };
 
   Set<String> _genreTokens(String raw) {
     return raw

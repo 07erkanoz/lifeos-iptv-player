@@ -818,6 +818,20 @@ class _PlayerSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
       ),
+      const SizedBox(height: 12),
+      // Floating trailer PiP on detail pages. Default on — it's a
+      // big quality-of-life win on desktop/TV — but heavy users
+      // sometimes prefer a static detail panel (slow internet,
+      // distraction, etc.).
+      SwitchListTile(
+        title: Text(l10n.showTrailerSetting, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
+        subtitle: Text(l10n.showTrailerSettingDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        value: settings.showTrailer,
+        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(showTrailer: val)),
+        activeThumbColor: AppColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      ),
     ]);
   }
 }

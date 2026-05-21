@@ -298,6 +298,8 @@
   "introMarked": "Intro saved. The next episode will offer to skip it.",
   "introCleared": "Intro marker cleared.",
   "introMarkInvalid": "End time must be after start time.",
+  "showTrailerSetting": "Show trailer PiP",
+  "showTrailerSettingDesc": "Floating YouTube trailer in the upper-right of detail pages. Turn off to keep the panel static.",
   "aiAssistant": "AI Assistant",
   "aiAssistantSubtitle": "Optional — paste a free Google Gemini API key to unlock smart features.",
   "aiAssistantWhy": "What you get with a key",

@@ -308,6 +308,8 @@
   "introMarked": "تم حفظ المقدمة. ستقترح الحلقة التالية تخطيها.",
   "introCleared": "تم مسح علامة المقدمة.",
   "introMarkInvalid": "يجب أن يكون وقت النهاية بعد وقت البداية.",
+  "showTrailerSetting": "إظهار العرض المصغّر",
+  "showTrailerSettingDesc": "عرض YouTube عائم في أعلى يمين صفحات التفاصيل. أوقفه إن أردت لوحة ثابتة.",
   "aiAssistant": "مساعد الذكاء الاصطناعي",
   "aiAssistantSubtitle": "اختياري — الصق مفتاح Google Gemini API المجاني لفتح الميزات الذكية.",
   "aiAssistantWhy": "ما الذي تحصل عليه بمفتاح",

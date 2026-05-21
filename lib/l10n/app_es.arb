@@ -308,6 +308,8 @@
   "introMarked": "Intro guardado. El siguiente episodio te ofrecerá saltarlo.",
   "introCleared": "Marca de intro eliminada.",
   "introMarkInvalid": "El fin debe ser posterior al inicio.",
+  "showTrailerSetting": "Mostrar tráiler PiP",
+  "showTrailerSettingDesc": "Tráiler flotante de YouTube arriba a la derecha en las páginas de detalle. Apágalo para un panel estático.",
   "aiAssistant": "Asistente de IA",
   "aiAssistantSubtitle": "Opcional — pega una clave gratuita de Google Gemini para desbloquear funciones inteligentes.",
   "aiAssistantWhy": "Qué obtienes con una clave",

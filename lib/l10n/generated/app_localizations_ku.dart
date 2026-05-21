@@ -885,6 +885,13 @@ class AppLocalizationsKu extends AppLocalizations {
   String get introMarkInvalid => 'Dema dawî divê piştî dema destpêkê be.';
 
   @override
+  String get showTrailerSetting => 'Fragmanê piçûk nîşan bide';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Fragmanê YouTube ya li jora rastê ya rûpelên hûragahî. Ji bo panelek statîk wê bigire.';
+
+  @override
   String get aiAssistant => 'Alîkarê AI';
 
   @override

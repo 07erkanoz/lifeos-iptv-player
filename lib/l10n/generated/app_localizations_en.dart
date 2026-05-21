@@ -885,6 +885,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get introMarkInvalid => 'End time must be after start time.';
 
   @override
+  String get showTrailerSetting => 'Show trailer PiP';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Floating YouTube trailer in the upper-right of detail pages. Turn off to keep the panel static.';
+
+  @override
   String get aiAssistant => 'AI Assistant';
 
   @override

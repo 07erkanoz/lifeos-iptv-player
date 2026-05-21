@@ -883,6 +883,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get introMarkInvalid => 'يجب أن يكون وقت النهاية بعد وقت البداية.';
 
   @override
+  String get showTrailerSetting => 'إظهار العرض المصغّر';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'عرض YouTube عائم في أعلى يمين صفحات التفاصيل. أوقفه إن أردت لوحة ثابتة.';
+
+  @override
   String get aiAssistant => 'مساعد الذكاء الاصطناعي';
 
   @override

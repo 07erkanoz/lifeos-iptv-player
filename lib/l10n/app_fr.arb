@@ -308,6 +308,8 @@
   "introMarked": "Générique enregistré. L'épisode suivant proposera de le sauter.",
   "introCleared": "Marqueur de générique effacé.",
   "introMarkInvalid": "La fin doit être après le début.",
+  "showTrailerSetting": "Afficher la bande-annonce PiP",
+  "showTrailerSettingDesc": "Bande-annonce YouTube flottante en haut à droite des pages de détail. Désactivez pour un panneau statique.",
   "aiAssistant": "Assistant IA",
   "aiAssistantSubtitle": "Optionnel — collez une clé API Google Gemini gratuite pour débloquer les fonctions intelligentes.",
   "aiAssistantWhy": "Ce que vous obtenez avec une clé",

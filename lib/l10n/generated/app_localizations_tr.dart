@@ -884,6 +884,13 @@ class AppLocalizationsTr extends AppLocalizations {
   String get introMarkInvalid => 'Bitiş zamanı başlangıçtan sonra olmalı.';
 
   @override
+  String get showTrailerSetting => 'Fragman göster';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Detay sayfasının sağ üstündeki küçük YouTube fragmanı. Statik bir panel istiyorsan kapat.';
+
+  @override
   String get aiAssistant => 'AI Asistan';
 
   @override

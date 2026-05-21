@@ -888,6 +888,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get introMarkInvalid => 'Endzeit muss nach Startzeit liegen.';
 
   @override
+  String get showTrailerSetting => 'Trailer-PiP anzeigen';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Schwebender YouTube-Trailer rechts oben auf Detailseiten. Zum statischen Panel: ausschalten.';
+
+  @override
   String get aiAssistant => 'KI-Assistent';
 
   @override

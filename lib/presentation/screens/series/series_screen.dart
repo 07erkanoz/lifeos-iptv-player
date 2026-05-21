@@ -1620,6 +1620,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             ? director.toString()
             : ch.director,
         baseCast: cast.toString().isNotEmpty ? cast.toString() : ch.cast,
+        basePlot: plot.toString().isNotEmpty ? plot.toString() : ch.plot,
         personalizationSeed: [...favoriteSeries, ...historySeries],
       ),
       loading: () => const <Channel>[],
@@ -2212,7 +2213,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           // 384×216 fixed pixels it overflows narrow phone viewports
           // and stamps right under the header. The shared "Fragman
           // İzle" action button below opens the same dialog on mobile.
-          if (!isMobilePlatform)
+          //
+          // Also gated on the user's `showTrailer` setting.
+          if (!isMobilePlatform &&
+              ref.watch(settingsProvider).showTrailer)
             Positioned(
               top: 88,
               right: 32,
@@ -2446,6 +2450,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     String? genreText,
     String? baseDirector,
     String? baseCast,
+    String? basePlot,
     List<Channel> personalizationSeed = const [],
     int limit = 12,
   }) {
@@ -2455,6 +2460,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       baseCast ?? current.cast ?? '',
       minLength: 4,
     );
+    // Plot keyword set — drives thematic-overlap scoring so series
+    // with related premise float up even when genre/cast don't
+    // overlap. See `_plotTokens` for stopword handling.
+    final basePlotTokens =
+        _plotTokens(basePlot ?? current.plot ?? '');
     final seedItems = personalizationSeed
         .where((c) => c.streamId != current.streamId)
         .toList();
@@ -2492,6 +2502,17 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       if (baseCastTokens.isNotEmpty && itemCast.isNotEmpty) {
         final castOverlap = itemCast.where(baseCastTokens.contains).length;
         score += (castOverlap * 2).clamp(0, 6).toInt();
+      }
+
+      // Plot keyword overlap — thematic match independent of
+      // genre/cast/director.
+      if (basePlotTokens.isNotEmpty) {
+        final itemPlotTokens = _plotTokens(channel.plot ?? '');
+        if (itemPlotTokens.isNotEmpty) {
+          final plotOverlap =
+              itemPlotTokens.where(basePlotTokens.contains).length;
+          score += plotOverlap.clamp(0, 5);
+        }
       }
 
       if (prefGenres.isNotEmpty && itemGenres.isNotEmpty) {
@@ -2535,8 +2556,64 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       return (b.key.rating ?? 0).compareTo(a.key.rating ?? 0);
     });
 
-    return scored.take(limit).map((e) => e.key).toList();
+    // Diversity cap — keep no more than half the slots for any
+    // single primary genre. Without this, the top-N tends to be a
+    // single-genre block (all "Drama" or all "Polisiye").
+    final picked = <Channel>[];
+    final genreCount = <String, int>{};
+    final maxPerGenre = (limit / 2).ceil();
+    for (final entry in scored) {
+      final ch = entry.key;
+      final primary = (_genreTokens(ch.genre ?? '').isNotEmpty)
+          ? _genreTokens(ch.genre ?? '').first
+          : '__nogenre__';
+      final count = genreCount[primary] ?? 0;
+      if (count >= maxPerGenre) continue;
+      picked.add(ch);
+      genreCount[primary] = count + 1;
+      if (picked.length >= limit) break;
+    }
+    if (picked.length < limit) {
+      for (final entry in scored) {
+        if (picked.contains(entry.key)) continue;
+        picked.add(entry.key);
+        if (picked.length >= limit) break;
+      }
+    }
+    return picked;
   }
+
+  /// Plot tokens for thematic similarity. Lowercase, longer than
+  /// 3 chars, alphabetic, with a Turkish + English stopword filter
+  /// so common connectives don't pollute the signal.
+  Set<String> _plotTokens(String raw) {
+    if (raw.trim().isEmpty) return const {};
+    return raw
+        .toLowerCase()
+        .split(RegExp(r'[^a-zçğıöşü0-9]+'))
+        .where((w) => w.length > 3 && !_plotStopwords.contains(w))
+        .toSet();
+  }
+
+  static const _plotStopwords = {
+    // English
+    'this', 'that', 'with', 'from', 'they', 'their', 'them', 'have',
+    'will', 'when', 'what', 'where', 'which', 'while', 'into', 'about',
+    'after', 'before', 'because', 'against', 'between', 'through',
+    'during', 'above', 'below', 'over', 'under', 'than', 'just',
+    'only', 'also', 'even', 'some', 'such', 'each', 'most', 'more',
+    'much', 'many', 'other', 'another', 'these', 'those', 'there',
+    'been', 'being', 'were', 'would', 'could', 'should', 'might',
+    'must', 'film', 'movie', 'series', 'story', 'tale',
+    // Turkish
+    'için', 'olan', 'olarak', 'bir', 'ile', 'gibi', 'ama', 'fakat',
+    'ancak', 'çünkü', 'eğer', 'değil', 'olur', 'olabilir', 'üzerine',
+    'kadar', 'sonra', 'önce', 'bunu', 'bunun', 'şunu', 'onun', 'onlar',
+    'biri', 'kendisi', 'kendi', 'her', 'tüm', 'tümü', 'birçok',
+    'dizi', 'hikaye', 'hikayesi', 'konu', 'konusu', 'karakter',
+    'karakteri', 'karakterler', 'kişi', 'kişisi', 'olduğu', 'olduğunu',
+    'olduğunda', 'sırasında', 'üzerinde', 'altında', 'arasında',
+  };
 
   Set<String> _genreTokens(String raw) {
     return raw

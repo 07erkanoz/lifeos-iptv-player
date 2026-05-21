@@ -1778,6 +1778,18 @@ abstract class AppLocalizations {
   /// **'Bitiş zamanı başlangıçtan sonra olmalı.'**
   String get introMarkInvalid;
 
+  /// No description provided for @showTrailerSetting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Fragman göster'**
+  String get showTrailerSetting;
+
+  /// No description provided for @showTrailerSettingDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Detay sayfasının sağ üstündeki küçük YouTube fragmanı. Statik bir panel istiyorsan kapat.'**
+  String get showTrailerSettingDesc;
+
   /// No description provided for @aiAssistant.
   ///
   /// In tr, this message translates to:

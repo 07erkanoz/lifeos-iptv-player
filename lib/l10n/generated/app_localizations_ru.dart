@@ -887,6 +887,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get introMarkInvalid => 'Конец должен быть позже начала.';
 
   @override
+  String get showTrailerSetting => 'Показывать PiP-трейлер';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Плавающий YouTube-трейлер в правом верхнем углу страниц деталей. Отключите для статичной панели.';
+
+  @override
   String get aiAssistant => 'ИИ-ассистент';
 
   @override

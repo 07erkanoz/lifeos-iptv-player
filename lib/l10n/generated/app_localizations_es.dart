@@ -887,6 +887,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get introMarkInvalid => 'El fin debe ser posterior al inicio.';
 
   @override
+  String get showTrailerSetting => 'Mostrar tráiler PiP';
+
+  @override
+  String get showTrailerSettingDesc =>
+      'Tráiler flotante de YouTube arriba a la derecha en las páginas de detalle. Apágalo para un panel estático.';
+
+  @override
   String get aiAssistant => 'Asistente de IA';
 
   @override
