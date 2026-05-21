@@ -64,9 +64,25 @@ final heroBillboardProvider =
       : ref.read(settingsProvider).language.name;
   final timeOfDay = _bucketOfDay(DateTime.now());
 
-  // Fold language + time-bucket into the fingerprint so a morning
-  // hero doesn't get reused as an evening hero (and vice versa).
-  final fpBlob = 'hero-v1|lang=$lang|tod=$timeOfDay'
+  // Cheap probe: max `added` timestamp across VOD. Folded into the
+  // fingerprint so any new content landing in the catalogue auto-
+  // invalidates the cached hero — we WANT the hero to react to new
+  // items, that's the whole point of the recent-additions prompt.
+  final newest = await (db.selectOnly(db.channels)
+        ..addColumns([db.channels.added])
+        ..where(db.channels.type.equals('movie') |
+            db.channels.type.equals('series'))
+        ..orderBy([
+          OrderingTerm(
+              expression: db.channels.added, mode: OrderingMode.desc),
+        ])
+        ..limit(1))
+      .map((row) => row.read(db.channels.added) ?? '')
+      .getSingleOrNull();
+
+  // Fold language + time-bucket + newest-added into the fingerprint.
+  final fpBlob = 'hero-v2|lang=$lang|tod=$timeOfDay'
+      '|n=${newest ?? ""}'
       '|h=${(histIds.map((r) => r.streamId).toList()..sort()).join(",")}'
       '|f=${(favIds.map((r) => r.streamId).toList()..sort()).join(",")}';
   final sourceHash = AiRailCacheRepository.fingerprint(fpBlob);
@@ -117,38 +133,80 @@ final heroBillboardProvider =
   final favSignals =
       await contentRepo.tasteSignalsFromFavorites(limit: 12);
 
-  // The hero NEEDS backdrops to look right. Bias the sample toward
-  // well-rated mainstream titles so AI has good candidates.
+  // ── Recent additions pool ─────────────────────────────────────────
+  // The hero's primary job is to surface what's new in the catalogue.
+  // Pull the freshest VOD by the Xtream `added` timestamp (text-typed
+  // Unix epoch, so we can't push the order into SQL — sort in Dart
+  // after a bounded fetch). Filter for items that have a backdrop or
+  // at least a poster so the hero panel doesn't render broken.
+  final allVod = await (db.select(db.channels)
+        ..where((t) => t.type.equals('movie') | t.type.equals('series'))
+        ..limit(2000))
+      .get();
+  int parseAdded(Channel c) =>
+      int.tryParse(c.added?.trim() ?? '') ?? 0;
+  final sortedByAdded = allVod.toList()
+    ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
+  final recentWithArt = sortedByAdded
+      .where((c) =>
+          (c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
+          (c.streamIcon != null && c.streamIcon!.isNotEmpty))
+      .take(80)
+      .toList();
+
+  // ── Broader well-rated sample ─────────────────────────────────────
+  // Variety net so the AI has fallback candidates when RECENT_ADDITIONS
+  // doesn't fit the user's taste. Strict backdrop filter again.
   final sample = await contentRepo.sampleLibraryForAi(
     moviesPerType: 120,
     seriesPerType: 120,
-    livePerType: 0, // hero is VOD-only
+    livePerType: 0,
   );
-
-  String escape(String? s) =>
-      (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
-  // Only feed AI candidates that have backdrops — billboard items
-  // without a hero image look broken. Falls back to all items if
-  // backdrop-tagged ones are too sparse.
   final withBackdrop = sample
       .where((c) =>
           (c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
           (c.streamIcon != null && c.streamIcon!.isNotEmpty))
       .toList();
   final pool = withBackdrop.length >= 50 ? withBackdrop : sample;
-  final libraryRows = <String>[
-    'id|title|type|year|genre|director|cast|rating',
-    for (final c in pool.take(300))
-      '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
-  ];
+
+  String escape(String? s) =>
+      (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
+  String rowOf(Channel c) =>
+      '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}';
+  final header = 'id|title|type|year|genre|director|cast|rating';
+
+  final recentAdditionsPayload = recentWithArt.isEmpty
+      ? <Map<String, dynamic>>[]
+      : [
+          {
+            '_format': 'pipe-separated rows, newest-first',
+            '_rows': [
+              header,
+              for (final c in recentWithArt) rowOf(c),
+            ],
+          },
+        ];
+
+  // Dedupe LIBRARY_HIGHLIGHTS against RECENT_ADDITIONS so the AI
+  // doesn't see the same item in both pools and get confused about
+  // which signal applies.
+  final recentIds = recentWithArt.map((c) => c.streamId).toSet();
   final librarySample = [
-    {'_format': 'pipe-separated rows', '_rows': libraryRows},
+    {
+      '_format': 'pipe-separated rows',
+      '_rows': [
+        header,
+        for (final c in pool.take(220))
+          if (!recentIds.contains(c.streamId)) rowOf(c),
+      ],
+    },
   ];
 
   final picks = await gemini
       .generateHeroBillboard(
         recentlyWatched: historySignals,
         favorites: favSignals,
+        recentAdditions: recentAdditionsPayload,
         librarySample: librarySample,
         timeOfDay: timeOfDay,
         targetLanguage: lang,

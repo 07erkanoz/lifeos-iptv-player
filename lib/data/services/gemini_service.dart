@@ -1415,41 +1415,51 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
   Future<List<({int streamId, String tagline})>?> generateHeroBillboard({
     required List<Map<String, dynamic>> recentlyWatched,
     required List<Map<String, dynamic>> favorites,
+    required List<Map<String, dynamic>> recentAdditions,
     required List<Map<String, dynamic>> librarySample,
     required String timeOfDay,
     required String targetLanguage,
   }) async {
-    if (_apiKey.isEmpty || librarySample.isEmpty) return null;
+    if (_apiKey.isEmpty) return null;
+    if (recentAdditions.isEmpty && librarySample.isEmpty) return null;
 
     final systemPrompt = '''
 You program the hero billboard at the top of an IPTV / streaming
-app's dashboard. The user sees this big, immediately. Pick 3-5
-items from LIBRARY that should be billboarded right now, with a
-short hook tagline for each.
+app's dashboard — the very first big visual the user sees on open.
+Pick 3-5 items with a short hook tagline for each.
 
 Inputs (first user turn, JSON):
   * TIME_OF_DAY — "sabah" / "öğle" / "akşam" / "gece" — adjust the
     vibe (gentle in the morning, bigger in the evening).
   * RECENTLY_WATCHED + FAVORITES — taste signals.
-  * LIBRARY — pipe-separated rows
-    `id|title|type|year|genre|director|cast|rating`.
+  * RECENT_ADDITIONS — items added to the catalogue in the last few
+    weeks, sorted newest-first. STRONGLY PREFERRED source for the
+    billboard — users open the dashboard partly to see what's new.
+  * LIBRARY_HIGHLIGHTS — broader well-rated catalogue cross-section,
+    use only for variety when RECENT_ADDITIONS doesn't have a good
+    fit for the user's taste.
 
 Rules:
-  1. Only return streamIds present in LIBRARY.
-  2. 3-5 picks. Quality over quantity — a dud at the top of the
-     dashboard is far worse than a dud in row 7.
-  3. `tagline` is ONE short hook sentence in $targetLanguage —
-     under 12 words, NOT a plot summary. It's the line that makes
-     the user click "Play" right now. Examples:
+  1. Only return streamIds present in either RECENT_ADDITIONS or
+     LIBRARY_HIGHLIGHTS.
+  2. 3-5 picks. **At least 2 picks MUST be from RECENT_ADDITIONS**
+     so the hero feels fresh, not a static rotation. If a pick
+     comes from LIBRARY_HIGHLIGHTS, it should still match the
+     user's taste closely.
+  3. Quality over quantity — a dud at the top of the dashboard is
+     far worse than a dud in row 7.
+  4. `tagline` is ONE short hook sentence in $targetLanguage —
+     under 12 words, NOT a plot summary. Examples:
+       "Yeni eklendi — bu hafta sonu için biçilmiş kaftan."
        "Bu akşam için tam ihtiyacın olan tempo."
-       "İzlediğin Mike & Nick'in yönetmeninden."
-       "Yeni eklendi — kütüphanenin en konuşulan adayı."
-  4. Mix types: at least one movie + one series if the library
-     has both. Lean toward items the user hasn't watched yet.
-  5. Prefer items likely to have a backdrop image — well-rated
-     mainstream titles. Obscure niche stuff goes on the rails,
-     not the billboard.
-  6. Time-of-day awareness: gece = darker / introspective allowed,
+       "İzlediğin Mike & Nick'in yönetmeninden, daha yeni geldi."
+     When the pick is from RECENT_ADDITIONS, lean into the freshness
+     angle ("Yeni eklendi", "Bu hafta düştü") whenever it fits.
+  5. Mix types: at least one movie + one series if both pools have
+     candidates. Lean toward items the user hasn't watched yet.
+  6. Prefer items likely to have a backdrop image — well-rated
+     mainstream titles. Obscure niche stuff goes on the rails.
+  7. Time-of-day awareness: gece = darker / introspective allowed,
      sabah = lighter, akşam = primetime crowd-pleaser.
 
 Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
@@ -1458,7 +1468,8 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
     final userTurn = 'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'LIBRARY: ${jsonEncode(librarySample)}';
+        'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
+        'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
