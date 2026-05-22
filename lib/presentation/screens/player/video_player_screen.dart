@@ -87,6 +87,11 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   /// For series: the parent series channel streamId (so history grid works)
   final int? parentStreamId;
 
+  /// Default intro length (seconds) used when no precise marker has
+  /// been recorded for this series. Wired in by the router from
+  /// AppSettings; 90 s if unset.
+  final int introDefaultSeconds;
+
   /// Channel list for live TV channel switching (D-pad up/down)
   final List<PlayerChannel>? channels;
   final int? currentChannelIndex;
@@ -115,6 +120,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.rating,
     this.startPosition,
     this.parentStreamId,
+    this.introDefaultSeconds = 90,
     this.channels,
     this.currentChannelIndex,
     this.categoryNames,
@@ -447,13 +453,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     });
   }
 
-  /// Skip past the intro: seek to the marker's `introEndMs` and hide
-  /// the floating button. Caller has already verified the marker
-  /// exists.
+  /// Skip past the intro:
+  ///   * If the user has marked a precise range, seek to
+  ///     `introEndMs`.
+  ///   * Otherwise (default-window mode) seek to
+  ///     `introDefaultSeconds * 1000` ms — the same target the
+  ///     visibility window uses, so tapping while the button is
+  ///     showing always lands past the configured intro length.
   Future<void> _skipIntroNow() async {
-    final end = _introEndMs;
-    if (end == null) return;
-    _player.seek(Duration(milliseconds: end));
+    final target = _introEndMs ?? widget.introDefaultSeconds * 1000;
+    _player.seek(Duration(milliseconds: target));
     setState(() => _showSkipIntro = false);
   }
 
@@ -638,7 +647,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               const Icon(Icons.skip_next, color: Colors.white, size: 18),
               const SizedBox(width: 6),
               Text(
-                '${l10n.skipIntroLabel} (→${_fmt(Duration(milliseconds: _introEndMs ?? 0))})',
+                // Use the precise marker's end if the user recorded
+                // one for this series; otherwise the default-window
+                // target. The label always reads "Skip Intro
+                // (→m:ss)" so the user knows where playback lands.
+                '${l10n.skipIntroLabel} (→${_fmt(Duration(milliseconds: _introEndMs ?? widget.introDefaultSeconds * 1000))})',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -866,18 +879,38 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _startNextCountdown();
           }
         }
-        // Skip-intro visibility window: position is inside the marked
-        // `[introStartMs, introEndMs]` range. If the user hasn't
-        // marked an intro for this series yet, both timestamps are
-        // null and the button stays hidden — instead, the marking UI
-        // ("Bu diziyi tanı") lets them set the range while watching.
+        // ── Skip-intro visibility ──────────────────────────────────
+        //
+        // Two-tier behaviour (Netflix-style):
+        //
+        //   1. **Default window** — for ANY series episode, show the
+        //      "Skip Intro" button during the first
+        //      `introSkipDefaultSeconds` of playback. Works with zero
+        //      user setup. Default 90 s matches the cadence of
+        //      typical episode openings.
+        //
+        //   2. **Per-series override** — if the user has used the
+        //      bookmark dialog to record a precise range for this
+        //      series, that range takes precedence over the default
+        //      window. Useful for series with unusually long
+        //      ("Game of Thrones") or off-front ("episode 1 has
+        //      cold-open before intro") openings.
+        //
+        // Either way the rail relies only on the in-memory state
+        // (`_introStartMs/_introEndMs` populated from Drift +
+        // `widget.introDefaultSeconds`), so it doesn't matter if the
+        // Drift watch hasn't fired yet — the default window kicks in
+        // from the first position event.
         if (widget.type == VideoType.series && widget.parentStreamId != null) {
-          final start = _introStartMs;
-          final end = _introEndMs;
-          final shouldShow = start != null &&
-              end != null &&
-              p.inMilliseconds >= start &&
-              p.inMilliseconds <= end;
+          final hasMarker = _introStartMs != null && _introEndMs != null;
+          final bool shouldShow;
+          if (hasMarker) {
+            shouldShow = p.inMilliseconds >= _introStartMs! &&
+                p.inMilliseconds <= _introEndMs!;
+          } else {
+            shouldShow = p.inMilliseconds <
+                widget.introDefaultSeconds * 1000;
+          }
           if (shouldShow != _showSkipIntro && mounted) {
             setState(() => _showSkipIntro = shouldShow);
           }

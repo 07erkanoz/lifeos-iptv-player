@@ -24,10 +24,21 @@ class AppSettings {
   // Content
   final bool continueWatchingEnabled;
 
-  // Skip-Intro UX. When true and the user has marked this series'
-  // intro range, the player overlays a "Skip Intro" floating button
-  // whenever playback is inside that range.
+  // Skip-Intro UX. When true the player surfaces a "Skip Intro"
+  // floating button on series episodes. Falls back to a default
+  // [introSkipDefaultSeconds] window when no precise marker has been
+  // recorded for the series, so the button always works without
+  // requiring per-series setup. When the user marks a precise range
+  // through the bookmark dialog, that range overrides the default.
   final bool showSkipIntroButton;
+
+  /// How many seconds of an unmarked series episode count as "intro".
+  /// The Skip-Intro button is shown for the first
+  /// [introSkipDefaultSeconds] of any series episode that doesn't
+  /// have a precise marker. 90 seconds matches the Netflix /
+  /// HBO Max / Disney+ default and covers the vast majority of
+  /// real-world series intros.
+  final int introSkipDefaultSeconds;
 
   // Floating YouTube trailer PiP on the desktop/TV detail page.
   // Default on — most users like it. Power users / slow connections
@@ -99,6 +110,7 @@ class AppSettings {
     this.autoHideAdult = true,
     this.continueWatchingEnabled = true,
     this.showSkipIntroButton = true,
+    this.introSkipDefaultSeconds = 90,
     this.showTrailer = true,
     this.tasteWizardCompleted = false,
     this.lastDigestDismissedAt,
@@ -130,6 +142,7 @@ class AppSettings {
     bool? autoHideAdult,
     bool? continueWatchingEnabled,
     bool? showSkipIntroButton,
+    int? introSkipDefaultSeconds,
     bool? showTrailer,
     bool? tasteWizardCompleted,
     DateTime? lastDigestDismissedAt,
@@ -162,6 +175,8 @@ class AppSettings {
       autoHideAdult: autoHideAdult ?? this.autoHideAdult,
       continueWatchingEnabled: continueWatchingEnabled ?? this.continueWatchingEnabled,
       showSkipIntroButton: showSkipIntroButton ?? this.showSkipIntroButton,
+      introSkipDefaultSeconds:
+          introSkipDefaultSeconds ?? this.introSkipDefaultSeconds,
       showTrailer: showTrailer ?? this.showTrailer,
       tasteWizardCompleted:
           tasteWizardCompleted ?? this.tasteWizardCompleted,

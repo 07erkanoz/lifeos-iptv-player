@@ -765,6 +765,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         'logo': _detailChannel?.streamIcon,
         'startPosition': startPosition,
         'parentStreamId': _detailChannel?.streamId,
+        'introDefaultSeconds':
+            ref.read(settingsProvider).introSkipDefaultSeconds,
         'plot': info?['plot'] ?? _detailChannel?.plot,
         'genre': info?['genre'] ?? _detailChannel?.genre,
         'year':

@@ -20,6 +20,7 @@ class SettingsRepository {
   static const _keyAutoHideAdult = 'auto_hide_adult';
   static const _keyContinueWatching = 'continue_watching_enabled';
   static const _keyShowSkipIntro = 'show_skip_intro_button';
+  static const _keyIntroSkipSeconds = 'intro_skip_default_seconds';
   static const _keyShowTrailer = 'show_trailer';
   static const _keyTasteWizardDone = 'taste_wizard_completed';
   static const _keyLastDigestDismissed = 'last_digest_dismissed_at';
@@ -52,6 +53,7 @@ class SettingsRepository {
       autoHideAdult: _prefs.getBool(_keyAutoHideAdult) ?? true,
       continueWatchingEnabled: _prefs.getBool(_keyContinueWatching) ?? true,
       showSkipIntroButton: _prefs.getBool(_keyShowSkipIntro) ?? true,
+      introSkipDefaultSeconds: _prefs.getInt(_keyIntroSkipSeconds) ?? 90,
       showTrailer: _prefs.getBool(_keyShowTrailer) ?? true,
       tasteWizardCompleted: _prefs.getBool(_keyTasteWizardDone) ?? false,
       lastDigestDismissedAt: () {
@@ -87,6 +89,8 @@ class SettingsRepository {
     await _prefs.setBool(_keyAutoHideAdult, settings.autoHideAdult);
     await _prefs.setBool(_keyContinueWatching, settings.continueWatchingEnabled);
     await _prefs.setBool(_keyShowSkipIntro, settings.showSkipIntroButton);
+    await _prefs.setInt(
+        _keyIntroSkipSeconds, settings.introSkipDefaultSeconds);
     await _prefs.setBool(_keyShowTrailer, settings.showTrailer);
     await _prefs.setBool(_keyTasteWizardDone, settings.tasteWizardCompleted);
     if (settings.lastDigestDismissedAt != null) {

@@ -99,6 +99,8 @@ GoRouter router(Ref ref) {
             rating: extras['rating'] as double?,
             startPosition: extras['startPosition'] as Duration?,
             parentStreamId: extras['parentStreamId'] as int?,
+            introDefaultSeconds:
+                (extras['introDefaultSeconds'] as int?) ?? 90,
             channels: extras['channels'] as List<PlayerChannel>?,
             currentChannelIndex: extras['currentChannelIndex'] as int?,
             categoryNames: extras['categoryNames'] as Map<String, String>?,
