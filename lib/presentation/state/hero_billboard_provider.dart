@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -40,6 +41,10 @@ final heroBillboardProvider =
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
   final cache = ref.watch(aiRailCacheRepositoryProvider);
+  // Watch the global dislike stream — flipping a feedback flag from
+  // ANY surface auto-invalidates the hero so the next paint reflects
+  // the new exclusion without manual refresh.
+  ref.watch(dislikedStreamIdsProvider);
 
   // ── Compute the fingerprint we'll use as a cache key ─────────────
   // Pull just the IDs of the user's top taste signals (small query)
@@ -82,11 +87,26 @@ final heroBillboardProvider =
       .map((row) => row.read(db.channels.added) ?? '')
       .getSingleOrNull();
 
-  // Fold language + time-bucket + newest-added into the fingerprint.
-  final fpBlob = 'hero-v2|lang=$lang|tod=$timeOfDay'
+  // Pull feedback ids early so they can join the fingerprint —
+  // toggling a dislike / moreLike anywhere in the app invalidates
+  // the cached hero on the next paint.
+  final feedbackRepoEarly =
+      ref.read(aiFeedbackRepositoryProvider);
+  final dislikedIdsForKey =
+      (await feedbackRepoEarly.getDislikedStreamIds()).toList()..sort();
+  final moreLikeIdsForKey =
+      (await feedbackRepoEarly.getMoreLikeStreamIds()).toList()..sort();
+
+  // Fold language + time-bucket + newest-added + feedback into the
+  // fingerprint. Bumped to hero-v3 so old v2 cache rows get a clean
+  // recompute the first time this build runs (they don't know about
+  // disliked / moreLike yet).
+  final fpBlob = 'hero-v3|lang=$lang|tod=$timeOfDay'
       '|n=${newest ?? ""}'
       '|h=${(histIds.map((r) => r.streamId).toList()..sort()).join(",")}'
-      '|f=${(favIds.map((r) => r.streamId).toList()..sort()).join(",")}';
+      '|f=${(favIds.map((r) => r.streamId).toList()..sort()).join(",")}'
+      '|d=${dislikedIdsForKey.join(",")}'
+      '|m=${moreLikeIdsForKey.join(",")}';
   final sourceHash = AiRailCacheRepository.fingerprint(fpBlob);
 
   // Cache lookup — 24 h TTL. The hero rotates every day-ish, which
@@ -135,6 +155,25 @@ final heroBillboardProvider =
   final favSignals =
       await contentRepo.tasteSignalsFromFavorites(limit: 12);
 
+  // ── Feedback signals ──────────────────────────────────────────────
+  // Pull the user's global dislike + moreLike lists. The hero
+  // doesn't have its own ⋯ menu (we kept it cinematic) but it
+  // honours feedback from every other AI surface — that's the
+  // whole point of feedback being a global signal.
+  final feedbackRepo = ref.read(aiFeedbackRepositoryProvider);
+  final dislikedIds = await feedbackRepo.getDislikedStreamIds();
+  final moreLikeIds = await feedbackRepo.getMoreLikeStreamIds();
+  final dislikedRows = dislikedIds.isEmpty
+      ? const <Channel>[]
+      : await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(dislikedIds.toList())))
+          .get();
+  final moreLikeRows = moreLikeIds.isEmpty
+      ? const <Channel>[]
+      : await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(moreLikeIds.toList())))
+          .get();
+
   // ── Recent additions pool ─────────────────────────────────────────
   // The hero's primary job is to surface what's new in the catalogue.
   // Pull the freshest VOD by the Xtream `added` timestamp (text-typed
@@ -149,10 +188,14 @@ final heroBillboardProvider =
       int.tryParse(c.added?.trim() ?? '') ?? 0;
   final sortedByAdded = allVod.toList()
     ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
+  // Strip disliked items from the recent-additions pool BEFORE the
+  // AI sees them — a disliked title can never reach the hero again,
+  // regardless of how fresh it is.
   final recentWithArt = sortedByAdded
       .where((c) =>
-          (c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
-          (c.streamIcon != null && c.streamIcon!.isNotEmpty))
+          !dislikedIds.contains(c.streamId) &&
+          ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
+              (c.streamIcon != null && c.streamIcon!.isNotEmpty)))
       .take(80)
       .toList();
 
@@ -166,10 +209,17 @@ final heroBillboardProvider =
   );
   final withBackdrop = sample
       .where((c) =>
-          (c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
-          (c.streamIcon != null && c.streamIcon!.isNotEmpty))
+          !dislikedIds.contains(c.streamId) &&
+          ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
+              (c.streamIcon != null && c.streamIcon!.isNotEmpty)))
       .toList();
-  final pool = withBackdrop.length >= 50 ? withBackdrop : sample;
+  // Same dislike filter on the rare fallback path too — if the
+  // backdrop net shrank to under 50 items, we expand to the full
+  // sample but still respect feedback.
+  final fallbackPool = sample
+      .where((c) => !dislikedIds.contains(c.streamId))
+      .toList();
+  final pool = withBackdrop.length >= 50 ? withBackdrop : fallbackPool;
 
   String escape(String? s) =>
       (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
@@ -204,6 +254,18 @@ final heroBillboardProvider =
     },
   ];
 
+  // Compact feedback signal maps for the AI prompt — same shape as
+  // the "Sana Özel" rail uses so the model gets consistent context.
+  Map<String, dynamic> compactSignal(Channel c) => {
+        'id': c.streamId,
+        'title': c.name,
+        'type': c.type,
+        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+        if (c.director != null && c.director!.isNotEmpty)
+          'director': c.director,
+      };
+
   final instrumentation = ref.read(aiInstrumentationProvider);
   final picks = await instrumentation
       .record<List<({int streamId, String tagline})>>(
@@ -219,6 +281,8 @@ final heroBillboardProvider =
       librarySample: librarySample,
       timeOfDay: timeOfDay,
       targetLanguage: lang,
+      moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
+      avoidTitles: dislikedRows.map(compactSignal).toList(),
     ),
   );
 

@@ -1477,6 +1477,8 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
     required List<Map<String, dynamic>> librarySample,
     required String timeOfDay,
     required String targetLanguage,
+    List<Map<String, dynamic>> moreLikeAnchors = const [],
+    List<Map<String, dynamic>> avoidTitles = const [],
   }) async {
     if (_apiKey.isEmpty) return null;
     if (recentAdditions.isEmpty && librarySample.isEmpty) return null;
@@ -1523,11 +1525,27 @@ Rules:
 Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
 ''';
 
+    // Feedback signals — surfaced to the hero AI the same way as
+    // the "Sana Özel" rail. Disliked items are also stripped from
+    // the candidate pools upstream by the provider, but mentioning
+    // them by name in AVOID_THESE also nudges the AI's choice away
+    // from sibling titles (same director / genre).
+    final moreLikeHint = moreLikeAnchors.isEmpty
+        ? ''
+        : '\nMORE_LIKE_THESE: ${jsonEncode(moreLikeAnchors)} — '
+            'titles the user explicitly marked "more like this". '
+            'Treat as the strongest positive signal you have.';
+    final avoidHint = avoidTitles.isEmpty
+        ? ''
+        : '\nAVOID_THESE: ${jsonEncode(avoidTitles)} — disliked. '
+            'Do NOT billboard them OR neighbours that share their '
+            'core appeal (same lead, genre, tone).';
+
     final userTurn = 'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
         'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
-        'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}';
+        'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}$moreLikeHint$avoidHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
