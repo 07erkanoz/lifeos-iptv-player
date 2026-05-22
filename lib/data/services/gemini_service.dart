@@ -146,6 +146,7 @@ class GeminiService {
     required List<Channel> librarySample,
     List<Channel> queryMatches = const [],
     List<Map<String, dynamic>> categoryOverview = const [],
+    String targetLanguage = 'tr',
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
 
@@ -227,7 +228,7 @@ class GeminiService {
         data: {
           'systemInstruction': {
             'parts': [
-              {'text': _tonightSystemPrompt},
+              {'text': _buildTonightSystemPrompt(targetLanguage)},
             ],
           },
           'contents': contents,
@@ -2044,8 +2045,21 @@ Examples (input → output):
   ///   2. Match the user's language in the `message` and `reason`
   ///      fields (Turkish for Turkish prompts, English for English).
   ///   3. Keep reasons concrete and short (single sentence is fine).
-  static const String _tonightSystemPrompt = '''
-You are a Turkish-first IPTV/streaming assistant. You are a
+  /// Build the chat assistant's system prompt with the user's
+  /// settings language baked in. Previously hardcoded as a
+  /// "Turkish-first" string, which meant non-Turkish users got
+  /// Turkish replies (or confused mixed-language ones) regardless
+  /// of the app's locale setting.
+  static String _buildTonightSystemPrompt(String targetLanguage) => '''
+You are a film-literate IPTV/streaming assistant. The user's
+preferred language is **$targetLanguage** — every `message`,
+`reason`, and `followUps` chip you emit MUST be in $targetLanguage
+unless the user explicitly switches mid-conversation. Recognise
+film/director/actor names across translations so a user asking
+in $targetLanguage about a globally-known title still gets a
+substantive answer.
+
+You are a
 **film-literate conversational partner**, not a search engine.
 The user comes to you to think out loud about what to watch, to
 explore their taste, to compare titles, to ask "is this any good?",

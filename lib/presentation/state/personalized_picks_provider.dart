@@ -7,6 +7,8 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
+import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -322,17 +324,24 @@ final personalizedPicksProvider =
   // The taste-signal maps come from the repository helpers, which
   // include the category label — the real genre signal on this
   // catalogue since channels.genre is mostly NULL.
-  final picks = await gemini
-      .recommendForYou(
-        recentlyWatched: historySignals,
-        favorites: favSignals,
-        librarySample: librarySample,
-        targetLanguage: lang,
-        varietySeed: refreshSeed,
-        moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
-        avoidTitles: dislikedRows.map(compactSignal).toList(),
-      )
-      .timeout(const Duration(seconds: 20), onTimeout: () => null);
+  final instrumentation = ref.read(aiInstrumentationProvider);
+  final picks = await instrumentation.record<
+      List<({int streamId, String reason})>>(
+    feature: 'recommendForYou',
+    model: AiModelPolicy.dashboardRanking,
+    candidateCount: filteredSample.length,
+    outputCountOf: (p) => p.length,
+    timeout: const Duration(seconds: 20),
+    run: () => gemini.recommendForYou(
+      recentlyWatched: historySignals,
+      favorites: favSignals,
+      librarySample: librarySample,
+      targetLanguage: lang,
+      varietySeed: refreshSeed,
+      moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
+      avoidTitles: dislikedRows.map(compactSignal).toList(),
+    ),
+  );
 
   if (picks != null && picks.isNotEmpty) {
     await cacheRepo.store(sourceHash: sourceHash, picks: picks);

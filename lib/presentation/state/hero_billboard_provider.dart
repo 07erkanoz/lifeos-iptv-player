@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -202,16 +204,23 @@ final heroBillboardProvider =
     },
   ];
 
-  final picks = await gemini
-      .generateHeroBillboard(
-        recentlyWatched: historySignals,
-        favorites: favSignals,
-        recentAdditions: recentAdditionsPayload,
-        librarySample: librarySample,
-        timeOfDay: timeOfDay,
-        targetLanguage: lang,
-      )
-      .timeout(const Duration(seconds: 20), onTimeout: () => null);
+  final instrumentation = ref.read(aiInstrumentationProvider);
+  final picks = await instrumentation
+      .record<List<({int streamId, String tagline})>>(
+    feature: 'generateHeroBillboard',
+    model: AiModelPolicy.dashboardRanking,
+    candidateCount: recentWithArt.length + pool.length,
+    outputCountOf: (p) => p.length,
+    timeout: const Duration(seconds: 20),
+    run: () => gemini.generateHeroBillboard(
+      recentlyWatched: historySignals,
+      favorites: favSignals,
+      recentAdditions: recentAdditionsPayload,
+      librarySample: librarySample,
+      timeOfDay: timeOfDay,
+      targetLanguage: lang,
+    ),
+  );
 
   if (picks == null || picks.isEmpty) return null;
 

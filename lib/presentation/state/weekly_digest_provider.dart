@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -145,14 +147,21 @@ final weeklyDigestProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  final result = await gemini
-      .weeklyDigest(
-        recentAdditions: recentAdditions,
-        favorites: favSignals,
-        recentlyWatched: historySignals,
-        targetLanguage: lang,
-      )
-      .timeout(const Duration(seconds: 20), onTimeout: () => null);
+  final instrumentation = ref.read(aiInstrumentationProvider);
+  final result = await instrumentation.record<
+      ({String headline, List<({int streamId, String reason})> picks})>(
+    feature: 'weeklyDigest',
+    model: AiModelPolicy.dashboardRanking,
+    candidateCount: recentRows.length,
+    outputCountOf: (r) => r.picks.length,
+    timeout: const Duration(seconds: 20),
+    run: () => gemini.weeklyDigest(
+      recentAdditions: recentAdditions,
+      favorites: favSignals,
+      recentlyWatched: historySignals,
+      targetLanguage: lang,
+    ),
+  );
 
   if (result == null) return null;
 

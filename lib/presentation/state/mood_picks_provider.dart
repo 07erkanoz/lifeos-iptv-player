@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart'
     show PersonalizedPickCard;
@@ -142,20 +144,24 @@ final moodPicksProvider =
   // Looked up in the widget for the localised label; but for the AI
   // call we pass the English vibe verbatim — the prompt stays
   // consistent across UI languages.
-  final picks = await gemini
-      .recommendForMood(
-        moodKey: mood.key,
-        moodLabel: mood.key, // localised label happens in the widget
-        moodDescription: mood.englishVibe,
-        recentlyWatched: historySignals,
-        favorites: favSignals,
-        librarySample: librarySample,
-        targetLanguage: lang,
-      )
-      .timeout(const Duration(seconds: 25), onTimeout: () {
-    debugPrint('[mood] AI call timed out for ${mood.key}');
-    return null;
-  });
+  final instrumentation = ref.read(aiInstrumentationProvider);
+  final picks = await instrumentation
+      .record<List<({int streamId, String reason})>>(
+    feature: 'recommendForMood:${mood.key}',
+    model: AiModelPolicy.dashboardRanking,
+    candidateCount: sample.length,
+    outputCountOf: (p) => p.length,
+    timeout: const Duration(seconds: 25),
+    run: () => gemini.recommendForMood(
+      moodKey: mood.key,
+      moodLabel: mood.key,
+      moodDescription: mood.englishVibe,
+      recentlyWatched: historySignals,
+      favorites: favSignals,
+      librarySample: librarySample,
+      targetLanguage: lang,
+    ),
+  );
 
   // AI failed or returned empty → fall back to a genre-themed
   // direct DB query so the rail never goes empty for a mood the

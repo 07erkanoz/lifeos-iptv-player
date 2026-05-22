@@ -12,6 +12,7 @@ import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/state/tonight_context_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
@@ -140,16 +141,22 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       candidateCount: queryMatches.length + ctx.librarySample.length,
       outputCountOf: (r) => r.recommendations.length,
       timeout: const Duration(seconds: 30),
-      run: () => gemini.recommendForTonight(
-        conversation: _messages
-            .map((m) => (fromUser: m.fromUser, text: m.text))
-            .toList(),
-        recentlyWatched: ctx.recentlyWatched,
-        favorites: ctx.favorites,
-        librarySample: ctx.librarySample,
-        queryMatches: queryMatches,
-        categoryOverview: categoryOverview,
-      ),
+      run: () {
+        final lang = ref.read(settingsProvider).language.name == 'system'
+            ? 'tr'
+            : ref.read(settingsProvider).language.name;
+        return gemini.recommendForTonight(
+          conversation: _messages
+              .map((m) => (fromUser: m.fromUser, text: m.text))
+              .toList(),
+          recentlyWatched: ctx.recentlyWatched,
+          favorites: ctx.favorites,
+          librarySample: ctx.librarySample,
+          queryMatches: queryMatches,
+          categoryOverview: categoryOverview,
+          targetLanguage: lang,
+        );
+      },
     );
 
     if (!mounted) return;
