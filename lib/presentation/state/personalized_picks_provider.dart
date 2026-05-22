@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -162,6 +163,12 @@ final personalizedPicksProvider =
   final cacheRepo = ref.watch(personalizedPicksRepositoryProvider);
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
+  // Watch the dislike list — when the user disikes a title in any
+  // surface, this stream fires and the provider re-runs so the
+  // dismissed item disappears from the rail without a manual
+  // refresh. Empty set on first read; the actual filtering happens
+  // inside _resolveAndSnapshot.
+  ref.watch(dislikedStreamIdsProvider);
 
   // Refresh nonce — bumped by the rail's refresh button. When
   // non-zero we skip the cache entirely and pass the seed to Gemini
@@ -476,13 +483,25 @@ Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
   AppDatabase db,
   Ref ref,
 ) async {
-  final resolved = await _resolve(picks, db);
+  // Strip disliked stream IDs BEFORE resolving — user said "don't
+  // show this", so it never makes the card list, even if the AI
+  // recommended it (the AI gets its prompt context filtered too,
+  // but the cache might still have a pre-feedback row).
+  final disliked = await ref
+      .read(aiFeedbackRepositoryProvider)
+      .getDislikedStreamIds();
+  final filteredPicks = disliked.isEmpty
+      ? picks
+      : picks.where((p) => !disliked.contains(p.streamId)).toList();
+  if (filteredPicks.length < picks.length) {
+    debugPrint('[picks] filtered ${picks.length - filteredPicks.length} '
+        'disliked items from cached rail');
+  }
+  final resolved = await _resolve(filteredPicks, db);
   if (resolved.isNotEmpty) {
     // Block on the snapshot write — it's a single tiny prefs.setString
     // (~5 ms), and we'd rather guarantee the next cold start sees the
-    // snapshot than save the round-trip here. The fire-and-forget
-    // version we had before could lose the write if the provider was
-    // auto-disposed before the unawaited Future resolved.
+    // snapshot than save the round-trip here.
     await _savePersonalizedSnapshot(ref, resolved);
     debugPrint('[picks] snapshot written, ${resolved.length} cards');
   }

@@ -9,6 +9,7 @@ import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
@@ -682,6 +683,9 @@ class _RecCard extends ConsumerWidget {
       // Genuine hallucination — id doesn't exist in the DB at all.
       return const SizedBox.shrink();
     }
+    // Pin to a non-nullable local so closures (onPressed below)
+    // don't trip the analyzer with promotion-across-closure errors.
+    final channel = ch;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -720,16 +724,40 @@ class _RecCard extends ConsumerWidget {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  ch.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                      ch.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  // Feedback overflow menu — Sevmedim / Bunun gibi
+                  // daha / Neden önerildi?. Discoverable, low-noise,
+                  // sits inside the card's white-on-dark text region.
+                  IconButton(
+                    icon: const Icon(Icons.more_horiz,
+                        color: Colors.white70, size: 18),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                        minWidth: 28, minHeight: 28),
+                    tooltip: AppLocalizations.of(context)!.aiFeedbackWhy,
+                    onPressed: () => AiFeedbackSheet.show(
+                      context,
+                      streamId: channel.streamId,
+                      type: channel.type,
+                      title: channel.name,
+                      reason: rec.reason,
+                      feature: 'chat',
+                    ),
+                  ),
+                ]),
                 if ([
                   ch.year ?? '',
                   ch.genre ?? '',

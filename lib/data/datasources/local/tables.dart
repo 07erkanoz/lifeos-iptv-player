@@ -201,6 +201,48 @@ class AiCallLogs extends Table {
       dateTime().withDefault(currentDateAndTime)();
 }
 
+/// User feedback on AI-surfaced items.
+///
+/// Each row is one explicit action — `dislike` or `moreLike` — the
+/// user took on a recommendation card across any AI surface (chat,
+/// "Sana Özel", mood rail, weekly digest, hero). The same (streamId,
+/// type, action) triple can only appear once: toggling a dislike on
+/// then off deletes the row rather than inserting a counter-action.
+///
+/// Read by every AI provider before the Gemini call:
+///   * `dislike` rows → streamId excluded from candidate pools and
+///     from the prompt entirely. AI never re-surfaces a disliked
+///     title.
+///   * `moreLike` rows → fed into the prompt as a stronger taste
+///     signal ("user marked these as 'more like this'") so the AI
+///     leans toward similar items.
+///
+/// Stays local; never leaves the device. Privacy-sensitive (a
+/// dislike list is a preference fingerprint).
+class AiFeedback extends Table {
+  IntColumn get streamId => integer()();
+  TextColumn get type => text()(); // 'movie' / 'series' / 'live'
+
+  /// One of: 'dislike', 'moreLike'.
+  ///
+  /// `dislike` — never show in any AI surface again. Hard filter.
+  /// `moreLike` — boost in AI prompts as a taste anchor. Soft signal.
+  ///
+  /// "Hide for now" stays in-memory in the rail; not persisted.
+  TextColumn get action => text()();
+
+  /// Optional feature tag — useful for analytics ("most disliked
+  /// rail = mood"). Nullable because some feedback comes from
+  /// generic surfaces. Not used in filtering.
+  TextColumn get feature => text().nullable()();
+
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, type, action};
+}
+
 /// Per-series intro position markers used to drive the "Skip Intro"
 /// affordance in the player. A series usually has a fixed-length intro
 /// reused across every episode, so we store *one* marker per series and

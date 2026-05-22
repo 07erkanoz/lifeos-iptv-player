@@ -1119,6 +1119,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Latency, success rate, error codes — last 1000 calls, stays on device.';
 
   @override
+  String get aiFeedbackMoreLike => 'More like this';
+
+  @override
+  String get aiFeedbackDislike => 'Not interested, hide';
+
+  @override
+  String get aiFeedbackWhy => 'Why was this picked?';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'We\'ll surface more like this';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'We\'ll stop suggesting this';
+
+  @override
+  String get aiFeedbackRemoved => 'Feedback removed';
+
+  @override
   String get aiChatGreeting =>
       'Hi! Ask me what to watch or tell me to give info about a title — I\'ll answer based on your library.';
 

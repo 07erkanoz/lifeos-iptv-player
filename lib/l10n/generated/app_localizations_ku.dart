@@ -1120,6 +1120,24 @@ class AppLocalizationsKu extends AppLocalizations {
       'Lez, serkeftin, kodên xeletî — 1000 bangên dawî, di cîhazê de.';
 
   @override
+  String get aiFeedbackMoreLike => 'Bêhtir wek vê';
+
+  @override
+  String get aiFeedbackDislike => 'Nepêdivî, veşêre';
+
+  @override
+  String get aiFeedbackWhy => 'Çima hate pêşniyar kirin?';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'Em dê bêhtir wek vê nîşan bidin';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'Em êdî vê pêşniyar nakin';
+
+  @override
+  String get aiFeedbackRemoved => 'Vegerandin hat rakirin';
+
+  @override
   String get aiChatGreeting =>
       'Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.';
 

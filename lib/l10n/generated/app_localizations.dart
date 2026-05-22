@@ -2210,6 +2210,42 @@ abstract class AppLocalizations {
   /// **'Latency, başarı oranı, hata kodları — son 1000 çağrı, cihazda kalır.'**
   String get aiDebugPanelDesc;
 
+  /// No description provided for @aiFeedbackMoreLike.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bunun gibi daha öner'**
+  String get aiFeedbackMoreLike;
+
+  /// No description provided for @aiFeedbackDislike.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sevmedim, gösterme'**
+  String get aiFeedbackDislike;
+
+  /// No description provided for @aiFeedbackWhy.
+  ///
+  /// In tr, this message translates to:
+  /// **'Neden önerildi?'**
+  String get aiFeedbackWhy;
+
+  /// No description provided for @aiFeedbackMoreLikeAdded.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bunun gibi öneriler artacak'**
+  String get aiFeedbackMoreLikeAdded;
+
+  /// No description provided for @aiFeedbackDislikeAdded.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bunu artık önermeyeceğiz'**
+  String get aiFeedbackDislikeAdded;
+
+  /// No description provided for @aiFeedbackRemoved.
+  ///
+  /// In tr, this message translates to:
+  /// **'Geri bildirim kaldırıldı'**
+  String get aiFeedbackRemoved;
+
   /// No description provided for @aiChatGreeting.
   ///
   /// In tr, this message translates to:

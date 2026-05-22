@@ -1118,6 +1118,24 @@ class AppLocalizationsTr extends AppLocalizations {
       'Latency, başarı oranı, hata kodları — son 1000 çağrı, cihazda kalır.';
 
   @override
+  String get aiFeedbackMoreLike => 'Bunun gibi daha öner';
+
+  @override
+  String get aiFeedbackDislike => 'Sevmedim, gösterme';
+
+  @override
+  String get aiFeedbackWhy => 'Neden önerildi?';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'Bunun gibi öneriler artacak';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'Bunu artık önermeyeceğiz';
+
+  @override
+  String get aiFeedbackRemoved => 'Geri bildirim kaldırıldı';
+
+  @override
   String get aiChatGreeting =>
       'Selam! Ne izlemek istediğini söyle ya da bir film/dizi hakkında bilgi iste — kütüphanene göre cevap vereyim.';
 

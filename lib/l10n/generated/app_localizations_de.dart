@@ -1128,6 +1128,24 @@ class AppLocalizationsDe extends AppLocalizations {
       'Latenz, Erfolgsrate, Fehlercodes — letzte 1000 Aufrufe, bleibt auf dem Gerät.';
 
   @override
+  String get aiFeedbackMoreLike => 'Mehr davon';
+
+  @override
+  String get aiFeedbackDislike => 'Nicht interessant';
+
+  @override
+  String get aiFeedbackWhy => 'Warum vorgeschlagen?';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'Wir zeigen mehr davon';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'Wir schlagen das nicht mehr vor';
+
+  @override
+  String get aiFeedbackRemoved => 'Feedback entfernt';
+
+  @override
   String get aiChatGreeting =>
       'Hallo! Frag mich, was du schauen sollst — ich wähle aus deiner Bibliothek.';
 

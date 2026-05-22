@@ -1117,6 +1117,24 @@ class AppLocalizationsAr extends AppLocalizations {
       'زمن الاستجابة، النجاح، الأخطاء — آخر 1000 استدعاء، على الجهاز.';
 
   @override
+  String get aiFeedbackMoreLike => 'المزيد مثل هذا';
+
+  @override
+  String get aiFeedbackDislike => 'لست مهتماً';
+
+  @override
+  String get aiFeedbackWhy => 'لماذا تم اقتراحه؟';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'سنعرض المزيد مثله';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'لن نقترح هذا بعد الآن';
+
+  @override
+  String get aiFeedbackRemoved => 'تم حذف التعليق';
+
+  @override
   String get aiChatGreeting => 'مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.';
 
   @override

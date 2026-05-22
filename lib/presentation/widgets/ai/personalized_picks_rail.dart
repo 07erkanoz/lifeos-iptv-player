@@ -8,6 +8,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
 
 /// Dashboard "Sana Özel" rail — passive daily-refresh AI-curated
 /// picks based on the user's watch history + favourites.
@@ -246,18 +247,35 @@ class _PickCardState extends State<_PickCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: ch.streamIcon!,
-                          width: 140,
-                          height: 210,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => _placeholderPoster(),
-                        )
-                      : _placeholderPoster(),
-                ),
+                Stack(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: ch.streamIcon!,
+                            width: 140,
+                            height: 210,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => _placeholderPoster(),
+                          )
+                        : _placeholderPoster(),
+                  ),
+                  // Feedback overflow menu — appears on hover/focus
+                  // to stay subtle; stays available on touch by
+                  // always rendering when active is true.
+                  if (isActive)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: _FeedbackOverflowButton(
+                        streamId: ch.streamId,
+                        type: ch.type,
+                        title: ch.name,
+                        reason: widget.card.reason,
+                        feature: 'sanaOzel',
+                      ),
+                    ),
+                ]),
                 const SizedBox(height: 6),
                 Text(
                   ch.name,
@@ -393,6 +411,50 @@ class _LoadingShimmer extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small overflow-menu button overlayed on AI rail cards. Tapping
+/// it opens the [AiFeedbackSheet] — the user can mark "more like
+/// this", dismiss the title, or read the AI's reason for picking
+/// it. Subtle on purpose: only shown when the parent card is
+/// hovered, focused, or being touched.
+class _FeedbackOverflowButton extends StatelessWidget {
+  final int streamId;
+  final String type;
+  final String title;
+  final String reason;
+  final String feature;
+
+  const _FeedbackOverflowButton({
+    required this.streamId,
+    required this.type,
+    required this.title,
+    required this.reason,
+    required this.feature,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => AiFeedbackSheet.show(
+          context,
+          streamId: streamId,
+          type: type,
+          title: title,
+          reason: reason.isNotEmpty ? reason : null,
+          feature: feature,
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(4),
+          child: Icon(Icons.more_horiz, color: Colors.white, size: 16),
+        ),
       ),
     );
   }

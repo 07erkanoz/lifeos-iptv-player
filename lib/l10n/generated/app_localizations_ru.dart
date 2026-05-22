@@ -1120,6 +1120,24 @@ class AppLocalizationsRu extends AppLocalizations {
       'Латентность, успех, коды ошибок — последние 1000 вызовов, локально.';
 
   @override
+  String get aiFeedbackMoreLike => 'Больше такого';
+
+  @override
+  String get aiFeedbackDislike => 'Не интересно, скрыть';
+
+  @override
+  String get aiFeedbackWhy => 'Почему выбрано?';
+
+  @override
+  String get aiFeedbackMoreLikeAdded => 'Будем показывать больше такого';
+
+  @override
+  String get aiFeedbackDislikeAdded => 'Больше не предложим';
+
+  @override
+  String get aiFeedbackRemoved => 'Отзыв удалён';
+
+  @override
   String get aiChatGreeting =>
       'Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.';
 

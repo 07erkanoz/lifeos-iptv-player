@@ -5319,6 +5319,379 @@ class AiCallLogsCompanion extends UpdateCompanion<AiCallLog> {
   }
 }
 
+class $AiFeedbackTable extends AiFeedback
+    with TableInfo<$AiFeedbackTable, AiFeedbackData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AiFeedbackTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _featureMeta = const VerificationMeta(
+    'feature',
+  );
+  @override
+  late final GeneratedColumn<String> feature = GeneratedColumn<String>(
+    'feature',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    type,
+    action,
+    feature,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ai_feedback';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AiFeedbackData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('feature')) {
+      context.handle(
+        _featureMeta,
+        feature.isAcceptableOrUnknown(data['feature']!, _featureMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, type, action};
+  @override
+  AiFeedbackData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AiFeedbackData(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      feature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}feature'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AiFeedbackTable createAlias(String alias) {
+    return $AiFeedbackTable(attachedDatabase, alias);
+  }
+}
+
+class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
+  final int streamId;
+  final String type;
+
+  /// One of: 'dislike', 'moreLike'.
+  ///
+  /// `dislike` — never show in any AI surface again. Hard filter.
+  /// `moreLike` — boost in AI prompts as a taste anchor. Soft signal.
+  ///
+  /// "Hide for now" stays in-memory in the rail; not persisted.
+  final String action;
+
+  /// Optional feature tag — useful for analytics ("most disliked
+  /// rail = mood"). Nullable because some feedback comes from
+  /// generic surfaces. Not used in filtering.
+  final String? feature;
+  final DateTime createdAt;
+  const AiFeedbackData({
+    required this.streamId,
+    required this.type,
+    required this.action,
+    this.feature,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['type'] = Variable<String>(type);
+    map['action'] = Variable<String>(action);
+    if (!nullToAbsent || feature != null) {
+      map['feature'] = Variable<String>(feature);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AiFeedbackCompanion toCompanion(bool nullToAbsent) {
+    return AiFeedbackCompanion(
+      streamId: Value(streamId),
+      type: Value(type),
+      action: Value(action),
+      feature: feature == null && nullToAbsent
+          ? const Value.absent()
+          : Value(feature),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AiFeedbackData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AiFeedbackData(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      type: serializer.fromJson<String>(json['type']),
+      action: serializer.fromJson<String>(json['action']),
+      feature: serializer.fromJson<String?>(json['feature']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'type': serializer.toJson<String>(type),
+      'action': serializer.toJson<String>(action),
+      'feature': serializer.toJson<String?>(feature),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AiFeedbackData copyWith({
+    int? streamId,
+    String? type,
+    String? action,
+    Value<String?> feature = const Value.absent(),
+    DateTime? createdAt,
+  }) => AiFeedbackData(
+    streamId: streamId ?? this.streamId,
+    type: type ?? this.type,
+    action: action ?? this.action,
+    feature: feature.present ? feature.value : this.feature,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AiFeedbackData copyWithCompanion(AiFeedbackCompanion data) {
+    return AiFeedbackData(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      type: data.type.present ? data.type.value : this.type,
+      action: data.action.present ? data.action.value : this.action,
+      feature: data.feature.present ? data.feature.value : this.feature,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiFeedbackData(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('action: $action, ')
+          ..write('feature: $feature, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(streamId, type, action, feature, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AiFeedbackData &&
+          other.streamId == this.streamId &&
+          other.type == this.type &&
+          other.action == this.action &&
+          other.feature == this.feature &&
+          other.createdAt == this.createdAt);
+}
+
+class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
+  final Value<int> streamId;
+  final Value<String> type;
+  final Value<String> action;
+  final Value<String?> feature;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AiFeedbackCompanion({
+    this.streamId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.action = const Value.absent(),
+    this.feature = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AiFeedbackCompanion.insert({
+    required int streamId,
+    required String type,
+    required String action,
+    this.feature = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       type = Value(type),
+       action = Value(action);
+  static Insertable<AiFeedbackData> custom({
+    Expression<int>? streamId,
+    Expression<String>? type,
+    Expression<String>? action,
+    Expression<String>? feature,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (type != null) 'type': type,
+      if (action != null) 'action': action,
+      if (feature != null) 'feature': feature,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AiFeedbackCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? type,
+    Value<String>? action,
+    Value<String?>? feature,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AiFeedbackCompanion(
+      streamId: streamId ?? this.streamId,
+      type: type ?? this.type,
+      action: action ?? this.action,
+      feature: feature ?? this.feature,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (feature.present) {
+      map['feature'] = Variable<String>(feature.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiFeedbackCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('action: $action, ')
+          ..write('feature: $feature, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5337,6 +5710,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PersonalizedPicksCacheTable personalizedPicksCache =
       $PersonalizedPicksCacheTable(this);
   late final $AiCallLogsTable aiCallLogs = $AiCallLogsTable(this);
+  late final $AiFeedbackTable aiFeedback = $AiFeedbackTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5354,6 +5728,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     plotAiCache,
     personalizedPicksCache,
     aiCallLogs,
+    aiFeedback,
   ];
 }
 
@@ -8567,6 +8942,206 @@ typedef $$AiCallLogsTableProcessedTableManager =
       AiCallLog,
       PrefetchHooks Function()
     >;
+typedef $$AiFeedbackTableCreateCompanionBuilder =
+    AiFeedbackCompanion Function({
+      required int streamId,
+      required String type,
+      required String action,
+      Value<String?> feature,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$AiFeedbackTableUpdateCompanionBuilder =
+    AiFeedbackCompanion Function({
+      Value<int> streamId,
+      Value<String> type,
+      Value<String> action,
+      Value<String?> feature,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$AiFeedbackTableFilterComposer
+    extends Composer<_$AppDatabase, $AiFeedbackTable> {
+  $$AiFeedbackTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get feature => $composableBuilder(
+    column: $table.feature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AiFeedbackTableOrderingComposer
+    extends Composer<_$AppDatabase, $AiFeedbackTable> {
+  $$AiFeedbackTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get feature => $composableBuilder(
+    column: $table.feature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AiFeedbackTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AiFeedbackTable> {
+  $$AiFeedbackTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get feature =>
+      $composableBuilder(column: $table.feature, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AiFeedbackTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AiFeedbackTable,
+          AiFeedbackData,
+          $$AiFeedbackTableFilterComposer,
+          $$AiFeedbackTableOrderingComposer,
+          $$AiFeedbackTableAnnotationComposer,
+          $$AiFeedbackTableCreateCompanionBuilder,
+          $$AiFeedbackTableUpdateCompanionBuilder,
+          (
+            AiFeedbackData,
+            BaseReferences<_$AppDatabase, $AiFeedbackTable, AiFeedbackData>,
+          ),
+          AiFeedbackData,
+          PrefetchHooks Function()
+        > {
+  $$AiFeedbackTableTableManager(_$AppDatabase db, $AiFeedbackTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AiFeedbackTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AiFeedbackTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AiFeedbackTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String?> feature = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiFeedbackCompanion(
+                streamId: streamId,
+                type: type,
+                action: action,
+                feature: feature,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String type,
+                required String action,
+                Value<String?> feature = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiFeedbackCompanion.insert(
+                streamId: streamId,
+                type: type,
+                action: action,
+                feature: feature,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AiFeedbackTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AiFeedbackTable,
+      AiFeedbackData,
+      $$AiFeedbackTableFilterComposer,
+      $$AiFeedbackTableOrderingComposer,
+      $$AiFeedbackTableAnnotationComposer,
+      $$AiFeedbackTableCreateCompanionBuilder,
+      $$AiFeedbackTableUpdateCompanionBuilder,
+      (
+        AiFeedbackData,
+        BaseReferences<_$AppDatabase, $AiFeedbackTable, AiFeedbackData>,
+      ),
+      AiFeedbackData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8598,6 +9173,8 @@ class $AppDatabaseManager {
       );
   $$AiCallLogsTableTableManager get aiCallLogs =>
       $$AiCallLogsTableTableManager(_db, _db.aiCallLogs);
+  $$AiFeedbackTableTableManager get aiFeedback =>
+      $$AiFeedbackTableTableManager(_db, _db.aiFeedback);
 }
 
 // **************************************************************************
