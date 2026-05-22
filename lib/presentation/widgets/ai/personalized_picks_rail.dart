@@ -260,21 +260,23 @@ class _PickCardState extends State<_PickCard> {
                           )
                         : _placeholderPoster(),
                   ),
-                  // Feedback overflow menu — appears on hover/focus
-                  // to stay subtle; stays available on touch by
-                  // always rendering when active is true.
-                  if (isActive)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: _FeedbackOverflowButton(
-                        streamId: ch.streamId,
-                        type: ch.type,
-                        title: ch.name,
-                        reason: widget.card.reason,
-                        feature: 'sanaOzel',
-                      ),
+                  // Feedback overflow menu — always visible so it's
+                  // discoverable on touch / TV (where hover doesn't
+                  // exist). The button has its own subtle background
+                  // and becomes more prominent on the parent card's
+                  // hover/focus state via [isActive].
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: _FeedbackOverflowButton(
+                      streamId: ch.streamId,
+                      type: ch.type,
+                      title: ch.name,
+                      reason: widget.card.reason,
+                      feature: 'sanaOzel',
+                      emphasised: isActive,
                     ),
+                  ),
                 ]),
                 const SizedBox(height: 6),
                 Text(
@@ -428,32 +430,53 @@ class _FeedbackOverflowButton extends StatelessWidget {
   final String reason;
   final String feature;
 
+  /// When the parent card is hovered / focused, the button gets a
+  /// darker background + sharper icon so it stands out as actionable.
+  /// At rest it stays visible but understated so it doesn't compete
+  /// with the poster art.
+  final bool emphasised;
+
   const _FeedbackOverflowButton({
     required this.streamId,
     required this.type,
     required this.title,
     required this.reason,
     required this.feature,
+    this.emphasised = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.55),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () => AiFeedbackSheet.show(
-          context,
-          streamId: streamId,
-          type: type,
-          title: title,
-          reason: reason.isNotEmpty ? reason : null,
-          feature: feature,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(
+          alpha: emphasised ? 0.75 : 0.45,
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(4),
-          child: Icon(Icons.more_horiz, color: Colors.white, size: 16),
+        shape: BoxShape.circle,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => AiFeedbackSheet.show(
+            context,
+            streamId: streamId,
+            type: type,
+            title: title,
+            reason: reason.isNotEmpty ? reason : null,
+            feature: feature,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(5),
+            child: Icon(
+              Icons.more_horiz,
+              color: Colors.white
+                  .withValues(alpha: emphasised ? 1.0 : 0.85),
+              size: 16,
+            ),
+          ),
         ),
       ),
     );
