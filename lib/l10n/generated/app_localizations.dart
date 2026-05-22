@@ -2198,6 +2198,18 @@ abstract class AppLocalizations {
   /// **'Sohbeti temizle'**
   String get aiChatClear;
 
+  /// No description provided for @aiDebugPanelTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI Çağrı Geçmişi'**
+  String get aiDebugPanelTitle;
+
+  /// No description provided for @aiDebugPanelDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Latency, başarı oranı, hata kodları — son 1000 çağrı, cihazda kalır.'**
+  String get aiDebugPanelDesc;
+
   /// No description provided for @aiChatGreeting.
   ///
   /// In tr, this message translates to:

@@ -1121,6 +1121,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiChatClear => 'Chat leeren';
 
   @override
+  String get aiDebugPanelTitle => 'KI-Aufrufprotokoll';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Latenz, Erfolgsrate, Fehlercodes — letzte 1000 Aufrufe, bleibt auf dem Gerät.';
+
+  @override
   String get aiChatGreeting =>
       'Hallo! Frag mich, was du schauen sollst — ich wähle aus deiner Bibliothek.';
 

@@ -394,6 +394,8 @@
   "openGeminiSite": "Открыть aistudio.google.com",
   "aiChatTitle": "ИИ-ассистент",
   "aiChatClear": "Очистить чат",
+  "aiDebugPanelTitle": "Журнал вызовов ИИ",
+  "aiDebugPanelDesc": "Латентность, успех, коды ошибок — последние 1000 вызовов, локально.",
   "aiChatGreeting": "Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.",
   "aiChatInputHint": "Спроси ассистента…",
   "aiThinking": "Думаю…",

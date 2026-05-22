@@ -1110,6 +1110,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get aiChatClear => 'مسح المحادثة';
 
   @override
+  String get aiDebugPanelTitle => 'سجل استدعاءات الذكاء الاصطناعي';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'زمن الاستجابة، النجاح، الأخطاء — آخر 1000 استدعاء، على الجهاز.';
+
+  @override
   String get aiChatGreeting => 'مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.';
 
   @override

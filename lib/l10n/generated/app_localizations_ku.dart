@@ -1113,6 +1113,13 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiChatClear => 'Axaftinê pak bike';
 
   @override
+  String get aiDebugPanelTitle => 'Tomara Bangên AI';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Lez, serkeftin, kodên xeletî — 1000 bangên dawî, di cîhazê de.';
+
+  @override
   String get aiChatGreeting =>
       'Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.';
 

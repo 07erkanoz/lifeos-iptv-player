@@ -1122,6 +1122,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiChatClear => 'Effacer le chat';
 
   @override
+  String get aiDebugPanelTitle => 'Journal d\'appels IA';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Latence, succès, codes d\'erreur — 1000 derniers appels, sur l\'appareil.';
+
+  @override
   String get aiChatGreeting =>
       'Salut ! Demande-moi quoi regarder — je choisirai dans ta bibliothèque.';
 

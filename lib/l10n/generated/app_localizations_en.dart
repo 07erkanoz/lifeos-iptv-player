@@ -1112,6 +1112,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiChatClear => 'Clear chat';
 
   @override
+  String get aiDebugPanelTitle => 'AI Call Log';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Latency, success rate, error codes — last 1000 calls, stays on device.';
+
+  @override
   String get aiChatGreeting =>
       'Hi! Ask me what to watch or tell me to give info about a title — I\'ll answer based on your library.';
 

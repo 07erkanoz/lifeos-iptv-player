@@ -4714,6 +4714,611 @@ class PersonalizedPicksCacheCompanion
   }
 }
 
+class $AiCallLogsTable extends AiCallLogs
+    with TableInfo<$AiCallLogsTable, AiCallLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AiCallLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _featureMeta = const VerificationMeta(
+    'feature',
+  );
+  @override
+  late final GeneratedColumn<String> feature = GeneratedColumn<String>(
+    'feature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modelMeta = const VerificationMeta('model');
+  @override
+  late final GeneratedColumn<String> model = GeneratedColumn<String>(
+    'model',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latencyMsMeta = const VerificationMeta(
+    'latencyMs',
+  );
+  @override
+  late final GeneratedColumn<int> latencyMs = GeneratedColumn<int>(
+    'latency_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _successMeta = const VerificationMeta(
+    'success',
+  );
+  @override
+  late final GeneratedColumn<bool> success = GeneratedColumn<bool>(
+    'success',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("success" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _timedOutMeta = const VerificationMeta(
+    'timedOut',
+  );
+  @override
+  late final GeneratedColumn<bool> timedOut = GeneratedColumn<bool>(
+    'timed_out',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("timed_out" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _candidateCountMeta = const VerificationMeta(
+    'candidateCount',
+  );
+  @override
+  late final GeneratedColumn<int> candidateCount = GeneratedColumn<int>(
+    'candidate_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _outputCountMeta = const VerificationMeta(
+    'outputCount',
+  );
+  @override
+  late final GeneratedColumn<int> outputCount = GeneratedColumn<int>(
+    'output_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta(
+    'errorCode',
+  );
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    feature,
+    model,
+    latencyMs,
+    success,
+    timedOut,
+    candidateCount,
+    outputCount,
+    errorCode,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ai_call_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AiCallLog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('feature')) {
+      context.handle(
+        _featureMeta,
+        feature.isAcceptableOrUnknown(data['feature']!, _featureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_featureMeta);
+    }
+    if (data.containsKey('model')) {
+      context.handle(
+        _modelMeta,
+        model.isAcceptableOrUnknown(data['model']!, _modelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modelMeta);
+    }
+    if (data.containsKey('latency_ms')) {
+      context.handle(
+        _latencyMsMeta,
+        latencyMs.isAcceptableOrUnknown(data['latency_ms']!, _latencyMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latencyMsMeta);
+    }
+    if (data.containsKey('success')) {
+      context.handle(
+        _successMeta,
+        success.isAcceptableOrUnknown(data['success']!, _successMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_successMeta);
+    }
+    if (data.containsKey('timed_out')) {
+      context.handle(
+        _timedOutMeta,
+        timedOut.isAcceptableOrUnknown(data['timed_out']!, _timedOutMeta),
+      );
+    }
+    if (data.containsKey('candidate_count')) {
+      context.handle(
+        _candidateCountMeta,
+        candidateCount.isAcceptableOrUnknown(
+          data['candidate_count']!,
+          _candidateCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('output_count')) {
+      context.handle(
+        _outputCountMeta,
+        outputCount.isAcceptableOrUnknown(
+          data['output_count']!,
+          _outputCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AiCallLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AiCallLog(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      feature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}feature'],
+      )!,
+      model: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model'],
+      )!,
+      latencyMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}latency_ms'],
+      )!,
+      success: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}success'],
+      )!,
+      timedOut: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}timed_out'],
+      )!,
+      candidateCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}candidate_count'],
+      )!,
+      outputCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}output_count'],
+      )!,
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AiCallLogsTable createAlias(String alias) {
+    return $AiCallLogsTable(attachedDatabase, alias);
+  }
+}
+
+class AiCallLog extends DataClass implements Insertable<AiCallLog> {
+  final int id;
+  final String feature;
+  final String model;
+  final int latencyMs;
+  final bool success;
+  final bool timedOut;
+  final int candidateCount;
+  final int outputCount;
+  final String? errorCode;
+  final DateTime createdAt;
+  const AiCallLog({
+    required this.id,
+    required this.feature,
+    required this.model,
+    required this.latencyMs,
+    required this.success,
+    required this.timedOut,
+    required this.candidateCount,
+    required this.outputCount,
+    this.errorCode,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['feature'] = Variable<String>(feature);
+    map['model'] = Variable<String>(model);
+    map['latency_ms'] = Variable<int>(latencyMs);
+    map['success'] = Variable<bool>(success);
+    map['timed_out'] = Variable<bool>(timedOut);
+    map['candidate_count'] = Variable<int>(candidateCount);
+    map['output_count'] = Variable<int>(outputCount);
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AiCallLogsCompanion toCompanion(bool nullToAbsent) {
+    return AiCallLogsCompanion(
+      id: Value(id),
+      feature: Value(feature),
+      model: Value(model),
+      latencyMs: Value(latencyMs),
+      success: Value(success),
+      timedOut: Value(timedOut),
+      candidateCount: Value(candidateCount),
+      outputCount: Value(outputCount),
+      errorCode: errorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCode),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AiCallLog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AiCallLog(
+      id: serializer.fromJson<int>(json['id']),
+      feature: serializer.fromJson<String>(json['feature']),
+      model: serializer.fromJson<String>(json['model']),
+      latencyMs: serializer.fromJson<int>(json['latencyMs']),
+      success: serializer.fromJson<bool>(json['success']),
+      timedOut: serializer.fromJson<bool>(json['timedOut']),
+      candidateCount: serializer.fromJson<int>(json['candidateCount']),
+      outputCount: serializer.fromJson<int>(json['outputCount']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'feature': serializer.toJson<String>(feature),
+      'model': serializer.toJson<String>(model),
+      'latencyMs': serializer.toJson<int>(latencyMs),
+      'success': serializer.toJson<bool>(success),
+      'timedOut': serializer.toJson<bool>(timedOut),
+      'candidateCount': serializer.toJson<int>(candidateCount),
+      'outputCount': serializer.toJson<int>(outputCount),
+      'errorCode': serializer.toJson<String?>(errorCode),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AiCallLog copyWith({
+    int? id,
+    String? feature,
+    String? model,
+    int? latencyMs,
+    bool? success,
+    bool? timedOut,
+    int? candidateCount,
+    int? outputCount,
+    Value<String?> errorCode = const Value.absent(),
+    DateTime? createdAt,
+  }) => AiCallLog(
+    id: id ?? this.id,
+    feature: feature ?? this.feature,
+    model: model ?? this.model,
+    latencyMs: latencyMs ?? this.latencyMs,
+    success: success ?? this.success,
+    timedOut: timedOut ?? this.timedOut,
+    candidateCount: candidateCount ?? this.candidateCount,
+    outputCount: outputCount ?? this.outputCount,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AiCallLog copyWithCompanion(AiCallLogsCompanion data) {
+    return AiCallLog(
+      id: data.id.present ? data.id.value : this.id,
+      feature: data.feature.present ? data.feature.value : this.feature,
+      model: data.model.present ? data.model.value : this.model,
+      latencyMs: data.latencyMs.present ? data.latencyMs.value : this.latencyMs,
+      success: data.success.present ? data.success.value : this.success,
+      timedOut: data.timedOut.present ? data.timedOut.value : this.timedOut,
+      candidateCount: data.candidateCount.present
+          ? data.candidateCount.value
+          : this.candidateCount,
+      outputCount: data.outputCount.present
+          ? data.outputCount.value
+          : this.outputCount,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiCallLog(')
+          ..write('id: $id, ')
+          ..write('feature: $feature, ')
+          ..write('model: $model, ')
+          ..write('latencyMs: $latencyMs, ')
+          ..write('success: $success, ')
+          ..write('timedOut: $timedOut, ')
+          ..write('candidateCount: $candidateCount, ')
+          ..write('outputCount: $outputCount, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    feature,
+    model,
+    latencyMs,
+    success,
+    timedOut,
+    candidateCount,
+    outputCount,
+    errorCode,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AiCallLog &&
+          other.id == this.id &&
+          other.feature == this.feature &&
+          other.model == this.model &&
+          other.latencyMs == this.latencyMs &&
+          other.success == this.success &&
+          other.timedOut == this.timedOut &&
+          other.candidateCount == this.candidateCount &&
+          other.outputCount == this.outputCount &&
+          other.errorCode == this.errorCode &&
+          other.createdAt == this.createdAt);
+}
+
+class AiCallLogsCompanion extends UpdateCompanion<AiCallLog> {
+  final Value<int> id;
+  final Value<String> feature;
+  final Value<String> model;
+  final Value<int> latencyMs;
+  final Value<bool> success;
+  final Value<bool> timedOut;
+  final Value<int> candidateCount;
+  final Value<int> outputCount;
+  final Value<String?> errorCode;
+  final Value<DateTime> createdAt;
+  const AiCallLogsCompanion({
+    this.id = const Value.absent(),
+    this.feature = const Value.absent(),
+    this.model = const Value.absent(),
+    this.latencyMs = const Value.absent(),
+    this.success = const Value.absent(),
+    this.timedOut = const Value.absent(),
+    this.candidateCount = const Value.absent(),
+    this.outputCount = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  AiCallLogsCompanion.insert({
+    this.id = const Value.absent(),
+    required String feature,
+    required String model,
+    required int latencyMs,
+    required bool success,
+    this.timedOut = const Value.absent(),
+    this.candidateCount = const Value.absent(),
+    this.outputCount = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : feature = Value(feature),
+       model = Value(model),
+       latencyMs = Value(latencyMs),
+       success = Value(success);
+  static Insertable<AiCallLog> custom({
+    Expression<int>? id,
+    Expression<String>? feature,
+    Expression<String>? model,
+    Expression<int>? latencyMs,
+    Expression<bool>? success,
+    Expression<bool>? timedOut,
+    Expression<int>? candidateCount,
+    Expression<int>? outputCount,
+    Expression<String>? errorCode,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (feature != null) 'feature': feature,
+      if (model != null) 'model': model,
+      if (latencyMs != null) 'latency_ms': latencyMs,
+      if (success != null) 'success': success,
+      if (timedOut != null) 'timed_out': timedOut,
+      if (candidateCount != null) 'candidate_count': candidateCount,
+      if (outputCount != null) 'output_count': outputCount,
+      if (errorCode != null) 'error_code': errorCode,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  AiCallLogsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? feature,
+    Value<String>? model,
+    Value<int>? latencyMs,
+    Value<bool>? success,
+    Value<bool>? timedOut,
+    Value<int>? candidateCount,
+    Value<int>? outputCount,
+    Value<String?>? errorCode,
+    Value<DateTime>? createdAt,
+  }) {
+    return AiCallLogsCompanion(
+      id: id ?? this.id,
+      feature: feature ?? this.feature,
+      model: model ?? this.model,
+      latencyMs: latencyMs ?? this.latencyMs,
+      success: success ?? this.success,
+      timedOut: timedOut ?? this.timedOut,
+      candidateCount: candidateCount ?? this.candidateCount,
+      outputCount: outputCount ?? this.outputCount,
+      errorCode: errorCode ?? this.errorCode,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (feature.present) {
+      map['feature'] = Variable<String>(feature.value);
+    }
+    if (model.present) {
+      map['model'] = Variable<String>(model.value);
+    }
+    if (latencyMs.present) {
+      map['latency_ms'] = Variable<int>(latencyMs.value);
+    }
+    if (success.present) {
+      map['success'] = Variable<bool>(success.value);
+    }
+    if (timedOut.present) {
+      map['timed_out'] = Variable<bool>(timedOut.value);
+    }
+    if (candidateCount.present) {
+      map['candidate_count'] = Variable<int>(candidateCount.value);
+    }
+    if (outputCount.present) {
+      map['output_count'] = Variable<int>(outputCount.value);
+    }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiCallLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('feature: $feature, ')
+          ..write('model: $model, ')
+          ..write('latencyMs: $latencyMs, ')
+          ..write('success: $success, ')
+          ..write('timedOut: $timedOut, ')
+          ..write('candidateCount: $candidateCount, ')
+          ..write('outputCount: $outputCount, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4731,6 +5336,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlotAiCacheTable plotAiCache = $PlotAiCacheTable(this);
   late final $PersonalizedPicksCacheTable personalizedPicksCache =
       $PersonalizedPicksCacheTable(this);
+  late final $AiCallLogsTable aiCallLogs = $AiCallLogsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4747,6 +5353,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     introMarkers,
     plotAiCache,
     personalizedPicksCache,
+    aiCallLogs,
   ];
 }
 
@@ -7670,6 +8277,296 @@ typedef $$PersonalizedPicksCacheTableProcessedTableManager =
       PersonalizedPicksCacheData,
       PrefetchHooks Function()
     >;
+typedef $$AiCallLogsTableCreateCompanionBuilder =
+    AiCallLogsCompanion Function({
+      Value<int> id,
+      required String feature,
+      required String model,
+      required int latencyMs,
+      required bool success,
+      Value<bool> timedOut,
+      Value<int> candidateCount,
+      Value<int> outputCount,
+      Value<String?> errorCode,
+      Value<DateTime> createdAt,
+    });
+typedef $$AiCallLogsTableUpdateCompanionBuilder =
+    AiCallLogsCompanion Function({
+      Value<int> id,
+      Value<String> feature,
+      Value<String> model,
+      Value<int> latencyMs,
+      Value<bool> success,
+      Value<bool> timedOut,
+      Value<int> candidateCount,
+      Value<int> outputCount,
+      Value<String?> errorCode,
+      Value<DateTime> createdAt,
+    });
+
+class $$AiCallLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $AiCallLogsTable> {
+  $$AiCallLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get feature => $composableBuilder(
+    column: $table.feature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get latencyMs => $composableBuilder(
+    column: $table.latencyMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get success => $composableBuilder(
+    column: $table.success,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get timedOut => $composableBuilder(
+    column: $table.timedOut,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get candidateCount => $composableBuilder(
+    column: $table.candidateCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get outputCount => $composableBuilder(
+    column: $table.outputCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AiCallLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AiCallLogsTable> {
+  $$AiCallLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get feature => $composableBuilder(
+    column: $table.feature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get latencyMs => $composableBuilder(
+    column: $table.latencyMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get success => $composableBuilder(
+    column: $table.success,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get timedOut => $composableBuilder(
+    column: $table.timedOut,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get candidateCount => $composableBuilder(
+    column: $table.candidateCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get outputCount => $composableBuilder(
+    column: $table.outputCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AiCallLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AiCallLogsTable> {
+  $$AiCallLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get feature =>
+      $composableBuilder(column: $table.feature, builder: (column) => column);
+
+  GeneratedColumn<String> get model =>
+      $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<int> get latencyMs =>
+      $composableBuilder(column: $table.latencyMs, builder: (column) => column);
+
+  GeneratedColumn<bool> get success =>
+      $composableBuilder(column: $table.success, builder: (column) => column);
+
+  GeneratedColumn<bool> get timedOut =>
+      $composableBuilder(column: $table.timedOut, builder: (column) => column);
+
+  GeneratedColumn<int> get candidateCount => $composableBuilder(
+    column: $table.candidateCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get outputCount => $composableBuilder(
+    column: $table.outputCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AiCallLogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AiCallLogsTable,
+          AiCallLog,
+          $$AiCallLogsTableFilterComposer,
+          $$AiCallLogsTableOrderingComposer,
+          $$AiCallLogsTableAnnotationComposer,
+          $$AiCallLogsTableCreateCompanionBuilder,
+          $$AiCallLogsTableUpdateCompanionBuilder,
+          (
+            AiCallLog,
+            BaseReferences<_$AppDatabase, $AiCallLogsTable, AiCallLog>,
+          ),
+          AiCallLog,
+          PrefetchHooks Function()
+        > {
+  $$AiCallLogsTableTableManager(_$AppDatabase db, $AiCallLogsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AiCallLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AiCallLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AiCallLogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> feature = const Value.absent(),
+                Value<String> model = const Value.absent(),
+                Value<int> latencyMs = const Value.absent(),
+                Value<bool> success = const Value.absent(),
+                Value<bool> timedOut = const Value.absent(),
+                Value<int> candidateCount = const Value.absent(),
+                Value<int> outputCount = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => AiCallLogsCompanion(
+                id: id,
+                feature: feature,
+                model: model,
+                latencyMs: latencyMs,
+                success: success,
+                timedOut: timedOut,
+                candidateCount: candidateCount,
+                outputCount: outputCount,
+                errorCode: errorCode,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String feature,
+                required String model,
+                required int latencyMs,
+                required bool success,
+                Value<bool> timedOut = const Value.absent(),
+                Value<int> candidateCount = const Value.absent(),
+                Value<int> outputCount = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => AiCallLogsCompanion.insert(
+                id: id,
+                feature: feature,
+                model: model,
+                latencyMs: latencyMs,
+                success: success,
+                timedOut: timedOut,
+                candidateCount: candidateCount,
+                outputCount: outputCount,
+                errorCode: errorCode,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AiCallLogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AiCallLogsTable,
+      AiCallLog,
+      $$AiCallLogsTableFilterComposer,
+      $$AiCallLogsTableOrderingComposer,
+      $$AiCallLogsTableAnnotationComposer,
+      $$AiCallLogsTableCreateCompanionBuilder,
+      $$AiCallLogsTableUpdateCompanionBuilder,
+      (AiCallLog, BaseReferences<_$AppDatabase, $AiCallLogsTable, AiCallLog>),
+      AiCallLog,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7699,6 +8596,8 @@ class $AppDatabaseManager {
         _db,
         _db.personalizedPicksCache,
       );
+  $$AiCallLogsTableTableManager get aiCallLogs =>
+      $$AiCallLogsTableTableManager(_db, _db.aiCallLogs);
 }
 
 // **************************************************************************

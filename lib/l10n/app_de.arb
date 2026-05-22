@@ -394,6 +394,8 @@
   "openGeminiSite": "aistudio.google.com öffnen",
   "aiChatTitle": "KI-Assistent",
   "aiChatClear": "Chat leeren",
+  "aiDebugPanelTitle": "KI-Aufrufprotokoll",
+  "aiDebugPanelDesc": "Latenz, Erfolgsrate, Fehlercodes — letzte 1000 Aufrufe, bleibt auf dem Gerät.",
   "aiChatGreeting": "Hallo! Frag mich, was du schauen sollst — ich wähle aus deiner Bibliothek.",
   "aiChatInputHint": "Den Assistenten fragen…",
   "aiThinking": "Denkt nach…",

@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache])
+@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -67,6 +67,10 @@ class AppDatabase extends _$AppDatabase {
        if (from < 14) {
          // Dashboard "Sana Özel" personalised picks cache.
          await m.createTable(personalizedPicksCache);
+       }
+       if (from < 15) {
+         // AI call telemetry ring buffer (Settings → Debug panel).
+         await m.createTable(aiCallLogs);
        }
     },
   );

@@ -1111,6 +1111,13 @@ class AppLocalizationsTr extends AppLocalizations {
   String get aiChatClear => 'Sohbeti temizle';
 
   @override
+  String get aiDebugPanelTitle => 'AI Çağrı Geçmişi';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Latency, başarı oranı, hata kodları — son 1000 çağrı, cihazda kalır.';
+
+  @override
   String get aiChatGreeting =>
       'Selam! Ne izlemek istediğini söyle ya da bir film/dizi hakkında bilgi iste — kütüphanene göre cevap vereyim.';
 

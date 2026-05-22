@@ -1113,6 +1113,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiChatClear => 'Очистить чат';
 
   @override
+  String get aiDebugPanelTitle => 'Журнал вызовов ИИ';
+
+  @override
+  String get aiDebugPanelDesc =>
+      'Латентность, успех, коды ошибок — последние 1000 вызовов, локально.';
+
+  @override
   String get aiChatGreeting =>
       'Привет! Спроси, что посмотреть — я выберу из твоей библиотеки.';
 

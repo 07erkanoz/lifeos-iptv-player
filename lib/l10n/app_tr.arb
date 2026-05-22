@@ -402,6 +402,8 @@
   "openGeminiSite": "aistudio.google.com'u aç",
   "aiChatTitle": "AI Asistan",
   "aiChatClear": "Sohbeti temizle",
+  "aiDebugPanelTitle": "AI Çağrı Geçmişi",
+  "aiDebugPanelDesc": "Latency, başarı oranı, hata kodları — son 1000 çağrı, cihazda kalır.",
   "aiChatGreeting": "Selam! Ne izlemek istediğini söyle ya da bir film/dizi hakkında bilgi iste — kütüphanene göre cevap vereyim.",
   "aiChatInputHint": "Asistana sor…",
   "aiThinking": "Düşünüyor…",

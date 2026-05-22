@@ -394,6 +394,8 @@
   "openGeminiSite": "فتح aistudio.google.com",
   "aiChatTitle": "مساعد الذكاء الاصطناعي",
   "aiChatClear": "مسح المحادثة",
+  "aiDebugPanelTitle": "سجل استدعاءات الذكاء الاصطناعي",
+  "aiDebugPanelDesc": "زمن الاستجابة، النجاح، الأخطاء — آخر 1000 استدعاء، على الجهاز.",
   "aiChatGreeting": "مرحباً! اسألني ماذا تشاهد — سأختار من مكتبتك.",
   "aiChatInputHint": "اسأل المساعد…",
   "aiThinking": "يفكر…",

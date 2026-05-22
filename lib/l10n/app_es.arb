@@ -394,6 +394,8 @@
   "openGeminiSite": "Abrir aistudio.google.com",
   "aiChatTitle": "Asistente de IA",
   "aiChatClear": "Borrar chat",
+  "aiDebugPanelTitle": "Registro de llamadas IA",
+  "aiDebugPanelDesc": "Latencia, éxito, códigos de error — últimas 1000 llamadas, en el dispositivo.",
   "aiChatGreeting": "¡Hola! Pregúntame qué ver — elegiré de tu biblioteca.",
   "aiChatInputHint": "Pregunta al asistente…",
   "aiThinking": "Pensando…",

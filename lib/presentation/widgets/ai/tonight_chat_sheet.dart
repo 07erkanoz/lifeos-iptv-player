@@ -6,6 +6,8 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -126,15 +128,27 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         await contentRepo.librarySearchByKeywords(text, limit: 120);
     final categoryOverview = await contentRepo.categoryOverview();
 
-    final response = await gemini.recommendForTonight(
-      conversation: _messages
-          .map((m) => (fromUser: m.fromUser, text: m.text))
-          .toList(),
-      recentlyWatched: ctx.recentlyWatched,
-      favorites: ctx.favorites,
-      librarySample: ctx.librarySample,
-      queryMatches: queryMatches,
-      categoryOverview: categoryOverview,
+    // Wrap the AI call with the instrumentation service so the
+    // Settings → Debug panel can show latency / success / timeout
+    // metrics. Telemetry write is fire-and-forget — the actual
+    // user-facing response shape is unchanged.
+    final instrumentation = ref.read(aiInstrumentationProvider);
+    final response = await instrumentation.record<TonightResponse>(
+      feature: 'chat',
+      model: AiModelPolicy.chat,
+      candidateCount: queryMatches.length + ctx.librarySample.length,
+      outputCountOf: (r) => r.recommendations.length,
+      timeout: const Duration(seconds: 30),
+      run: () => gemini.recommendForTonight(
+        conversation: _messages
+            .map((m) => (fromUser: m.fromUser, text: m.text))
+            .toList(),
+        recentlyWatched: ctx.recentlyWatched,
+        favorites: ctx.favorites,
+        librarySample: ctx.librarySample,
+        queryMatches: queryMatches,
+        categoryOverview: categoryOverview,
+      ),
     );
 
     if (!mounted) return;
@@ -179,6 +193,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                       : ''),
               recommendations: response.recommendations,
               resolvedChannels: resolved,
+              followUps: response.followUps,
             ),
           );
       setState(() => _waitingForAi = false);
@@ -296,6 +311,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                           message: messages[i],
                           onPlay: _playRecommendation,
                           onOpenDetails: _openDetails,
+                          onFollowUp: _send,
                         );
                       },
                     ),
@@ -534,11 +550,13 @@ class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final Future<void> Function(TonightRecommendation) onPlay;
   final void Function(TonightRecommendation) onOpenDetails;
+  final void Function(String)? onFollowUp;
 
   const _MessageBubble({
     required this.message,
     required this.onPlay,
     required this.onOpenDetails,
+    this.onFollowUp,
   });
 
   @override
@@ -582,6 +600,25 @@ class _MessageBubble extends StatelessWidget {
                 onPlay: onPlay,
                 onOpenDetails: onOpenDetails,
               ),
+          ],
+          // Follow-up suggestion chips — AI proposes 3-4 directions
+          // the conversation could plausibly go next. Tapping a chip
+          // submits it as the next user turn, no typing needed.
+          // Only rendered on AI bubbles that supplied followUps; user
+          // bubbles get nothing here.
+          if (!fromUser && message.followUps.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final chip in message.followUps)
+                  _FollowUpChip(
+                    label: chip,
+                    onTap: () => onFollowUp?.call(chip),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
@@ -797,6 +834,70 @@ class _ThinkingBubble extends StatelessWidget {
             ),
           ),
         ]),
+      ),
+    );
+  }
+}
+
+/// Follow-up suggestion chip rendered under an AI bubble. Tapping
+/// fires the chip's text back as the next user turn — the user
+/// doesn't have to retype anything to drill deeper into the
+/// conversation. AI generates 3-4 of these per response.
+class _FollowUpChip extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _FollowUpChip({required this.label, required this.onTap});
+
+  @override
+  State<_FollowUpChip> createState() => _FollowUpChipState();
+}
+
+class _FollowUpChipState extends State<_FollowUpChip> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = _hovered || _focused;
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.primary.withValues(alpha: 0.22)
+                  : AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _focused
+                    ? AppColors.primary
+                    : AppColors.primary.withValues(alpha: 0.4),
+                width: _focused ? 1.5 : 1.0,
+              ),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.chevron_right,
+                  size: 14, color: AppColors.primary),
+              const SizedBox(width: 4),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }

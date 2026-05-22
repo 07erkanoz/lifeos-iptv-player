@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
@@ -1571,6 +1572,67 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
           ],
         ]),
       ),
+      // ── AI debug panel entry — appears only when there's a key ──
+      // so the row isn't a dead end for users who haven't enabled AI
+      // yet. Routes to a stream-backed log + per-feature stats view.
+      if (hasKey) ...[
+        const SizedBox(height: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const AiDebugPanel(),
+            ));
+          },
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.surfaceDark
+                  : AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.borderDark
+                    : AppColors.borderLight,
+              ),
+            ),
+            child: Row(children: [
+              const Icon(Icons.analytics_outlined,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.aiDebugPanelTitle,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textDark
+                            : AppColors.textLight,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.aiDebugPanelDesc,
+                      style: TextStyle(
+                        color: AppColors.textTertiary(context),
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  color: AppColors.textTertiary(context)),
+            ]),
+          ),
+        ),
+      ],
       const SizedBox(height: 16),
 
       // ── How to get a key (expandable) ───────────────────────────────

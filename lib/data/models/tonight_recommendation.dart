@@ -59,12 +59,20 @@ class TonightResponse {
   /// Ordered list — Gemini's preference, best-fit first.
   final List<TonightRecommendation> recommendations;
 
+  /// 3-4 short follow-up question chips the AI proposes for the next
+  /// user turn. Surfaced under each AI message in the chat UI;
+  /// tapping a chip sends it back as a user message. Empty when the
+  /// AI didn't include any.
+  final List<String> followUps;
+
   const TonightResponse({
     required this.message,
     required this.recommendations,
+    this.followUps = const [],
   });
 
-  bool get isEmpty => message.isEmpty && recommendations.isEmpty;
+  bool get isEmpty =>
+      message.isEmpty && recommendations.isEmpty && followUps.isEmpty;
 
   factory TonightResponse.fromJson(Map<String, dynamic> json) {
     final msg = json['message']?.toString().trim() ?? '';
@@ -78,7 +86,21 @@ class TonightResponse {
         }
       }
     }
-    return TonightResponse(message: msg, recommendations: list);
+    final rawFollowUps = json['followUps'];
+    final followUps = <String>[];
+    if (rawFollowUps is List) {
+      for (final item in rawFollowUps) {
+        final s = item?.toString().trim() ?? '';
+        if (s.isEmpty) continue;
+        followUps.add(s);
+        if (followUps.length >= 6) break;
+      }
+    }
+    return TonightResponse(
+      message: msg,
+      recommendations: list,
+      followUps: followUps,
+    );
   }
 }
 
@@ -101,10 +123,16 @@ class ChatMessage {
   /// from outside the standard top-rated sample).
   final Map<int, Channel> resolvedChannels;
 
+  /// AI-proposed follow-up suggestion chips for the next user turn.
+  /// Rendered under the bubble; tapping one re-uses it as the next
+  /// user message.
+  final List<String> followUps;
+
   const ChatMessage({
     required this.fromUser,
     required this.text,
     this.recommendations = const [],
     this.resolvedChannels = const {},
+    this.followUps = const [],
   });
 }

@@ -178,6 +178,29 @@ class PlotAiCache extends Table {
   Set<Column> get primaryKey => {streamId, mode, targetLanguage};
 }
 
+/// Append-only ring buffer of AI call telemetry — every Gemini
+/// invocation captures latency, success, payload sizes, and any
+/// error code. Surfaced in Settings → Debug → AI Çağrı Geçmişi so
+/// we can answer "is the AI actually working?" with measurements
+/// instead of vibes.
+///
+/// Privacy: stays local, never leaves the device. Prompts and
+/// responses are NOT stored — only timings + counts + error codes.
+class AiCallLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get feature => text()();
+  TextColumn get model => text()();
+  IntColumn get latencyMs => integer()();
+  BoolColumn get success => boolean()();
+  BoolColumn get timedOut => boolean().withDefault(const Constant(false))();
+  IntColumn get candidateCount =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get outputCount => integer().withDefault(const Constant(0))();
+  TextColumn get errorCode => text().nullable()();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}
+
 /// Per-series intro position markers used to drive the "Skip Intro"
 /// affordance in the player. A series usually has a fixed-length intro
 /// reused across every episode, so we store *one* marker per series and

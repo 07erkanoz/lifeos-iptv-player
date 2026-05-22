@@ -394,6 +394,8 @@
   "openGeminiSite": "aistudio.google.com veke",
   "aiChatTitle": "Alîkarê AI",
   "aiChatClear": "Axaftinê pak bike",
+  "aiDebugPanelTitle": "Tomara Bangên AI",
+  "aiDebugPanelDesc": "Lez, serkeftin, kodên xeletî — 1000 bangên dawî, di cîhazê de.",
   "aiChatGreeting": "Silav! Ji min bipirse çi temaşe bikî — ez ji pirtûkxaneya te hilbijêrim.",
   "aiChatInputHint": "Ji alîkar bipirse…",
   "aiThinking": "Difikire…",
