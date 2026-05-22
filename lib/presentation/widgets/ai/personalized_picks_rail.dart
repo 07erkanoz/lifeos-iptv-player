@@ -49,6 +49,12 @@ class PersonalizedPicksRail extends ConsumerWidget {
 
     if (cards != null) {
       if (cards.isEmpty) return const SizedBox.shrink();
+      // True while the async provider is computing on top of stored
+      // cards — i.e. user hit refresh and we're waiting for the new
+      // Gemini call. Drives the header spinner so the user sees the
+      // tap landed instead of staring at an unchanged rail.
+      final isRefreshing =
+          asyncPicks.isLoading || asyncPicks.isRefreshing;
       return _RailBody(
         cards: cards,
         onTap: onTap,
@@ -60,6 +66,7 @@ class PersonalizedPicksRail extends ConsumerWidget {
           ref.read(personalizedPicksRefreshSeedProvider.notifier).bump();
         },
         isDark: isDark,
+        isRefreshing: isRefreshing,
       );
     }
 
@@ -85,6 +92,13 @@ class _RailBody extends StatelessWidget {
   final Future<void> Function()? onRefresh;
   final bool isDark;
 
+  /// True while the rail is showing cached cards AND the async
+  /// provider is recomputing fresh ones (user tapped the refresh
+  /// button, or `dislikedStreamIdsProvider` invalidated). The
+  /// header icon swaps to a spinner so the tap has visible feedback
+  /// instead of looking ignored.
+  final bool isRefreshing;
+
   const _RailBody({
     required this.cards,
     required this.onTap,
@@ -93,6 +107,7 @@ class _RailBody extends StatelessWidget {
     required this.refreshTooltip,
     required this.onRefresh,
     required this.isDark,
+    this.isRefreshing = false,
   });
 
   @override
@@ -138,11 +153,23 @@ class _RailBody extends StatelessWidget {
                     minHeight: 32,
                   ),
                   iconSize: 18,
-                  icon: const Icon(
-                    Icons.refresh,
-                    color: AppColors.primary,
-                  ),
-                  onPressed: () => onRefresh!(),
+                  // Disable + swap icon for spinner while a refresh
+                  // is in flight. Disabling prevents double-tap
+                  // spamming during the 5-15 s Gemini call.
+                  onPressed: isRefreshing ? null : () => onRefresh!(),
+                  icon: isRefreshing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.refresh,
+                          color: AppColors.primary,
+                        ),
                 ),
             ]),
           ),
@@ -450,10 +477,27 @@ class _FeedbackOverflowButton extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(
-          alpha: emphasised ? 0.75 : 0.45,
-        ),
+        // Stronger background so the button reads against bright /
+        // busy poster art too — not just dark backgrounds. A pill
+        // with primary-tinted border at rest, fully primary on
+        // hover/focus.
+        color: emphasised
+            ? AppColors.primary
+            : Colors.black.withValues(alpha: 0.85),
         shape: BoxShape.circle,
+        border: Border.all(
+          color: emphasised
+              ? AppColors.primary
+              : AppColors.primary.withValues(alpha: 0.55),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -468,12 +512,11 @@ class _FeedbackOverflowButton extends StatelessWidget {
             reason: reason.isNotEmpty ? reason : null,
             feature: feature,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(5),
+          child: const Padding(
+            padding: EdgeInsets.all(6),
             child: Icon(
               Icons.more_horiz,
-              color: Colors.white
-                  .withValues(alpha: emphasised ? 1.0 : 0.85),
+              color: Colors.white,
               size: 16,
             ),
           ),
