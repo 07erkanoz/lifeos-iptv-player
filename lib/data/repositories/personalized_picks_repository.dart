@@ -100,18 +100,29 @@ class PersonalizedPicksRepository {
         .go();
   }
 
-  /// Fingerprint of (recently watched ids + favourite ids + prompt
-  /// version). Order doesn't matter to the user — both lists get
-  /// sorted before hashing so the same logical state always produces
-  /// the same fingerprint.
+  /// Fingerprint of (recently watched ids + favourite ids + feedback
+  /// signals + prompt version). All lists are sorted before hashing
+  /// so a logically-equivalent state produces the same fingerprint.
+  ///
+  /// Including the disliked / moreLike sets means flagging a title
+  /// via the ⋯ menu auto-invalidates the cached rail — without it
+  /// the rail would keep serving the pre-feedback row from cache
+  /// until the user manually hit refresh.
   static String fingerprint({
     required Iterable<int> recentlyWatchedIds,
     required Iterable<int> favoriteIds,
+    Iterable<int> dislikedIds = const [],
+    Iterable<int> moreLikeIds = const [],
   }) {
     final r = recentlyWatchedIds.toList()..sort();
     final f = favoriteIds.toList()..sort();
-    final blob =
-        '$_promptVersion|r=${r.join(",")}|f=${f.join(",")}';
+    final d = dislikedIds.toList()..sort();
+    final m = moreLikeIds.toList()..sort();
+    final blob = '$_promptVersion'
+        '|r=${r.join(",")}'
+        '|f=${f.join(",")}'
+        '|d=${d.join(",")}'
+        '|m=${m.join(",")}';
     var h = 0x811c9dc5;
     for (final code in blob.codeUnits) {
       h = (h ^ code) & 0xffffffff;

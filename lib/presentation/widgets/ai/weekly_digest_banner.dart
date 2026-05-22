@@ -7,6 +7,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/weekly_digest_provider.dart';
+import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
 
 /// Dashboard banner that surfaces the AI weekly digest — newly-added
 /// items the AI thinks fit the user's taste.
@@ -204,26 +205,109 @@ class _DigestPosterTileState extends State<_DigestPosterTile> {
                     ? Border.all(color: AppColors.primary, width: 2)
                     : null,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: widget.channel.streamIcon != null &&
-                        widget.channel.streamIcon!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: widget.channel.streamIcon!,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => Container(
+              child: Stack(children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: widget.channel.streamIcon != null &&
+                          widget.channel.streamIcon!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: widget.channel.streamIcon!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorWidget: (_, _, _) => Container(
+                            color: AppColors.surfaceElevatedDark,
+                            child: const Icon(Icons.movie_outlined,
+                                color: AppColors.textTertiaryDark,
+                                size: 22),
+                          ),
+                        )
+                      : Container(
                           color: AppColors.surfaceElevatedDark,
                           child: const Icon(Icons.movie_outlined,
                               color: AppColors.textTertiaryDark, size: 22),
                         ),
-                      )
-                    : Container(
-                        color: AppColors.surfaceElevatedDark,
-                        child: const Icon(Icons.movie_outlined,
-                            color: AppColors.textTertiaryDark, size: 22),
-                      ),
-              ),
+                ),
+                // Feedback overflow — small but always-visible so
+                // the user can dismiss a digest pick without playing
+                // it.
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: _DigestFeedbackButton(
+                    streamId: widget.channel.streamId,
+                    type: widget.channel.type,
+                    title: widget.channel.name,
+                    reason: widget.reason,
+                    emphasised: isActive,
+                  ),
+                ),
+              ]),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact overflow-menu button used by the weekly-digest tiles.
+/// Smaller than the rail variant because the digest posters are
+/// only 74 px wide.
+class _DigestFeedbackButton extends StatelessWidget {
+  final int streamId;
+  final String type;
+  final String title;
+  final String reason;
+  final bool emphasised;
+
+  const _DigestFeedbackButton({
+    required this.streamId,
+    required this.type,
+    required this.title,
+    required this.reason,
+    required this.emphasised,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      decoration: BoxDecoration(
+        color: emphasised
+            ? AppColors.primary
+            : Colors.black.withValues(alpha: 0.85),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: emphasised
+              ? AppColors.primary
+              : AppColors.primary.withValues(alpha: 0.5),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => AiFeedbackSheet.show(
+            context,
+            streamId: streamId,
+            type: type,
+            title: title,
+            reason: reason.isNotEmpty ? reason : null,
+            feature: 'weeklyDigest',
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.more_horiz,
+                color: Colors.white, size: 13),
           ),
         ),
       ),

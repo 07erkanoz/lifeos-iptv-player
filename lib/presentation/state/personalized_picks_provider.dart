@@ -265,13 +265,46 @@ final personalizedPicksProvider =
     livePerType: 30,
   );
 
+  // ── Explicit feedback signals ────────────────────────────────────
+  // The user has been ⋯-menuing on rail cards to flag items as
+  // dislike or moreLike. We feed both to Gemini so the prompt
+  // shapes recommendations away from disliked items and toward
+  // moreLike anchors. Also strip disliked ids from the library
+  // sample so the AI never sees them as candidates.
+  final feedbackRepo = ref.read(aiFeedbackRepositoryProvider);
+  final dislikedIds = await feedbackRepo.getDislikedStreamIds();
+  final moreLikeIds = await feedbackRepo.getMoreLikeStreamIds();
+  final dislikedRows = dislikedIds.isEmpty
+      ? const <Channel>[]
+      : await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(dislikedIds.toList())))
+          .get();
+  final moreLikeRows = moreLikeIds.isEmpty
+      ? const <Channel>[]
+      : await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(moreLikeIds.toList())))
+          .get();
+  // Strip disliked ids from the sample before the AI sees them.
+  final filteredSample = dislikedIds.isEmpty
+      ? sample
+      : sample.where((c) => !dislikedIds.contains(c.streamId)).toList();
+
   // Build compact pipe-rows payload — same format as the search
   // curator so prompt costs stay predictable.
   String escape(String? s) =>
       (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
+  Map<String, dynamic> compactSignal(Channel c) => {
+        'id': c.streamId,
+        'title': c.name,
+        'type': c.type,
+        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+        if (c.director != null && c.director!.isNotEmpty)
+          'director': c.director,
+      };
   final libraryRows = <String>[
     'id|title|type|year|genre|director|cast|rating',
-    for (final c in sample.take(450))
+    for (final c in filteredSample.take(450))
       '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
   ];
   final librarySample = [
@@ -296,6 +329,8 @@ final personalizedPicksProvider =
         librarySample: librarySample,
         targetLanguage: lang,
         varietySeed: refreshSeed,
+        moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
+        avoidTitles: dislikedRows.map(compactSignal).toList(),
       )
       .timeout(const Duration(seconds: 20), onTimeout: () => null);
 

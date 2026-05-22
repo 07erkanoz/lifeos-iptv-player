@@ -972,6 +972,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
     required List<Map<String, dynamic>> librarySample,
     required String targetLanguage,
     int varietySeed = 0,
+    List<Map<String, dynamic>> moreLikeAnchors = const [],
+    List<Map<String, dynamic>> avoidTitles = const [],
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
@@ -983,13 +985,16 @@ generic "popular movies", always grounded in this user's taste.
 
 Inputs (in the first user turn, JSON):
   * FAVORITES — items the user explicitly saved. STRONGEST taste
-    signal — they actively chose these. Each item carries title,
-    year, category (the Xtream category label, often where the
-    real genre lives e.g. "KOMEDi & ROMANTiK"), director, and the
-    top-billed cast.
-  * RECENTLY_WATCHED — what they've actively been viewing in the
-    last days. Strong signal but noisier than favourites — sometimes
-    people watch out of curiosity rather than love.
+    signal.
+  * RECENTLY_WATCHED — what they've been viewing in the last days.
+    Strong but noisier than favourites.
+  * MORE_LIKE_THESE (optional) — titles the user explicitly flagged
+    via the ⋯ menu as "I want more of this". Treat at favourite
+    weight or higher when they appear.
+  * AVOID_THESE (optional) — titles the user explicitly disliked
+    via the ⋯ menu. Do NOT recommend them. More importantly,
+    DIVERGE from them on tone / genre / director — these are
+    counter-signals, not just blacklist entries.
   * LIBRARY — a cross-section of the catalogue, pipe-separated rows
     with header `id|title|type|year|genre|director|cast|rating`.
 
@@ -1031,9 +1036,25 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
             'order.'
         : '';
 
+    // Explicit feedback signals — when the user has used the ⋯
+    // menu on rec cards to flag items as "more like this" or "don't
+    // suggest". We hand both to the model as named lists so it can
+    // boost similar items and avoid known-bad picks.
+    final moreLikeHint = moreLikeAnchors.isEmpty
+        ? ''
+        : '\nMORE_LIKE_THESE: ${jsonEncode(moreLikeAnchors)} — '
+            'strong positive anchors, treat closer in weight to '
+            'FAVORITES than to RECENTLY_WATCHED.';
+    final avoidHint = avoidTitles.isEmpty
+        ? ''
+        : '\nAVOID_THESE: ${jsonEncode(avoidTitles)} — the user '
+            'explicitly disliked these titles. Do NOT recommend them, '
+            'and prefer picks that DIVERGE from them on genre, tone, '
+            'or director rather than echo them.';
+
     final userTurn = 'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'LIBRARY: ${jsonEncode(librarySample)}$varietyHint';
+        'LIBRARY: ${jsonEncode(librarySample)}$moreLikeHint$avoidHint$varietyHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(

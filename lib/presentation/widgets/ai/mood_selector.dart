@@ -9,6 +9,7 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/mood_picks_provider.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart'
     show PersonalizedPickCard;
+import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
 
 /// Dashboard "Ruh halin nasıl?" mood-chip selector + lazy rail.
 ///
@@ -347,18 +348,35 @@ class _MoodCardState extends State<_MoodCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: ch.streamIcon!,
-                          width: 140,
-                          height: 210,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => _placeholderPoster(),
-                        )
-                      : _placeholderPoster(),
-                ),
+                Stack(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: ch.streamIcon!,
+                            width: 140,
+                            height: 210,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => _placeholderPoster(),
+                          )
+                        : _placeholderPoster(),
+                  ),
+                  // Feedback overflow menu — same design as the
+                  // "Sana Özel" rail, surfaces "Sevmedim" / "Bunun
+                  // gibi daha" / "Neden önerildi?" without leaving
+                  // the rail.
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: _MoodFeedbackButton(
+                      streamId: ch.streamId,
+                      type: ch.type,
+                      title: ch.name,
+                      reason: widget.card.reason,
+                      emphasised: isActive,
+                    ),
+                  ),
+                ]),
                 const SizedBox(height: 6),
                 Text(
                   ch.name,
@@ -415,6 +433,72 @@ class _MoodCardState extends State<_MoodCard> {
       color: AppColors.surfaceElevatedDark,
       child: const Icon(Icons.movie_outlined,
           color: AppColors.textTertiaryDark, size: 36),
+    );
+  }
+}
+
+/// Small overflow-menu button overlayed on mood rail cards. Same
+/// affordance as the "Sana Özel" rail's _FeedbackOverflowButton —
+/// kept as its own class here so we don't cross-import private
+/// widgets between rail files.
+class _MoodFeedbackButton extends StatelessWidget {
+  final int streamId;
+  final String type;
+  final String title;
+  final String reason;
+  final bool emphasised;
+
+  const _MoodFeedbackButton({
+    required this.streamId,
+    required this.type,
+    required this.title,
+    required this.reason,
+    required this.emphasised,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      decoration: BoxDecoration(
+        color: emphasised
+            ? AppColors.primary
+            : Colors.black.withValues(alpha: 0.85),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: emphasised
+              ? AppColors.primary
+              : AppColors.primary.withValues(alpha: 0.55),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => AiFeedbackSheet.show(
+            context,
+            streamId: streamId,
+            type: type,
+            title: title,
+            reason: reason.isNotEmpty ? reason : null,
+            feature: 'mood',
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(6),
+            child: Icon(Icons.more_horiz,
+                color: Colors.white, size: 16),
+          ),
+        ),
+      ),
     );
   }
 }
