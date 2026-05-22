@@ -6,6 +6,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -129,6 +130,12 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     final queryMatches =
         await contentRepo.librarySearchByKeywords(text, limit: 120);
     final categoryOverview = await contentRepo.categoryOverview();
+    // Shared weighted taste profile. Hands the chat the same
+    // aggregate view the dashboard rails use so the AI can break
+    // ties between equally-plausible candidates by reading the
+    // actual scores instead of re-deriving them from raw lists.
+    final tasteProfile =
+        await ref.read(tasteProfileProvider.future);
 
     // Wrap the AI call with the instrumentation service so the
     // Settings → Debug panel can show latency / success / timeout
@@ -155,6 +162,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           queryMatches: queryMatches,
           categoryOverview: categoryOverview,
           targetLanguage: lang,
+          tasteProfile: tasteProfile.toPromptJson(),
         );
       },
     );

@@ -5,6 +5,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
+import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -266,6 +267,11 @@ final heroBillboardProvider =
           'director': c.director,
       };
 
+  // Pull the unified taste profile — same one Sana Özel uses. Reads
+  // off the shared provider so the four-query aggregation runs once
+  // per dashboard mount, not per rail.
+  final tasteProfile = await ref.watch(tasteProfileProvider.future);
+
   final instrumentation = ref.read(aiInstrumentationProvider);
   final picks = await instrumentation
       .record<List<({int streamId, String tagline})>>(
@@ -283,6 +289,7 @@ final heroBillboardProvider =
       targetLanguage: lang,
       moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
       avoidTitles: dislikedRows.map(compactSignal).toList(),
+      tasteProfile: tasteProfile.toPromptJson(),
     ),
   );
 

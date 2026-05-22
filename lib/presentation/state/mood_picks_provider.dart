@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -141,6 +142,11 @@ final moodPicksProvider =
       ? 'tr'
       : ref.read(settingsProvider).language.name;
 
+  // Shared taste profile — same one Sana Özel / hero use. Mood AI
+  // still gets it so it can tie-break between equally mood-fitting
+  // candidates using the user's actor / director affinities.
+  final tasteProfile = await ref.watch(tasteProfileProvider.future);
+
   // Looked up in the widget for the localised label; but for the AI
   // call we pass the English vibe verbatim — the prompt stays
   // consistent across UI languages.
@@ -160,6 +166,7 @@ final moodPicksProvider =
       favorites: favSignals,
       librarySample: librarySample,
       targetLanguage: lang,
+      tasteProfile: tasteProfile.toPromptJson(),
     ),
   );
 

@@ -147,6 +147,7 @@ class GeminiService {
     List<Channel> queryMatches = const [],
     List<Map<String, dynamic>> categoryOverview = const [],
     String targetLanguage = 'tr',
+    Map<String, dynamic> tasteProfile = const {},
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
 
@@ -200,6 +201,12 @@ class GeminiService {
         // sample.
         if (categoryOverview.isNotEmpty)
           'categories': categoryOverview,
+        // tasteProfile: aggregate weighted view. Lets the AI weigh
+        // tie-breakers between equally-good candidates by reading
+        // the actual category/actor/director scores instead of
+        // re-deriving them from the favourites/history lists every
+        // turn. Empty {} on cold-start profiles.
+        if (tasteProfile.isNotEmpty) 'tasteProfile': tasteProfile,
       };
 
       // Build Gemini chat history. The first user turn carries the
@@ -1172,6 +1179,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     required List<Map<String, dynamic>> favorites,
     required List<Map<String, dynamic>> recentlyWatched,
     required String targetLanguage,
+    Map<String, dynamic> tasteProfile = const {},
   }) async {
     if (_apiKey.isEmpty || recentAdditions.isEmpty) return null;
 
@@ -1204,9 +1212,16 @@ Return strict JSON:
   {"headline":<str>,"picks":[{"streamId":<int>,"reason":<str>},…]}.
 ''';
 
+    final profileHint = tasteProfile.isEmpty
+        ? ''
+        : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
+            'aggregate weighted view of the user\'s preferences. '
+            'Use as tie-breaker when ranking new additions. '
+            'If isColdStart=true, lean on critical acclaim instead.';
+
     final userTurn = 'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}';
+        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}$profileHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -1493,6 +1508,7 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
     required String targetLanguage,
     List<Map<String, dynamic>> moreLikeAnchors = const [],
     List<Map<String, dynamic>> avoidTitles = const [],
+    Map<String, dynamic> tasteProfile = const {},
   }) async {
     if (_apiKey.isEmpty) return null;
     if (recentAdditions.isEmpty && librarySample.isEmpty) return null;
@@ -1555,11 +1571,20 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
             'Do NOT billboard them OR neighbours that share their '
             'core appeal (same lead, genre, tone).';
 
+    final profileHint = tasteProfile.isEmpty
+        ? ''
+        : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
+            'aggregate weighted view of the user\'s preferences. '
+            'For the hero specifically: only billboard items whose '
+            'category sits in topCategories OR whose director/cast '
+            'overlaps topDirectors/topActors, unless the catalog '
+            'has nothing in those buckets with a backdrop.';
+
     final userTurn = 'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
         'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
-        'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}$moreLikeHint$avoidHint';
+        'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}$profileHint$moreLikeHint$avoidHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -1662,6 +1687,7 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
     required List<Map<String, dynamic>> favorites,
     required List<Map<String, dynamic>> librarySample,
     required String targetLanguage,
+    Map<String, dynamic> tasteProfile = const {},
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
@@ -1694,11 +1720,18 @@ Rules:
 Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
 ''';
 
+    final profileHint = tasteProfile.isEmpty
+        ? ''
+        : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
+            'aggregate weighted view of the user\'s preferences. '
+            'Use as tie-breaker when multiple mood-matching candidates exist. '
+            'If isColdStart=true, lean on critical acclaim instead.';
+
     final userTurn =
         'MOOD: ${jsonEncode({"key": moodKey, "label": moodLabel, "vibe": moodDescription})}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'LIBRARY: ${jsonEncode(librarySample)}';
+        'LIBRARY: ${jsonEncode(librarySample)}$profileHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -2152,6 +2185,12 @@ lists:
     structure. Tells you what kinds of content exist in the library
     EVEN if no item from that category landed in queryMatches or
     library. Reference this when explaining what's available.
+  * "tasteProfile" — OPTIONAL aggregate weighted view of the user's
+    preferences (top categories / actors / directors with numeric
+    scores, plus isColdStart flag and avoidedCategories). When
+    present, use this as the tie-breaker between equally-good
+    candidates. If `isColdStart` is true, the user is new and you
+    should lean on critical acclaim rather than their thin signal.
 
 CRITICAL: queryMatches and library together represent what's
 ACTUALLY in the user's catalogue. NEVER say "yok" / "no such

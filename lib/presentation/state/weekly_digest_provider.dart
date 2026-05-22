@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_rail_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -147,6 +148,11 @@ final weeklyDigestProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
+  // Shared taste profile so the digest picks the right new-this-week
+  // items per the user's actual category / actor weights, not just
+  // by the favourites/history lists.
+  final tasteProfile = await ref.watch(tasteProfileProvider.future);
+
   final instrumentation = ref.read(aiInstrumentationProvider);
   final result = await instrumentation.record<
       ({String headline, List<({int streamId, String reason})> picks})>(
@@ -160,6 +166,7 @@ final weeklyDigestProvider =
       favorites: favSignals,
       recentlyWatched: historySignals,
       targetLanguage: lang,
+      tasteProfile: tasteProfile.toPromptJson(),
     ),
   );
 
