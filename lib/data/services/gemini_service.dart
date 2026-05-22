@@ -975,6 +975,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
     int varietySeed = 0,
     List<Map<String, dynamic>> moreLikeAnchors = const [],
     List<Map<String, dynamic>> avoidTitles = const [],
+    Map<String, dynamic> tasteProfile = const {},
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
@@ -1053,9 +1054,22 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
             'and prefer picks that DIVERGE from them on genre, tone, '
             'or director rather than echo them.';
 
+    // TasteProfile aggregate — pre-computed per-category, per-actor,
+    // per-director affinity scores. Lets the AI rank candidates
+    // against weighted preferences instead of re-deriving "this
+    // user likes drama" from raw history every call.
+    final profileHint = tasteProfile.isEmpty
+        ? ''
+        : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
+            'aggregate weighted view of the user\'s preferences. '
+            'Higher scores = stronger affinity. Use this as the '
+            'TIE-BREAKER between equally-good library candidates. '
+            'If isColdStart=true, lean on critical acclaim rather '
+            'than these scores.';
+
     final userTurn = 'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
-        'LIBRARY: ${jsonEncode(librarySample)}$moreLikeHint$avoidHint$varietyHint';
+        'LIBRARY: ${jsonEncode(librarySample)}$profileHint$moreLikeHint$avoidHint$varietyHint';
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(

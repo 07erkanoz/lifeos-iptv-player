@@ -7,6 +7,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
+import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -324,6 +325,11 @@ final personalizedPicksProvider =
   // The taste-signal maps come from the repository helpers, which
   // include the category label — the real genre signal on this
   // catalogue since channels.genre is mostly NULL.
+  // Aggregate taste signals — top categories / actors / directors
+  // with weighted scores. Cheaper than letting Gemini re-derive
+  // these from raw lists and gives it a TIE-BREAKER for equally-
+  // ranked candidates.
+  final tasteProfile = await ref.read(tasteProfileProvider.future);
   final instrumentation = ref.read(aiInstrumentationProvider);
   final picks = await instrumentation.record<
       List<({int streamId, String reason})>>(
@@ -340,6 +346,7 @@ final personalizedPicksProvider =
       varietySeed: refreshSeed,
       moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
       avoidTitles: dislikedRows.map(compactSignal).toList(),
+      tasteProfile: tasteProfile.toPromptJson(),
     ),
   );
 
