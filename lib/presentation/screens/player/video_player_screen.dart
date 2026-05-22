@@ -382,7 +382,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// implementation don't lose their setting.
   Future<void> _loadIntroDuration() async {
     final sid = widget.parentStreamId;
-    if (sid == null) return;
+    if (sid == null) {
+      debugPrint('[intro] no parentStreamId, skipping');
+      return;
+    }
+    debugPrint('[intro] loading marker for seriesId=$sid');
 
     // One-shot migration: read the legacy single-int "intro length in
     // seconds" key, write it back as a `(0, stored*1000)` range, then
@@ -392,6 +396,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       final legacyKey = 'series_intro_$sid';
       final legacy = prefs.getInt(legacyKey);
       if (legacy != null && legacy > 0) {
+        debugPrint('[intro] migrating legacy key=$legacyKey value=${legacy}s');
         await ref.read(introMarkerRepositoryProvider).setMarker(
               sid,
               introStartMs: 0,
@@ -399,7 +404,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             );
         await prefs.remove(legacyKey);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[intro] legacy migration failed: $e');
+    }
+
+    // Eager initial read so the position listener has values to compare
+    // against from the first frame — relying on `watchSingleOrNull`'s
+    // initial emission was racing the player's first position events
+    // on devices where Drift's stream wakes a tick later than the
+    // media_kit player.
+    try {
+      final initial = await ref
+          .read(introMarkerRepositoryProvider)
+          .getMarker(sid);
+      if (initial != null && mounted) {
+        debugPrint('[intro] initial marker loaded: '
+            'start=${initial.introStartMs} end=${initial.introEndMs}');
+        setState(() {
+          _introStartMs = initial.introStartMs;
+          _introEndMs = initial.introEndMs;
+        });
+      } else {
+        debugPrint('[intro] no marker in DB for seriesId=$sid');
+      }
+    } catch (e) {
+      debugPrint('[intro] initial getMarker failed: $e');
+    }
 
     // Live subscription to the marker. The marking UI writes to the
     // same table, so this picks up edits without an extra reload.
@@ -408,6 +438,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         .watchMarker(sid)
         .listen((m) {
       if (!mounted) return;
+      debugPrint('[intro] marker stream emitted: '
+          'start=${m?.introStartMs} end=${m?.introEndMs}');
       setState(() {
         _introStartMs = m?.introStartMs;
         _introEndMs = m?.introEndMs;
@@ -526,18 +558,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       onTap: () async {
                         final start = pendingStartMs;
                         final end = _rawPos.inMilliseconds;
+                        debugPrint('[intro] marking dialog: '
+                            'start=$start end=$end sid=$sid');
                         if (start == null || end <= start) {
+                          debugPrint(
+                              '[intro] invalid range, refusing setMarker');
                           messenger.showSnackBar(SnackBar(
                             content: Text(l10n.introMarkInvalid),
                             duration: const Duration(seconds: 2),
                           ));
                           return;
                         }
-                        await repo.setMarker(
-                          sid,
-                          introStartMs: start,
-                          introEndMs: end,
-                        );
+                        try {
+                          await repo.setMarker(
+                            sid,
+                            introStartMs: start,
+                            introEndMs: end,
+                          );
+                          debugPrint('[intro] setMarker succeeded');
+                        } catch (e) {
+                          debugPrint('[intro] setMarker failed: $e');
+                          if (!ctx.mounted) return;
+                          messenger.showSnackBar(SnackBar(
+                            content: Text('${l10n.introMarkInvalid}: $e'),
+                            duration: const Duration(seconds: 3),
+                          ));
+                          return;
+                        }
                         if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                         messenger.showSnackBar(SnackBar(
