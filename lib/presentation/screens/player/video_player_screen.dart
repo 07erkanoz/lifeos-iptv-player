@@ -17,6 +17,8 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
+import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -1613,6 +1615,180 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Track pickers (audio/subtitle) - as full-screen dialog for D-pad
   // =========================================================================
 
+  /// Open the Xtream timeshift / catch-up stream for [program] on
+  /// [channelStreamId]. Called from the EPG overlay when the user
+  /// taps a past programme that's still within the provider's
+  /// timeshift window.
+  ///
+  /// Builds the URL via [StreamUrlBuilder.timeshift] and swaps the
+  /// current player Media. We deliberately stay on the same route
+  /// rather than push a new player — the EPG overlay is a child of
+  /// THIS player, so a new push would stack a second media_kit
+  /// instance unnecessarily.
+  Future<void> _startTimeshift(int channelStreamId, Program program) async {
+    final acc = await ref.read(currentAccountProvider.future);
+    if (acc == null ||
+        acc.username == null ||
+        acc.password == null) {
+      // M3U accounts don't expose timeshift; surface a brief notice.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Catch-up bu hesap türünde kullanılamıyor')),
+      );
+      return;
+    }
+    final duration = program.stop.difference(program.start);
+    final url = StreamUrlBuilder.timeshift(
+      acc.url,
+      acc.username!,
+      acc.password!,
+      channelStreamId,
+      start: program.start,
+      duration: duration,
+    );
+    // Hide the EPG overlay so the user sees the player while
+    // the new media loads.
+    if (mounted) setState(() => _showEpgGuide = false);
+    try {
+      await _player.open(Media(url), play: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${program.title} — yeniden oynatılıyor'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[timeshift] open failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Catch-up stream açılamadı — sunucu pencereyi sınırlamış olabilir')),
+        );
+      }
+    }
+  }
+
+  /// Show a video-quality (bitrate / resolution) picker.
+  ///
+  /// libmpv exposes alternate video tracks through
+  /// `_player.state.tracks.video`. For Xtream IPTV catalogues:
+  ///   * VOD endpoints are usually progressive single-bitrate files
+  ///     → only `auto` + one real track → we hide the button.
+  ///   * Live channels backed by HLS .m3u8 master playlists expose
+  ///     one entry per variant stream → we list them all so the
+  ///     user can pin a specific resolution / bitrate manually
+  ///     (e.g. force 720p on a flaky connection).
+  ///
+  /// Selecting "Auto" hands control back to libmpv's ABR. Picking
+  /// a specific track locks playback to that variant.
+  void _showQualityPicker() {
+    final l10n = AppLocalizations.of(context)!;
+    // Filter out the `no` (none) synthetic — video always has one.
+    final tracks = _player.state.tracks.video;
+    final real = tracks.where((t) => t.id != 'no').toList();
+
+    if (real.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.noOptions),
+          backgroundColor: AppColors.surfaceElevatedDark,
+        ),
+      );
+      return;
+    }
+
+    // Human-readable label for a video track. media_kit gives us
+    // width / height / bitrate when the source manifest provided
+    // them — fall back to the bare id when not.
+    String labelFor(VideoTrack t) {
+      if (t.id == 'auto') return l10n.qualityAuto;
+      final w = t.w;
+      final h = t.h;
+      final bitrate = t.bitrate;
+      final parts = <String>[];
+      if (h != null) {
+        parts.add('${h}p');
+      } else if (w != null) {
+        parts.add('${w}px');
+      }
+      if (bitrate != null && bitrate > 0) {
+        final kbps = (bitrate / 1000).round();
+        parts.add('${kbps}k');
+      }
+      if (t.title != null && t.title!.isNotEmpty) {
+        parts.add(t.title!);
+      }
+      return parts.isEmpty
+          ? (t.language ?? 'Track ${t.id}')
+          : parts.join(' · ');
+    }
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surfaceElevatedDark,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 360,
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(children: [
+                    const Icon(Icons.high_quality,
+                        color: AppColors.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Text(l10n.streamQuality,
+                        style: const TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        )),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: real.length,
+                    itemBuilder: (_, i) {
+                      final t = real[i];
+                      final selected = _player.state.track.video == t;
+                      return _FocusableTrackTile(
+                        title: labelFor(t),
+                        isSelected: selected,
+                        autofocus: selected || i == 0,
+                        onTap: () {
+                          _player.setVideoTrack(t);
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showTrackPicker(String type) {
     final l10n = AppLocalizations.of(context)!;
     final isAudio = type == 'audio';
@@ -2784,6 +2960,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               channelLogo: _currentLogo,
                               onClose: () =>
                                   setState(() => _showEpgGuide = false),
+                              onCatchUp: (p) =>
+                                  _startTimeshift(currentStreamId, p),
                             ),
                             loading: () => EpgOverlay(
                               programs: const [],
@@ -3301,6 +3479,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 onTap: () => _showTrackPicker('audio'),
               ),
               const SizedBox(width: 6),
+
+              // Quality / bitrate selector. Only rendered when the
+              // stream actually exposes multiple video tracks (HLS
+              // ABR ladders typically do, progressive single-file
+              // VOD doesn't). Hiding the button when there's nothing
+              // to pick avoids a dead control on the overlay.
+              if (_player.state.tracks.video
+                      .where((t) => t.id != 'no')
+                      .length >
+                  1) ...[
+                _DpadIconBtn(
+                  icon: Icons.high_quality_outlined,
+                  label: l10n.streamQuality,
+                  onTap: _showQualityPicker,
+                ),
+                const SizedBox(width: 6),
+              ],
 
               // Subtitle button
               _DpadIconBtn(

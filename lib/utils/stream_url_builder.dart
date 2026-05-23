@@ -39,6 +39,42 @@ class StreamUrlBuilder {
     return '$baseUrl/series/$username/$password/$streamId.mkv';
   }
 
+  /// Build an Xtream timeshift / catch-up URL.
+  ///
+  /// Pattern: `<base>/timeshift/<user>/<pass>/<duration_minutes>/
+  /// <start_yyyy-MM-dd:HH-mm>/<stream_id>.ts`.
+  ///
+  /// Use this to replay a programme that started at [start] and ran
+  /// for [duration]. The Xtream server keeps a rolling timeshift
+  /// buffer — typically the last 1-7 days, depending on the
+  /// provider. URLs older than that range silently 404; callers
+  /// should gate the catch-up button on `start` being within a
+  /// reasonable window.
+  ///
+  /// The format component is `.ts` rather than `.m3u8` because
+  /// timeshift sessions are server-cut MPEG-TS files; HLS variant
+  /// playlists don't apply to a finite past window.
+  static String timeshift(
+    String baseUrl,
+    String username,
+    String password,
+    int streamId, {
+    required DateTime start,
+    required Duration duration,
+  }) {
+    // Server expects local-server-time format. Most Xtream panels
+    // are TR / UTC+3; we send the user's local clock here and let
+    // the server interpret. If a provider needs UTC, we'd swap to
+    // start.toUtc() — leave the surface flexible.
+    final s = start;
+    final stamp =
+        '${s.year}-${_pad2(s.month)}-${_pad2(s.day)}:${_pad2(s.hour)}-${_pad2(s.minute)}';
+    final mins = duration.inMinutes.clamp(1, 24 * 60);
+    return '$baseUrl/timeshift/$username/$password/$mins/$stamp/$streamId.ts';
+  }
+
+  static String _pad2(int n) => n.toString().padLeft(2, '0');
+
   /// Generic builder based on content type.
   /// If [directUrl] is provided (M3U accounts), returns it directly.
   static String build(

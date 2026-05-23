@@ -15,12 +15,28 @@ class EpgOverlay extends StatefulWidget {
   final String? channelLogo;
   final VoidCallback onClose;
 
+  /// Catch-up / timeshift handler. When non-null and a program is in
+  /// the past but within the provider's timeshift window, the past
+  /// programme tiles render as tappable replay buttons. The handler
+  /// receives the [Program] and is expected to open a new player
+  /// session pointed at the Xtream timeshift URL (built via
+  /// `StreamUrlBuilder.timeshift`). Null disables the affordance.
+  final Future<void> Function(Program program)? onCatchUp;
+
+  /// How far back the Xtream timeshift buffer reaches. Programmes
+  /// whose `stop` is older than this are non-clickable (the server
+  /// would 404). Defaults to 5 days, the rough median across
+  /// providers; passing 0 effectively disables the affordance.
+  final Duration catchUpWindow;
+
   const EpgOverlay({
     super.key,
     required this.programs,
     required this.channelName,
     this.channelLogo,
     required this.onClose,
+    this.onCatchUp,
+    this.catchUpWindow = const Duration(days: 5),
   });
 
   @override
@@ -279,7 +295,14 @@ class _EpgOverlayState extends State<EpgOverlay>
       if (total > 0) progress = (elapsed / total).clamp(0.0, 1.0);
     }
 
-    return Container(
+    // Catch-up gate: past + within timeshift window + caller supplied
+    // a handler. Tiles outside the window stay non-tappable (the
+    // server would 404 anyway).
+    final isCatchUpAble = isPast &&
+        widget.onCatchUp != null &&
+        now.difference(program.stop) <= widget.catchUpWindow;
+
+    final tile = Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
         color: isCurrent
@@ -380,6 +403,18 @@ class _EpgOverlayState extends State<EpgOverlay>
                       ],
                     ),
                   ),
+                ]
+                // Catch-up replay icon — surfaces on past programmes
+                // when the caller wired the timeshift handler. Tap
+                // the whole row to start replay; this icon is just
+                // the visual affordance.
+                else if (isCatchUpAble) ...[
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.replay_circle_filled,
+                    color: AppColors.primary,
+                    size: 16,
+                  ),
                 ],
               ],
             ),
@@ -416,6 +451,23 @@ class _EpgOverlayState extends State<EpgOverlay>
             ],
           ],
         ),
+      ),
+    );
+    // Wrap tappable catch-up tiles in InkWell so they read as
+    // interactive. Non-catch-up tiles stay non-clickable to avoid
+    // looking like dead buttons.
+    if (!isCatchUpAble) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () async {
+          // Fire-and-forget; the player route push handles its own
+          // navigation animation. We deliberately don't `await` here
+          // to avoid blocking the EPG overlay's gesture pipeline.
+          widget.onCatchUp!.call(program);
+        },
+        child: tile,
       ),
     );
   }
