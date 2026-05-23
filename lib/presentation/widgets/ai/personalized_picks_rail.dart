@@ -329,41 +329,9 @@ class _PickCardState extends State<_PickCard> {
                 // hides the punch line.
                 if (widget.card.reason.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.help,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _showWhyPopover(context, ch),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.auto_awesome,
-                            size: 10,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              widget.card.reason,
-                              style: TextStyle(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.9),
-                                fontSize: 10.5,
-                                fontStyle: FontStyle.italic,
-                                height: 1.3,
-                                decoration: TextDecoration.underline,
-                                decorationColor:
-                                    AppColors.primary.withValues(alpha: 0.3),
-                                decorationStyle: TextDecorationStyle.dotted,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  _ReasonTapTarget(
+                    reason: widget.card.reason,
+                    onTap: () => _showWhyPopover(context, ch),
                   ),
                 ],
               ],
@@ -570,6 +538,93 @@ class _FeedbackOverflowButton extends StatelessWidget {
               Icons.more_horiz,
               color: Colors.white,
               size: 16,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tappable reason line under each pick card. Wrapped in Focus so
+/// Android TV's D-pad can land on it after focusing the card, and
+/// the select / enter key opens the same WhyDialog as a mouse tap.
+/// Without this the reason text was tap-only and invisible to the
+/// remote (no way to surface the popover on TV).
+class _ReasonTapTarget extends StatefulWidget {
+  final String reason;
+  final VoidCallback onTap;
+
+  const _ReasonTapTarget({required this.reason, required this.onTap});
+
+  @override
+  State<_ReasonTapTarget> createState() => _ReasonTapTargetState();
+}
+
+class _ReasonTapTargetState extends State<_ReasonTapTarget> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.help,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 2, vertical: 1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              color: _focused
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              border: Border.all(
+                color: _focused
+                    ? AppColors.primary.withValues(alpha: 0.6)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  size: 10,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    widget.reason,
+                    style: TextStyle(
+                      color: AppColors.primary.withValues(alpha: 0.9),
+                      fontSize: 10.5,
+                      fontStyle: FontStyle.italic,
+                      height: 1.3,
+                      decoration: TextDecoration.underline,
+                      decorationColor:
+                          AppColors.primary.withValues(alpha: 0.3),
+                      decorationStyle: TextDecorationStyle.dotted,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

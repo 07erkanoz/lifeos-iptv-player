@@ -3122,23 +3122,88 @@ class _SeasonMarkWatchedButtonState
     final ids = _ids;
     if (_loading || ids.isEmpty) return const SizedBox.shrink();
     final allDone = _finishedCount == ids.length;
-    return TextButton.icon(
-      onPressed: _toggle,
-      icon: Icon(
-        allDone ? Icons.replay_rounded : Icons.done_all_rounded,
-        size: 16,
-        color: allDone ? AppColors.textSecondaryDark : AppColors.primary,
-      ),
-      label: Text(
-        allDone ? 'İşareti kaldır' : 'Sezonu izlendi işaretle',
-        style: TextStyle(
-          color: allDone ? AppColors.textSecondaryDark : AppColors.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+    return _FocusableTextAction(
+      icon: allDone ? Icons.replay_rounded : Icons.done_all_rounded,
+      label: allDone ? 'İşareti kaldır' : 'Sezonu izlendi işaretle',
+      tone: allDone
+          ? AppColors.textSecondaryDark
+          : AppColors.primary,
+      onTap: _toggle,
+    );
+  }
+}
+
+/// Bare-bones focusable text+icon button. Matches the visual weight
+/// of a Material TextButton but adds a primary-coloured focus border
+/// so Android TV remote users can tell where they are. Used by the
+/// season "mark as watched" toggle — heavier handlers like
+/// _FocusableSeasonTab use their own custom style.
+class _FocusableTextAction extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color tone;
+  final VoidCallback onTap;
+
+  const _FocusableTextAction({
+    required this.icon,
+    required this.label,
+    required this.tone,
+    required this.onTap,
+  });
+
+  @override
+  State<_FocusableTextAction> createState() => _FocusableTextActionState();
+}
+
+class _FocusableTextActionState extends State<_FocusableTextAction> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _focused
+                ? widget.tone.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _focused
+                  ? widget.tone
+                  : widget.tone.withValues(alpha: 0.0),
+              width: _focused ? 2 : 0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 16, color: widget.tone),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.tone,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
     );
   }

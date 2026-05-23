@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -85,7 +86,18 @@ class WhyDialog extends StatelessWidget {
         : AppColors.textSecondaryLight;
     final bgColor = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
 
-    return Dialog(
+    // Esc / back key dismisses on every platform (desktop kbd, web,
+    // Android TV remote BACK). CallbackShortcuts is the lightest
+    // primitive that covers all three without pulling Actions/
+    // Intents into a transient dialog.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.of(context).maybePop(),
+        const SingleActivator(LogicalKeyboardKey.goBack): () =>
+            Navigator.of(context).maybePop(),
+      },
+      child: Dialog(
       backgroundColor: bgColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -159,7 +171,11 @@ class WhyDialog extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // autofocus so Android TV / keyboard users land
+                  // here when the dialog opens — enter/select then
+                  // dismisses, matching the Esc / back binding above.
                   IconButton(
+                    autofocus: true,
                     onPressed: () => Navigator.of(context).pop(),
                     icon:
                         Icon(Icons.close, color: subColor, size: 20),
@@ -236,6 +252,7 @@ class WhyDialog extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 

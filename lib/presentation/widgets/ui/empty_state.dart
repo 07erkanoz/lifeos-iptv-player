@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
 
 /// A consistent, friendly empty state for screens with no content.
@@ -162,27 +163,15 @@ class EmptyState extends StatelessWidget {
         ],
 
         // ── CTA ───────────────────────────────────────────────────
+        // autofocus so Android TV remote lands here when an empty
+        // state is reached — without it the screen has no focusable
+        // element, leaving the user stranded with no D-pad target.
         if (hasAction) ...[
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: onAction,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 22, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-            child: Text(
-              actionLabel!,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
+          _EmptyStateCta(
+            label: actionLabel!,
+            color: accentColor,
+            onTap: onAction!,
           ),
         ],
       ],
@@ -293,4 +282,80 @@ class EmptyState extends StatelessWidget {
         actionLabel: actionLabel,
         onAction: onAction,
       );
+}
+
+/// CTA button inside [EmptyState]. Wrapped in Focus + autofocus so
+/// Android TV / keyboard users have a guaranteed initial target on
+/// every empty screen. ElevatedButton already supports focus
+/// internally, but its default visual is subtle on 10-foot UIs —
+/// this wrapper bumps the border width on focus so the focused
+/// state is unmistakable from across the room.
+class _EmptyStateCta extends StatefulWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _EmptyStateCta({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_EmptyStateCta> createState() => _EmptyStateCtaState();
+}
+
+class _EmptyStateCtaState extends State<_EmptyStateCta> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      autofocus: true,
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.color,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _focused
+                  ? Colors.white
+                  : widget.color.withValues(alpha: 0.0),
+              width: _focused ? 2.5 : 0,
+            ),
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

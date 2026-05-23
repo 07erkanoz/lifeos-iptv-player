@@ -1545,7 +1545,16 @@ class _SearchHistoryPanel extends ConsumerWidget {
 /// [onRemove] when provided — only the "recent" row exposes that
 /// path (trending chips can't be removed individually; the user
 /// can clear the whole history instead).
-class _HistoryChip extends StatelessWidget {
+///
+/// Focus / D-pad behaviour:
+///   * Wrapped in a Focus widget so Android TV remote can D-pad onto
+///     it, with visual feedback (thicker primary-coloured border +
+///     subtle background bump on focus).
+///   * select / enter key triggers [onTap].
+///   * On D-pad-long-press there's no native equivalent, so [onRemove]
+///     stays mouse / touch-long-press only — the user can clear the
+///     whole history via the "Geçmişi temizle" button instead.
+class _HistoryChip extends StatefulWidget {
   final String label;
   final IconData icon;
   final bool emphasised;
@@ -1561,42 +1570,69 @@ class _HistoryChip extends StatelessWidget {
   });
 
   @override
+  State<_HistoryChip> createState() => _HistoryChipState();
+}
+
+class _HistoryChipState extends State<_HistoryChip> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = emphasised
+    final color = widget.emphasised
         ? AppColors.primary
         : AppColors.textSecondaryDark;
-    final bg = emphasised
+    final bg = widget.emphasised
         ? AppColors.primary.withValues(alpha: 0.12)
         : AppColors.surfaceElevatedDark;
-    final border = emphasised
-        ? AppColors.primary.withValues(alpha: 0.35)
-        : AppColors.borderDark;
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onRemove,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: emphasised ? color : AppColors.textDark,
-                fontSize: 12,
-                fontWeight:
-                    emphasised ? FontWeight.w600 : FontWeight.w500,
-              ),
+    final border = _focused
+        ? AppColors.primary
+        : (widget.emphasised
+            ? AppColors.primary.withValues(alpha: 0.35)
+            : AppColors.borderDark);
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: InkWell(
+        onTap: widget.onTap,
+        onLongPress: widget.onRemove,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: _focused
+                ? AppColors.primary.withValues(alpha: 0.18)
+                : bg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: border,
+              width: _focused ? 2 : 1,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 13, color: color),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.emphasised ? color : AppColors.textDark,
+                  fontSize: 12,
+                  fontWeight:
+                      widget.emphasised ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
