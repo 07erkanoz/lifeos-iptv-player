@@ -1,15 +1,61 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/data/services/backup_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 class LandingScreen extends ConsumerWidget {
   const LandingScreen({super.key});
+
+  /// Pre-auth backup restore. The Settings → Veri & Yedek path
+  /// covers the same flow but only reachable after the user is
+  /// logged in. For users who reinstalled / migrated / wiped data
+  /// the only escape route is HERE on the landing screen.
+  ///
+  /// File picker scope: `FileType.any` because some Android OEMs
+  /// refuse to filter custom .json extensions through SAF (the
+  /// picker just returns empty even when a valid backup is
+  /// selected). Validation happens in importFromJson() — wrong
+  /// file content throws FormatException, which we surface as a
+  /// snackbar so the user can pick again.
+  static Future<void> _restoreFromBackup(
+      BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: false,
+    );
+    final filePath = pick?.files.single.path;
+    if (filePath == null) return;
+    if (!context.mounted) return;
+    try {
+      await ref.read(backupServiceProvider).importFromFile(filePath);
+      // Wake the auth providers so the restored accounts show up
+      // in the saved-accounts column without a manual reload.
+      ref.invalidate(savedAccountsProvider);
+      ref.invalidate(currentAccountProvider);
+      ref.invalidate(settingsProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.backupRestored)),
+      );
+    } on FormatException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l10n.backupInvalidFormat}: ${e.message}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${l10n.backupFailed}: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,7 +129,7 @@ class LandingScreen extends ConsumerWidget {
             ),
              const SizedBox(height: 24),
             TextButton.icon(
-              onPressed: () {}, // TODO: Implement Backup Restore
+              onPressed: () => _restoreFromBackup(context, ref),
               icon: const Icon(Icons.restore),
               label: Text(l10n.restoreBackup),
               style: TextButton.styleFrom(

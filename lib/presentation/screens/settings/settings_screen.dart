@@ -2138,8 +2138,19 @@ class _DataSection extends ConsumerWidget {
 
   Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
     try {
-      final path = await ref.read(backupServiceProvider).exportToFile();
+      // Storage Access Framework picker — user chooses Downloads /
+      // Drive / SD card / wherever. File ends up OUTSIDE the app
+      // sandbox so a future uninstall doesn't take the backup with
+      // it (the trap the v1.1 builds fell into).
+      final path = await ref
+          .read(backupServiceProvider)
+          .exportToUserPickedFile();
       if (!context.mounted) return;
+      if (path == null) {
+        // User dismissed the picker. No-op snack to avoid the
+        // "where did my file go" panic — silently exit.
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${l10n.backupSaved}\n$path'),

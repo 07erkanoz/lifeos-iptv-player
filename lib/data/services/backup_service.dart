@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +74,16 @@ class BackupService {
   }
 
   /// Write the backup into the app's documents directory.
-  /// Returns the absolute file path so the caller can show it in a SnackBar.
+  /// Returns the absolute file path so the caller can show it in a
+  /// SnackBar.
+  ///
+  /// IMPORTANT: this path lives inside the app's PRIVATE sandbox
+  /// (`/data/data/<package>/app_flutter/`). On non-rooted Android,
+  /// the user has NO way to access this file once the app is
+  /// uninstalled — defeating the whole point of a backup. Prefer
+  /// [exportToUserPickedFile] for any user-facing backup flow.
+  /// This older API survives for callers that want a quick
+  /// internal snapshot (e.g. before a destructive migration).
   Future<String> exportToFile() async {
     final json = await exportToJson();
     final dir = await getApplicationDocumentsDirectory();
@@ -85,6 +95,51 @@ class BackupService {
     final file = File('${dir.path}/lifeostv-backup-$ts.json');
     await file.writeAsString(json);
     return file.path;
+  }
+
+  /// Export the backup to a user-picked location (Downloads, Drive,
+  /// SD card, etc.) via the platform Storage Access Framework. The
+  /// file lives OUTSIDE the app sandbox, so a future uninstall
+  /// won't take the backup with it.
+  ///
+  /// Returns the saved file path on success, null if the user
+  /// dismissed the picker. Caller is expected to surface a snackbar
+  /// on either branch.
+  ///
+  /// Uses `file_picker.saveFile` so the same call works on Android,
+  /// iOS, and desktop. On Android the SAF picker lets the user pick
+  /// any folder they have write access to.
+  Future<String?> exportToUserPickedFile() async {
+    final json = await exportToJson();
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')
+        .first;
+    final suggestedName = 'lifeostv-backup-$ts.json';
+    final bytes = utf8.encode(json);
+
+    // saveFile on Android 11+ writes the file directly via SAF when
+    // we pass `bytes`; older flow only returns the chosen path and
+    // expects us to write. Handle both:
+    final picked = await FilePicker.platform.saveFile(
+      dialogTitle: 'LifeOS TV yedeği kaydet',
+      fileName: suggestedName,
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      bytes: bytes,
+    );
+    if (picked == null) return null;
+
+    // saveFile + bytes already wrote the file on Android. On desktop
+    // and older API levels we still need to write. Check whether the
+    // file actually exists at the returned path; if not, write it
+    // manually.
+    final file = File(picked);
+    if (!await file.exists() || await file.length() == 0) {
+      await file.writeAsString(json);
+    }
+    return picked;
   }
 
   // ─── Import ──────────────────────────────────────────────────────────────
