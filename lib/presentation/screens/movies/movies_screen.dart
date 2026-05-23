@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/platform_helper.dart';
+import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
@@ -2046,12 +2047,22 @@ class _FavoritesGridView extends ConsumerWidget {
     final favIdsAsync = ref.watch(_favMovieIdsProvider);
     return favIdsAsync.when(
       data: (ids) {
-        if (ids.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiary(context))));
+        if (ids.isEmpty) {
+          return EmptyState.favorites(
+            title: l10n.noFavorites,
+            subtitle: 'Bir filmin yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
+          );
+        }
         final channelsAsync = ref.watch(_favChannelsProvider(ids));
         return channelsAsync.when(
           data: (channels) {
             final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-            if (filtered.isEmpty) return Center(child: Text(l10n.noFavorites, style: TextStyle(color: AppColors.textTertiary(context))));
+            if (filtered.isEmpty) {
+              return EmptyState.search(
+                title: l10n.noFavorites,
+                subtitle: '"$searchQuery" aramasıyla eşleşen favori bulunamadı.',
+              );
+            }
             final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
             final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
             return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);

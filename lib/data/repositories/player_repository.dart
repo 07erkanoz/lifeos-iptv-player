@@ -65,6 +65,64 @@ class PlayerRepository {
       ..where((tbl) => tbl.type.equals(type))
     ).go();
   }
+
+  /// Bulk-mark a batch of episodes as watched (isFinished = true).
+  /// Used by the "Mark season as watched" action — the user selects
+  /// a whole season tab and one tap marks every episode in it. We
+  /// use upsert semantics (insertOrReplace on the composite
+  /// (streamId, type) PK) so this works whether or not the user had
+  /// any prior partial progress on those episodes.
+  ///
+  /// `position`/`duration` are set to a sentinel "watched-to-end"
+  /// value (1 / 1) so the existing >95% finished check stays
+  /// consistent, and the row sorts to the bottom of "Continue
+  /// Watching" rather than re-appearing as a half-watched item.
+  Future<void> markEpisodesAsWatched(List<int> streamIds) async {
+    if (streamIds.isEmpty) return;
+    final now = DateTime.now();
+    await _db.batch((batch) {
+      for (final id in streamIds) {
+        batch.insert(
+          _db.playbackProgress,
+          PlaybackProgressCompanion.insert(
+            streamId: id,
+            type: 'series',
+            position: 1,
+            duration: 1,
+            isFinished: const Value(true),
+            updatedAt: Value(now),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+  }
+
+  /// Inverse of [markEpisodesAsWatched] — clear progress rows for a
+  /// season the user wants to re-watch from scratch. Same composite
+  /// where-clause as the per-episode delete.
+  Future<void> unmarkEpisodes(List<int> streamIds) async {
+    if (streamIds.isEmpty) return;
+    await (_db.delete(_db.playbackProgress)
+          ..where(
+              (tbl) => tbl.streamId.isIn(streamIds) & tbl.type.equals('series')))
+        .go();
+  }
+
+  /// Count how many of the given episode ids are flagged as finished.
+  /// Used by the "Mark season as watched" toggle to decide whether
+  /// to show "Sezonu izlendi işaretle" or "İşareti kaldır" — if every
+  /// episode is finished, the button flips to undo mode.
+  Future<int> finishedCount(List<int> streamIds) async {
+    if (streamIds.isEmpty) return 0;
+    final rows = await (_db.select(_db.playbackProgress)
+          ..where((tbl) =>
+              tbl.streamId.isIn(streamIds) &
+              tbl.type.equals('series') &
+              tbl.isFinished.equals(true)))
+        .get();
+    return rows.length;
+  }
 }
 
 @riverpod

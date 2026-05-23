@@ -1129,6 +1129,12 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiFeedbackWhy => 'Çima hate pêşniyar kirin?';
 
   @override
+  String get aiFeedbackSource => 'Taybetiya AI';
+
+  @override
+  String get aiMatchScoreSuffix => 'lihevhatî';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'Em dê bêhtir wek vê nîşan bidin';
 
   @override

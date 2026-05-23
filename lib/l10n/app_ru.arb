@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "Больше такого",
   "aiFeedbackDislike": "Не интересно, скрыть",
   "aiFeedbackWhy": "Почему выбрано?",
+    "aiFeedbackSource": "Функция ИИ",
+  "aiMatchScoreSuffix": "совпадение",
   "aiFeedbackMoreLikeAdded": "Будем показывать больше такого",
   "aiFeedbackDislikeAdded": "Больше не предложим",
   "aiFeedbackRemoved": "Отзыв удалён",

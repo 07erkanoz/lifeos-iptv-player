@@ -1128,6 +1128,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiFeedbackWhy => 'Why was this picked?';
 
   @override
+  String get aiFeedbackSource => 'AI feature';
+
+  @override
+  String get aiMatchScoreSuffix => 'match';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'We\'ll surface more like this';
 
   @override

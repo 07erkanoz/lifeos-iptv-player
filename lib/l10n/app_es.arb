@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "Más como este",
   "aiFeedbackDislike": "No me interesa",
   "aiFeedbackWhy": "¿Por qué se eligió?",
+    "aiFeedbackSource": "Función IA",
+  "aiMatchScoreSuffix": "coincidencia",
   "aiFeedbackMoreLikeAdded": "Mostraremos más así",
   "aiFeedbackDislikeAdded": "Ya no lo sugeriremos",
   "aiFeedbackRemoved": "Comentario eliminado",

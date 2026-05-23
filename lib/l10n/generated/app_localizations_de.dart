@@ -1137,6 +1137,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiFeedbackWhy => 'Warum vorgeschlagen?';
 
   @override
+  String get aiFeedbackSource => 'KI-Funktion';
+
+  @override
+  String get aiMatchScoreSuffix => 'Übereinstimmung';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'Wir zeigen mehr davon';
 
   @override

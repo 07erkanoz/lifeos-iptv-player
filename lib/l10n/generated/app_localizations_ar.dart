@@ -1126,6 +1126,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get aiFeedbackWhy => 'لماذا تم اقتراحه؟';
 
   @override
+  String get aiFeedbackSource => 'ميزة الذكاء الاصطناعي';
+
+  @override
+  String get aiMatchScoreSuffix => 'تطابق';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'سنعرض المزيد مثله';
 
   @override

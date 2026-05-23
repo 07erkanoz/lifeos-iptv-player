@@ -9,6 +9,7 @@ import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
+import 'package:lifeostv/presentation/widgets/ai/why_dialog.dart';
 
 /// Dashboard "Sana Özel" rail — passive daily-refresh AI-curated
 /// picks based on the user's watch history + favourites.
@@ -321,32 +322,48 @@ class _PickCardState extends State<_PickCard> {
                 ),
                 // Reason line — hidden when blank (the fallback
                 // path supplies empty reasons so cards stay clean
-                // when AI couldn't generate the rail).
+                // when AI couldn't generate the rail). Tap to expand
+                // into the full "Why?" popover with the un-truncated
+                // reason and any extra signals (genre overlap, taste
+                // profile matches) — useful when the 3-line ellipsis
+                // hides the punch line.
                 if (widget.card.reason.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        size: 10,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          widget.card.reason,
-                          style: TextStyle(
-                            color: AppColors.primary.withValues(alpha: 0.9),
-                            fontSize: 10.5,
-                            fontStyle: FontStyle.italic,
-                            height: 1.3,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.help,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _showWhyPopover(context, ch),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            size: 10,
+                            color: AppColors.primary,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              widget.card.reason,
+                              style: TextStyle(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.9),
+                                fontSize: 10.5,
+                                fontStyle: FontStyle.italic,
+                                height: 1.3,
+                                decoration: TextDecoration.underline,
+                                decorationColor:
+                                    AppColors.primary.withValues(alpha: 0.3),
+                                decorationStyle: TextDecorationStyle.dotted,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ],
@@ -364,6 +381,41 @@ class _PickCardState extends State<_PickCard> {
       color: AppColors.surfaceElevatedDark,
       child: const Icon(Icons.movie_outlined,
           color: AppColors.textTertiaryDark, size: 36),
+    );
+  }
+
+  /// Open the "Why was this picked?" popover. Surfaces the full AI
+  /// reason text (un-truncated) plus a few derived signal chips so
+  /// the user understands the recommendation rather than just sees
+  /// it. Chips include genre + content type at minimum; if year is
+  /// present we add a "20XX" badge too.
+  void _showWhyPopover(BuildContext context, Channel ch) {
+    final signals = <String>[];
+    if (ch.genre != null && ch.genre!.trim().isNotEmpty) {
+      // Keep just the first 2 genres so the row doesn't wrap into
+      // four lines on Turkish multi-genre categories like "KOMEDi &
+      // ROMANTiK & GENÇLİK".
+      final genres = ch.genre!
+          .split(RegExp(r'[,&·]'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .take(2);
+      signals.addAll(genres);
+    }
+    if (ch.year != null && ch.year!.trim().isNotEmpty) {
+      signals.add(ch.year!.trim());
+    }
+    if (ch.type == 'series') {
+      signals.add('Dizi');
+    } else if (ch.type == 'movie') {
+      signals.add('Film');
+    }
+    WhyDialog.show(
+      context,
+      channel: ch,
+      reason: widget.card.reason,
+      signals: signals,
+      feature: 'Sana Özel',
     );
   }
 }

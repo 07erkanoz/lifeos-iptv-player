@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "المزيد مثل هذا",
   "aiFeedbackDislike": "لست مهتماً",
   "aiFeedbackWhy": "لماذا تم اقتراحه؟",
+    "aiFeedbackSource": "ميزة الذكاء الاصطناعي",
+  "aiMatchScoreSuffix": "تطابق",
   "aiFeedbackMoreLikeAdded": "سنعرض المزيد مثله",
   "aiFeedbackDislikeAdded": "لن نقترح هذا بعد الآن",
   "aiFeedbackRemoved": "تم حذف التعليق",

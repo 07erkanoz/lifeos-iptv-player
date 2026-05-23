@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/live_tv_back_resolver.dart';
+import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -1375,25 +1376,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     return favIdsAsync.when(
       data: (ids) {
         if (ids.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.favorite_border,
-                  size: 48,
-                  color: AppColors.textDisabledDark,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.noFavorites,
-                  style: const TextStyle(
-                    color: AppColors.textTertiaryDark,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+          return EmptyState.favorites(
+            title: l10n.noFavorites,
+            subtitle: 'Bir kanalın yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
           );
         }
         final channelsAsync = ref.watch(_favLiveChannelsProvider(ids));

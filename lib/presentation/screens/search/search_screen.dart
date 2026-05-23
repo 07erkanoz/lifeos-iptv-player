@@ -15,6 +15,7 @@ import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -777,25 +778,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
-                                ] else ...[
-                                  Icon(
-                                    _controller.text.isEmpty
-                                        ? Icons.search
-                                        : Icons.search_off,
-                                    size: 48,
-                                    color: AppColors.textDisabledDark,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _controller.text.isEmpty
+                                ] else
+                                  EmptyState.search(
+                                    title: _controller.text.isEmpty
                                         ? l10n.search
                                         : l10n.noChannels,
-                                    style: const TextStyle(
-                                      color: AppColors.textTertiaryDark,
-                                      fontSize: 14,
-                                    ),
+                                    subtitle: _controller.text.isEmpty
+                                        ? null
+                                        : '"${_controller.text}" için sonuç bulunamadı. Farklı kelimeler dene veya AI asistana sor.',
+                                    fillParent: false,
                                   ),
-                                ],
                               ],
                             ),
                           )

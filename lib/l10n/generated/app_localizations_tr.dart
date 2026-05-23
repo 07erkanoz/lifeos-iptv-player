@@ -1127,6 +1127,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get aiFeedbackWhy => 'Neden önerildi?';
 
   @override
+  String get aiFeedbackSource => 'AI özelliği';
+
+  @override
+  String get aiMatchScoreSuffix => 'uyumlu';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'Bunun gibi öneriler artacak';
 
   @override

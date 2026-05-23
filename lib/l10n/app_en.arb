@@ -389,6 +389,8 @@
   "aiFeedbackMoreLike": "More like this",
   "aiFeedbackDislike": "Not interested, hide",
   "aiFeedbackWhy": "Why was this picked?",
+  "aiFeedbackSource": "AI feature",
+  "aiMatchScoreSuffix": "match",
   "aiFeedbackMoreLikeAdded": "We'll surface more like this",
   "aiFeedbackDislikeAdded": "We'll stop suggesting this",
   "aiFeedbackRemoved": "Feedback removed",

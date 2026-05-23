@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/platform_helper.dart';
+import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
@@ -2166,25 +2167,42 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   // Season tabs + Episode list (shown for both mobile & desktop)
                   if (seasonNums.isNotEmpty) ...[
                     const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 8,
-                      children: seasonNums.map((s) {
-                        final num = int.tryParse(s) ?? 0;
-                        final isActive = num == _activeSeason;
-                        return _FocusableSeasonTab(
-                          label: '${l10n.season} $num',
-                          isActive: isActive,
-                          onTap: () {
-                            setState(() => _activeSeason = num);
-                            // Lazy-fetch AI summaries for this
-                            // season's empty-plot episodes. The
-                            // method is idempotent per (series,
-                            // season) so retapping the same tab is
-                            // free.
-                            _fetchEpisodeAiSummariesForActiveSeason();
-                          },
-                        );
-                      }).toList(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: seasonNums.map((s) {
+                              final num = int.tryParse(s) ?? 0;
+                              final isActive = num == _activeSeason;
+                              return _FocusableSeasonTab(
+                                label: '${l10n.season} $num',
+                                isActive: isActive,
+                                onTap: () {
+                                  setState(() => _activeSeason = num);
+                                  // Lazy-fetch AI summaries for this
+                                  // season's empty-plot episodes. The
+                                  // method is idempotent per (series,
+                                  // season) so retapping the same tab is
+                                  // free.
+                                  _fetchEpisodeAiSummariesForActiveSeason();
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        // ── Season-level "mark as watched" toggle ──
+                        // One tap marks every episode in the active
+                        // season as finished. Useful when the user
+                        // watched a season on another device / before
+                        // the catalog was synced and wants the rail
+                        // to advance past those titles.
+                        _SeasonMarkWatchedButton(
+                          episodes: activeEpisodes,
+                          season: _activeSeason,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     ...activeEpisodes.map((ep) => _buildEpisodeItem(ep, l10n)),
@@ -3015,6 +3033,117 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
 
 // ─── Focusable Season Tab (D-pad navigable) ─────────────────────────────────
 
+/// Small text button shown next to the season tabs that toggles
+/// "Sezonu izlendi olarak işaretle" / "İşareti kaldır". One tap
+/// upserts a finished-progress row for every episode in the active
+/// season; tapping again clears them.
+///
+/// Lives in the series detail page only — episode-level toggles
+/// already exist on the [_EpisodeCard] long-press menu. This widget
+/// is the bulk shortcut so the user doesn't have to long-press
+/// 20 episodes for a finished season.
+class _SeasonMarkWatchedButton extends ConsumerStatefulWidget {
+  final List<dynamic> episodes;
+  final int season;
+
+  const _SeasonMarkWatchedButton({
+    required this.episodes,
+    required this.season,
+  });
+
+  @override
+  ConsumerState<_SeasonMarkWatchedButton> createState() =>
+      _SeasonMarkWatchedButtonState();
+}
+
+class _SeasonMarkWatchedButtonState
+    extends ConsumerState<_SeasonMarkWatchedButton> {
+  int _finishedCount = 0;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void didUpdateWidget(_SeasonMarkWatchedButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.season != widget.season ||
+        oldWidget.episodes.length != widget.episodes.length) {
+      _refresh();
+    }
+  }
+
+  /// Pull only the streamIds we can resolve from the episode list —
+  /// some Xtream payloads ship episodes without a numeric id, those
+  /// don't have a PlaybackProgress row to update.
+  List<int> get _ids => widget.episodes
+      .map((e) => (e is Map ? e['id'] : null))
+      .map((v) =>
+          v is int ? v : (v is String ? int.tryParse(v) : null))
+      .whereType<int>()
+      .toList();
+
+  Future<void> _refresh() async {
+    final ids = _ids;
+    if (ids.isEmpty) {
+      setState(() {
+        _finishedCount = 0;
+        _loading = false;
+      });
+      return;
+    }
+    final count =
+        await ref.read(playerRepositoryProvider).finishedCount(ids);
+    if (!mounted) return;
+    setState(() {
+      _finishedCount = count;
+      _loading = false;
+    });
+  }
+
+  Future<void> _toggle() async {
+    final ids = _ids;
+    if (ids.isEmpty) return;
+    final repo = ref.read(playerRepositoryProvider);
+    final allDone = _finishedCount == ids.length;
+    if (allDone) {
+      await repo.unmarkEpisodes(ids);
+    } else {
+      await repo.markEpisodesAsWatched(ids);
+    }
+    await _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ids = _ids;
+    if (_loading || ids.isEmpty) return const SizedBox.shrink();
+    final allDone = _finishedCount == ids.length;
+    return TextButton.icon(
+      onPressed: _toggle,
+      icon: Icon(
+        allDone ? Icons.replay_rounded : Icons.done_all_rounded,
+        size: 16,
+        color: allDone ? AppColors.textSecondaryDark : AppColors.primary,
+      ),
+      label: Text(
+        allDone ? 'İşareti kaldır' : 'Sezonu izlendi işaretle',
+        style: TextStyle(
+          color: allDone ? AppColors.textSecondaryDark : AppColors.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+}
+
 class _FocusableSeasonTab extends StatefulWidget {
   final String label;
   final bool isActive;
@@ -3301,11 +3430,10 @@ class _FavoritesGridView extends ConsumerWidget {
     return favIdsAsync.when(
       data: (ids) {
         if (ids.isEmpty) {
-          return Center(
-            child: Text(
-              l10n.noFavorites,
-              style: TextStyle(color: AppColors.textTertiary(context)),
-            ),
+          return EmptyState.favorites(
+            title: l10n.noFavorites,
+            subtitle:
+                'Bir dizinin yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
           );
         }
         final channelsAsync = ref.watch(_favChannelsProvider(ids));
@@ -3317,11 +3445,10 @@ class _FavoritesGridView extends ConsumerWidget {
                       .where((c) => c.name.toLowerCase().contains(searchQuery))
                       .toList();
             if (filtered.isEmpty) {
-              return Center(
-                child: Text(
-                  l10n.noFavorites,
-                  style: TextStyle(color: AppColors.textTertiary(context)),
-                ),
+              return EmptyState.search(
+                title: l10n.noFavorites,
+                subtitle:
+                    '"$searchQuery" aramasıyla eşleşen favori dizi bulunamadı.',
               );
             }
             return _PosterGrid(

@@ -10,6 +10,7 @@ import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 
 /// Data class for hero VOD info (fetched from API)
 class HeroVodInfo {
@@ -394,15 +395,8 @@ class _HeroBannerState extends State<HeroBanner> {
     if (widget.channels.isEmpty) {
       return SizedBox(
         height: clampedHeight,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.movie_outlined, size: 48, color: AppColors.textTertiaryDark),
-              const SizedBox(height: 12),
-              Text(l10n.noChannels, style: TextStyle(color: AppColors.textSecondaryDark)),
-            ],
-          ),
+        child: EmptyState.library(
+          title: l10n.noChannels,
         ),
       );
     }

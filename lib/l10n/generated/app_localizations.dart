@@ -2228,6 +2228,18 @@ abstract class AppLocalizations {
   /// **'Neden önerildi?'**
   String get aiFeedbackWhy;
 
+  /// No description provided for @aiFeedbackSource.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI özelliği'**
+  String get aiFeedbackSource;
+
+  /// No description provided for @aiMatchScoreSuffix.
+  ///
+  /// In tr, this message translates to:
+  /// **'uyumlu'**
+  String get aiMatchScoreSuffix;
+
   /// No description provided for @aiFeedbackMoreLikeAdded.
   ///
   /// In tr, this message translates to:

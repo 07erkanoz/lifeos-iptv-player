@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "Bêhtir wek vê",
   "aiFeedbackDislike": "Nepêdivî, veşêre",
   "aiFeedbackWhy": "Çima hate pêşniyar kirin?",
+    "aiFeedbackSource": "Taybetiya AI",
+  "aiMatchScoreSuffix": "lihevhatî",
   "aiFeedbackMoreLikeAdded": "Em dê bêhtir wek vê nîşan bidin",
   "aiFeedbackDislikeAdded": "Em êdî vê pêşniyar nakin",
   "aiFeedbackRemoved": "Vegerandin hat rakirin",

@@ -1132,6 +1132,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiFeedbackWhy => '¿Por qué se eligió?';
 
   @override
+  String get aiFeedbackSource => 'Función IA';
+
+  @override
+  String get aiMatchScoreSuffix => 'coincidencia';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'Mostraremos más así';
 
   @override

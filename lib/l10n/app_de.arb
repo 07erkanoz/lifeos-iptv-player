@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "Mehr davon",
   "aiFeedbackDislike": "Nicht interessant",
   "aiFeedbackWhy": "Warum vorgeschlagen?",
+    "aiFeedbackSource": "KI-Funktion",
+  "aiMatchScoreSuffix": "Übereinstimmung",
   "aiFeedbackMoreLikeAdded": "Wir zeigen mehr davon",
   "aiFeedbackDislikeAdded": "Wir schlagen das nicht mehr vor",
   "aiFeedbackRemoved": "Feedback entfernt",

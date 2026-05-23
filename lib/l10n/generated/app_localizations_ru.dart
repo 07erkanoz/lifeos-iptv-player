@@ -1129,6 +1129,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiFeedbackWhy => 'Почему выбрано?';
 
   @override
+  String get aiFeedbackSource => 'Функция ИИ';
+
+  @override
+  String get aiMatchScoreSuffix => 'совпадение';
+
+  @override
   String get aiFeedbackMoreLikeAdded => 'Будем показывать больше такого';
 
   @override

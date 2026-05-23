@@ -399,6 +399,8 @@
   "aiFeedbackMoreLike": "Plus comme ça",
   "aiFeedbackDislike": "Pas intéressé",
   "aiFeedbackWhy": "Pourquoi proposé ?",
+    "aiFeedbackSource": "Fonction IA",
+  "aiMatchScoreSuffix": "correspondance",
   "aiFeedbackMoreLikeAdded": "Nous en suggérerons plus",
   "aiFeedbackDislikeAdded": "Nous ne suggérerons plus cela",
   "aiFeedbackRemoved": "Avis retiré",
