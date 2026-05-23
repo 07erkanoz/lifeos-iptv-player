@@ -1233,4 +1233,62 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get aiSimilarFailed =>
       'Не удалось загрузить — показан стандартный список.';
+
+  @override
+  String get statsTitle => 'Статистика';
+
+  @override
+  String get statsWatchTime => 'Время просмотра';
+
+  @override
+  String get statsAllTime => 'За всё время';
+
+  @override
+  String get statsThisWeek => 'На этой неделе';
+
+  @override
+  String get statsThisMonth => 'В этом месяце';
+
+  @override
+  String get statsTopGenres => 'Любимые жанры';
+
+  @override
+  String get statsTotalMovies => 'Просмотрено фильмов';
+
+  @override
+  String get statsTotalEpisodes => 'Просмотрено серий';
+
+  @override
+  String get statsHoursShort => 'ч';
+
+  @override
+  String get statsMinutesShort => 'мин';
+
+  @override
+  String get statsEmpty =>
+      'Пока нет данных. Посмотри что-нибудь — статистика появится здесь.';
+
+  @override
+  String get searchRecent => 'Недавние запросы';
+
+  @override
+  String get searchTrending => 'Популярные запросы';
+
+  @override
+  String get searchClearHistory => 'Очистить историю';
+
+  @override
+  String get searchHistoryCleared => 'История поиска очищена';
+
+  @override
+  String get playerUpNext => 'Далее';
+
+  @override
+  String get playerStartingIn => 'начинается через';
+
+  @override
+  String get playerCancelAutoplay => 'Отмена';
+
+  @override
+  String get playerPlayNow => 'Смотреть сейчас';
 }

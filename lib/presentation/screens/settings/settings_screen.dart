@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -80,6 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     (icon: Icons.shield_outlined, label: l10n.categories), // Content / Adult filter
     (icon: Icons.subtitles_outlined, label: l10n.subtitle), // OpenSubtitles
     (icon: Icons.auto_awesome_outlined, label: l10n.aiAssistant), // Gemini key
+    (icon: Icons.bar_chart_rounded, label: l10n.statsTitle), // Watch time stats
     (icon: Icons.storage_outlined, label: l10n.dataBackup),
     (icon: Icons.info_outline, label: l10n.about),
   ];
@@ -170,8 +172,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case 6:
         return _AiAssistantSection(settings: settings, l10n: l10n);
       case 7:
-        return _DataSection(l10n: l10n);
+        return _StatsSection(l10n: l10n);
       case 8:
+        return _DataSection(l10n: l10n);
+      case 9:
         return _AboutSection(l10n: l10n);
       default:
         return const SizedBox.shrink();
@@ -1710,6 +1714,368 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
       // `_howToOpen` toggle survives the linter without warnings.
       if (_howToOpen) const SizedBox.shrink(),
     ]);
+  }
+}
+
+/// Watch-time statistics panel — Settings → İstatistikler.
+///
+/// Reads from PlaybackProgress (the same table that drives Continue
+/// Watching), aggregates total minutes watched over three windows
+/// (all-time / this month / this week), counts distinct finished
+/// movies and episodes, and surfaces the top categories the user
+/// spends time in.
+///
+/// The whole thing is a single Drift JOIN query computed in Dart —
+/// there's no telemetry service and no remote endpoint. The data
+/// never leaves the device.
+class _StatsSection extends ConsumerStatefulWidget {
+  final AppLocalizations l10n;
+  const _StatsSection({required this.l10n});
+
+  @override
+  ConsumerState<_StatsSection> createState() => _StatsSectionState();
+}
+
+class _StatsSectionState extends ConsumerState<_StatsSection> {
+  _StatsBucket _bucket = _StatsBucket.allTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.statsTitle,
+            style: const TextStyle(
+                fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Time-window picker ────────────────────────────────
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final b in _StatsBucket.values)
+                ChoiceChip(
+                  label: Text(_bucketLabel(b, l10n)),
+                  selected: _bucket == b,
+                  onSelected: (_) => setState(() => _bucket = b),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // ── The actual numbers ────────────────────────────────
+          FutureBuilder<_StatsSnapshot>(
+            future: _loadStats(_bucket),
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final s = snap.data!;
+              if (s.totalMinutes == 0 &&
+                  s.finishedMovies == 0 &&
+                  s.finishedEpisodes == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Center(
+                    child: Text(
+                      l10n.statsEmpty,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: AppColors.textSecondaryDark, fontSize: 13),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _StatBigNumberRow(
+                    primaryValue: _formatDuration(
+                        s.totalMinutes, l10n),
+                    primaryLabel: l10n.statsWatchTime,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatTile(
+                          icon: Icons.movie_outlined,
+                          value: '${s.finishedMovies}',
+                          label: l10n.statsTotalMovies,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatTile(
+                          icon: Icons.live_tv_outlined,
+                          value: '${s.finishedEpisodes}',
+                          label: l10n.statsTotalEpisodes,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (s.topGenres.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      l10n.statsTopGenres,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondaryDark,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: s.topGenres
+                          .map((g) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  g,
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _bucketLabel(_StatsBucket b, AppLocalizations l10n) {
+    switch (b) {
+      case _StatsBucket.allTime:
+        return l10n.statsAllTime;
+      case _StatsBucket.thisMonth:
+        return l10n.statsThisMonth;
+      case _StatsBucket.thisWeek:
+        return l10n.statsThisWeek;
+    }
+  }
+
+  String _formatDuration(int totalMinutes, AppLocalizations l10n) {
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    if (h == 0) return '$m ${l10n.statsMinutesShort}';
+    return '$h ${l10n.statsHoursShort} $m ${l10n.statsMinutesShort}';
+  }
+
+  /// One-shot Drift query: PlaybackProgress joined with Channels +
+  /// Categories. We compute totals + categorical breakdown in Dart
+  /// (set is small — at most a few thousand rows for a heavy user).
+  Future<_StatsSnapshot> _loadStats(_StatsBucket bucket) async {
+    final db = ref.read(appDatabaseProvider);
+    final query = db.select(db.playbackProgress).join([
+      leftOuterJoin(
+        db.channels,
+        db.channels.streamId.equalsExp(db.playbackProgress.streamId) &
+            db.channels.type.equalsExp(db.playbackProgress.type),
+      ),
+      leftOuterJoin(
+        db.categories,
+        db.categories.id.equalsExp(db.channels.categoryId) &
+            db.categories.type.equalsExp(db.channels.type),
+      ),
+    ]);
+    // Bucket → updatedAt cutoff
+    final DateTime? cutoff = switch (bucket) {
+      _StatsBucket.allTime => null,
+      _StatsBucket.thisMonth =>
+        DateTime.now().subtract(const Duration(days: 30)),
+      _StatsBucket.thisWeek =>
+        DateTime.now().subtract(const Duration(days: 7)),
+    };
+    if (cutoff != null) {
+      query.where(db.playbackProgress.updatedAt.isBiggerThanValue(cutoff));
+    }
+    final rows = await query.get();
+
+    var totalSeconds = 0;
+    var movies = 0;
+    var episodes = 0;
+    final genreSeconds = <String, int>{};
+    for (final r in rows) {
+      final p = r.readTable(db.playbackProgress);
+      final ch = r.readTableOrNull(db.channels);
+      final cat = r.readTableOrNull(db.categories);
+      // Use position as minutes-watched proxy; duration may be 0 for
+      // live channels so we clamp to a sane bound to avoid spikes
+      // from corrupted rows.
+      final secs = p.position.clamp(0, 6 * 60 * 60); // cap 6h / row
+      totalSeconds += secs;
+      if (p.isFinished) {
+        if (p.type == 'movie') movies++;
+        if (p.type == 'series') episodes++;
+      }
+      final genre = ch?.genre?.trim();
+      if (genre != null && genre.isNotEmpty) {
+        // Split combined genres ("Aksiyon, Macera") so each genre
+        // gets credit for the time, then divide so totals don't
+        // double-count.
+        final parts = genre
+            .split(RegExp(r'[,&·/]'))
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (parts.isNotEmpty) {
+          final share = secs ~/ parts.length;
+          for (final g in parts) {
+            genreSeconds.update(g, (v) => v + share,
+                ifAbsent: () => share);
+          }
+        }
+      } else if (cat != null && cat.name.isNotEmpty) {
+        // Fallback: use the catalogue category name when the channel
+        // has no genre column populated (common for Xtream feeds).
+        genreSeconds.update(cat.name, (v) => v + secs,
+            ifAbsent: () => secs);
+      }
+    }
+    final topGenres = (genreSeconds.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(6)
+        .map((e) => e.key)
+        .toList();
+    return _StatsSnapshot(
+      totalMinutes: totalSeconds ~/ 60,
+      finishedMovies: movies,
+      finishedEpisodes: episodes,
+      topGenres: topGenres,
+    );
+  }
+}
+
+enum _StatsBucket { allTime, thisMonth, thisWeek }
+
+class _StatsSnapshot {
+  final int totalMinutes;
+  final int finishedMovies;
+  final int finishedEpisodes;
+  final List<String> topGenres;
+  const _StatsSnapshot({
+    required this.totalMinutes,
+    required this.finishedMovies,
+    required this.finishedEpisodes,
+    required this.topGenres,
+  });
+}
+
+class _StatBigNumberRow extends StatelessWidget {
+  final String primaryValue;
+  final String primaryLabel;
+  const _StatBigNumberRow({
+    required this.primaryValue,
+    required this.primaryLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            primaryLabel,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            primaryValue,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  const _StatTile({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.surfaceElevatedDark
+            : AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.primary, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

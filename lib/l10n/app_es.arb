@@ -59,9 +59,9 @@
   "m3uPlaylistDesc": "URL o archivo local",
   "systemDefault": "Predeterminado del sistema",
   "accountName": "Nombre de cuenta",
-  "accountNameHint": "ej. Mi IPTV",
+  "accountNameHint": "p. ej. Mi IPTV",
   "playlistName": "Nombre de la lista",
-  "playlistNameHint": "ej. Mi Lista",
+  "playlistNameHint": "p. ej. Mi lista",
   "loadPlaylist": "Cargar lista",
   "selectM3UFile": "Seleccionar archivo M3U",
   "or": "O",
@@ -112,16 +112,30 @@
   "addXtreamAccount": "Añadir cuenta Xtream",
   "addM3UPlaylist": "Añadir lista M3U",
   "editAccount": "Editar: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "deleteAccount": "Eliminar cuenta",
   "deleteAccountConfirm": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "Nombre de cuenta actualizado",
   "languageSet": "Idioma establecido en {lang}",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "Seleccione su idioma preferido",
   "visible": "visible",
@@ -137,22 +151,41 @@
   "allChannels": "Todos los canales",
   "channelCount": "{count} canales",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} categorías",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "No se encontraron canales",
   "noMoviesFound": "No se encontraron películas",
   "noSeriesFound": "No se encontraron series",
   "seasonCount": "{count} Temporadas",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "Reproducir T{season}E{episode}",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "Cargando...",
   "error": "Error",
@@ -164,7 +197,11 @@
   "home": "Inicio",
   "continueFrom": "Continuar desde {time}",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "Añadido a favoritos",
   "removedFromFavorites": "Eliminado de favoritos",
@@ -207,14 +244,32 @@
   "connectionSuccess": "Conexión exitosa",
   "connectionFailed": "Error de conexión",
   "daysRemaining": "{count} días",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "No se pudo cargar la información de la cuenta",
   "checking": "Verificando...",
   "checkConnection": "Verificar conexión",
   "visibleCount": "{count} visible(s)",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} oculto(s)",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "Oculto",
   "delete": "Eliminar",
   "aboutDescription": "LifeOS TV es una aplicación de reproductor multimedia que permite a los usuarios ver sus suscripciones de proveedores de servicios IPTV. La aplicación admite televisión en vivo, películas y series.",
@@ -251,7 +306,11 @@
   "sleepTimerFired": "Temporizador: reproducción en pausa",
   "minutesShort": "{minutes} min",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "Mi Lista",
   "addToWatchlist": "Añadir a Mi Lista",
@@ -280,8 +339,6 @@
   "all": "Todos",
   "subtitlePosition": "Posición de subtítulos",
   "skipIntroLabel": "Saltar intro",
-  "accountNameHint": "p. ej. Mi IPTV",
-  "playlistNameHint": "p. ej. Mi lista",
   "accountSaveFailed": "No se pudo guardar la cuenta",
   "connecting": "Conectando...",
   "loadingPlaylistData": "Cargando datos de la lista...",
@@ -326,7 +383,9 @@
   "tasteWizardSelectedCount": "{count} seleccionado(s)",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "Continuar",
@@ -346,7 +405,9 @@
   "castSheetAppearancesCount": "{count} aparición(es) encontrada(s)",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "Sin más apariciones en tu biblioteca.",
@@ -357,7 +418,9 @@
   "moodRailTitle": "Selección para {mood}",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "Mostrar tráiler PiP",
@@ -381,7 +444,13 @@
   "geminiKeyInvalid": "Clave vacía o inválida.",
   "geminiKeyTestSuccess": "¡Clave funciona! Respuesta recibida de Gemini.",
   "geminiKeyTestFailed": "Prueba fallida: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "Activa",
   "geminiStatusInactive": "No configurada",
   "howToGetGeminiKey": "¿Cómo obtengo una clave?",
@@ -399,7 +468,7 @@
   "aiFeedbackMoreLike": "Más como este",
   "aiFeedbackDislike": "No me interesa",
   "aiFeedbackWhy": "¿Por qué se eligió?",
-    "aiFeedbackSource": "Función IA",
+  "aiFeedbackSource": "Función IA",
   "aiMatchScoreSuffix": "coincidencia",
   "aiFeedbackMoreLikeAdded": "Mostraremos más así",
   "aiFeedbackDislikeAdded": "Ya no lo sugeriremos",
@@ -432,5 +501,24 @@
   "aiRecapTag": "Resumen",
   "aiSimilarTitle": "Recomendaciones inteligentes",
   "aiSimilarLoading": "Preparando…",
-  "aiSimilarFailed": "No se pudo cargar — mostrando lista básica."
+  "aiSimilarFailed": "No se pudo cargar — mostrando lista básica.",
+  "statsTitle": "Estadísticas",
+  "statsWatchTime": "Tiempo de visualización",
+  "statsAllTime": "Total",
+  "statsThisWeek": "Esta semana",
+  "statsThisMonth": "Este mes",
+  "statsTopGenres": "Géneros principales",
+  "statsTotalMovies": "Películas vistas",
+  "statsTotalEpisodes": "Episodios vistos",
+  "statsHoursShort": "h",
+  "statsMinutesShort": "min",
+  "statsEmpty": "Aún no hay datos. Mira algo y las estadísticas aparecerán aquí.",
+  "searchRecent": "Búsquedas recientes",
+  "searchTrending": "Búsquedas populares",
+  "searchClearHistory": "Borrar historial",
+  "searchHistoryCleared": "Historial de búsqueda borrado",
+  "playerUpNext": "A continuación",
+  "playerStartingIn": "empieza en",
+  "playerCancelAutoplay": "Cancelar",
+  "playerPlayNow": "Reproducir ahora"
 }

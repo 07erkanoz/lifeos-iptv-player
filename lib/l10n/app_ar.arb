@@ -59,7 +59,7 @@
   "m3uPlaylistDesc": "رابط أو ملف محلي",
   "systemDefault": "افتراضي النظام",
   "accountName": "اسم الحساب",
-  "accountNameHint": "مثال: IPTV الخاص بي",
+  "accountNameHint": "مثال: حسابي",
   "playlistName": "اسم القائمة",
   "playlistNameHint": "مثال: قائمتي",
   "loadPlaylist": "تحميل القائمة",
@@ -112,16 +112,30 @@
   "addXtreamAccount": "إضافة حساب Xtream",
   "addM3UPlaylist": "إضافة قائمة M3U",
   "editAccount": "تعديل: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "deleteAccount": "حذف الحساب",
   "deleteAccountConfirm": "هل أنت متأكد من حذف \"{name}\"؟ لا يمكن التراجع عن هذا الإجراء.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "تم تحديث اسم الحساب",
   "languageSet": "تم تعيين اللغة إلى {lang}",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "اختر لغتك المفضلة",
   "visible": "مرئي",
@@ -137,22 +151,41 @@
   "allChannels": "جميع القنوات",
   "channelCount": "{count} قنوات",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} فئات",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "لم يتم العثور على قنوات",
   "noMoviesFound": "لم يتم العثور على أفلام",
   "noSeriesFound": "لم يتم العثور على مسلسلات",
   "seasonCount": "{count} مواسم",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "تشغيل م{season}ح{episode}",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "جارٍ التحميل...",
   "error": "خطأ",
@@ -164,7 +197,11 @@
   "home": "الرئيسية",
   "continueFrom": "متابعة من {time}",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "تمت الإضافة للمفضلة",
   "removedFromFavorites": "تمت الإزالة من المفضلة",
@@ -207,14 +244,32 @@
   "connectionSuccess": "تم الاتصال بنجاح",
   "connectionFailed": "فشل الاتصال",
   "daysRemaining": "{count} يوم",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "تعذّر تحميل معلومات الحساب",
   "checking": "جارٍ التحقق...",
   "checkConnection": "التحقق من الاتصال",
   "visibleCount": "{count} مرئي",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} مخفي",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "مخفي",
   "delete": "حذف",
   "aboutDescription": "LifeOS TV هو تطبيق مشغل وسائط يتيح للمستخدمين عرض اشتراكاتهم من مزودي خدمة IPTV. يدعم التطبيق البث المباشر والأفلام والمسلسلات.",
@@ -251,7 +306,11 @@
   "sleepTimerFired": "مؤقت النوم: تم إيقاف التشغيل مؤقتًا",
   "minutesShort": "{minutes} د",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "قائمتي",
   "addToWatchlist": "إضافة إلى قائمتي",
@@ -280,8 +339,6 @@
   "all": "الكل",
   "subtitlePosition": "موضع الترجمة",
   "skipIntroLabel": "تخطي المقدمة",
-  "accountNameHint": "مثال: حسابي",
-  "playlistNameHint": "مثال: قائمتي",
   "accountSaveFailed": "لم يتم حفظ الحساب",
   "connecting": "جاري الاتصال...",
   "loadingPlaylistData": "جاري تحميل بيانات القائمة...",
@@ -326,7 +383,9 @@
   "tasteWizardSelectedCount": "{count} مختار",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "متابعة",
@@ -346,7 +405,9 @@
   "castSheetAppearancesCount": "تم العثور على {count} ظهور",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "لا ظهورات أخرى في مكتبتك.",
@@ -357,7 +418,9 @@
   "moodRailTitle": "اختيارات لـ {mood}",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "إظهار العرض المصغّر",
@@ -381,7 +444,13 @@
   "geminiKeyInvalid": "المفتاح فارغ أو غير صالح.",
   "geminiKeyTestSuccess": "المفتاح يعمل! تم استلام رد من Gemini.",
   "geminiKeyTestFailed": "فشل الاختبار: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "مفعّل",
   "geminiStatusInactive": "غير مُعدّ",
   "howToGetGeminiKey": "كيف أحصل على مفتاح؟",
@@ -399,7 +468,7 @@
   "aiFeedbackMoreLike": "المزيد مثل هذا",
   "aiFeedbackDislike": "لست مهتماً",
   "aiFeedbackWhy": "لماذا تم اقتراحه؟",
-    "aiFeedbackSource": "ميزة الذكاء الاصطناعي",
+  "aiFeedbackSource": "ميزة الذكاء الاصطناعي",
   "aiMatchScoreSuffix": "تطابق",
   "aiFeedbackMoreLikeAdded": "سنعرض المزيد مثله",
   "aiFeedbackDislikeAdded": "لن نقترح هذا بعد الآن",
@@ -432,5 +501,24 @@
   "aiRecapTag": "ملخص",
   "aiSimilarTitle": "اقتراحات ذكية",
   "aiSimilarLoading": "يحضّر…",
-  "aiSimilarFailed": "تعذّر التحميل — عرض القائمة العادية."
+  "aiSimilarFailed": "تعذّر التحميل — عرض القائمة العادية.",
+  "statsTitle": "الإحصائيات",
+  "statsWatchTime": "مدة المشاهدة",
+  "statsAllTime": "الإجمالي",
+  "statsThisWeek": "هذا الأسبوع",
+  "statsThisMonth": "هذا الشهر",
+  "statsTopGenres": "الأنواع الأكثر مشاهدة",
+  "statsTotalMovies": "أفلام مشاهدة",
+  "statsTotalEpisodes": "حلقات مشاهدة",
+  "statsHoursShort": "سا",
+  "statsMinutesShort": "د",
+  "statsEmpty": "لا توجد بيانات بعد. شاهد شيئًا وستظهر الإحصائيات هنا.",
+  "searchRecent": "عمليات البحث الأخيرة",
+  "searchTrending": "الأكثر بحثًا",
+  "searchClearHistory": "مسح السجل",
+  "searchHistoryCleared": "تم مسح سجل البحث",
+  "playerUpNext": "التالي",
+  "playerStartingIn": "يبدأ خلال",
+  "playerCancelAutoplay": "إلغاء",
+  "playerPlayNow": "تشغيل الآن"
 }

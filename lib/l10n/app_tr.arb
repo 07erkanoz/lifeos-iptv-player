@@ -59,9 +59,9 @@
   "m3uPlaylistDesc": "URL veya yerel dosya",
   "systemDefault": "Sistem Varsayılanı",
   "accountName": "Hesap Adı",
-  "accountNameHint": "ör. IPTV'im",
+  "accountNameHint": "ör. IPTV'm",
   "playlistName": "Playlist Adı",
-  "playlistNameHint": "ör. Playlist'im",
+  "playlistNameHint": "ör. Listem",
   "loadPlaylist": "Playlist Yükle",
   "selectM3UFile": "M3U Dosyası Seç",
   "or": "VEYA",
@@ -111,16 +111,24 @@
   "manageAccounts": "IPTV hesaplarınızı yönetin",
   "addXtreamAccount": "Xtream Hesabı Ekle",
   "addM3UPlaylist": "M3U Playlist Ekle",
-  "editAccount": "Hesabı Düzenle",
+  "editAccount": "Düzenle: {name}",
   "deleteAccount": "Hesabı Sil",
   "deleteAccountConfirm": "\"{name}\" hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "Hesap adı güncellendi",
   "languageSet": "Dil {lang} olarak ayarlandı",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "Tercih ettiğiniz dili seçin",
   "visible": "görünür",
@@ -136,22 +144,41 @@
   "allChannels": "Tüm Kanallar",
   "channelCount": "{count} kanal",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} kategori",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "Kanal bulunamadı",
   "noMoviesFound": "Film bulunamadı",
   "noSeriesFound": "Dizi bulunamadı",
   "seasonCount": "{count} Sezon",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "S{season}E{episode} Oynat",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "Yükleniyor...",
   "error": "Hata",
@@ -163,7 +190,11 @@
   "home": "Ana Sayfa",
   "continueFrom": "Devam Et {time}",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "Favorilere eklendi",
   "removedFromFavorites": "Favorilerden çıkarıldı",
@@ -212,24 +243,40 @@
   "subtitleBackgroundDesc": "Altyazının arkasında yarı saydam arka plan",
   "subtitleAppearance": "Altyazı Görünümü",
   "daysRemaining": "{count} gün",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "Hesap bilgisi yüklenemedi",
   "checking": "Kontrol ediliyor...",
   "checkConnection": "Bağlantıyı Kontrol Et",
-  "accountNameUpdated": "Hesap adı güncellendi",
-  "deleteAccount": "Hesabı Sil",
-  "deleteAccountConfirm": "\"{name}\" hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
-  "@deleteAccountConfirm": {"placeholders": {"name": {"type": "String"}}},
-  "accountName": "Hesap Adı",
-  "save": "Kaydet",
-  "noCategories": "Kategori yok",
   "visibleCount": "{count} görünür",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} gizli",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "Gizli",
-  "editAccount": "Düzenle: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "delete": "Sil",
   "aboutDescription": "LifeOS TV, kullanıcıların IPTV servis sağlayıcılarından aldıkları abonelikleri görüntülemelerine olanak tanıyan bir medya oynatıcı uygulamasıdır. Uygulama; canlı TV, film ve dizi içeriklerini destekler.",
   "developerInfo": "Geliştirici Bilgileri",
@@ -265,7 +312,11 @@
   "sleepTimerFired": "Uyku zamanlayıcısı: oynatma duraklatıldı",
   "minutesShort": "{minutes} dk",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "Listem",
   "addToWatchlist": "Listeme Ekle",
@@ -294,8 +345,6 @@
   "all": "Tümü",
   "subtitlePosition": "Altyazı konumu",
   "skipIntroLabel": "Intro'yu Atla",
-  "accountNameHint": "ör. IPTV'm",
-  "playlistNameHint": "ör. Listem",
   "accountSaveFailed": "Hesap kaydedilemedi",
   "connecting": "Bağlanıyor...",
   "loadingPlaylistData": "Liste verileri yükleniyor...",
@@ -334,7 +383,9 @@
   "tasteWizardSelectedCount": "{count} seçildi",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "Devam et",
@@ -354,7 +405,9 @@
   "castSheetAppearancesCount": "{count} eşleşme bulundu",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "Kütüphanende başka eşleşme yok.",
@@ -365,7 +418,9 @@
   "moodRailTitle": "{mood} için seçimler",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "Fragman göster",
@@ -389,7 +444,13 @@
   "geminiKeyInvalid": "Key boş veya geçersiz.",
   "geminiKeyTestSuccess": "Key çalışıyor! Gemini'den yanıt geldi.",
   "geminiKeyTestFailed": "Test başarısız: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "Aktif",
   "geminiStatusInactive": "Yapılandırılmadı",
   "howToGetGeminiKey": "Key'i nasıl alırım?",
@@ -440,5 +501,24 @@
   "aiRecapTag": "Özet",
   "aiSimilarTitle": "Sana özel benzer içerikler",
   "aiSimilarLoading": "Hazırlanıyor…",
-  "aiSimilarFailed": "Akıllı öneriler yüklenemedi — basit liste gösteriliyor."
+  "aiSimilarFailed": "Akıllı öneriler yüklenemedi — basit liste gösteriliyor.",
+  "statsTitle": "İstatistikler",
+  "statsWatchTime": "İzleme süresi",
+  "statsAllTime": "Tüm zamanlar",
+  "statsThisWeek": "Bu hafta",
+  "statsThisMonth": "Bu ay",
+  "statsTopGenres": "En çok izlenen türler",
+  "statsTotalMovies": "İzlenen film",
+  "statsTotalEpisodes": "İzlenen bölüm",
+  "statsHoursShort": "sa",
+  "statsMinutesShort": "dk",
+  "statsEmpty": "Henüz izleme verisi yok. Bir şey izle, burada görelim.",
+  "searchRecent": "Son aramalar",
+  "searchTrending": "Popüler aramalar",
+  "searchClearHistory": "Geçmişi temizle",
+  "searchHistoryCleared": "Arama geçmişi temizlendi",
+  "playerUpNext": "Sıradaki bölüm",
+  "playerStartingIn": "sn sonra başlıyor",
+  "playerCancelAutoplay": "İptal",
+  "playerPlayNow": "Şimdi oynat"
 }

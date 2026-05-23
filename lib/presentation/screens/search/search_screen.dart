@@ -14,6 +14,7 @@ import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
+import 'package:lifeostv/data/repositories/search_history_repository.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
@@ -680,7 +681,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         focusNode: _textFocus,
                         autofocus: true,
                         onChanged: _onSearchChanged,
-                        onSubmitted: (_) {
+                        onSubmitted: (_) async {
+                          // Record the (intentional) submission in
+                          // search history so the chip row picks it
+                          // up next time the user opens search. We
+                          // only record on submit, not on every
+                          // keystroke, otherwise the history fills
+                          // with one-char prefixes.
+                          final q = _controller.text.trim();
+                          if (q.length >= 2) {
+                            await ref
+                                .read(searchHistoryRepositoryProvider)
+                                .record(q);
+                            // Invalidate the live providers so the chip
+                            // row sees the new entry instantly.
+                            ref.invalidate(recentSearchesProvider);
+                            ref.invalidate(trendingSearchesProvider);
+                          }
                           // Move focus to the first result. Goes
                           // through the same stable focus node the
                           // arrow-down bridge uses so the landing
@@ -778,14 +795,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
+                                ] else if (_controller.text.isEmpty) ...[
+                                  // Recent + trending chip rows. Only
+                                  // shown on the empty-query landing
+                                  // state; when there's an active query
+                                  // we want the user focused on results
+                                  // and not distracted by history.
+                                  _SearchHistoryPanel(
+                                    onPick: (q) {
+                                      _controller.text = q;
+                                      _onSearchChanged(q);
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  EmptyState.search(
+                                    title: l10n.search,
+                                    fillParent: false,
+                                  ),
                                 ] else
                                   EmptyState.search(
-                                    title: _controller.text.isEmpty
-                                        ? l10n.search
-                                        : l10n.noChannels,
-                                    subtitle: _controller.text.isEmpty
-                                        ? null
-                                        : '"${_controller.text}" için sonuç bulunamadı. Farklı kelimeler dene veya AI asistana sor.',
+                                    title: l10n.noChannels,
+                                    subtitle:
+                                        '"${_controller.text}" için sonuç bulunamadı. Farklı kelimeler dene veya AI asistana sor.',
                                     fillParent: false,
                                   ),
                               ],
@@ -1360,6 +1391,212 @@ class _SuggestionChipState extends State<_SuggestionChip> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Son aramalar" + "Popüler aramalar" chip rows shown on the search
+/// landing state (empty query). Tap a chip to re-run that search,
+/// long-press to remove it from history. The "Geçmişi temizle"
+/// trailing button wipes both rows.
+///
+/// Two separate Riverpod providers (recentSearchesProvider +
+/// trendingSearchesProvider) keep the two rows independent. Both
+/// invalidate on every record() / remove() / clearAll() call so the
+/// panel always reflects current state.
+class _SearchHistoryPanel extends ConsumerWidget {
+  final void Function(String query) onPick;
+
+  const _SearchHistoryPanel({required this.onPick});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final recent = ref.watch(recentSearchesProvider);
+    final trending = ref.watch(trendingSearchesProvider);
+
+    final recentList = recent.maybeWhen(
+      data: (v) => v,
+      orElse: () => const <String>[],
+    );
+    final trendingList = trending.maybeWhen(
+      data: (v) => v,
+      orElse: () => const <String>[],
+    );
+
+    if (recentList.isEmpty && trendingList.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (recentList.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.history_rounded,
+                    size: 14, color: AppColors.textSecondaryDark),
+                const SizedBox(width: 6),
+                Text(
+                  l10n.searchRecent,
+                  style: const TextStyle(
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const Spacer(),
+                // Trailing "Geçmişi temizle" — wipes everything.
+                TextButton.icon(
+                  onPressed: () async {
+                    await ref
+                        .read(searchHistoryRepositoryProvider)
+                        .clearAll();
+                    ref.invalidate(recentSearchesProvider);
+                    ref.invalidate(trendingSearchesProvider);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(l10n.searchHistoryCleared),
+                        duration: const Duration(seconds: 2),
+                      ));
+                    }
+                  },
+                  icon: const Icon(Icons.delete_sweep_outlined,
+                      size: 14, color: AppColors.textTertiaryDark),
+                  label: Text(
+                    l10n.searchClearHistory,
+                    style: const TextStyle(
+                      color: AppColors.textTertiaryDark,
+                      fontSize: 11,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: recentList
+                  .map((q) => _HistoryChip(
+                        label: q,
+                        icon: Icons.history_rounded,
+                        onTap: () => onPick(q),
+                        onRemove: () async {
+                          await ref
+                              .read(searchHistoryRepositoryProvider)
+                              .remove(q);
+                          ref.invalidate(recentSearchesProvider);
+                          ref.invalidate(trendingSearchesProvider);
+                        },
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 18),
+          ],
+          if (trendingList.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.trending_up_rounded,
+                    size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  l10n.searchTrending,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendingList
+                  .map((q) => _HistoryChip(
+                        label: q,
+                        icon: Icons.trending_up_rounded,
+                        emphasised: true,
+                        onTap: () => onPick(q),
+                      ))
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Single chip in the recent / trending row. Long-press calls
+/// [onRemove] when provided — only the "recent" row exposes that
+/// path (trending chips can't be removed individually; the user
+/// can clear the whole history instead).
+class _HistoryChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool emphasised;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+
+  const _HistoryChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.onRemove,
+    this.emphasised = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = emphasised
+        ? AppColors.primary
+        : AppColors.textSecondaryDark;
+    final bg = emphasised
+        ? AppColors.primary.withValues(alpha: 0.12)
+        : AppColors.surfaceElevatedDark;
+    final border = emphasised
+        ? AppColors.primary.withValues(alpha: 0.35)
+        : AppColors.borderDark;
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onRemove,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: emphasised ? color : AppColors.textDark,
+                fontSize: 12,
+                fontWeight:
+                    emphasised ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

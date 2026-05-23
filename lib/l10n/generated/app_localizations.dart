@@ -2431,6 +2431,120 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.'**
   String get aiSimilarFailed;
+
+  /// No description provided for @statsTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'İstatistikler'**
+  String get statsTitle;
+
+  /// No description provided for @statsWatchTime.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleme süresi'**
+  String get statsWatchTime;
+
+  /// No description provided for @statsAllTime.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tüm zamanlar'**
+  String get statsAllTime;
+
+  /// No description provided for @statsThisWeek.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu hafta'**
+  String get statsThisWeek;
+
+  /// No description provided for @statsThisMonth.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu ay'**
+  String get statsThisMonth;
+
+  /// No description provided for @statsTopGenres.
+  ///
+  /// In tr, this message translates to:
+  /// **'En çok izlenen türler'**
+  String get statsTopGenres;
+
+  /// No description provided for @statsTotalMovies.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzlenen film'**
+  String get statsTotalMovies;
+
+  /// No description provided for @statsTotalEpisodes.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzlenen bölüm'**
+  String get statsTotalEpisodes;
+
+  /// No description provided for @statsHoursShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'sa'**
+  String get statsHoursShort;
+
+  /// No description provided for @statsMinutesShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'dk'**
+  String get statsMinutesShort;
+
+  /// No description provided for @statsEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'Henüz izleme verisi yok. Bir şey izle, burada görelim.'**
+  String get statsEmpty;
+
+  /// No description provided for @searchRecent.
+  ///
+  /// In tr, this message translates to:
+  /// **'Son aramalar'**
+  String get searchRecent;
+
+  /// No description provided for @searchTrending.
+  ///
+  /// In tr, this message translates to:
+  /// **'Popüler aramalar'**
+  String get searchTrending;
+
+  /// No description provided for @searchClearHistory.
+  ///
+  /// In tr, this message translates to:
+  /// **'Geçmişi temizle'**
+  String get searchClearHistory;
+
+  /// No description provided for @searchHistoryCleared.
+  ///
+  /// In tr, this message translates to:
+  /// **'Arama geçmişi temizlendi'**
+  String get searchHistoryCleared;
+
+  /// No description provided for @playerUpNext.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sıradaki bölüm'**
+  String get playerUpNext;
+
+  /// No description provided for @playerStartingIn.
+  ///
+  /// In tr, this message translates to:
+  /// **'sn sonra başlıyor'**
+  String get playerStartingIn;
+
+  /// No description provided for @playerCancelAutoplay.
+  ///
+  /// In tr, this message translates to:
+  /// **'İptal'**
+  String get playerCancelAutoplay;
+
+  /// No description provided for @playerPlayNow.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdi oynat'**
+  String get playerPlayNow;
 }
 
 class _AppLocalizationsDelegate

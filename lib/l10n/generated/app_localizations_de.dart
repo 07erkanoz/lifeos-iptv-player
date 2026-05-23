@@ -1240,4 +1240,62 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get aiSimilarFailed =>
       'Smarte Vorschläge nicht geladen — Standardliste.';
+
+  @override
+  String get statsTitle => 'Statistik';
+
+  @override
+  String get statsWatchTime => 'Wiedergabezeit';
+
+  @override
+  String get statsAllTime => 'Gesamt';
+
+  @override
+  String get statsThisWeek => 'Diese Woche';
+
+  @override
+  String get statsThisMonth => 'Dieser Monat';
+
+  @override
+  String get statsTopGenres => 'Top Genres';
+
+  @override
+  String get statsTotalMovies => 'Filme gesehen';
+
+  @override
+  String get statsTotalEpisodes => 'Folgen gesehen';
+
+  @override
+  String get statsHoursShort => 'Std';
+
+  @override
+  String get statsMinutesShort => 'min';
+
+  @override
+  String get statsEmpty =>
+      'Noch keine Wiedergabedaten. Schau etwas, dann erscheinen die Statistiken hier.';
+
+  @override
+  String get searchRecent => 'Letzte Suchen';
+
+  @override
+  String get searchTrending => 'Beliebte Suchen';
+
+  @override
+  String get searchClearHistory => 'Verlauf löschen';
+
+  @override
+  String get searchHistoryCleared => 'Suchverlauf gelöscht';
+
+  @override
+  String get playerUpNext => 'Als Nächstes';
+
+  @override
+  String get playerStartingIn => 'Sek';
+
+  @override
+  String get playerCancelAutoplay => 'Abbrechen';
+
+  @override
+  String get playerPlayNow => 'Jetzt abspielen';
 }

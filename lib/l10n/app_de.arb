@@ -59,9 +59,9 @@
   "m3uPlaylistDesc": "URL oder lokale Datei",
   "systemDefault": "Systemstandard",
   "accountName": "Kontoname",
-  "accountNameHint": "z.B. Mein IPTV",
+  "accountNameHint": "z. B. Mein IPTV",
   "playlistName": "Playlist-Name",
-  "playlistNameHint": "z.B. Meine Playlist",
+  "playlistNameHint": "z. B. Meine Playlist",
   "loadPlaylist": "Playlist laden",
   "selectM3UFile": "M3U-Datei auswählen",
   "or": "ODER",
@@ -112,16 +112,30 @@
   "addXtreamAccount": "Xtream-Konto hinzufügen",
   "addM3UPlaylist": "M3U-Playlist hinzufügen",
   "editAccount": "Bearbeiten: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "deleteAccount": "Konto löschen",
   "deleteAccountConfirm": "Möchten Sie \"{name}\" wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "Kontoname aktualisiert",
   "languageSet": "Sprache auf {lang} eingestellt",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "Wählen Sie Ihre bevorzugte Sprache",
   "visible": "sichtbar",
@@ -137,22 +151,41 @@
   "allChannels": "Alle Kanäle",
   "channelCount": "{count} Kanäle",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} Kategorien",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "Keine Kanäle gefunden",
   "noMoviesFound": "Keine Filme gefunden",
   "noSeriesFound": "Keine Serien gefunden",
   "seasonCount": "{count} Staffeln",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "S{season}F{episode} abspielen",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "Laden...",
   "error": "Fehler",
@@ -164,7 +197,11 @@
   "home": "Startseite",
   "continueFrom": "Fortsetzen ab {time}",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "Zu Favoriten hinzugefügt",
   "removedFromFavorites": "Aus Favoriten entfernt",
@@ -207,14 +244,32 @@
   "connectionSuccess": "Verbindung erfolgreich",
   "connectionFailed": "Verbindung fehlgeschlagen",
   "daysRemaining": "{count} Tage",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "Kontoinformationen konnten nicht geladen werden",
   "checking": "Wird geprüft...",
   "checkConnection": "Verbindung prüfen",
   "visibleCount": "{count} sichtbar",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} versteckt",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "Versteckt",
   "delete": "Löschen",
   "aboutDescription": "LifeOS TV ist eine Medienplayer-Anwendung, mit der Benutzer ihre Abonnements von IPTV-Dienstanbietern ansehen können. Die App unterstützt Live-TV, Film- und Serieninhalte.",
@@ -251,7 +306,11 @@
   "sleepTimerFired": "Sleep-Timer: Wiedergabe pausiert",
   "minutesShort": "{minutes} Min.",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "Meine Liste",
   "addToWatchlist": "Zur Liste hinzufügen",
@@ -280,8 +339,6 @@
   "all": "Alle",
   "subtitlePosition": "Untertitelposition",
   "skipIntroLabel": "Intro überspringen",
-  "accountNameHint": "z. B. Mein IPTV",
-  "playlistNameHint": "z. B. Meine Playlist",
   "accountSaveFailed": "Konto konnte nicht gespeichert werden",
   "connecting": "Verbindung wird hergestellt...",
   "loadingPlaylistData": "Playlist-Daten werden geladen...",
@@ -326,7 +383,9 @@
   "tasteWizardSelectedCount": "{count} ausgewählt",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "Weiter",
@@ -346,7 +405,9 @@
   "castSheetAppearancesCount": "{count} Auftritt(e) gefunden",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "Keine weiteren Auftritte in deiner Bibliothek.",
@@ -357,7 +418,9 @@
   "moodRailTitle": "Auswahl für {mood}",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "Trailer-PiP anzeigen",
@@ -381,7 +444,13 @@
   "geminiKeyInvalid": "Key ist leer oder ungültig.",
   "geminiKeyTestSuccess": "Key funktioniert! Antwort von Gemini erhalten.",
   "geminiKeyTestFailed": "Test fehlgeschlagen: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "Aktiv",
   "geminiStatusInactive": "Nicht konfiguriert",
   "howToGetGeminiKey": "Wie bekomme ich einen Key?",
@@ -399,7 +468,7 @@
   "aiFeedbackMoreLike": "Mehr davon",
   "aiFeedbackDislike": "Nicht interessant",
   "aiFeedbackWhy": "Warum vorgeschlagen?",
-    "aiFeedbackSource": "KI-Funktion",
+  "aiFeedbackSource": "KI-Funktion",
   "aiMatchScoreSuffix": "Übereinstimmung",
   "aiFeedbackMoreLikeAdded": "Wir zeigen mehr davon",
   "aiFeedbackDislikeAdded": "Wir schlagen das nicht mehr vor",
@@ -432,5 +501,24 @@
   "aiRecapTag": "Recap",
   "aiSimilarTitle": "Smarte Empfehlungen",
   "aiSimilarLoading": "Wird kuratiert…",
-  "aiSimilarFailed": "Smarte Vorschläge nicht geladen — Standardliste."
+  "aiSimilarFailed": "Smarte Vorschläge nicht geladen — Standardliste.",
+  "statsTitle": "Statistik",
+  "statsWatchTime": "Wiedergabezeit",
+  "statsAllTime": "Gesamt",
+  "statsThisWeek": "Diese Woche",
+  "statsThisMonth": "Dieser Monat",
+  "statsTopGenres": "Top Genres",
+  "statsTotalMovies": "Filme gesehen",
+  "statsTotalEpisodes": "Folgen gesehen",
+  "statsHoursShort": "Std",
+  "statsMinutesShort": "min",
+  "statsEmpty": "Noch keine Wiedergabedaten. Schau etwas, dann erscheinen die Statistiken hier.",
+  "searchRecent": "Letzte Suchen",
+  "searchTrending": "Beliebte Suchen",
+  "searchClearHistory": "Verlauf löschen",
+  "searchHistoryCleared": "Suchverlauf gelöscht",
+  "playerUpNext": "Als Nächstes",
+  "playerStartingIn": "Sek",
+  "playerCancelAutoplay": "Abbrechen",
+  "playerPlayNow": "Jetzt abspielen"
 }

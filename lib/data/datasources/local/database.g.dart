@@ -5692,6 +5692,282 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
   }
 }
 
+class $SearchHistoryTable extends SearchHistory
+    with TableInfo<$SearchHistoryTable, SearchHistoryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SearchHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _queryMeta = const VerificationMeta('query');
+  @override
+  late final GeneratedColumn<String> query = GeneratedColumn<String>(
+    'query',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastUsedAtMeta = const VerificationMeta(
+    'lastUsedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUsedAt = GeneratedColumn<DateTime>(
+    'last_used_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _useCountMeta = const VerificationMeta(
+    'useCount',
+  );
+  @override
+  late final GeneratedColumn<int> useCount = GeneratedColumn<int>(
+    'use_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [query, lastUsedAt, useCount];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'search_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SearchHistoryData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('query')) {
+      context.handle(
+        _queryMeta,
+        query.isAcceptableOrUnknown(data['query']!, _queryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_queryMeta);
+    }
+    if (data.containsKey('last_used_at')) {
+      context.handle(
+        _lastUsedAtMeta,
+        lastUsedAt.isAcceptableOrUnknown(
+          data['last_used_at']!,
+          _lastUsedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('use_count')) {
+      context.handle(
+        _useCountMeta,
+        useCount.isAcceptableOrUnknown(data['use_count']!, _useCountMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {query};
+  @override
+  SearchHistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SearchHistoryData(
+      query: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}query'],
+      )!,
+      lastUsedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_used_at'],
+      )!,
+      useCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}use_count'],
+      )!,
+    );
+  }
+
+  @override
+  $SearchHistoryTable createAlias(String alias) {
+    return $SearchHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class SearchHistoryData extends DataClass
+    implements Insertable<SearchHistoryData> {
+  /// Normalised search query — lower-cased, trimmed, multi-space
+  /// collapsed. Display layer re-cases for the chip label.
+  final String query;
+
+  /// Last time this query was submitted. Drives the "recent" sort.
+  final DateTime lastUsedAt;
+
+  /// How many times this query has been submitted. Drives the
+  /// "trending" sort within the rolling 7-day window.
+  final int useCount;
+  const SearchHistoryData({
+    required this.query,
+    required this.lastUsedAt,
+    required this.useCount,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['query'] = Variable<String>(query);
+    map['last_used_at'] = Variable<DateTime>(lastUsedAt);
+    map['use_count'] = Variable<int>(useCount);
+    return map;
+  }
+
+  SearchHistoryCompanion toCompanion(bool nullToAbsent) {
+    return SearchHistoryCompanion(
+      query: Value(query),
+      lastUsedAt: Value(lastUsedAt),
+      useCount: Value(useCount),
+    );
+  }
+
+  factory SearchHistoryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SearchHistoryData(
+      query: serializer.fromJson<String>(json['query']),
+      lastUsedAt: serializer.fromJson<DateTime>(json['lastUsedAt']),
+      useCount: serializer.fromJson<int>(json['useCount']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'query': serializer.toJson<String>(query),
+      'lastUsedAt': serializer.toJson<DateTime>(lastUsedAt),
+      'useCount': serializer.toJson<int>(useCount),
+    };
+  }
+
+  SearchHistoryData copyWith({
+    String? query,
+    DateTime? lastUsedAt,
+    int? useCount,
+  }) => SearchHistoryData(
+    query: query ?? this.query,
+    lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+    useCount: useCount ?? this.useCount,
+  );
+  SearchHistoryData copyWithCompanion(SearchHistoryCompanion data) {
+    return SearchHistoryData(
+      query: data.query.present ? data.query.value : this.query,
+      lastUsedAt: data.lastUsedAt.present
+          ? data.lastUsedAt.value
+          : this.lastUsedAt,
+      useCount: data.useCount.present ? data.useCount.value : this.useCount,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryData(')
+          ..write('query: $query, ')
+          ..write('lastUsedAt: $lastUsedAt, ')
+          ..write('useCount: $useCount')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(query, lastUsedAt, useCount);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SearchHistoryData &&
+          other.query == this.query &&
+          other.lastUsedAt == this.lastUsedAt &&
+          other.useCount == this.useCount);
+}
+
+class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
+  final Value<String> query;
+  final Value<DateTime> lastUsedAt;
+  final Value<int> useCount;
+  final Value<int> rowid;
+  const SearchHistoryCompanion({
+    this.query = const Value.absent(),
+    this.lastUsedAt = const Value.absent(),
+    this.useCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SearchHistoryCompanion.insert({
+    required String query,
+    this.lastUsedAt = const Value.absent(),
+    this.useCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : query = Value(query);
+  static Insertable<SearchHistoryData> custom({
+    Expression<String>? query,
+    Expression<DateTime>? lastUsedAt,
+    Expression<int>? useCount,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (query != null) 'query': query,
+      if (lastUsedAt != null) 'last_used_at': lastUsedAt,
+      if (useCount != null) 'use_count': useCount,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SearchHistoryCompanion copyWith({
+    Value<String>? query,
+    Value<DateTime>? lastUsedAt,
+    Value<int>? useCount,
+    Value<int>? rowid,
+  }) {
+    return SearchHistoryCompanion(
+      query: query ?? this.query,
+      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+      useCount: useCount ?? this.useCount,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (query.present) {
+      map['query'] = Variable<String>(query.value);
+    }
+    if (lastUsedAt.present) {
+      map['last_used_at'] = Variable<DateTime>(lastUsedAt.value);
+    }
+    if (useCount.present) {
+      map['use_count'] = Variable<int>(useCount.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryCompanion(')
+          ..write('query: $query, ')
+          ..write('lastUsedAt: $lastUsedAt, ')
+          ..write('useCount: $useCount, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5711,6 +5987,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PersonalizedPicksCacheTable(this);
   late final $AiCallLogsTable aiCallLogs = $AiCallLogsTable(this);
   late final $AiFeedbackTable aiFeedback = $AiFeedbackTable(this);
+  late final $SearchHistoryTable searchHistory = $SearchHistoryTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5729,6 +6006,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     personalizedPicksCache,
     aiCallLogs,
     aiFeedback,
+    searchHistory,
   ];
 }
 
@@ -9142,6 +9420,174 @@ typedef $$AiFeedbackTableProcessedTableManager =
       AiFeedbackData,
       PrefetchHooks Function()
     >;
+typedef $$SearchHistoryTableCreateCompanionBuilder =
+    SearchHistoryCompanion Function({
+      required String query,
+      Value<DateTime> lastUsedAt,
+      Value<int> useCount,
+      Value<int> rowid,
+    });
+typedef $$SearchHistoryTableUpdateCompanionBuilder =
+    SearchHistoryCompanion Function({
+      Value<String> query,
+      Value<DateTime> lastUsedAt,
+      Value<int> useCount,
+      Value<int> rowid,
+    });
+
+class $$SearchHistoryTableFilterComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTable> {
+  $$SearchHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get query => $composableBuilder(
+    column: $table.query,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get useCount => $composableBuilder(
+    column: $table.useCount,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SearchHistoryTableOrderingComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTable> {
+  $$SearchHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get query => $composableBuilder(
+    column: $table.query,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get useCount => $composableBuilder(
+    column: $table.useCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SearchHistoryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTable> {
+  $$SearchHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get query =>
+      $composableBuilder(column: $table.query, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get useCount =>
+      $composableBuilder(column: $table.useCount, builder: (column) => column);
+}
+
+class $$SearchHistoryTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SearchHistoryTable,
+          SearchHistoryData,
+          $$SearchHistoryTableFilterComposer,
+          $$SearchHistoryTableOrderingComposer,
+          $$SearchHistoryTableAnnotationComposer,
+          $$SearchHistoryTableCreateCompanionBuilder,
+          $$SearchHistoryTableUpdateCompanionBuilder,
+          (
+            SearchHistoryData,
+            BaseReferences<
+              _$AppDatabase,
+              $SearchHistoryTable,
+              SearchHistoryData
+            >,
+          ),
+          SearchHistoryData,
+          PrefetchHooks Function()
+        > {
+  $$SearchHistoryTableTableManager(_$AppDatabase db, $SearchHistoryTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SearchHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SearchHistoryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SearchHistoryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> query = const Value.absent(),
+                Value<DateTime> lastUsedAt = const Value.absent(),
+                Value<int> useCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SearchHistoryCompanion(
+                query: query,
+                lastUsedAt: lastUsedAt,
+                useCount: useCount,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String query,
+                Value<DateTime> lastUsedAt = const Value.absent(),
+                Value<int> useCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SearchHistoryCompanion.insert(
+                query: query,
+                lastUsedAt: lastUsedAt,
+                useCount: useCount,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SearchHistoryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SearchHistoryTable,
+      SearchHistoryData,
+      $$SearchHistoryTableFilterComposer,
+      $$SearchHistoryTableOrderingComposer,
+      $$SearchHistoryTableAnnotationComposer,
+      $$SearchHistoryTableCreateCompanionBuilder,
+      $$SearchHistoryTableUpdateCompanionBuilder,
+      (
+        SearchHistoryData,
+        BaseReferences<_$AppDatabase, $SearchHistoryTable, SearchHistoryData>,
+      ),
+      SearchHistoryData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9175,6 +9621,8 @@ class $AppDatabaseManager {
       $$AiCallLogsTableTableManager(_db, _db.aiCallLogs);
   $$AiFeedbackTableTableManager get aiFeedback =>
       $$AiFeedbackTableTableManager(_db, _db.aiFeedback);
+  $$SearchHistoryTableTableManager get searchHistory =>
+      $$SearchHistoryTableTableManager(_db, _db.searchHistory);
 }
 
 // **************************************************************************

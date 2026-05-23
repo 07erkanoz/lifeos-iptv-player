@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback])
+@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +75,12 @@ class AppDatabase extends _$AppDatabase {
        if (from < 16) {
          // Per-title AI feedback ("Sevmedim" / "Bunun gibi daha").
          await m.createTable(aiFeedback);
+       }
+       if (from < 17) {
+         // Recent / trending search queries. Client-side only —
+         // never synced to a remote, so the user's search history
+         // stays private to the device.
+         await m.createTable(searchHistory);
        }
     },
   );

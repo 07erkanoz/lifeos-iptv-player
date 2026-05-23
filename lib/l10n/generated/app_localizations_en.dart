@@ -1231,4 +1231,62 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiSimilarFailed =>
       'Couldn\'t load smart picks — showing fallback.';
+
+  @override
+  String get statsTitle => 'Statistics';
+
+  @override
+  String get statsWatchTime => 'Watch time';
+
+  @override
+  String get statsAllTime => 'All time';
+
+  @override
+  String get statsThisWeek => 'This week';
+
+  @override
+  String get statsThisMonth => 'This month';
+
+  @override
+  String get statsTopGenres => 'Top genres';
+
+  @override
+  String get statsTotalMovies => 'Movies watched';
+
+  @override
+  String get statsTotalEpisodes => 'Episodes watched';
+
+  @override
+  String get statsHoursShort => 'h';
+
+  @override
+  String get statsMinutesShort => 'm';
+
+  @override
+  String get statsEmpty =>
+      'No watch data yet. Watch something and stats will show up here.';
+
+  @override
+  String get searchRecent => 'Recent searches';
+
+  @override
+  String get searchTrending => 'Trending searches';
+
+  @override
+  String get searchClearHistory => 'Clear history';
+
+  @override
+  String get searchHistoryCleared => 'Search history cleared';
+
+  @override
+  String get playerUpNext => 'Up next';
+
+  @override
+  String get playerStartingIn => 'starts in';
+
+  @override
+  String get playerCancelAutoplay => 'Cancel';
+
+  @override
+  String get playerPlayNow => 'Play now';
 }

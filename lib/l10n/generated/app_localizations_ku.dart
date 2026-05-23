@@ -1231,4 +1231,62 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get aiSimilarFailed => 'Nehat barkirin — lîsteya hêsan tê nîşandan.';
+
+  @override
+  String get statsTitle => 'Statîstîk';
+
+  @override
+  String get statsWatchTime => 'Dema temaşekirinê';
+
+  @override
+  String get statsAllTime => 'Hemû dem';
+
+  @override
+  String get statsThisWeek => 'Vê hefteyê';
+
+  @override
+  String get statsThisMonth => 'Vê mehê';
+
+  @override
+  String get statsTopGenres => 'Cureyên herî temaşekirî';
+
+  @override
+  String get statsTotalMovies => 'Fîlmên temaşekirî';
+
+  @override
+  String get statsTotalEpisodes => 'Beşên temaşekirî';
+
+  @override
+  String get statsHoursShort => 'sd';
+
+  @override
+  String get statsMinutesShort => 'xl';
+
+  @override
+  String get statsEmpty =>
+      'Hîn data tune. Tiştek temaşe bike, dê li vir xuya bibe.';
+
+  @override
+  String get searchRecent => 'Lêgerînên dawî';
+
+  @override
+  String get searchTrending => 'Lêgerînên populer';
+
+  @override
+  String get searchClearHistory => 'Dîrokê paqij bike';
+
+  @override
+  String get searchHistoryCleared => 'Dîroka lêgerînê paqij bû';
+
+  @override
+  String get playerUpNext => 'Ya pêşwext';
+
+  @override
+  String get playerStartingIn => 'çirke şûnde dest pê dike';
+
+  @override
+  String get playerCancelAutoplay => 'Bişopîne';
+
+  @override
+  String get playerPlayNow => 'Niha lêxe';
 }

@@ -59,9 +59,9 @@
   "m3uPlaylistDesc": "URL an pela herêmî",
   "systemDefault": "Standarda pergalê",
   "accountName": "Navê hesab",
-  "accountNameHint": "mînak: IPTV ya min",
+  "accountNameHint": "wek IPTV-ya min",
   "playlistName": "Navê lîsteyê",
-  "playlistNameHint": "mînak: Lîsteya min",
+  "playlistNameHint": "wek lîsteya min",
   "loadPlaylist": "Lîsteyê bar bike",
   "selectM3UFile": "Pela M3U hilbijêre",
   "or": "AN JÎ",
@@ -112,16 +112,30 @@
   "addXtreamAccount": "Hesabê Xtream zêde bike",
   "addM3UPlaylist": "Lîsteya M3U zêde bike",
   "editAccount": "Biguherîne: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "deleteAccount": "Hesab jê bibe",
   "deleteAccountConfirm": "Tu bawer î ku dixwazî \"{name}\" jê bibî? Ev çalakî nayê vegerandin.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "Navê hesab hat nûkirin",
   "languageSet": "Ziman li {lang} hat danîn",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "Zimanê xwe yê bijartî hilbijêre",
   "visible": "xuya",
@@ -137,22 +151,41 @@
   "allChannels": "Hemû kanal",
   "channelCount": "{count} kanal",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} kategorî",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "Kanal nehat dîtin",
   "noMoviesFound": "Fîlm nehat dîtin",
   "noSeriesFound": "Rêzefîlm nehat dîtin",
   "seasonCount": "{count} Sezon",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "S{season}B{episode} Lêxe",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "Tê barkirin...",
   "error": "Çewtî",
@@ -164,7 +197,11 @@
   "home": "Serûpel",
   "continueFrom": "Ji {time} berdewam bike",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "Li bijareyan hat zêdekirin",
   "removedFromFavorites": "Ji bijareyan hat rakirin",
@@ -207,14 +244,32 @@
   "connectionSuccess": "Girêdan bi ser ket",
   "connectionFailed": "Girêdan têk çû",
   "daysRemaining": "{count} roj",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "Agahiya hesab nehat barkirin",
   "checking": "Tê kontrol kirin...",
   "checkConnection": "Girêdanê kontrol bike",
   "visibleCount": "{count} xuya",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} veşartî",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "Veşartî",
   "delete": "Jê bibe",
   "aboutDescription": "LifeOS TV serîlêdanek lêdêrê medyayê ye ku dihêle bikarhêner abonetiyên xwe yên ji dabînkerên xizmeta IPTV bibînin. Serîlêdan TV-ya zindî, fîlm û rêzefîlman piştgirî dike.",
@@ -251,7 +306,11 @@
   "sleepTimerFired": "Demjimêra razanê: lêxistin hate rawestandin",
   "minutesShort": "{minutes} dq",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "Lîsteya Min",
   "addToWatchlist": "Li Lîsteya Min Zêde Bike",
@@ -280,8 +339,6 @@
   "all": "Hemû",
   "subtitlePosition": "Cihê binnivîsê",
   "skipIntroLabel": "Pêşvebirê Bavêje",
-  "accountNameHint": "wek IPTV-ya min",
-  "playlistNameHint": "wek lîsteya min",
   "accountSaveFailed": "Hesab nehate tomarkirin",
   "connecting": "Tê girêdan...",
   "loadingPlaylistData": "Daneyên lîsteyê tên barkirin...",
@@ -326,7 +383,9 @@
   "tasteWizardSelectedCount": "{count} hilbijartî",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "Berdewam",
@@ -346,7 +405,9 @@
   "castSheetAppearancesCount": "{count} hatî dîtin",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "Di pirtûkxaneya te de bêhtir tune.",
@@ -357,7 +418,9 @@
   "moodRailTitle": "Hilbijartin ji bo {mood}",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "Fragmanê piçûk nîşan bide",
@@ -381,7 +444,13 @@
   "geminiKeyInvalid": "Bişop vala an nederbasdar e.",
   "geminiKeyTestSuccess": "Bişop dixebite! Bersiv ji Gemini hat.",
   "geminiKeyTestFailed": "Test bi ser neket: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "Çalak",
   "geminiStatusInactive": "Nehatî mîhengkirin",
   "howToGetGeminiKey": "Çawa bişopê bistînim?",
@@ -399,7 +468,7 @@
   "aiFeedbackMoreLike": "Bêhtir wek vê",
   "aiFeedbackDislike": "Nepêdivî, veşêre",
   "aiFeedbackWhy": "Çima hate pêşniyar kirin?",
-    "aiFeedbackSource": "Taybetiya AI",
+  "aiFeedbackSource": "Taybetiya AI",
   "aiMatchScoreSuffix": "lihevhatî",
   "aiFeedbackMoreLikeAdded": "Em dê bêhtir wek vê nîşan bidin",
   "aiFeedbackDislikeAdded": "Em êdî vê pêşniyar nakin",
@@ -432,5 +501,24 @@
   "aiRecapTag": "Kurtenivîs",
   "aiSimilarTitle": "Pêşniyarên jîr",
   "aiSimilarLoading": "Amade dike…",
-  "aiSimilarFailed": "Nehat barkirin — lîsteya hêsan tê nîşandan."
+  "aiSimilarFailed": "Nehat barkirin — lîsteya hêsan tê nîşandan.",
+  "statsTitle": "Statîstîk",
+  "statsWatchTime": "Dema temaşekirinê",
+  "statsAllTime": "Hemû dem",
+  "statsThisWeek": "Vê hefteyê",
+  "statsThisMonth": "Vê mehê",
+  "statsTopGenres": "Cureyên herî temaşekirî",
+  "statsTotalMovies": "Fîlmên temaşekirî",
+  "statsTotalEpisodes": "Beşên temaşekirî",
+  "statsHoursShort": "sd",
+  "statsMinutesShort": "xl",
+  "statsEmpty": "Hîn data tune. Tiştek temaşe bike, dê li vir xuya bibe.",
+  "searchRecent": "Lêgerînên dawî",
+  "searchTrending": "Lêgerînên populer",
+  "searchClearHistory": "Dîrokê paqij bike",
+  "searchHistoryCleared": "Dîroka lêgerînê paqij bû",
+  "playerUpNext": "Ya pêşwext",
+  "playerStartingIn": "çirke şûnde dest pê dike",
+  "playerCancelAutoplay": "Bişopîne",
+  "playerPlayNow": "Niha lêxe"
 }

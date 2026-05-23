@@ -1226,4 +1226,62 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get aiSimilarFailed => 'تعذّر التحميل — عرض القائمة العادية.';
+
+  @override
+  String get statsTitle => 'الإحصائيات';
+
+  @override
+  String get statsWatchTime => 'مدة المشاهدة';
+
+  @override
+  String get statsAllTime => 'الإجمالي';
+
+  @override
+  String get statsThisWeek => 'هذا الأسبوع';
+
+  @override
+  String get statsThisMonth => 'هذا الشهر';
+
+  @override
+  String get statsTopGenres => 'الأنواع الأكثر مشاهدة';
+
+  @override
+  String get statsTotalMovies => 'أفلام مشاهدة';
+
+  @override
+  String get statsTotalEpisodes => 'حلقات مشاهدة';
+
+  @override
+  String get statsHoursShort => 'سا';
+
+  @override
+  String get statsMinutesShort => 'د';
+
+  @override
+  String get statsEmpty =>
+      'لا توجد بيانات بعد. شاهد شيئًا وستظهر الإحصائيات هنا.';
+
+  @override
+  String get searchRecent => 'عمليات البحث الأخيرة';
+
+  @override
+  String get searchTrending => 'الأكثر بحثًا';
+
+  @override
+  String get searchClearHistory => 'مسح السجل';
+
+  @override
+  String get searchHistoryCleared => 'تم مسح سجل البحث';
+
+  @override
+  String get playerUpNext => 'التالي';
+
+  @override
+  String get playerStartingIn => 'يبدأ خلال';
+
+  @override
+  String get playerCancelAutoplay => 'إلغاء';
+
+  @override
+  String get playerPlayNow => 'تشغيل الآن';
 }

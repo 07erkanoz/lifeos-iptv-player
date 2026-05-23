@@ -112,16 +112,30 @@
   "addXtreamAccount": "Добавить аккаунт Xtream",
   "addM3UPlaylist": "Добавить плейлист M3U",
   "editAccount": "Редактировать: {name}",
-  "@editAccount": {"placeholders": {"name": {"type": "String"}}},
+  "@editAccount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "deleteAccount": "Удалить аккаунт",
   "deleteAccountConfirm": "Вы уверены, что хотите удалить \"{name}\"? Это действие необратимо.",
   "@deleteAccountConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "accountNameUpdated": "Название аккаунта обновлено",
   "languageSet": "Язык установлен на {lang}",
   "@languageSet": {
-    "placeholders": { "lang": {"type": "String"} }
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
   },
   "selectLanguage": "Выберите предпочитаемый язык",
   "visible": "видимый",
@@ -137,22 +151,41 @@
   "allChannels": "Все каналы",
   "channelCount": "{count} каналов",
   "@channelCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "categoryCount": "{count} категорий",
   "@categoryCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "noChannels": "Каналы не найдены",
   "noMoviesFound": "Фильмы не найдены",
   "noSeriesFound": "Сериалы не найдены",
   "seasonCount": "{count} Сезонов",
   "@seasonCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "playSeasonEpisode": "Смотреть С{season}С{episode}",
   "@playSeasonEpisode": {
-    "placeholders": { "season": {"type": "String"}, "episode": {"type": "String"} }
+    "placeholders": {
+      "season": {
+        "type": "String"
+      },
+      "episode": {
+        "type": "String"
+      }
+    }
   },
   "loading": "Загрузка...",
   "error": "Ошибка",
@@ -164,7 +197,11 @@
   "home": "Главная",
   "continueFrom": "Продолжить с {time}",
   "@continueFrom": {
-    "placeholders": { "time": {"type": "String"} }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "addedToFavorites": "Добавлено в избранное",
   "removedFromFavorites": "Удалено из избранного",
@@ -207,14 +244,32 @@
   "connectionSuccess": "Подключение успешно",
   "connectionFailed": "Ошибка подключения",
   "daysRemaining": "{count} дней",
-  "@daysRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@daysRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountInfoLoadFailed": "Не удалось загрузить информацию об аккаунте",
   "checking": "Проверка...",
   "checkConnection": "Проверить соединение",
   "visibleCount": "{count} видимых",
-  "@visibleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@visibleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenCount": "{count} скрытых",
-  "@hiddenCount": {"placeholders": {"count": {"type": "int"}}},
+  "@hiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hiddenLabel": "Скрытые",
   "delete": "Удалить",
   "aboutDescription": "LifeOS TV — это приложение медиаплеера, которое позволяет пользователям просматривать свои подписки от провайдеров IPTV-услуг. Приложение поддерживает прямые трансляции, фильмы и сериалы.",
@@ -251,7 +306,11 @@
   "sleepTimerFired": "Таймер сна: воспроизведение приостановлено",
   "minutesShort": "{minutes} мин",
   "@minutesShort": {
-    "placeholders": { "minutes": {"type": "int"} }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "watchlist": "Мой список",
   "addToWatchlist": "Добавить в Мой список",
@@ -280,8 +339,6 @@
   "all": "Все",
   "subtitlePosition": "Положение субтитров",
   "skipIntroLabel": "Пропустить заставку",
-  "accountNameHint": "напр. Мой IPTV",
-  "playlistNameHint": "напр. Мой плейлист",
   "accountSaveFailed": "Не удалось сохранить аккаунт",
   "connecting": "Подключение...",
   "loadingPlaylistData": "Загрузка данных плейлиста...",
@@ -326,7 +383,9 @@
   "tasteWizardSelectedCount": "Выбрано: {count}",
   "@tasteWizardSelectedCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tasteWizardConfirm": "Продолжить",
@@ -346,7 +405,9 @@
   "castSheetAppearancesCount": "найдено: {count}",
   "@castSheetAppearancesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "castSheetNoAppearances": "Других появлений в библиотеке нет.",
@@ -357,7 +418,9 @@
   "moodRailTitle": "Подборка: {mood}",
   "@moodRailTitle": {
     "placeholders": {
-      "mood": { "type": "String" }
+      "mood": {
+        "type": "String"
+      }
     }
   },
   "showTrailerSetting": "Показывать PiP-трейлер",
@@ -381,7 +444,13 @@
   "geminiKeyInvalid": "Ключ пуст или недействителен.",
   "geminiKeyTestSuccess": "Ключ работает! Ответ от Gemini получен.",
   "geminiKeyTestFailed": "Тест не пройден: {reason}",
-  "@geminiKeyTestFailed": {"placeholders": {"reason": {"type": "String"}}},
+  "@geminiKeyTestFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "geminiStatusActive": "Активен",
   "geminiStatusInactive": "Не настроен",
   "howToGetGeminiKey": "Как получить ключ?",
@@ -399,7 +468,7 @@
   "aiFeedbackMoreLike": "Больше такого",
   "aiFeedbackDislike": "Не интересно, скрыть",
   "aiFeedbackWhy": "Почему выбрано?",
-    "aiFeedbackSource": "Функция ИИ",
+  "aiFeedbackSource": "Функция ИИ",
   "aiMatchScoreSuffix": "совпадение",
   "aiFeedbackMoreLikeAdded": "Будем показывать больше такого",
   "aiFeedbackDislikeAdded": "Больше не предложим",
@@ -432,5 +501,24 @@
   "aiRecapTag": "Резюме",
   "aiSimilarTitle": "Умные подборки",
   "aiSimilarLoading": "Подбираем…",
-  "aiSimilarFailed": "Не удалось загрузить — показан стандартный список."
+  "aiSimilarFailed": "Не удалось загрузить — показан стандартный список.",
+  "statsTitle": "Статистика",
+  "statsWatchTime": "Время просмотра",
+  "statsAllTime": "За всё время",
+  "statsThisWeek": "На этой неделе",
+  "statsThisMonth": "В этом месяце",
+  "statsTopGenres": "Любимые жанры",
+  "statsTotalMovies": "Просмотрено фильмов",
+  "statsTotalEpisodes": "Просмотрено серий",
+  "statsHoursShort": "ч",
+  "statsMinutesShort": "мин",
+  "statsEmpty": "Пока нет данных. Посмотри что-нибудь — статистика появится здесь.",
+  "searchRecent": "Недавние запросы",
+  "searchTrending": "Популярные запросы",
+  "searchClearHistory": "Очистить историю",
+  "searchHistoryCleared": "История поиска очищена",
+  "playerUpNext": "Далее",
+  "playerStartingIn": "начинается через",
+  "playerCancelAutoplay": "Отмена",
+  "playerPlayNow": "Смотреть сейчас"
 }

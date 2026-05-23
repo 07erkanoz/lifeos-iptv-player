@@ -1230,4 +1230,62 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get aiSimilarFailed =>
       'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.';
+
+  @override
+  String get statsTitle => 'İstatistikler';
+
+  @override
+  String get statsWatchTime => 'İzleme süresi';
+
+  @override
+  String get statsAllTime => 'Tüm zamanlar';
+
+  @override
+  String get statsThisWeek => 'Bu hafta';
+
+  @override
+  String get statsThisMonth => 'Bu ay';
+
+  @override
+  String get statsTopGenres => 'En çok izlenen türler';
+
+  @override
+  String get statsTotalMovies => 'İzlenen film';
+
+  @override
+  String get statsTotalEpisodes => 'İzlenen bölüm';
+
+  @override
+  String get statsHoursShort => 'sa';
+
+  @override
+  String get statsMinutesShort => 'dk';
+
+  @override
+  String get statsEmpty =>
+      'Henüz izleme verisi yok. Bir şey izle, burada görelim.';
+
+  @override
+  String get searchRecent => 'Son aramalar';
+
+  @override
+  String get searchTrending => 'Popüler aramalar';
+
+  @override
+  String get searchClearHistory => 'Geçmişi temizle';
+
+  @override
+  String get searchHistoryCleared => 'Arama geçmişi temizlendi';
+
+  @override
+  String get playerUpNext => 'Sıradaki bölüm';
+
+  @override
+  String get playerStartingIn => 'sn sonra başlıyor';
+
+  @override
+  String get playerCancelAutoplay => 'İptal';
+
+  @override
+  String get playerPlayNow => 'Şimdi oynat';
 }

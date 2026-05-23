@@ -252,6 +252,38 @@ class AiFeedback extends Table {
 /// the episode timeline. We deliberately keep this table small and
 /// independent of [PlaybackProgress] so the marker isn't lost when the
 /// user clears watch history.
+/// Recent / trending search queries. Powers the search screen's
+/// "Son aramalar" chip row + "Popüler aramalar" suggestions.
+///
+/// We keep this client-side (no remote sync) so the user's search
+/// history never leaves the device. The trending side is computed
+/// from the same table with a 7-day rolling window — there is no
+/// global "trending across all users" feed; that would require a
+/// server and is intentionally out of scope.
+///
+/// Rows are upserted on every successful search (composite PK on
+/// `query` so the same term collapses into one entry whose
+/// `lastUsedAt` keeps advancing and `useCount` keeps incrementing).
+/// We cap the table at ~200 rows via repository-side cleanup; this
+/// is cheap to query for a chip row and short-lived in practice
+/// because users repeat queries.
+class SearchHistory extends Table {
+  /// Normalised search query — lower-cased, trimmed, multi-space
+  /// collapsed. Display layer re-cases for the chip label.
+  TextColumn get query => text()();
+
+  /// Last time this query was submitted. Drives the "recent" sort.
+  DateTimeColumn get lastUsedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  /// How many times this query has been submitted. Drives the
+  /// "trending" sort within the rolling 7-day window.
+  IntColumn get useCount => integer().withDefault(const Constant(1))();
+
+  @override
+  Set<Column> get primaryKey => {query};
+}
+
 class IntroMarkers extends Table {
   /// References [Channels.streamId] for the *parent series*, not an
   /// individual episode. Comes from `widget.parentStreamId` in the
