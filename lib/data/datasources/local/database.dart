@@ -90,25 +90,27 @@ class AppDatabase extends _$AppDatabase {
          // a "Varsayılan" profile (id=1) and every pre-existing row
          // backfills to it. Single-user installs see no behavioural
          // change — they just get one implicit profile.
-         await m.createTable(profiles);
-         await m.addColumn(favorites, favorites.profileId);
-         await m.addColumn(playbackProgress, playbackProgress.profileId);
-         await m.addColumn(watchlist, watchlist.profileId);
-         await m.addColumn(seriesTracking, seriesTracking.profileId);
-         await m.addColumn(aiFeedback, aiFeedback.profileId);
-         await m.addColumn(searchHistory, searchHistory.profileId);
-
-         // Seed the default profile so the FK has something to
-         // point at. Idempotent: subsequent boots see id=1 already
-         // present and skip via the OR IGNORE conflict resolution.
-         await customStatement(
-           "INSERT OR IGNORE INTO profiles (id, name, avatar_key, "
-           "is_kids, created_at) VALUES (1, 'Varsayılan', 'default', "
-           "0, ${DateTime.now().millisecondsSinceEpoch ~/ 1000})",
-         );
+         //
+         // CRITICAL: every step is wrapped in idempotent guards.
+         // Reason: some users were running an off-fork binary
+         // (versionCode 2001) whose schema already had profileId
+         // columns + the profiles table even though Drift's
+         // user_version pragma still reported < 18. Without these
+         // guards the ALTER TABLE raised "duplicate column" and
+         // crashed the app on launch — the v1.1.0 disaster. Each
+         // statement now uses IF-NOT-EXISTS semantics (raw SQL)
+         // so re-running the migration on a half-applied DB is
+         // safe.
+         await _migrateToV18(m);
        }
     },
     beforeOpen: (details) async {
+      // Idempotent safety net: covers off-fork builds where the
+      // schema has the profiles columns but Drift's user_version
+      // pragma doesn't reflect v18 yet (so onUpgrade(< 18, …)
+      // didn't fire). Apply any missing parts here too.
+      await _migrateToV18Idempotent();
+
       // Belt-and-braces seed: if the user nuked their DB or this is
       // a fresh install on v18+, ensure profile 1 exists before any
       // FK-bound query fires. INSERT OR IGNORE — no-op when present.
@@ -119,6 +121,88 @@ class AppDatabase extends _$AppDatabase {
       );
     },
   );
+
+  /// Apply the v18 schema changes via idempotent SQL. Used by both
+  /// the `onUpgrade(from < 18, …)` branch AND the `beforeOpen` hook
+  /// because a previous attempt may have half-applied the schema
+  /// (e.g. profile_id column already added but profiles table not
+  /// created, or vice versa) and Drift's user_version pragma alone
+  /// isn't enough to tell the two states apart.
+  ///
+  /// Every statement uses `CREATE TABLE IF NOT EXISTS` or a
+  /// try-add-column wrapper so re-running on an already-migrated
+  /// schema is a silent no-op.
+  Future<void> _migrateToV18(Migrator m) async {
+    // 1. Profiles table — IF NOT EXISTS via raw SQL because
+    //    `m.createTable(profiles)` would throw "table already
+    //    exists" on a half-applied schema.
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        avatar_key TEXT NOT NULL DEFAULT 'default',
+        is_kids INTEGER NOT NULL DEFAULT 0,
+        pin TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      )
+    ''');
+
+    // 2. Per-table profile_id column adds. SQLite doesn't support
+    //    "ALTER TABLE … ADD COLUMN IF NOT EXISTS", so we probe
+    //    PRAGMA table_info first and only ADD when the column is
+    //    actually missing.
+    await _addProfileIdIfMissing('favorites');
+    await _addProfileIdIfMissing('playback_progress');
+    await _addProfileIdIfMissing('watchlist');
+    await _addProfileIdIfMissing('series_tracking');
+    await _addProfileIdIfMissing('ai_feedback');
+    await _addProfileIdIfMissing('search_history');
+
+    // 3. Seed the default profile (no-op when already present).
+    await customStatement(
+      "INSERT OR IGNORE INTO profiles (id, name, avatar_key, "
+      "is_kids, created_at) VALUES (1, 'Varsayılan', 'default', "
+      "0, ${DateTime.now().millisecondsSinceEpoch ~/ 1000})",
+    );
+  }
+
+  /// Same operations as [_migrateToV18] but bound to `beforeOpen`
+  /// — no Migrator available, so we use the customStatement path
+  /// throughout. Idempotent.
+  Future<void> _migrateToV18Idempotent() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        avatar_key TEXT NOT NULL DEFAULT 'default',
+        is_kids INTEGER NOT NULL DEFAULT 0,
+        pin TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      )
+    ''');
+    await _addProfileIdIfMissing('favorites');
+    await _addProfileIdIfMissing('playback_progress');
+    await _addProfileIdIfMissing('watchlist');
+    await _addProfileIdIfMissing('series_tracking');
+    await _addProfileIdIfMissing('ai_feedback');
+    await _addProfileIdIfMissing('search_history');
+  }
+
+  /// Probe-and-add helper. Reads PRAGMA table_info(<tableName>) —
+  /// returns one row per column with the column's name in field 1.
+  /// If `profile_id` is already there, no-op. Otherwise issue the
+  /// ADD COLUMN statement with the same defaults the Drift schema
+  /// declares (`INTEGER NOT NULL DEFAULT 1`).
+  Future<void> _addProfileIdIfMissing(String tableName) async {
+    final rows = await customSelect(
+      'PRAGMA table_info($tableName)',
+    ).get();
+    final hasIt = rows.any((r) => r.data['name'] == 'profile_id');
+    if (hasIt) return;
+    await customStatement(
+      'ALTER TABLE $tableName ADD COLUMN profile_id INTEGER NOT NULL DEFAULT 1',
+    );
+  }
 }
 
 QueryExecutor _openConnection() {
