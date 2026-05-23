@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,12 +15,15 @@ part 'content_repository.g.dart';
 class ContentRepository {
   final AppDatabase _db;
   final SyncService _syncService;
+  final int Function() _getActiveProfileId;
 
   /// Minimum interval between full EPG syncs (server-friendly)
   static const _epgSyncInterval = Duration(hours: 2);
   static const _epgSyncKey = 'last_epg_sync_timestamp';
 
-  ContentRepository(this._db, this._syncService);
+  ContentRepository(this._db, this._syncService, this._getActiveProfileId);
+
+  int get _pid => _getActiveProfileId();
 
   Stream<List<Category>> watchCategories(String type) {
     return (_db.select(_db.categories)
@@ -123,7 +127,8 @@ class ContentRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
-          ..where(_db.playbackProgress.position.isBiggerThanValue(0))
+          ..where(_db.playbackProgress.position.isBiggerThanValue(0) &
+              _db.playbackProgress.profileId.equals(_pid))
           ..orderBy([
             OrderingTerm(
                 expression: _db.playbackProgress.updatedAt,
@@ -169,6 +174,7 @@ class ContentRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
+          ..where(_db.favorites.profileId.equals(_pid))
           ..orderBy([
             OrderingTerm(
                 expression: _db.favorites.addedAt,
@@ -829,8 +835,12 @@ class ContentRepository {
     return [...results[0], ...results[1], ...results[2]];
   }
 
-  /// Watch channels that have playback progress (continue watching)
+  /// Watch channels that have playback progress (continue watching).
+  /// Scoped to the active profile so the rail isolates per-person
+  /// state — the kids' half-watched cartoons don't leak into the
+  /// parent's continue-watching.
   Stream<List<Channel>> watchContinueWatching(String type) {
+    final pid = _pid;
     final query = _db.select(_db.channels).join([
       innerJoin(
         _db.playbackProgress,
@@ -841,6 +851,7 @@ class ContentRepository {
       ..where(_db.channels.type.equals(type))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
+      ..where(_db.playbackProgress.profileId.equals(pid))
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(50);
 
@@ -849,8 +860,10 @@ class ContentRepository {
     );
   }
 
-  /// Watch all continue watching items (movies + series combined, sorted by updatedAt)
+  /// Watch all continue watching items (movies + series combined,
+  /// sorted by updatedAt), scoped to the active profile.
   Stream<List<Channel>> watchAllContinueWatching() {
+    final pid = _pid;
     final query = _db.select(_db.channels).join([
       innerJoin(
         _db.playbackProgress,
@@ -861,6 +874,7 @@ class ContentRepository {
       ..where(_db.channels.type.isIn(['movie', 'series']))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
+      ..where(_db.playbackProgress.profileId.equals(pid))
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(20);
 
@@ -918,5 +932,12 @@ class ContentRepository {
 
 @riverpod
 ContentRepository contentRepository(Ref ref) {
-  return ContentRepository(ref.watch(appDatabaseProvider), ref.watch(syncServiceProvider));
+  // Bump on profile switch so the cached repo gets rebuilt and
+  // every per-profile query reflects the new id.
+  ref.watch(activeProfileIdProvider);
+  return ContentRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(syncServiceProvider),
+    () => ref.read(activeProfileIdProvider).value ?? 1,
+  );
 }

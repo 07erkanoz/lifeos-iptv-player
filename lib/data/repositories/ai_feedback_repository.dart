@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'ai_feedback_repository.g.dart';
@@ -21,8 +23,11 @@ class AiFeedbackAction {
 /// ("Sevmedim" / "Bunun gibi daha").
 class AiFeedbackRepository {
   final AppDatabase _db;
+  final int Function() _getActiveProfileId;
 
-  AiFeedbackRepository(this._db);
+  AiFeedbackRepository(this._db, this._getActiveProfileId);
+
+  int get _pid => _getActiveProfileId();
 
   /// Toggle a feedback action on the given title. Returns true when
   /// the row was added, false when it was removed (caller can show a
@@ -41,7 +46,8 @@ class AiFeedbackRepository {
           ..where((t) =>
               t.streamId.equals(streamId) &
               t.type.equals(type) &
-              t.action.equals(action))
+              t.action.equals(action) &
+              t.profileId.equals(_pid))
           ..limit(1))
         .getSingleOrNull();
     if (existing != null) {
@@ -61,7 +67,8 @@ class AiFeedbackRepository {
           ..where((t) =>
               t.streamId.equals(streamId) &
               t.type.equals(type) &
-              t.action.equals(opposite)))
+              t.action.equals(opposite) &
+              t.profileId.equals(_pid)))
         .go();
     await _db.into(_db.aiFeedback).insert(
           AiFeedbackCompanion.insert(
@@ -69,6 +76,7 @@ class AiFeedbackRepository {
             type: type,
             action: action,
             feature: Value(feature),
+            profileId: Value(_pid),
           ),
         );
     return true;
@@ -80,7 +88,8 @@ class AiFeedbackRepository {
   Stream<Set<int>> watchDislikedStreamIds() {
     return (_db.select(_db.aiFeedback)
           ..where((t) =>
-              t.action.equals(AiFeedbackAction.dislike)))
+              t.action.equals(AiFeedbackAction.dislike) &
+              t.profileId.equals(_pid)))
         .watch()
         .map((rows) => rows.map((r) => r.streamId).toSet());
   }
@@ -89,7 +98,8 @@ class AiFeedbackRepository {
   Future<Set<int>> getDislikedStreamIds() async {
     final rows = await (_db.select(_db.aiFeedback)
           ..where((t) =>
-              t.action.equals(AiFeedbackAction.dislike)))
+              t.action.equals(AiFeedbackAction.dislike) &
+              t.profileId.equals(_pid)))
         .get();
     return rows.map((r) => r.streamId).toSet();
   }
@@ -99,7 +109,8 @@ class AiFeedbackRepository {
   Future<Set<int>> getMoreLikeStreamIds() async {
     final rows = await (_db.select(_db.aiFeedback)
           ..where((t) =>
-              t.action.equals(AiFeedbackAction.moreLike)))
+              t.action.equals(AiFeedbackAction.moreLike) &
+              t.profileId.equals(_pid)))
         .get();
     return rows.map((r) => r.streamId).toSet();
   }
@@ -116,7 +127,8 @@ class AiFeedbackRepository {
           ..where((t) =>
               t.streamId.equals(streamId) &
               t.type.equals(type) &
-              t.action.equals(action))
+              t.action.equals(action) &
+              t.profileId.equals(_pid))
           ..limit(1))
         .getSingleOrNull();
     return row != null;
@@ -131,7 +143,9 @@ class AiFeedbackRepository {
   }) {
     return (_db.select(_db.aiFeedback)
           ..where((t) =>
-              t.streamId.equals(streamId) & t.type.equals(type)))
+              t.streamId.equals(streamId) &
+              t.type.equals(type) &
+              t.profileId.equals(_pid)))
         .watch()
         .map((rows) {
       var disliked = false;
@@ -144,16 +158,23 @@ class AiFeedbackRepository {
     });
   }
 
-  /// Clear ALL feedback rows. Hook for a future "reset feedback"
-  /// settings option.
+  /// Clear ALL feedback rows for the active profile. Hook for a
+  /// future "reset feedback" settings option. Scoped to the active
+  /// profile so one user's "reset" doesn't nuke another's data.
   Future<void> clearAll() async {
-    await _db.delete(_db.aiFeedback).go();
+    await (_db.delete(_db.aiFeedback)
+          ..where((t) => t.profileId.equals(_pid)))
+        .go();
   }
 }
 
 @Riverpod(keepAlive: true)
 AiFeedbackRepository aiFeedbackRepository(Ref ref) {
-  return AiFeedbackRepository(ref.watch(appDatabaseProvider));
+  ref.watch(activeProfileIdProvider);
+  return AiFeedbackRepository(
+    ref.watch(appDatabaseProvider),
+    () => ref.read(activeProfileIdProvider).value ?? 1,
+  );
 }
 
 /// Live-watched set of disliked stream IDs. AI rail providers

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/domain/models/taste_profile.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -18,8 +20,12 @@ part 'taste_profile_repository.g.dart';
 class TasteProfileRepository {
   final AppDatabase _db;
   final AiFeedbackRepository _feedbackRepo;
+  final int Function() _getActiveProfileId;
 
-  TasteProfileRepository(this._db, this._feedbackRepo);
+  TasteProfileRepository(
+      this._db, this._feedbackRepo, this._getActiveProfileId);
+
+  int get _pid => _getActiveProfileId();
 
   // Per-source weights — comments in [TasteProfile] explain the
   // rationale. Pulled out as constants here so callers can audit
@@ -75,6 +81,10 @@ class TasteProfileRepository {
     }
 
     // ── Favourites ────────────────────────────────────────────────
+    // All four user-table queries below filter by the active profile
+    // id so a household sharing one install gets per-person taste
+    // signals instead of a mixed-bag rail.
+    final pid = _pid;
     final favRows = await (_db.select(_db.channels).join([
       innerJoin(
         _db.favorites,
@@ -87,6 +97,7 @@ class TasteProfileRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
+          ..where(_db.favorites.profileId.equals(pid))
           ..limit(60))
         .get();
     for (final r in favRows) {
@@ -107,7 +118,8 @@ class TasteProfileRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
-          ..where(_db.playbackProgress.position.isBiggerThanValue(0))
+          ..where(_db.playbackProgress.position.isBiggerThanValue(0) &
+              _db.playbackProgress.profileId.equals(pid))
           ..limit(150))
         .get();
     for (final r in histRows) {
@@ -188,9 +200,14 @@ class TasteProfileRepository {
 
 @riverpod
 TasteProfileRepository tasteProfileRepository(Ref ref) {
+  // Bump on profile switch so dependents re-fetch against the new
+  // id. ai_feedback_repository internally watches the same provider
+  // and returns disliked/moreLike sets scoped to the active profile.
+  ref.watch(activeProfileIdProvider);
   return TasteProfileRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(aiFeedbackRepositoryProvider),
+    () => ref.read(activeProfileIdProvider).value ?? 1,
   );
 }
 

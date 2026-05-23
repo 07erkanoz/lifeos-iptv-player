@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'search_history_repository.g.dart';
@@ -20,8 +22,11 @@ class SearchHistoryRepository {
   static const Duration _trendingWindow = Duration(days: 7);
 
   final AppDatabase _db;
+  final int Function() _getActiveProfileId;
 
-  SearchHistoryRepository(this._db);
+  SearchHistoryRepository(this._db, this._getActiveProfileId);
+
+  int get _pid => _getActiveProfileId();
 
   /// Normalise to a stable form for the PK. Trims, lower-cases, and
   /// collapses runs of whitespace. The original query is also passed
@@ -46,7 +51,8 @@ class SearchHistoryRepository {
     if (normalised.isEmpty || normalised.length < 2) return;
 
     final existing = await (_db.select(_db.searchHistory)
-          ..where((t) => t.query.equals(normalised))
+          ..where((t) =>
+              t.query.equals(normalised) & t.profileId.equals(_pid))
           ..limit(1))
         .getSingleOrNull();
 
@@ -56,11 +62,14 @@ class SearchHistoryRepository {
               query: normalised,
               lastUsedAt: Value(DateTime.now()),
               useCount: const Value(1),
+              profileId: Value(_pid),
             ),
           );
     } else {
       await (_db.update(_db.searchHistory)
-            ..where((t) => t.query.equals(normalised)))
+            ..where((t) =>
+                t.query.equals(normalised) &
+                t.profileId.equals(_pid)))
           .write(SearchHistoryCompanion(
         lastUsedAt: Value(DateTime.now()),
         useCount: Value(existing.useCount + 1),
@@ -74,6 +83,7 @@ class SearchHistoryRepository {
   /// row only shows ~8.
   Future<List<String>> recent({int limit = 8}) async {
     final rows = await (_db.select(_db.searchHistory)
+          ..where((t) => t.profileId.equals(_pid))
           ..orderBy([
             (t) => OrderingTerm(
                 expression: t.lastUsedAt, mode: OrderingMode.desc),
@@ -90,7 +100,9 @@ class SearchHistoryRepository {
   Future<List<String>> trending({int limit = 6}) async {
     final cutoff = DateTime.now().subtract(_trendingWindow);
     final rows = await (_db.select(_db.searchHistory)
-          ..where((t) => t.lastUsedAt.isBiggerThanValue(cutoff))
+          ..where((t) =>
+              t.lastUsedAt.isBiggerThanValue(cutoff) &
+              t.profileId.equals(_pid))
           ..orderBy([
             (t) => OrderingTerm(
                 expression: t.useCount, mode: OrderingMode.desc),
@@ -108,14 +120,19 @@ class SearchHistoryRepository {
   /// Wipe everything. Wired into the Settings → Privacy panel and
   /// the search screen's "Geçmişi temizle" chip.
   Future<void> clearAll() async {
-    await _db.delete(_db.searchHistory).go();
+    // Scoped to active profile only — kids shouldn't be able to
+    // wipe the parent's search history and vice versa.
+    await (_db.delete(_db.searchHistory)
+          ..where((t) => t.profileId.equals(_pid)))
+        .go();
   }
 
   /// Remove one row. Wired into the long-press menu on each chip.
   Future<void> remove(String query) async {
     final normalised = normalise(query);
     await (_db.delete(_db.searchHistory)
-          ..where((t) => t.query.equals(normalised)))
+          ..where((t) =>
+              t.query.equals(normalised) & t.profileId.equals(_pid)))
         .go();
   }
 
@@ -123,14 +140,20 @@ class SearchHistoryRepository {
   /// rows past the cap. Called lazily after each insert/upsert so we
   /// don't need a background job.
   Future<void> _pruneIfNeeded() async {
-    final count = await _db
-        .customSelect('SELECT COUNT(*) AS c FROM search_history')
-        .getSingle();
+    // Per-profile cap. Each profile gets its own [_maxRows] window
+    // instead of the whole household sharing one — otherwise a
+    // search-heavy profile starves the others.
+    final pid = _pid;
+    final count = await _db.customSelect(
+      'SELECT COUNT(*) AS c FROM search_history WHERE profile_id = ?',
+      variables: [Variable.withInt(pid)],
+    ).getSingle();
     final total = count.data['c'] as int? ?? 0;
     if (total <= _maxRows) return;
-    // Delete the oldest (total - _maxRows) rows.
+    // Delete the oldest (total - _maxRows) rows within this profile.
     final overflow = total - _maxRows;
     final toDelete = await (_db.select(_db.searchHistory)
+          ..where((t) => t.profileId.equals(pid))
           ..orderBy([
             (t) =>
                 OrderingTerm(expression: t.lastUsedAt, mode: OrderingMode.asc),
@@ -140,14 +163,19 @@ class SearchHistoryRepository {
     final keys = toDelete.map((r) => r.query).toList();
     if (keys.isEmpty) return;
     await (_db.delete(_db.searchHistory)
-          ..where((t) => t.query.isIn(keys)))
+          ..where(
+              (t) => t.query.isIn(keys) & t.profileId.equals(pid)))
         .go();
   }
 }
 
 @riverpod
 SearchHistoryRepository searchHistoryRepository(Ref ref) {
-  return SearchHistoryRepository(ref.watch(appDatabaseProvider));
+  ref.watch(activeProfileIdProvider);
+  return SearchHistoryRepository(
+    ref.watch(appDatabaseProvider),
+    () => ref.read(activeProfileIdProvider).value ?? 1,
+  );
 }
 
 /// Live recent queries — search screen chip row watches this so a
