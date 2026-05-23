@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
+import 'package:lifeostv/presentation/screens/settings/sections/profiles_section.dart';
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -75,6 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   List<({IconData icon, String label})> _getSections(AppLocalizations l10n) => [
     (icon: Icons.dns_outlined, label: l10n.accounts),
+    (icon: Icons.people_outline, label: l10n.profilesTitle),
     (icon: Icons.palette_outlined, label: l10n.appearance),
     (icon: Icons.play_circle_outline, label: l10n.player),
     (icon: Icons.language_outlined, label: l10n.language),
@@ -160,22 +162,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case 0:
         return _AccountsSection(l10n: l10n);
       case 1:
-        return _AppearanceSection(settings: settings, l10n: l10n);
+        return ProfilesSection(l10n: l10n);
       case 2:
-        return _PlayerSection(settings: settings, l10n: l10n);
+        return _AppearanceSection(settings: settings, l10n: l10n);
       case 3:
-        return _LanguageSection(settings: settings, l10n: l10n);
+        return _PlayerSection(settings: settings, l10n: l10n);
       case 4:
-        return _ContentSection(settings: settings, l10n: l10n);
+        return _LanguageSection(settings: settings, l10n: l10n);
       case 5:
-        return _SubtitleSection(settings: settings, l10n: l10n);
+        return _ContentSection(settings: settings, l10n: l10n);
       case 6:
-        return _AiAssistantSection(settings: settings, l10n: l10n);
+        return _SubtitleSection(settings: settings, l10n: l10n);
       case 7:
-        return _StatsSection(l10n: l10n);
+        return _AiAssistantSection(settings: settings, l10n: l10n);
       case 8:
-        return _DataSection(l10n: l10n);
+        return _StatsSection(l10n: l10n);
       case 9:
+        return _DataSection(l10n: l10n);
+      case 10:
         return _AboutSection(l10n: l10n);
       default:
         return const SizedBox.shrink();

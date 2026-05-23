@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Seçili diziyi sadece izlediğin bölüme kadar konuşalım — sonrasını söylemem.",
   "aiSpoilerShieldOff": "Spoiler koruması kapalı",
   "aiSpoilerShieldEmpty": "İzlediğin bir dizi yok. Bir bölüm oyna, sonra geri dön.",
-  "aiSpoilerShieldUpTo": "Bu bölüme kadar:"
+  "aiSpoilerShieldUpTo": "Bu bölüme kadar:",
+  "profilesTitle": "Profiller",
+  "profilesDesc": "Aile bireyleri için ayrı favoriler, geçmiş ve AI önerileri.",
+  "profileAdd": "Yeni Profil",
+  "profileEdit": "Profili Düzenle",
+  "profileDelete": "Profili Sil",
+  "profileDeleteConfirm": "\"{name}\" profili ve tüm verisi silinecek. Devam edilsin mi?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Profil adı (örn. Erkan, Çocuklar)",
+  "profileKids": "Çocuk profili",
+  "profileKidsDesc": "Yetişkin içerikleri filtrele, PIN ile koru.",
+  "profilePin": "PIN (opsiyonel, 4 hane)",
+  "profileSave": "Kaydet",
+  "profileCurrent": "Aktif Profil",
+  "profileSwitch": "Profili Değiştir",
+  "profilePinPrompt": "Bu profil için PIN girin",
+  "profilePinWrong": "PIN hatalı",
+  "profileDefault": "Varsayılan"
 }

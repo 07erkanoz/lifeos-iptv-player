@@ -1305,4 +1305,55 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get aiSpoilerShieldUpTo => 'Bu bölüme kadar:';
+
+  @override
+  String get profilesTitle => 'Profiller';
+
+  @override
+  String get profilesDesc =>
+      'Aile bireyleri için ayrı favoriler, geçmiş ve AI önerileri.';
+
+  @override
+  String get profileAdd => 'Yeni Profil';
+
+  @override
+  String get profileEdit => 'Profili Düzenle';
+
+  @override
+  String get profileDelete => 'Profili Sil';
+
+  @override
+  String profileDeleteConfirm(String name) {
+    return '\"$name\" profili ve tüm verisi silinecek. Devam edilsin mi?';
+  }
+
+  @override
+  String get profileNameHint => 'Profil adı (örn. Erkan, Çocuklar)';
+
+  @override
+  String get profileKids => 'Çocuk profili';
+
+  @override
+  String get profileKidsDesc => 'Yetişkin içerikleri filtrele, PIN ile koru.';
+
+  @override
+  String get profilePin => 'PIN (opsiyonel, 4 hane)';
+
+  @override
+  String get profileSave => 'Kaydet';
+
+  @override
+  String get profileCurrent => 'Aktif Profil';
+
+  @override
+  String get profileSwitch => 'Profili Değiştir';
+
+  @override
+  String get profilePinPrompt => 'Bu profil için PIN girin';
+
+  @override
+  String get profilePinWrong => 'PIN hatalı';
+
+  @override
+  String get profileDefault => 'Varsayılan';
 }

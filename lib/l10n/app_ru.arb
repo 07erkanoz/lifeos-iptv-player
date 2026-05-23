@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Выбери сериал — буду обсуждать только до твоей текущей серии.",
   "aiSpoilerShieldOff": "Защита выключена",
   "aiSpoilerShieldEmpty": "Нет сериала в просмотре. Посмотри серию и вернись.",
-  "aiSpoilerShieldUpTo": "До:"
+  "aiSpoilerShieldUpTo": "До:",
+  "profilesTitle": "Профили",
+  "profilesDesc": "Отдельные избранные, история и рекомендации ИИ для каждого члена семьи.",
+  "profileAdd": "Новый профиль",
+  "profileEdit": "Изменить профиль",
+  "profileDelete": "Удалить профиль",
+  "profileDeleteConfirm": "\"{name}\" и все данные будут удалены. Продолжить?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Имя профиля (напр. Алексей, Дети)",
+  "profileKids": "Детский профиль",
+  "profileKidsDesc": "Скрыть взрослый контент, защитить PIN-кодом.",
+  "profilePin": "PIN (необязательно, 4 цифры)",
+  "profileSave": "Сохранить",
+  "profileCurrent": "Активный профиль",
+  "profileSwitch": "Сменить профиль",
+  "profilePinPrompt": "Введите PIN для этого профиля",
+  "profilePinWrong": "Неверный PIN",
+  "profileDefault": "По умолчанию"
 }

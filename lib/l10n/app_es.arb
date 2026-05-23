@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Elige una serie — solo hablaré hasta el episodio donde estás.",
   "aiSpoilerShieldOff": "Protección desactivada",
   "aiSpoilerShieldEmpty": "No tienes ninguna serie en curso. Mira un episodio y vuelve.",
-  "aiSpoilerShieldUpTo": "Hasta:"
+  "aiSpoilerShieldUpTo": "Hasta:",
+  "profilesTitle": "Perfiles",
+  "profilesDesc": "Favoritos, historial y recomendaciones IA separados por miembro.",
+  "profileAdd": "Nuevo perfil",
+  "profileEdit": "Editar perfil",
+  "profileDelete": "Eliminar perfil",
+  "profileDeleteConfirm": "\"{name}\" y todos sus datos se eliminarán. ¿Continuar?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Nombre del perfil (ej. Alex, Niños)",
+  "profileKids": "Perfil infantil",
+  "profileKidsDesc": "Ocultar contenido adulto, proteger con PIN.",
+  "profilePin": "PIN (opcional, 4 dígitos)",
+  "profileSave": "Guardar",
+  "profileCurrent": "Perfil activo",
+  "profileSwitch": "Cambiar perfil",
+  "profilePinPrompt": "Introduce el PIN de este perfil",
+  "profilePinWrong": "PIN incorrecto",
+  "profileDefault": "Predeterminado"
 }

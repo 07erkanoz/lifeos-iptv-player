@@ -173,7 +173,7 @@ class BackupService {
         await _db
             .into(_db.seriesTracking)
             .insert(SeriesTrackingCompanion.insert(
-              seriesId: Value(m['seriesId'] as int),
+              seriesId: m['seriesId'] as int,
               knownEpisodeCount: m['knownEpisodeCount'] as int? ?? 0,
               newEpisodeCount: Value(m['newEpisodeCount'] as int? ?? 0),
               hasNewEpisodes: Value(m['hasNewEpisodes'] as bool? ?? false),

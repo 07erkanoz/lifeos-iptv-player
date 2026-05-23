@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory])
+@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -82,6 +82,41 @@ class AppDatabase extends _$AppDatabase {
          // stays private to the device.
          await m.createTable(searchHistory);
        }
+       if (from < 18) {
+         // ───── Multiple Profiles foundation ─────
+         //
+         // Netflix-style per-person personas. Six existing
+         // user-specific tables grow a `profileId` column; we seed
+         // a "Varsayılan" profile (id=1) and every pre-existing row
+         // backfills to it. Single-user installs see no behavioural
+         // change — they just get one implicit profile.
+         await m.createTable(profiles);
+         await m.addColumn(favorites, favorites.profileId);
+         await m.addColumn(playbackProgress, playbackProgress.profileId);
+         await m.addColumn(watchlist, watchlist.profileId);
+         await m.addColumn(seriesTracking, seriesTracking.profileId);
+         await m.addColumn(aiFeedback, aiFeedback.profileId);
+         await m.addColumn(searchHistory, searchHistory.profileId);
+
+         // Seed the default profile so the FK has something to
+         // point at. Idempotent: subsequent boots see id=1 already
+         // present and skip via the OR IGNORE conflict resolution.
+         await customStatement(
+           "INSERT OR IGNORE INTO profiles (id, name, avatar_key, "
+           "is_kids, created_at) VALUES (1, 'Varsayılan', 'default', "
+           "0, ${DateTime.now().millisecondsSinceEpoch ~/ 1000})",
+         );
+       }
+    },
+    beforeOpen: (details) async {
+      // Belt-and-braces seed: if the user nuked their DB or this is
+      // a fresh install on v18+, ensure profile 1 exists before any
+      // FK-bound query fires. INSERT OR IGNORE — no-op when present.
+      await customStatement(
+        "INSERT OR IGNORE INTO profiles (id, name, avatar_key, "
+        "is_kids, created_at) VALUES (1, 'Varsayılan', 'default', "
+        "0, ${DateTime.now().millisecondsSinceEpoch ~/ 1000})",
+      );
     },
   );
 }

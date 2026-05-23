@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Choisis une série — je n'irai pas plus loin que ton dernier épisode.",
   "aiSpoilerShieldOff": "Protection désactivée",
   "aiSpoilerShieldEmpty": "Aucune série en cours. Lance un épisode et reviens.",
-  "aiSpoilerShieldUpTo": "Jusqu'à :"
+  "aiSpoilerShieldUpTo": "Jusqu'à :",
+  "profilesTitle": "Profils",
+  "profilesDesc": "Favoris, historique et suggestions IA séparés pour chaque membre.",
+  "profileAdd": "Nouveau profil",
+  "profileEdit": "Modifier le profil",
+  "profileDelete": "Supprimer le profil",
+  "profileDeleteConfirm": "\"{name}\" et toutes ses données seront supprimés. Continuer ?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Nom du profil (ex. Alex, Enfants)",
+  "profileKids": "Profil enfant",
+  "profileKidsDesc": "Masquer le contenu adulte, protéger par un PIN.",
+  "profilePin": "PIN (optionnel, 4 chiffres)",
+  "profileSave": "Enregistrer",
+  "profileCurrent": "Profil actif",
+  "profileSwitch": "Changer de profil",
+  "profilePinPrompt": "Entrez le PIN de ce profil",
+  "profilePinWrong": "PIN incorrect",
+  "profileDefault": "Par défaut"
 }

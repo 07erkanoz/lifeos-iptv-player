@@ -1309,4 +1309,55 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get aiSpoilerShieldUpTo => 'Hasta:';
+
+  @override
+  String get profilesTitle => 'Perfiles';
+
+  @override
+  String get profilesDesc =>
+      'Favoritos, historial y recomendaciones IA separados por miembro.';
+
+  @override
+  String get profileAdd => 'Nuevo perfil';
+
+  @override
+  String get profileEdit => 'Editar perfil';
+
+  @override
+  String get profileDelete => 'Eliminar perfil';
+
+  @override
+  String profileDeleteConfirm(String name) {
+    return '\"$name\" y todos sus datos se eliminarán. ¿Continuar?';
+  }
+
+  @override
+  String get profileNameHint => 'Nombre del perfil (ej. Alex, Niños)';
+
+  @override
+  String get profileKids => 'Perfil infantil';
+
+  @override
+  String get profileKidsDesc => 'Ocultar contenido adulto, proteger con PIN.';
+
+  @override
+  String get profilePin => 'PIN (opcional, 4 dígitos)';
+
+  @override
+  String get profileSave => 'Guardar';
+
+  @override
+  String get profileCurrent => 'Perfil activo';
+
+  @override
+  String get profileSwitch => 'Cambiar perfil';
+
+  @override
+  String get profilePinPrompt => 'Introduce el PIN de este perfil';
+
+  @override
+  String get profilePinWrong => 'PIN incorrecto';
+
+  @override
+  String get profileDefault => 'Predeterminado';
 }

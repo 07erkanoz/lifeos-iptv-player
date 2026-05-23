@@ -487,5 +487,28 @@
   "aiSpoilerShieldDesc": "Pick a series and I'll only discuss it up to where you are — no future reveals.",
   "aiSpoilerShieldOff": "Spoiler protection off",
   "aiSpoilerShieldEmpty": "No series in progress. Play an episode, then come back.",
-  "aiSpoilerShieldUpTo": "Up to:"
+  "aiSpoilerShieldUpTo": "Up to:",
+  "profilesTitle": "Profiles",
+  "profilesDesc": "Separate favorites, history and AI picks for each household member.",
+  "profileAdd": "New Profile",
+  "profileEdit": "Edit Profile",
+  "profileDelete": "Delete Profile",
+  "profileDeleteConfirm": "\"{name}\" and all its data will be deleted. Continue?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Profile name (e.g. Alex, Kids)",
+  "profileKids": "Kids profile",
+  "profileKidsDesc": "Hide adult content, protect with a PIN.",
+  "profilePin": "PIN (optional, 4 digits)",
+  "profileSave": "Save",
+  "profileCurrent": "Active profile",
+  "profileSwitch": "Switch Profile",
+  "profilePinPrompt": "Enter PIN for this profile",
+  "profilePinWrong": "Wrong PIN",
+  "profileDefault": "Default"
 }

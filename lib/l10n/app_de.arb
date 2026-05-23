@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Wähle eine Serie — ich rede nur bis zu deiner aktuellen Folge, keine Spoiler.",
   "aiSpoilerShieldOff": "Spoiler-Schutz aus",
   "aiSpoilerShieldEmpty": "Keine Serie in Wiedergabe. Schau eine Folge und komm zurück.",
-  "aiSpoilerShieldUpTo": "Bis:"
+  "aiSpoilerShieldUpTo": "Bis:",
+  "profilesTitle": "Profile",
+  "profilesDesc": "Eigene Favoriten, Verlauf und KI-Vorschläge für jedes Familienmitglied.",
+  "profileAdd": "Neues Profil",
+  "profileEdit": "Profil bearbeiten",
+  "profileDelete": "Profil löschen",
+  "profileDeleteConfirm": "\"{name}\" und alle Daten werden gelöscht. Fortfahren?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Profilname (z.B. Alex, Kinder)",
+  "profileKids": "Kinderprofil",
+  "profileKidsDesc": "Erwachsenenfilter aktivieren, mit PIN schützen.",
+  "profilePin": "PIN (optional, 4-stellig)",
+  "profileSave": "Speichern",
+  "profileCurrent": "Aktives Profil",
+  "profileSwitch": "Profil wechseln",
+  "profilePinPrompt": "PIN für dieses Profil eingeben",
+  "profilePinWrong": "PIN falsch",
+  "profileDefault": "Standard"
 }

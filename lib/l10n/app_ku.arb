@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "Rêzefîlmek hilbijêre — ez tenê heta beşa te axiftim, ne pê de.",
   "aiSpoilerShieldOff": "Parastin nedaye",
   "aiSpoilerShieldEmpty": "Tu rêzefîlmên temaşekirî tune. Beşekê lê bide, paşê vegere.",
-  "aiSpoilerShieldUpTo": "Heta:"
+  "aiSpoilerShieldUpTo": "Heta:",
+  "profilesTitle": "Profîl",
+  "profilesDesc": "Bijartî, dîrok û pêşniyarên AI ji bo her endamê malê veqetandî.",
+  "profileAdd": "Profîla nû",
+  "profileEdit": "Profîlê biguherîne",
+  "profileDelete": "Profîlê jê bibe",
+  "profileDeleteConfirm": "\"{name}\" û hemû daneyên wê dê werin jêbirin. Bidomîne?",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "Navê profîlê (mînak Rojhat, Zarok)",
+  "profileKids": "Profîla zarokan",
+  "profileKidsDesc": "Naveroka mezinan veşêre, bi PIN biparêze.",
+  "profilePin": "PIN (vebijarkî, 4 reqem)",
+  "profileSave": "Tomar bike",
+  "profileCurrent": "Profîla çalak",
+  "profileSwitch": "Profîlê biguherîne",
+  "profilePinPrompt": "PINa vê profîlê binivîse",
+  "profilePinWrong": "PIN şaş e",
+  "profileDefault": "Standard"
 }

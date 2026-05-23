@@ -1301,4 +1301,54 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get aiSpoilerShieldUpTo => 'حتى:';
+
+  @override
+  String get profilesTitle => 'الملفات الشخصية';
+
+  @override
+  String get profilesDesc => 'مفضلات وسجل وتوصيات ذكاء اصطناعي منفصلة لكل فرد.';
+
+  @override
+  String get profileAdd => 'ملف شخصي جديد';
+
+  @override
+  String get profileEdit => 'تعديل الملف';
+
+  @override
+  String get profileDelete => 'حذف الملف';
+
+  @override
+  String profileDeleteConfirm(String name) {
+    return 'سيتم حذف \"$name\" وكل بياناته. هل تريد المتابعة؟';
+  }
+
+  @override
+  String get profileNameHint => 'اسم الملف الشخصي (مثل أحمد، الأطفال)';
+
+  @override
+  String get profileKids => 'ملف للأطفال';
+
+  @override
+  String get profileKidsDesc => 'إخفاء محتوى الكبار، الحماية برمز PIN.';
+
+  @override
+  String get profilePin => 'رمز PIN (اختياري، 4 أرقام)';
+
+  @override
+  String get profileSave => 'حفظ';
+
+  @override
+  String get profileCurrent => 'الملف النشط';
+
+  @override
+  String get profileSwitch => 'تبديل الملف';
+
+  @override
+  String get profilePinPrompt => 'أدخل رمز PIN لهذا الملف';
+
+  @override
+  String get profilePinWrong => 'رمز PIN خاطئ';
+
+  @override
+  String get profileDefault => 'افتراضي';
 }

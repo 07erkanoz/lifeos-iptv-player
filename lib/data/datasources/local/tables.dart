@@ -1,5 +1,36 @@
 import 'package:drift/drift.dart';
 
+/// User personas — Netflix-style "who's watching" model.
+///
+/// Multiple profiles per account let a household share one IPTV
+/// subscription but keep favourites / history / AI taste signals
+/// separate. A father's "Sana Özel" rail isn't polluted by a
+/// child's afternoon cartoons; the AI sees a clean per-person
+/// signal.
+///
+/// Schema notes:
+///   * The DB always has at least one profile — Drift's v18 migration
+///     seeds a "Varsayılan" row with id=1 so existing single-user
+///     installs upgrade in place without losing data (every existing
+///     favourite / progress row gets profile_id=1 by default).
+///   * `isKids=true` profiles can be PIN-locked when switching away
+///     from them (parents leaving the room). The shared
+///     [Accounts.password] / parental PIN setting is reused.
+///   * `avatarKey` is a stable identifier into a fixed asset map
+///     ('cat' / 'panda' / 'rocket' / etc.) so we never ship per-row
+///     image blobs.
+class Profiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get avatarKey => text().withDefault(const Constant('default'))();
+  BoolColumn get isKids => boolean().withDefault(const Constant(false))();
+  /// Optional 4-digit PIN gating the switch INTO this profile. Set
+  /// only on kids profiles by parents; null elsewhere.
+  TextColumn get pin => text().nullable()();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}
+
 class Accounts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
@@ -63,9 +94,15 @@ class Favorites extends Table {
   TextColumn get name => text()();
   TextColumn get thumbnail => text().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+  /// Owning profile. Drift v18 migration backfills every existing row
+  /// to profileId=1 (the seeded "Varsayılan" profile) so single-user
+  /// installs upgrade in place. Added to the primary key so the same
+  /// title can independently appear in two profiles' favourites.
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, streamType};
+  Set<Column> get primaryKey => {streamId, streamType, profileId};
 }
 
 class PlaybackProgress extends Table {
@@ -75,9 +112,12 @@ class PlaybackProgress extends Table {
   IntColumn get duration => integer()(); // in milliseconds
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isFinished => boolean().withDefault(const Constant(false))();
+  /// Owning profile. See [Favorites.profileId] for rationale.
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, type};
+  Set<Column> get primaryKey => {streamId, type, profileId};
 }
 
 /// "Save for later" list — distinct from Favorites which is "things I love
@@ -89,9 +129,12 @@ class Watchlist extends Table {
   TextColumn get name => text()();
   TextColumn get thumbnail => text().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+  /// Owning profile. See [Favorites.profileId].
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, streamType};
+  Set<Column> get primaryKey => {streamId, streamType, profileId};
 }
 
 /// Tracks episode counts for watched series to detect new episodes
@@ -101,9 +144,14 @@ class SeriesTracking extends Table {
   IntColumn get newEpisodeCount => integer().withDefault(const Constant(0))(); // New episodes since last check
   BoolColumn get hasNewEpisodes => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastCheckedAt => dateTime().withDefault(currentDateAndTime)();
+  /// Owning profile. Different profiles can be at different episode
+  /// counts on the same series — kids may finish a season faster
+  /// than the parent.
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {seriesId};
+  Set<Column> get primaryKey => {seriesId, profileId};
 }
 
 /// Dashboard "Sana Özel" AI pick cache.
@@ -238,9 +286,14 @@ class AiFeedback extends Table {
 
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
+  /// Owning profile. Feedback (dislike / moreLike) is per-person —
+  /// the father saying "show me less of this" must not affect the
+  /// child's rail.
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, type, action};
+  Set<Column> get primaryKey => {streamId, type, action, profileId};
 }
 
 /// Per-series intro position markers used to drive the "Skip Intro"
@@ -280,8 +333,14 @@ class SearchHistory extends Table {
   /// "trending" sort within the rolling 7-day window.
   IntColumn get useCount => integer().withDefault(const Constant(1))();
 
+  /// Owning profile. Search history is private to each profile — a
+  /// kid's chip rail shouldn't show the parent's "korku gerilim"
+  /// queries.
+  IntColumn get profileId =>
+      integer().withDefault(const Constant(1))();
+
   @override
-  Set<Column> get primaryKey => {query};
+  Set<Column> get primaryKey => {query, profileId};
 }
 
 class IntroMarkers extends Table {

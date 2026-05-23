@@ -1306,4 +1306,55 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get aiSpoilerShieldUpTo => 'Heta:';
+
+  @override
+  String get profilesTitle => 'Profîl';
+
+  @override
+  String get profilesDesc =>
+      'Bijartî, dîrok û pêşniyarên AI ji bo her endamê malê veqetandî.';
+
+  @override
+  String get profileAdd => 'Profîla nû';
+
+  @override
+  String get profileEdit => 'Profîlê biguherîne';
+
+  @override
+  String get profileDelete => 'Profîlê jê bibe';
+
+  @override
+  String profileDeleteConfirm(String name) {
+    return '\"$name\" û hemû daneyên wê dê werin jêbirin. Bidomîne?';
+  }
+
+  @override
+  String get profileNameHint => 'Navê profîlê (mînak Rojhat, Zarok)';
+
+  @override
+  String get profileKids => 'Profîla zarokan';
+
+  @override
+  String get profileKidsDesc => 'Naveroka mezinan veşêre, bi PIN biparêze.';
+
+  @override
+  String get profilePin => 'PIN (vebijarkî, 4 reqem)';
+
+  @override
+  String get profileSave => 'Tomar bike';
+
+  @override
+  String get profileCurrent => 'Profîla çalak';
+
+  @override
+  String get profileSwitch => 'Profîlê biguherîne';
+
+  @override
+  String get profilePinPrompt => 'PINa vê profîlê binivîse';
+
+  @override
+  String get profilePinWrong => 'PIN şaş e';
+
+  @override
+  String get profileDefault => 'Standard';
 }

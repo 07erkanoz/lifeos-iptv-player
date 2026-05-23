@@ -491,6 +491,397 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   }
 }
 
+class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _avatarKeyMeta = const VerificationMeta(
+    'avatarKey',
+  );
+  @override
+  late final GeneratedColumn<String> avatarKey = GeneratedColumn<String>(
+    'avatar_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('default'),
+  );
+  static const VerificationMeta _isKidsMeta = const VerificationMeta('isKids');
+  @override
+  late final GeneratedColumn<bool> isKids = GeneratedColumn<bool>(
+    'is_kids',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_kids" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _pinMeta = const VerificationMeta('pin');
+  @override
+  late final GeneratedColumn<String> pin = GeneratedColumn<String>(
+    'pin',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    avatarKey,
+    isKids,
+    pin,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Profile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('avatar_key')) {
+      context.handle(
+        _avatarKeyMeta,
+        avatarKey.isAcceptableOrUnknown(data['avatar_key']!, _avatarKeyMeta),
+      );
+    }
+    if (data.containsKey('is_kids')) {
+      context.handle(
+        _isKidsMeta,
+        isKids.isAcceptableOrUnknown(data['is_kids']!, _isKidsMeta),
+      );
+    }
+    if (data.containsKey('pin')) {
+      context.handle(
+        _pinMeta,
+        pin.isAcceptableOrUnknown(data['pin']!, _pinMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Profile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Profile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      avatarKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}avatar_key'],
+      )!,
+      isKids: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_kids'],
+      )!,
+      pin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProfilesTable createAlias(String alias) {
+    return $ProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class Profile extends DataClass implements Insertable<Profile> {
+  final int id;
+  final String name;
+  final String avatarKey;
+  final bool isKids;
+
+  /// Optional 4-digit PIN gating the switch INTO this profile. Set
+  /// only on kids profiles by parents; null elsewhere.
+  final String? pin;
+  final DateTime createdAt;
+  const Profile({
+    required this.id,
+    required this.name,
+    required this.avatarKey,
+    required this.isKids,
+    this.pin,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['avatar_key'] = Variable<String>(avatarKey);
+    map['is_kids'] = Variable<bool>(isKids);
+    if (!nullToAbsent || pin != null) {
+      map['pin'] = Variable<String>(pin);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ProfilesCompanion toCompanion(bool nullToAbsent) {
+    return ProfilesCompanion(
+      id: Value(id),
+      name: Value(name),
+      avatarKey: Value(avatarKey),
+      isKids: Value(isKids),
+      pin: pin == null && nullToAbsent ? const Value.absent() : Value(pin),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Profile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Profile(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      avatarKey: serializer.fromJson<String>(json['avatarKey']),
+      isKids: serializer.fromJson<bool>(json['isKids']),
+      pin: serializer.fromJson<String?>(json['pin']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'avatarKey': serializer.toJson<String>(avatarKey),
+      'isKids': serializer.toJson<bool>(isKids),
+      'pin': serializer.toJson<String?>(pin),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Profile copyWith({
+    int? id,
+    String? name,
+    String? avatarKey,
+    bool? isKids,
+    Value<String?> pin = const Value.absent(),
+    DateTime? createdAt,
+  }) => Profile(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    avatarKey: avatarKey ?? this.avatarKey,
+    isKids: isKids ?? this.isKids,
+    pin: pin.present ? pin.value : this.pin,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Profile copyWithCompanion(ProfilesCompanion data) {
+    return Profile(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      avatarKey: data.avatarKey.present ? data.avatarKey.value : this.avatarKey,
+      isKids: data.isKids.present ? data.isKids.value : this.isKids,
+      pin: data.pin.present ? data.pin.value : this.pin,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Profile(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('avatarKey: $avatarKey, ')
+          ..write('isKids: $isKids, ')
+          ..write('pin: $pin, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, avatarKey, isKids, pin, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Profile &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.avatarKey == this.avatarKey &&
+          other.isKids == this.isKids &&
+          other.pin == this.pin &&
+          other.createdAt == this.createdAt);
+}
+
+class ProfilesCompanion extends UpdateCompanion<Profile> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> avatarKey;
+  final Value<bool> isKids;
+  final Value<String?> pin;
+  final Value<DateTime> createdAt;
+  const ProfilesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.avatarKey = const Value.absent(),
+    this.isKids = const Value.absent(),
+    this.pin = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  ProfilesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.avatarKey = const Value.absent(),
+    this.isKids = const Value.absent(),
+    this.pin = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<Profile> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? avatarKey,
+    Expression<bool>? isKids,
+    Expression<String>? pin,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (avatarKey != null) 'avatar_key': avatarKey,
+      if (isKids != null) 'is_kids': isKids,
+      if (pin != null) 'pin': pin,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  ProfilesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String>? avatarKey,
+    Value<bool>? isKids,
+    Value<String?>? pin,
+    Value<DateTime>? createdAt,
+  }) {
+    return ProfilesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      avatarKey: avatarKey ?? this.avatarKey,
+      isKids: isKids ?? this.isKids,
+      pin: pin ?? this.pin,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (avatarKey.present) {
+      map['avatar_key'] = Variable<String>(avatarKey.value);
+    }
+    if (isKids.present) {
+      map['is_kids'] = Variable<bool>(isKids.value);
+    }
+    if (pin.present) {
+      map['pin'] = Variable<String>(pin.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('avatarKey: $avatarKey, ')
+          ..write('isKids: $isKids, ')
+          ..write('pin: $pin, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CategoriesTable extends Categories
     with TableInfo<$CategoriesTable, Category> {
   @override
@@ -2185,6 +2576,18 @@ class $PlaybackProgressTable extends PlaybackProgress
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     streamId,
@@ -2193,6 +2596,7 @@ class $PlaybackProgressTable extends PlaybackProgress
     duration,
     updatedAt,
     isFinished,
+    profileId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2250,11 +2654,17 @@ class $PlaybackProgressTable extends PlaybackProgress
         isFinished.isAcceptableOrUnknown(data['is_finished']!, _isFinishedMeta),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {streamId, type};
+  Set<GeneratedColumn> get $primaryKey => {streamId, type, profileId};
   @override
   PlaybackProgressData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -2283,6 +2693,10 @@ class $PlaybackProgressTable extends PlaybackProgress
         DriftSqlType.bool,
         data['${effectivePrefix}is_finished'],
       )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
     );
   }
 
@@ -2300,6 +2714,9 @@ class PlaybackProgressData extends DataClass
   final int duration;
   final DateTime updatedAt;
   final bool isFinished;
+
+  /// Owning profile. See [Favorites.profileId] for rationale.
+  final int profileId;
   const PlaybackProgressData({
     required this.streamId,
     required this.type,
@@ -2307,6 +2724,7 @@ class PlaybackProgressData extends DataClass
     required this.duration,
     required this.updatedAt,
     required this.isFinished,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2317,6 +2735,7 @@ class PlaybackProgressData extends DataClass
     map['duration'] = Variable<int>(duration);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_finished'] = Variable<bool>(isFinished);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -2328,6 +2747,7 @@ class PlaybackProgressData extends DataClass
       duration: Value(duration),
       updatedAt: Value(updatedAt),
       isFinished: Value(isFinished),
+      profileId: Value(profileId),
     );
   }
 
@@ -2343,6 +2763,7 @@ class PlaybackProgressData extends DataClass
       duration: serializer.fromJson<int>(json['duration']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isFinished: serializer.fromJson<bool>(json['isFinished']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -2355,6 +2776,7 @@ class PlaybackProgressData extends DataClass
       'duration': serializer.toJson<int>(duration),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isFinished': serializer.toJson<bool>(isFinished),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -2365,6 +2787,7 @@ class PlaybackProgressData extends DataClass
     int? duration,
     DateTime? updatedAt,
     bool? isFinished,
+    int? profileId,
   }) => PlaybackProgressData(
     streamId: streamId ?? this.streamId,
     type: type ?? this.type,
@@ -2372,6 +2795,7 @@ class PlaybackProgressData extends DataClass
     duration: duration ?? this.duration,
     updatedAt: updatedAt ?? this.updatedAt,
     isFinished: isFinished ?? this.isFinished,
+    profileId: profileId ?? this.profileId,
   );
   PlaybackProgressData copyWithCompanion(PlaybackProgressCompanion data) {
     return PlaybackProgressData(
@@ -2383,6 +2807,7 @@ class PlaybackProgressData extends DataClass
       isFinished: data.isFinished.present
           ? data.isFinished.value
           : this.isFinished,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -2394,14 +2819,22 @@ class PlaybackProgressData extends DataClass
           ..write('position: $position, ')
           ..write('duration: $duration, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isFinished: $isFinished')
+          ..write('isFinished: $isFinished, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(streamId, type, position, duration, updatedAt, isFinished);
+  int get hashCode => Object.hash(
+    streamId,
+    type,
+    position,
+    duration,
+    updatedAt,
+    isFinished,
+    profileId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2411,7 +2844,8 @@ class PlaybackProgressData extends DataClass
           other.position == this.position &&
           other.duration == this.duration &&
           other.updatedAt == this.updatedAt &&
-          other.isFinished == this.isFinished);
+          other.isFinished == this.isFinished &&
+          other.profileId == this.profileId);
 }
 
 class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
@@ -2421,6 +2855,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
   final Value<int> duration;
   final Value<DateTime> updatedAt;
   final Value<bool> isFinished;
+  final Value<int> profileId;
   final Value<int> rowid;
   const PlaybackProgressCompanion({
     this.streamId = const Value.absent(),
@@ -2429,6 +2864,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     this.duration = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isFinished = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PlaybackProgressCompanion.insert({
@@ -2438,6 +2874,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     required int duration,
     this.updatedAt = const Value.absent(),
     this.isFinished = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
        type = Value(type),
@@ -2450,6 +2887,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     Expression<int>? duration,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isFinished,
+    Expression<int>? profileId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2459,6 +2897,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
       if (duration != null) 'duration': duration,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isFinished != null) 'is_finished': isFinished,
+      if (profileId != null) 'profile_id': profileId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2470,6 +2909,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     Value<int>? duration,
     Value<DateTime>? updatedAt,
     Value<bool>? isFinished,
+    Value<int>? profileId,
     Value<int>? rowid,
   }) {
     return PlaybackProgressCompanion(
@@ -2479,6 +2919,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
       duration: duration ?? this.duration,
       updatedAt: updatedAt ?? this.updatedAt,
       isFinished: isFinished ?? this.isFinished,
+      profileId: profileId ?? this.profileId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2504,6 +2945,9 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
     if (isFinished.present) {
       map['is_finished'] = Variable<bool>(isFinished.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2519,6 +2963,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressData> {
           ..write('duration: $duration, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isFinished: $isFinished, ')
+          ..write('profileId: $profileId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2585,6 +3030,18 @@ class $FavoritesTable extends Favorites
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     streamId,
@@ -2592,6 +3049,7 @@ class $FavoritesTable extends Favorites
     name,
     thumbnail,
     addedAt,
+    profileId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2641,11 +3099,17 @@ class $FavoritesTable extends Favorites
         addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {streamId, streamType};
+  Set<GeneratedColumn> get $primaryKey => {streamId, streamType, profileId};
   @override
   Favorite map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -2670,6 +3134,10 @@ class $FavoritesTable extends Favorites
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
     );
   }
 
@@ -2685,12 +3153,19 @@ class Favorite extends DataClass implements Insertable<Favorite> {
   final String name;
   final String? thumbnail;
   final DateTime addedAt;
+
+  /// Owning profile. Drift v18 migration backfills every existing row
+  /// to profileId=1 (the seeded "Varsayılan" profile) so single-user
+  /// installs upgrade in place. Added to the primary key so the same
+  /// title can independently appear in two profiles' favourites.
+  final int profileId;
   const Favorite({
     required this.streamId,
     required this.streamType,
     required this.name,
     this.thumbnail,
     required this.addedAt,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2702,6 +3177,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       map['thumbnail'] = Variable<String>(thumbnail);
     }
     map['added_at'] = Variable<DateTime>(addedAt);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -2714,6 +3190,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           ? const Value.absent()
           : Value(thumbnail),
       addedAt: Value(addedAt),
+      profileId: Value(profileId),
     );
   }
 
@@ -2728,6 +3205,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       name: serializer.fromJson<String>(json['name']),
       thumbnail: serializer.fromJson<String?>(json['thumbnail']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -2739,6 +3217,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       'name': serializer.toJson<String>(name),
       'thumbnail': serializer.toJson<String?>(thumbnail),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -2748,12 +3227,14 @@ class Favorite extends DataClass implements Insertable<Favorite> {
     String? name,
     Value<String?> thumbnail = const Value.absent(),
     DateTime? addedAt,
+    int? profileId,
   }) => Favorite(
     streamId: streamId ?? this.streamId,
     streamType: streamType ?? this.streamType,
     name: name ?? this.name,
     thumbnail: thumbnail.present ? thumbnail.value : this.thumbnail,
     addedAt: addedAt ?? this.addedAt,
+    profileId: profileId ?? this.profileId,
   );
   Favorite copyWithCompanion(FavoritesCompanion data) {
     return Favorite(
@@ -2764,6 +3245,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       name: data.name.present ? data.name.value : this.name,
       thumbnail: data.thumbnail.present ? data.thumbnail.value : this.thumbnail,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -2774,14 +3256,15 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           ..write('streamType: $streamType, ')
           ..write('name: $name, ')
           ..write('thumbnail: $thumbnail, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(streamId, streamType, name, thumbnail, addedAt);
+      Object.hash(streamId, streamType, name, thumbnail, addedAt, profileId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2790,7 +3273,8 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           other.streamType == this.streamType &&
           other.name == this.name &&
           other.thumbnail == this.thumbnail &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.profileId == this.profileId);
 }
 
 class FavoritesCompanion extends UpdateCompanion<Favorite> {
@@ -2799,6 +3283,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
   final Value<String> name;
   final Value<String?> thumbnail;
   final Value<DateTime> addedAt;
+  final Value<int> profileId;
   final Value<int> rowid;
   const FavoritesCompanion({
     this.streamId = const Value.absent(),
@@ -2806,6 +3291,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     this.name = const Value.absent(),
     this.thumbnail = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FavoritesCompanion.insert({
@@ -2814,6 +3300,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     required String name,
     this.thumbnail = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
        streamType = Value(streamType),
@@ -2824,6 +3311,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     Expression<String>? name,
     Expression<String>? thumbnail,
     Expression<DateTime>? addedAt,
+    Expression<int>? profileId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2832,6 +3320,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
       if (name != null) 'name': name,
       if (thumbnail != null) 'thumbnail': thumbnail,
       if (addedAt != null) 'added_at': addedAt,
+      if (profileId != null) 'profile_id': profileId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2842,6 +3331,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     Value<String>? name,
     Value<String?>? thumbnail,
     Value<DateTime>? addedAt,
+    Value<int>? profileId,
     Value<int>? rowid,
   }) {
     return FavoritesCompanion(
@@ -2850,6 +3340,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
       name: name ?? this.name,
       thumbnail: thumbnail ?? this.thumbnail,
       addedAt: addedAt ?? this.addedAt,
+      profileId: profileId ?? this.profileId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2872,6 +3363,9 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2886,6 +3380,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
           ..write('name: $name, ')
           ..write('thumbnail: $thumbnail, ')
           ..write('addedAt: $addedAt, ')
+          ..write('profileId: $profileId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2952,6 +3447,18 @@ class $WatchlistTable extends Watchlist
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     streamId,
@@ -2959,6 +3466,7 @@ class $WatchlistTable extends Watchlist
     name,
     thumbnail,
     addedAt,
+    profileId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3008,11 +3516,17 @@ class $WatchlistTable extends Watchlist
         addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {streamId, streamType};
+  Set<GeneratedColumn> get $primaryKey => {streamId, streamType, profileId};
   @override
   WatchlistData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -3037,6 +3551,10 @@ class $WatchlistTable extends Watchlist
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
     );
   }
 
@@ -3052,12 +3570,16 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
   final String name;
   final String? thumbnail;
   final DateTime addedAt;
+
+  /// Owning profile. See [Favorites.profileId].
+  final int profileId;
   const WatchlistData({
     required this.streamId,
     required this.streamType,
     required this.name,
     this.thumbnail,
     required this.addedAt,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3069,6 +3591,7 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
       map['thumbnail'] = Variable<String>(thumbnail);
     }
     map['added_at'] = Variable<DateTime>(addedAt);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -3081,6 +3604,7 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
           ? const Value.absent()
           : Value(thumbnail),
       addedAt: Value(addedAt),
+      profileId: Value(profileId),
     );
   }
 
@@ -3095,6 +3619,7 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
       name: serializer.fromJson<String>(json['name']),
       thumbnail: serializer.fromJson<String?>(json['thumbnail']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -3106,6 +3631,7 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
       'name': serializer.toJson<String>(name),
       'thumbnail': serializer.toJson<String?>(thumbnail),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -3115,12 +3641,14 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
     String? name,
     Value<String?> thumbnail = const Value.absent(),
     DateTime? addedAt,
+    int? profileId,
   }) => WatchlistData(
     streamId: streamId ?? this.streamId,
     streamType: streamType ?? this.streamType,
     name: name ?? this.name,
     thumbnail: thumbnail.present ? thumbnail.value : this.thumbnail,
     addedAt: addedAt ?? this.addedAt,
+    profileId: profileId ?? this.profileId,
   );
   WatchlistData copyWithCompanion(WatchlistCompanion data) {
     return WatchlistData(
@@ -3131,6 +3659,7 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
       name: data.name.present ? data.name.value : this.name,
       thumbnail: data.thumbnail.present ? data.thumbnail.value : this.thumbnail,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -3141,14 +3670,15 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
           ..write('streamType: $streamType, ')
           ..write('name: $name, ')
           ..write('thumbnail: $thumbnail, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(streamId, streamType, name, thumbnail, addedAt);
+      Object.hash(streamId, streamType, name, thumbnail, addedAt, profileId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3157,7 +3687,8 @@ class WatchlistData extends DataClass implements Insertable<WatchlistData> {
           other.streamType == this.streamType &&
           other.name == this.name &&
           other.thumbnail == this.thumbnail &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.profileId == this.profileId);
 }
 
 class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
@@ -3166,6 +3697,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
   final Value<String> name;
   final Value<String?> thumbnail;
   final Value<DateTime> addedAt;
+  final Value<int> profileId;
   final Value<int> rowid;
   const WatchlistCompanion({
     this.streamId = const Value.absent(),
@@ -3173,6 +3705,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
     this.name = const Value.absent(),
     this.thumbnail = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WatchlistCompanion.insert({
@@ -3181,6 +3714,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
     required String name,
     this.thumbnail = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
        streamType = Value(streamType),
@@ -3191,6 +3725,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
     Expression<String>? name,
     Expression<String>? thumbnail,
     Expression<DateTime>? addedAt,
+    Expression<int>? profileId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3199,6 +3734,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
       if (name != null) 'name': name,
       if (thumbnail != null) 'thumbnail': thumbnail,
       if (addedAt != null) 'added_at': addedAt,
+      if (profileId != null) 'profile_id': profileId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3209,6 +3745,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
     Value<String>? name,
     Value<String?>? thumbnail,
     Value<DateTime>? addedAt,
+    Value<int>? profileId,
     Value<int>? rowid,
   }) {
     return WatchlistCompanion(
@@ -3217,6 +3754,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
       name: name ?? this.name,
       thumbnail: thumbnail ?? this.thumbnail,
       addedAt: addedAt ?? this.addedAt,
+      profileId: profileId ?? this.profileId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3239,6 +3777,9 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3253,6 +3794,7 @@ class WatchlistCompanion extends UpdateCompanion<WatchlistData> {
           ..write('name: $name, ')
           ..write('thumbnail: $thumbnail, ')
           ..write('addedAt: $addedAt, ')
+          ..write('profileId: $profileId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3274,7 +3816,7 @@ class $SeriesTrackingTable extends SeriesTracking
     aliasedName,
     false,
     type: DriftSqlType.int,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _knownEpisodeCountMeta = const VerificationMeta(
     'knownEpisodeCount',
@@ -3327,6 +3869,18 @@ class $SeriesTrackingTable extends SeriesTracking
         requiredDuringInsert: false,
         defaultValue: currentDateAndTime,
       );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     seriesId,
@@ -3334,6 +3888,7 @@ class $SeriesTrackingTable extends SeriesTracking
     newEpisodeCount,
     hasNewEpisodes,
     lastCheckedAt,
+    profileId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3352,6 +3907,8 @@ class $SeriesTrackingTable extends SeriesTracking
         _seriesIdMeta,
         seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
       );
+    } else if (isInserting) {
+      context.missing(_seriesIdMeta);
     }
     if (data.containsKey('known_episode_count')) {
       context.handle(
@@ -3391,11 +3948,17 @@ class $SeriesTrackingTable extends SeriesTracking
         ),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {seriesId};
+  Set<GeneratedColumn> get $primaryKey => {seriesId, profileId};
   @override
   SeriesTrackingData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -3420,6 +3983,10 @@ class $SeriesTrackingTable extends SeriesTracking
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_checked_at'],
       )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
     );
   }
 
@@ -3436,12 +4003,18 @@ class SeriesTrackingData extends DataClass
   final int newEpisodeCount;
   final bool hasNewEpisodes;
   final DateTime lastCheckedAt;
+
+  /// Owning profile. Different profiles can be at different episode
+  /// counts on the same series — kids may finish a season faster
+  /// than the parent.
+  final int profileId;
   const SeriesTrackingData({
     required this.seriesId,
     required this.knownEpisodeCount,
     required this.newEpisodeCount,
     required this.hasNewEpisodes,
     required this.lastCheckedAt,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3451,6 +4024,7 @@ class SeriesTrackingData extends DataClass
     map['new_episode_count'] = Variable<int>(newEpisodeCount);
     map['has_new_episodes'] = Variable<bool>(hasNewEpisodes);
     map['last_checked_at'] = Variable<DateTime>(lastCheckedAt);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -3461,6 +4035,7 @@ class SeriesTrackingData extends DataClass
       newEpisodeCount: Value(newEpisodeCount),
       hasNewEpisodes: Value(hasNewEpisodes),
       lastCheckedAt: Value(lastCheckedAt),
+      profileId: Value(profileId),
     );
   }
 
@@ -3475,6 +4050,7 @@ class SeriesTrackingData extends DataClass
       newEpisodeCount: serializer.fromJson<int>(json['newEpisodeCount']),
       hasNewEpisodes: serializer.fromJson<bool>(json['hasNewEpisodes']),
       lastCheckedAt: serializer.fromJson<DateTime>(json['lastCheckedAt']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -3486,6 +4062,7 @@ class SeriesTrackingData extends DataClass
       'newEpisodeCount': serializer.toJson<int>(newEpisodeCount),
       'hasNewEpisodes': serializer.toJson<bool>(hasNewEpisodes),
       'lastCheckedAt': serializer.toJson<DateTime>(lastCheckedAt),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -3495,12 +4072,14 @@ class SeriesTrackingData extends DataClass
     int? newEpisodeCount,
     bool? hasNewEpisodes,
     DateTime? lastCheckedAt,
+    int? profileId,
   }) => SeriesTrackingData(
     seriesId: seriesId ?? this.seriesId,
     knownEpisodeCount: knownEpisodeCount ?? this.knownEpisodeCount,
     newEpisodeCount: newEpisodeCount ?? this.newEpisodeCount,
     hasNewEpisodes: hasNewEpisodes ?? this.hasNewEpisodes,
     lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
+    profileId: profileId ?? this.profileId,
   );
   SeriesTrackingData copyWithCompanion(SeriesTrackingCompanion data) {
     return SeriesTrackingData(
@@ -3517,6 +4096,7 @@ class SeriesTrackingData extends DataClass
       lastCheckedAt: data.lastCheckedAt.present
           ? data.lastCheckedAt.value
           : this.lastCheckedAt,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -3527,7 +4107,8 @@ class SeriesTrackingData extends DataClass
           ..write('knownEpisodeCount: $knownEpisodeCount, ')
           ..write('newEpisodeCount: $newEpisodeCount, ')
           ..write('hasNewEpisodes: $hasNewEpisodes, ')
-          ..write('lastCheckedAt: $lastCheckedAt')
+          ..write('lastCheckedAt: $lastCheckedAt, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
@@ -3539,6 +4120,7 @@ class SeriesTrackingData extends DataClass
     newEpisodeCount,
     hasNewEpisodes,
     lastCheckedAt,
+    profileId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3548,7 +4130,8 @@ class SeriesTrackingData extends DataClass
           other.knownEpisodeCount == this.knownEpisodeCount &&
           other.newEpisodeCount == this.newEpisodeCount &&
           other.hasNewEpisodes == this.hasNewEpisodes &&
-          other.lastCheckedAt == this.lastCheckedAt);
+          other.lastCheckedAt == this.lastCheckedAt &&
+          other.profileId == this.profileId);
 }
 
 class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
@@ -3557,26 +4140,35 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
   final Value<int> newEpisodeCount;
   final Value<bool> hasNewEpisodes;
   final Value<DateTime> lastCheckedAt;
+  final Value<int> profileId;
+  final Value<int> rowid;
   const SeriesTrackingCompanion({
     this.seriesId = const Value.absent(),
     this.knownEpisodeCount = const Value.absent(),
     this.newEpisodeCount = const Value.absent(),
     this.hasNewEpisodes = const Value.absent(),
     this.lastCheckedAt = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   SeriesTrackingCompanion.insert({
-    this.seriesId = const Value.absent(),
+    required int seriesId,
     required int knownEpisodeCount,
     this.newEpisodeCount = const Value.absent(),
     this.hasNewEpisodes = const Value.absent(),
     this.lastCheckedAt = const Value.absent(),
-  }) : knownEpisodeCount = Value(knownEpisodeCount);
+    this.profileId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : seriesId = Value(seriesId),
+       knownEpisodeCount = Value(knownEpisodeCount);
   static Insertable<SeriesTrackingData> custom({
     Expression<int>? seriesId,
     Expression<int>? knownEpisodeCount,
     Expression<int>? newEpisodeCount,
     Expression<bool>? hasNewEpisodes,
     Expression<DateTime>? lastCheckedAt,
+    Expression<int>? profileId,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (seriesId != null) 'series_id': seriesId,
@@ -3584,6 +4176,8 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
       if (newEpisodeCount != null) 'new_episode_count': newEpisodeCount,
       if (hasNewEpisodes != null) 'has_new_episodes': hasNewEpisodes,
       if (lastCheckedAt != null) 'last_checked_at': lastCheckedAt,
+      if (profileId != null) 'profile_id': profileId,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
@@ -3593,6 +4187,8 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
     Value<int>? newEpisodeCount,
     Value<bool>? hasNewEpisodes,
     Value<DateTime>? lastCheckedAt,
+    Value<int>? profileId,
+    Value<int>? rowid,
   }) {
     return SeriesTrackingCompanion(
       seriesId: seriesId ?? this.seriesId,
@@ -3600,6 +4196,8 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
       newEpisodeCount: newEpisodeCount ?? this.newEpisodeCount,
       hasNewEpisodes: hasNewEpisodes ?? this.hasNewEpisodes,
       lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
+      profileId: profileId ?? this.profileId,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -3621,6 +4219,12 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
     if (lastCheckedAt.present) {
       map['last_checked_at'] = Variable<DateTime>(lastCheckedAt.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
     return map;
   }
 
@@ -3631,7 +4235,9 @@ class SeriesTrackingCompanion extends UpdateCompanion<SeriesTrackingData> {
           ..write('knownEpisodeCount: $knownEpisodeCount, ')
           ..write('newEpisodeCount: $newEpisodeCount, ')
           ..write('hasNewEpisodes: $hasNewEpisodes, ')
-          ..write('lastCheckedAt: $lastCheckedAt')
+          ..write('lastCheckedAt: $lastCheckedAt, ')
+          ..write('profileId: $profileId, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -5377,6 +5983,18 @@ class $AiFeedbackTable extends AiFeedback
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     streamId,
@@ -5384,6 +6002,7 @@ class $AiFeedbackTable extends AiFeedback
     action,
     feature,
     createdAt,
+    profileId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5433,11 +6052,17 @@ class $AiFeedbackTable extends AiFeedback
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {streamId, type, action};
+  Set<GeneratedColumn> get $primaryKey => {streamId, type, action, profileId};
   @override
   AiFeedbackData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -5461,6 +6086,10 @@ class $AiFeedbackTable extends AiFeedback
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
       )!,
     );
   }
@@ -5488,12 +6117,18 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
   /// generic surfaces. Not used in filtering.
   final String? feature;
   final DateTime createdAt;
+
+  /// Owning profile. Feedback (dislike / moreLike) is per-person —
+  /// the father saying "show me less of this" must not affect the
+  /// child's rail.
+  final int profileId;
   const AiFeedbackData({
     required this.streamId,
     required this.type,
     required this.action,
     this.feature,
     required this.createdAt,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5505,6 +6140,7 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
       map['feature'] = Variable<String>(feature);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -5517,6 +6153,7 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
           ? const Value.absent()
           : Value(feature),
       createdAt: Value(createdAt),
+      profileId: Value(profileId),
     );
   }
 
@@ -5531,6 +6168,7 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
       action: serializer.fromJson<String>(json['action']),
       feature: serializer.fromJson<String?>(json['feature']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -5542,6 +6180,7 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
       'action': serializer.toJson<String>(action),
       'feature': serializer.toJson<String?>(feature),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -5551,12 +6190,14 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
     String? action,
     Value<String?> feature = const Value.absent(),
     DateTime? createdAt,
+    int? profileId,
   }) => AiFeedbackData(
     streamId: streamId ?? this.streamId,
     type: type ?? this.type,
     action: action ?? this.action,
     feature: feature.present ? feature.value : this.feature,
     createdAt: createdAt ?? this.createdAt,
+    profileId: profileId ?? this.profileId,
   );
   AiFeedbackData copyWithCompanion(AiFeedbackCompanion data) {
     return AiFeedbackData(
@@ -5565,6 +6206,7 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
       action: data.action.present ? data.action.value : this.action,
       feature: data.feature.present ? data.feature.value : this.feature,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -5575,13 +6217,15 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
           ..write('type: $type, ')
           ..write('action: $action, ')
           ..write('feature: $feature, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(streamId, type, action, feature, createdAt);
+  int get hashCode =>
+      Object.hash(streamId, type, action, feature, createdAt, profileId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5590,7 +6234,8 @@ class AiFeedbackData extends DataClass implements Insertable<AiFeedbackData> {
           other.type == this.type &&
           other.action == this.action &&
           other.feature == this.feature &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.profileId == this.profileId);
 }
 
 class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
@@ -5599,6 +6244,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
   final Value<String> action;
   final Value<String?> feature;
   final Value<DateTime> createdAt;
+  final Value<int> profileId;
   final Value<int> rowid;
   const AiFeedbackCompanion({
     this.streamId = const Value.absent(),
@@ -5606,6 +6252,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
     this.action = const Value.absent(),
     this.feature = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AiFeedbackCompanion.insert({
@@ -5614,6 +6261,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
     required String action,
     this.feature = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
        type = Value(type),
@@ -5624,6 +6272,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
     Expression<String>? action,
     Expression<String>? feature,
     Expression<DateTime>? createdAt,
+    Expression<int>? profileId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5632,6 +6281,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
       if (action != null) 'action': action,
       if (feature != null) 'feature': feature,
       if (createdAt != null) 'created_at': createdAt,
+      if (profileId != null) 'profile_id': profileId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5642,6 +6292,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
     Value<String>? action,
     Value<String?>? feature,
     Value<DateTime>? createdAt,
+    Value<int>? profileId,
     Value<int>? rowid,
   }) {
     return AiFeedbackCompanion(
@@ -5650,6 +6301,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
       action: action ?? this.action,
       feature: feature ?? this.feature,
       createdAt: createdAt ?? this.createdAt,
+      profileId: profileId ?? this.profileId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5672,6 +6324,9 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5686,6 +6341,7 @@ class AiFeedbackCompanion extends UpdateCompanion<AiFeedbackData> {
           ..write('action: $action, ')
           ..write('feature: $feature, ')
           ..write('createdAt: $createdAt, ')
+          ..write('profileId: $profileId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5731,8 +6387,25 @@ class $SearchHistoryTable extends SearchHistory
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [query, lastUsedAt, useCount];
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    query,
+    lastUsedAt,
+    useCount,
+    profileId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5768,11 +6441,17 @@ class $SearchHistoryTable extends SearchHistory
         useCount.isAcceptableOrUnknown(data['use_count']!, _useCountMeta),
       );
     }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {query};
+  Set<GeneratedColumn> get $primaryKey => {query, profileId};
   @override
   SearchHistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -5788,6 +6467,10 @@ class $SearchHistoryTable extends SearchHistory
       useCount: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}use_count'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
       )!,
     );
   }
@@ -5810,10 +6493,16 @@ class SearchHistoryData extends DataClass
   /// How many times this query has been submitted. Drives the
   /// "trending" sort within the rolling 7-day window.
   final int useCount;
+
+  /// Owning profile. Search history is private to each profile — a
+  /// kid's chip rail shouldn't show the parent's "korku gerilim"
+  /// queries.
+  final int profileId;
   const SearchHistoryData({
     required this.query,
     required this.lastUsedAt,
     required this.useCount,
+    required this.profileId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5821,6 +6510,7 @@ class SearchHistoryData extends DataClass
     map['query'] = Variable<String>(query);
     map['last_used_at'] = Variable<DateTime>(lastUsedAt);
     map['use_count'] = Variable<int>(useCount);
+    map['profile_id'] = Variable<int>(profileId);
     return map;
   }
 
@@ -5829,6 +6519,7 @@ class SearchHistoryData extends DataClass
       query: Value(query),
       lastUsedAt: Value(lastUsedAt),
       useCount: Value(useCount),
+      profileId: Value(profileId),
     );
   }
 
@@ -5841,6 +6532,7 @@ class SearchHistoryData extends DataClass
       query: serializer.fromJson<String>(json['query']),
       lastUsedAt: serializer.fromJson<DateTime>(json['lastUsedAt']),
       useCount: serializer.fromJson<int>(json['useCount']),
+      profileId: serializer.fromJson<int>(json['profileId']),
     );
   }
   @override
@@ -5850,6 +6542,7 @@ class SearchHistoryData extends DataClass
       'query': serializer.toJson<String>(query),
       'lastUsedAt': serializer.toJson<DateTime>(lastUsedAt),
       'useCount': serializer.toJson<int>(useCount),
+      'profileId': serializer.toJson<int>(profileId),
     };
   }
 
@@ -5857,10 +6550,12 @@ class SearchHistoryData extends DataClass
     String? query,
     DateTime? lastUsedAt,
     int? useCount,
+    int? profileId,
   }) => SearchHistoryData(
     query: query ?? this.query,
     lastUsedAt: lastUsedAt ?? this.lastUsedAt,
     useCount: useCount ?? this.useCount,
+    profileId: profileId ?? this.profileId,
   );
   SearchHistoryData copyWithCompanion(SearchHistoryCompanion data) {
     return SearchHistoryData(
@@ -5869,6 +6564,7 @@ class SearchHistoryData extends DataClass
           ? data.lastUsedAt.value
           : this.lastUsedAt,
       useCount: data.useCount.present ? data.useCount.value : this.useCount,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
     );
   }
 
@@ -5877,49 +6573,56 @@ class SearchHistoryData extends DataClass
     return (StringBuffer('SearchHistoryData(')
           ..write('query: $query, ')
           ..write('lastUsedAt: $lastUsedAt, ')
-          ..write('useCount: $useCount')
+          ..write('useCount: $useCount, ')
+          ..write('profileId: $profileId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(query, lastUsedAt, useCount);
+  int get hashCode => Object.hash(query, lastUsedAt, useCount, profileId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is SearchHistoryData &&
           other.query == this.query &&
           other.lastUsedAt == this.lastUsedAt &&
-          other.useCount == this.useCount);
+          other.useCount == this.useCount &&
+          other.profileId == this.profileId);
 }
 
 class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
   final Value<String> query;
   final Value<DateTime> lastUsedAt;
   final Value<int> useCount;
+  final Value<int> profileId;
   final Value<int> rowid;
   const SearchHistoryCompanion({
     this.query = const Value.absent(),
     this.lastUsedAt = const Value.absent(),
     this.useCount = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SearchHistoryCompanion.insert({
     required String query,
     this.lastUsedAt = const Value.absent(),
     this.useCount = const Value.absent(),
+    this.profileId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : query = Value(query);
   static Insertable<SearchHistoryData> custom({
     Expression<String>? query,
     Expression<DateTime>? lastUsedAt,
     Expression<int>? useCount,
+    Expression<int>? profileId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (query != null) 'query': query,
       if (lastUsedAt != null) 'last_used_at': lastUsedAt,
       if (useCount != null) 'use_count': useCount,
+      if (profileId != null) 'profile_id': profileId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5928,12 +6631,14 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     Value<String>? query,
     Value<DateTime>? lastUsedAt,
     Value<int>? useCount,
+    Value<int>? profileId,
     Value<int>? rowid,
   }) {
     return SearchHistoryCompanion(
       query: query ?? this.query,
       lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       useCount: useCount ?? this.useCount,
+      profileId: profileId ?? this.profileId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5950,6 +6655,9 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     if (useCount.present) {
       map['use_count'] = Variable<int>(useCount.value);
     }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5962,6 +6670,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
           ..write('query: $query, ')
           ..write('lastUsedAt: $lastUsedAt, ')
           ..write('useCount: $useCount, ')
+          ..write('profileId: $profileId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5972,6 +6681,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $AccountsTable accounts = $AccountsTable(this);
+  late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $ChannelsTable channels = $ChannelsTable(this);
   late final $ProgramsTable programs = $ProgramsTable(this);
@@ -5994,6 +6704,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     accounts,
+    profiles,
     categories,
     channels,
     programs,
@@ -6253,6 +6964,213 @@ typedef $$AccountsTableProcessedTableManager =
       $$AccountsTableUpdateCompanionBuilder,
       (Account, BaseReferences<_$AppDatabase, $AccountsTable, Account>),
       Account,
+      PrefetchHooks Function()
+    >;
+typedef $$ProfilesTableCreateCompanionBuilder =
+    ProfilesCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<String> avatarKey,
+      Value<bool> isKids,
+      Value<String?> pin,
+      Value<DateTime> createdAt,
+    });
+typedef $$ProfilesTableUpdateCompanionBuilder =
+    ProfilesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> avatarKey,
+      Value<bool> isKids,
+      Value<String?> pin,
+      Value<DateTime> createdAt,
+    });
+
+class $$ProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get avatarKey => $composableBuilder(
+    column: $table.avatarKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isKids => $composableBuilder(
+    column: $table.isKids,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pin => $composableBuilder(
+    column: $table.pin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get avatarKey => $composableBuilder(
+    column: $table.avatarKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isKids => $composableBuilder(
+    column: $table.isKids,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pin => $composableBuilder(
+    column: $table.pin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get avatarKey =>
+      $composableBuilder(column: $table.avatarKey, builder: (column) => column);
+
+  GeneratedColumn<bool> get isKids =>
+      $composableBuilder(column: $table.isKids, builder: (column) => column);
+
+  GeneratedColumn<String> get pin =>
+      $composableBuilder(column: $table.pin, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProfilesTable,
+          Profile,
+          $$ProfilesTableFilterComposer,
+          $$ProfilesTableOrderingComposer,
+          $$ProfilesTableAnnotationComposer,
+          $$ProfilesTableCreateCompanionBuilder,
+          $$ProfilesTableUpdateCompanionBuilder,
+          (Profile, BaseReferences<_$AppDatabase, $ProfilesTable, Profile>),
+          Profile,
+          PrefetchHooks Function()
+        > {
+  $$ProfilesTableTableManager(_$AppDatabase db, $ProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> avatarKey = const Value.absent(),
+                Value<bool> isKids = const Value.absent(),
+                Value<String?> pin = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => ProfilesCompanion(
+                id: id,
+                name: name,
+                avatarKey: avatarKey,
+                isKids: isKids,
+                pin: pin,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<String> avatarKey = const Value.absent(),
+                Value<bool> isKids = const Value.absent(),
+                Value<String?> pin = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => ProfilesCompanion.insert(
+                id: id,
+                name: name,
+                avatarKey: avatarKey,
+                isKids: isKids,
+                pin: pin,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProfilesTable,
+      Profile,
+      $$ProfilesTableFilterComposer,
+      $$ProfilesTableOrderingComposer,
+      $$ProfilesTableAnnotationComposer,
+      $$ProfilesTableCreateCompanionBuilder,
+      $$ProfilesTableUpdateCompanionBuilder,
+      (Profile, BaseReferences<_$AppDatabase, $ProfilesTable, Profile>),
+      Profile,
       PrefetchHooks Function()
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
@@ -7501,6 +8419,7 @@ typedef $$PlaybackProgressTableCreateCompanionBuilder =
       required int duration,
       Value<DateTime> updatedAt,
       Value<bool> isFinished,
+      Value<int> profileId,
       Value<int> rowid,
     });
 typedef $$PlaybackProgressTableUpdateCompanionBuilder =
@@ -7511,6 +8430,7 @@ typedef $$PlaybackProgressTableUpdateCompanionBuilder =
       Value<int> duration,
       Value<DateTime> updatedAt,
       Value<bool> isFinished,
+      Value<int> profileId,
       Value<int> rowid,
     });
 
@@ -7550,6 +8470,11 @@ class $$PlaybackProgressTableFilterComposer
 
   ColumnFilters<bool> get isFinished => $composableBuilder(
     column: $table.isFinished,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7592,6 +8517,11 @@ class $$PlaybackProgressTableOrderingComposer
     column: $table.isFinished,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PlaybackProgressTableAnnotationComposer
@@ -7622,6 +8552,9 @@ class $$PlaybackProgressTableAnnotationComposer
     column: $table.isFinished,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$PlaybackProgressTableTableManager
@@ -7667,6 +8600,7 @@ class $$PlaybackProgressTableTableManager
                 Value<int> duration = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isFinished = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion(
                 streamId: streamId,
@@ -7675,6 +8609,7 @@ class $$PlaybackProgressTableTableManager
                 duration: duration,
                 updatedAt: updatedAt,
                 isFinished: isFinished,
+                profileId: profileId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7685,6 +8620,7 @@ class $$PlaybackProgressTableTableManager
                 required int duration,
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isFinished = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion.insert(
                 streamId: streamId,
@@ -7693,6 +8629,7 @@ class $$PlaybackProgressTableTableManager
                 duration: duration,
                 updatedAt: updatedAt,
                 isFinished: isFinished,
+                profileId: profileId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7731,6 +8668,7 @@ typedef $$FavoritesTableCreateCompanionBuilder =
       required String name,
       Value<String?> thumbnail,
       Value<DateTime> addedAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 typedef $$FavoritesTableUpdateCompanionBuilder =
@@ -7740,6 +8678,7 @@ typedef $$FavoritesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> thumbnail,
       Value<DateTime> addedAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 
@@ -7774,6 +8713,11 @@ class $$FavoritesTableFilterComposer
 
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7811,6 +8755,11 @@ class $$FavoritesTableOrderingComposer
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FavoritesTableAnnotationComposer
@@ -7838,6 +8787,9 @@ class $$FavoritesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$FavoritesTableTableManager
@@ -7873,6 +8825,7 @@ class $$FavoritesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> thumbnail = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FavoritesCompanion(
                 streamId: streamId,
@@ -7880,6 +8833,7 @@ class $$FavoritesTableTableManager
                 name: name,
                 thumbnail: thumbnail,
                 addedAt: addedAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7889,6 +8843,7 @@ class $$FavoritesTableTableManager
                 required String name,
                 Value<String?> thumbnail = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FavoritesCompanion.insert(
                 streamId: streamId,
@@ -7896,6 +8851,7 @@ class $$FavoritesTableTableManager
                 name: name,
                 thumbnail: thumbnail,
                 addedAt: addedAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7927,6 +8883,7 @@ typedef $$WatchlistTableCreateCompanionBuilder =
       required String name,
       Value<String?> thumbnail,
       Value<DateTime> addedAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 typedef $$WatchlistTableUpdateCompanionBuilder =
@@ -7936,6 +8893,7 @@ typedef $$WatchlistTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> thumbnail,
       Value<DateTime> addedAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 
@@ -7970,6 +8928,11 @@ class $$WatchlistTableFilterComposer
 
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8007,6 +8970,11 @@ class $$WatchlistTableOrderingComposer
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WatchlistTableAnnotationComposer
@@ -8034,6 +9002,9 @@ class $$WatchlistTableAnnotationComposer
 
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$WatchlistTableTableManager
@@ -8072,6 +9043,7 @@ class $$WatchlistTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> thumbnail = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WatchlistCompanion(
                 streamId: streamId,
@@ -8079,6 +9051,7 @@ class $$WatchlistTableTableManager
                 name: name,
                 thumbnail: thumbnail,
                 addedAt: addedAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8088,6 +9061,7 @@ class $$WatchlistTableTableManager
                 required String name,
                 Value<String?> thumbnail = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WatchlistCompanion.insert(
                 streamId: streamId,
@@ -8095,6 +9069,7 @@ class $$WatchlistTableTableManager
                 name: name,
                 thumbnail: thumbnail,
                 addedAt: addedAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8124,11 +9099,13 @@ typedef $$WatchlistTableProcessedTableManager =
     >;
 typedef $$SeriesTrackingTableCreateCompanionBuilder =
     SeriesTrackingCompanion Function({
-      Value<int> seriesId,
+      required int seriesId,
       required int knownEpisodeCount,
       Value<int> newEpisodeCount,
       Value<bool> hasNewEpisodes,
       Value<DateTime> lastCheckedAt,
+      Value<int> profileId,
+      Value<int> rowid,
     });
 typedef $$SeriesTrackingTableUpdateCompanionBuilder =
     SeriesTrackingCompanion Function({
@@ -8137,6 +9114,8 @@ typedef $$SeriesTrackingTableUpdateCompanionBuilder =
       Value<int> newEpisodeCount,
       Value<bool> hasNewEpisodes,
       Value<DateTime> lastCheckedAt,
+      Value<int> profileId,
+      Value<int> rowid,
     });
 
 class $$SeriesTrackingTableFilterComposer
@@ -8170,6 +9149,11 @@ class $$SeriesTrackingTableFilterComposer
 
   ColumnFilters<DateTime> get lastCheckedAt => $composableBuilder(
     column: $table.lastCheckedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8207,6 +9191,11 @@ class $$SeriesTrackingTableOrderingComposer
     column: $table.lastCheckedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SeriesTrackingTableAnnotationComposer
@@ -8240,6 +9229,9 @@ class $$SeriesTrackingTableAnnotationComposer
     column: $table.lastCheckedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$SeriesTrackingTableTableManager
@@ -8284,26 +9276,34 @@ class $$SeriesTrackingTableTableManager
                 Value<int> newEpisodeCount = const Value.absent(),
                 Value<bool> hasNewEpisodes = const Value.absent(),
                 Value<DateTime> lastCheckedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => SeriesTrackingCompanion(
                 seriesId: seriesId,
                 knownEpisodeCount: knownEpisodeCount,
                 newEpisodeCount: newEpisodeCount,
                 hasNewEpisodes: hasNewEpisodes,
                 lastCheckedAt: lastCheckedAt,
+                profileId: profileId,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> seriesId = const Value.absent(),
+                required int seriesId,
                 required int knownEpisodeCount,
                 Value<int> newEpisodeCount = const Value.absent(),
                 Value<bool> hasNewEpisodes = const Value.absent(),
                 Value<DateTime> lastCheckedAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => SeriesTrackingCompanion.insert(
                 seriesId: seriesId,
                 knownEpisodeCount: knownEpisodeCount,
                 newEpisodeCount: newEpisodeCount,
                 hasNewEpisodes: hasNewEpisodes,
                 lastCheckedAt: lastCheckedAt,
+                profileId: profileId,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -9227,6 +10227,7 @@ typedef $$AiFeedbackTableCreateCompanionBuilder =
       required String action,
       Value<String?> feature,
       Value<DateTime> createdAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 typedef $$AiFeedbackTableUpdateCompanionBuilder =
@@ -9236,6 +10237,7 @@ typedef $$AiFeedbackTableUpdateCompanionBuilder =
       Value<String> action,
       Value<String?> feature,
       Value<DateTime> createdAt,
+      Value<int> profileId,
       Value<int> rowid,
     });
 
@@ -9270,6 +10272,11 @@ class $$AiFeedbackTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9307,6 +10314,11 @@ class $$AiFeedbackTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AiFeedbackTableAnnotationComposer
@@ -9332,6 +10344,9 @@ class $$AiFeedbackTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$AiFeedbackTableTableManager
@@ -9370,6 +10385,7 @@ class $$AiFeedbackTableTableManager
                 Value<String> action = const Value.absent(),
                 Value<String?> feature = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AiFeedbackCompanion(
                 streamId: streamId,
@@ -9377,6 +10393,7 @@ class $$AiFeedbackTableTableManager
                 action: action,
                 feature: feature,
                 createdAt: createdAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9386,6 +10403,7 @@ class $$AiFeedbackTableTableManager
                 required String action,
                 Value<String?> feature = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AiFeedbackCompanion.insert(
                 streamId: streamId,
@@ -9393,6 +10411,7 @@ class $$AiFeedbackTableTableManager
                 action: action,
                 feature: feature,
                 createdAt: createdAt,
+                profileId: profileId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9425,6 +10444,7 @@ typedef $$SearchHistoryTableCreateCompanionBuilder =
       required String query,
       Value<DateTime> lastUsedAt,
       Value<int> useCount,
+      Value<int> profileId,
       Value<int> rowid,
     });
 typedef $$SearchHistoryTableUpdateCompanionBuilder =
@@ -9432,6 +10452,7 @@ typedef $$SearchHistoryTableUpdateCompanionBuilder =
       Value<String> query,
       Value<DateTime> lastUsedAt,
       Value<int> useCount,
+      Value<int> profileId,
       Value<int> rowid,
     });
 
@@ -9456,6 +10477,11 @@ class $$SearchHistoryTableFilterComposer
 
   ColumnFilters<int> get useCount => $composableBuilder(
     column: $table.useCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get profileId => $composableBuilder(
+    column: $table.profileId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9483,6 +10509,11 @@ class $$SearchHistoryTableOrderingComposer
     column: $table.useCount,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SearchHistoryTableAnnotationComposer
@@ -9504,6 +10535,9 @@ class $$SearchHistoryTableAnnotationComposer
 
   GeneratedColumn<int> get useCount =>
       $composableBuilder(column: $table.useCount, builder: (column) => column);
+
+  GeneratedColumn<int> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
 }
 
 class $$SearchHistoryTableTableManager
@@ -9544,11 +10578,13 @@ class $$SearchHistoryTableTableManager
                 Value<String> query = const Value.absent(),
                 Value<DateTime> lastUsedAt = const Value.absent(),
                 Value<int> useCount = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SearchHistoryCompanion(
                 query: query,
                 lastUsedAt: lastUsedAt,
                 useCount: useCount,
+                profileId: profileId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9556,11 +10592,13 @@ class $$SearchHistoryTableTableManager
                 required String query,
                 Value<DateTime> lastUsedAt = const Value.absent(),
                 Value<int> useCount = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SearchHistoryCompanion.insert(
                 query: query,
                 lastUsedAt: lastUsedAt,
                 useCount: useCount,
+                profileId: profileId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9594,6 +10632,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db, _db.accounts);
+  $$ProfilesTableTableManager get profiles =>
+      $$ProfilesTableTableManager(_db, _db.profiles);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
   $$ChannelsTableTableManager get channels =>

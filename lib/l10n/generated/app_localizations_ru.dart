@@ -1308,4 +1308,55 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aiSpoilerShieldUpTo => 'До:';
+
+  @override
+  String get profilesTitle => 'Профили';
+
+  @override
+  String get profilesDesc =>
+      'Отдельные избранные, история и рекомендации ИИ для каждого члена семьи.';
+
+  @override
+  String get profileAdd => 'Новый профиль';
+
+  @override
+  String get profileEdit => 'Изменить профиль';
+
+  @override
+  String get profileDelete => 'Удалить профиль';
+
+  @override
+  String profileDeleteConfirm(String name) {
+    return '\"$name\" и все данные будут удалены. Продолжить?';
+  }
+
+  @override
+  String get profileNameHint => 'Имя профиля (напр. Алексей, Дети)';
+
+  @override
+  String get profileKids => 'Детский профиль';
+
+  @override
+  String get profileKidsDesc => 'Скрыть взрослый контент, защитить PIN-кодом.';
+
+  @override
+  String get profilePin => 'PIN (необязательно, 4 цифры)';
+
+  @override
+  String get profileSave => 'Сохранить';
+
+  @override
+  String get profileCurrent => 'Активный профиль';
+
+  @override
+  String get profileSwitch => 'Сменить профиль';
+
+  @override
+  String get profilePinPrompt => 'Введите PIN для этого профиля';
+
+  @override
+  String get profilePinWrong => 'Неверный PIN';
+
+  @override
+  String get profileDefault => 'По умолчанию';
 }

@@ -2575,6 +2575,102 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Bu bölüme kadar:'**
   String get aiSpoilerShieldUpTo;
+
+  /// No description provided for @profilesTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profiller'**
+  String get profilesTitle;
+
+  /// No description provided for @profilesDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aile bireyleri için ayrı favoriler, geçmiş ve AI önerileri.'**
+  String get profilesDesc;
+
+  /// No description provided for @profileAdd.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yeni Profil'**
+  String get profileAdd;
+
+  /// No description provided for @profileEdit.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profili Düzenle'**
+  String get profileEdit;
+
+  /// No description provided for @profileDelete.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profili Sil'**
+  String get profileDelete;
+
+  /// No description provided for @profileDeleteConfirm.
+  ///
+  /// In tr, this message translates to:
+  /// **'\"{name}\" profili ve tüm verisi silinecek. Devam edilsin mi?'**
+  String profileDeleteConfirm(String name);
+
+  /// No description provided for @profileNameHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profil adı (örn. Erkan, Çocuklar)'**
+  String get profileNameHint;
+
+  /// No description provided for @profileKids.
+  ///
+  /// In tr, this message translates to:
+  /// **'Çocuk profili'**
+  String get profileKids;
+
+  /// No description provided for @profileKidsDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yetişkin içerikleri filtrele, PIN ile koru.'**
+  String get profileKidsDesc;
+
+  /// No description provided for @profilePin.
+  ///
+  /// In tr, this message translates to:
+  /// **'PIN (opsiyonel, 4 hane)'**
+  String get profilePin;
+
+  /// No description provided for @profileSave.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kaydet'**
+  String get profileSave;
+
+  /// No description provided for @profileCurrent.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktif Profil'**
+  String get profileCurrent;
+
+  /// No description provided for @profileSwitch.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profili Değiştir'**
+  String get profileSwitch;
+
+  /// No description provided for @profilePinPrompt.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu profil için PIN girin'**
+  String get profilePinPrompt;
+
+  /// No description provided for @profilePinWrong.
+  ///
+  /// In tr, this message translates to:
+  /// **'PIN hatalı'**
+  String get profilePinWrong;
+
+  /// No description provided for @profileDefault.
+  ///
+  /// In tr, this message translates to:
+  /// **'Varsayılan'**
+  String get profileDefault;
 }
 
 class _AppLocalizationsDelegate

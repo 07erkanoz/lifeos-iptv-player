@@ -525,5 +525,28 @@
   "aiSpoilerShieldDesc": "اختر مسلسلًا — سأتحدث فقط حتى الحلقة التي وصلت إليها.",
   "aiSpoilerShieldOff": "الحماية معطلة",
   "aiSpoilerShieldEmpty": "لا توجد مسلسلات قيد المشاهدة. شاهد حلقة ثم عُد.",
-  "aiSpoilerShieldUpTo": "حتى:"
+  "aiSpoilerShieldUpTo": "حتى:",
+  "profilesTitle": "الملفات الشخصية",
+  "profilesDesc": "مفضلات وسجل وتوصيات ذكاء اصطناعي منفصلة لكل فرد.",
+  "profileAdd": "ملف شخصي جديد",
+  "profileEdit": "تعديل الملف",
+  "profileDelete": "حذف الملف",
+  "profileDeleteConfirm": "سيتم حذف \"{name}\" وكل بياناته. هل تريد المتابعة؟",
+  "@profileDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileNameHint": "اسم الملف الشخصي (مثل أحمد، الأطفال)",
+  "profileKids": "ملف للأطفال",
+  "profileKidsDesc": "إخفاء محتوى الكبار، الحماية برمز PIN.",
+  "profilePin": "رمز PIN (اختياري، 4 أرقام)",
+  "profileSave": "حفظ",
+  "profileCurrent": "الملف النشط",
+  "profileSwitch": "تبديل الملف",
+  "profilePinPrompt": "أدخل رمز PIN لهذا الملف",
+  "profilePinWrong": "رمز PIN خاطئ",
+  "profileDefault": "افتراضي"
 }

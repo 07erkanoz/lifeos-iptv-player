@@ -1009,7 +1009,7 @@ class SyncService {
             // First time tracking — store current count, no "new" flag
             await _db.into(_db.seriesTracking).insert(
               SeriesTrackingCompanion.insert(
-                seriesId: Value(seriesId),
+                seriesId: seriesId,
                 knownEpisodeCount: totalEpisodes,
                 lastCheckedAt: Value(DateTime.now()),
               ),
