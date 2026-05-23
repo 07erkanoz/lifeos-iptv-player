@@ -100,6 +100,40 @@ class _HeroBannerState extends State<HeroBanner> {
 
   bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
 
+  /// Detects 10-foot-UI (Android TV, large desktop with TV-like
+  /// aspect). Used to push hero a notch taller because TV viewports
+  /// are landscape-tall — a 280 px hero on 1080p TV is only 26 %
+  /// of the screen and feels like a letterbox bar.
+  ///
+  /// Threshold: width ≥ 1280 AND shortestSide ≥ 600. shortestSide
+  /// catches the actual 16:9 TV case while excluding a 1280-wide
+  /// laptop in portrait mode.
+  bool _isTv(BuildContext context) {
+    final s = MediaQuery.of(context).size;
+    return s.width >= 1280 && s.shortestSide >= 600;
+  }
+
+  /// Viewport-relative hero height. Replaces the old fixed 200 / 280
+  /// px values, which looked correct on a 720p window but turned
+  /// "letterbox-shallow" on 1080p / 4K desktops and on Android TV.
+  ///
+  /// Anchors:
+  ///   * mobile   → 220 px fixed (small screens, rail-first layout)
+  ///   * desktop  → ~55 % of viewport, clamped 360–560 px
+  ///   * TV       → ~62 % of viewport, clamped 440–760 px
+  ///     (62 % keeps a sliver of the next rail visible at the bottom,
+  ///      which is the Netflix Android TV "peek" convention so the
+  ///      user knows to scroll.)
+  double _heroHeight(BuildContext context) {
+    final mobile = _isMobile(context);
+    if (mobile) return 220.0;
+    final h = MediaQuery.of(context).size.height;
+    if (_isTv(context)) {
+      return (h * 0.62).clamp(440.0, 760.0);
+    }
+    return (h * 0.55).clamp(360.0, 560.0);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -286,8 +320,13 @@ class _HeroBannerState extends State<HeroBanner> {
     final l10n = AppLocalizations.of(context)!;
     final mobile = _isMobile(context);
 
-    // Same height as movies/series hero — proven to work well
-    final clampedHeight = mobile ? 200.0 : 280.0;
+    // Viewport-relative height — see [_heroHeight]. Old code used
+    // fixed 200/280 px which looked correct on 720 p windows but
+    // squished on 1080 p+ desktops and on Android TV. Mobile still
+    // gets a small fixed value because viewport-relative on a
+    // 6-inch phone would either crowd the rail-first layout or
+    // exaggerate the hero.
+    final clampedHeight = _heroHeight(context);
 
     if (widget.channels.isEmpty) {
       return SizedBox(
