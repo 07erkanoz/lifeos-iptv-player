@@ -451,27 +451,63 @@ class _HeroBannerState extends State<HeroBanner> {
               ),
             ),
 
+          // ── Left gradient (same as movies hero) ──
+          // Wrapped in IgnorePointer so the gradient — which used to
+          // sit above the tap-to-expand layer in the Stack and silently
+          // absorb every click on the backdrop — passes hits through
+          // to the layer below.
+          IgnorePointer(
+            child: Container(decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft, end: Alignment.centerRight,
+                colors: [
+                  AppColors.backgroundDark.withValues(alpha: 0.85),
+                  AppColors.backgroundDark.withValues(alpha: 0.4),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              ),
+            )),
+          ),
+
+          // ── Bottom gradient (same as movies hero) ──
+          IgnorePointer(
+            child: Container(decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                colors: [
+                  AppColors.backgroundDark,
+                  AppColors.backgroundDark.withValues(alpha: 0.5),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.2, 0.5],
+              ),
+            )),
+          ),
+
           // ── Tap-to-expand layer ──
-          // Sits ABOVE the muted preview but BELOW the content overlay
-          // (badges / title / buttons / dots — those come later in the
-          // Stack and shadow this). MouseRegion adds a hover cue on
-          // desktop; the cue badge in the top-right shows "ses kapalı,
-          // izlemek için dokun" — same affordance Netflix uses.
+          // Placed AFTER the gradients so it sits on top of them in
+          // hit-test order. The content overlay (badges / title /
+          // buttons / dots) is added next, so it sits on top of *this*
+          // and absorbs taps in its own Positioned rect — buttons keep
+          // working normally; only the backdrop region around them
+          // triggers the trailer expand.
           if (_trailerVisible && _trailerStreamUrl != null)
             Positioned.fill(
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => _openTrailerExpanded(channel),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    debugPrint('[hero] trailer tap → openTrailerExpanded');
+                    _openTrailerExpanded(channel);
+                  },
                   child: Stack(
                     children: [
-                      // Top-right hint badge — "Fragmanı sesli izle"
-                      // affordance so users know the preview is
-                      // interactive. Auto-hides when the badge would
-                      // overlap a narrow viewport (mobile branch
-                      // already skips trailers entirely so this only
-                      // shows on desktop / TV).
+                      // Top-right hint badge — "Fragmanı izle"
+                      // affordance so users know the muted preview is
+                      // interactive. IgnorePointer so it doesn't eat
+                      // the tap meant for the layer behind it.
                       Positioned(
                         top: 16,
                         right: 16,
@@ -518,32 +554,6 @@ class _HeroBannerState extends State<HeroBanner> {
                 ),
               ),
             ),
-
-          // ── Left gradient (same as movies hero) ──
-          Container(decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft, end: Alignment.centerRight,
-              colors: [
-                AppColors.backgroundDark.withValues(alpha: 0.85),
-                AppColors.backgroundDark.withValues(alpha: 0.4),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.3, 0.7],
-            ),
-          )),
-
-          // ── Bottom gradient (same as movies hero) ──
-          Container(decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter, end: Alignment.topCenter,
-              colors: [
-                AppColors.backgroundDark,
-                AppColors.backgroundDark.withValues(alpha: 0.5),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.2, 0.5],
-            ),
-          )),
 
           // ── Content overlay — same positioning as movies hero ──
           Positioned(
