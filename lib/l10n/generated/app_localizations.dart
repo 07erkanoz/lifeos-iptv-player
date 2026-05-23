@@ -2719,6 +2719,24 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'EPG verisi yok ya da tüm kanallarda program bilgisi eksik.'**
   String get liveNowOnAirEmpty;
+
+  /// No description provided for @voiceUnavailable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mikrofon kullanılamıyor — izni kontrol et veya sesle yazmayı destekleyen bir cihaz dene.'**
+  String get voiceUnavailable;
+
+  /// No description provided for @voiceListening.
+  ///
+  /// In tr, this message translates to:
+  /// **'Dinliyorum…'**
+  String get voiceListening;
+
+  /// No description provided for @voiceTapToSpeak.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mikrofona dokun ve konuş'**
+  String get voiceTapToSpeak;
 }
 
 class _AppLocalizationsDelegate

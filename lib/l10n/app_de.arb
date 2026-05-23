@@ -556,5 +556,8 @@
   "profileGroupClear": "Ausschalten",
   "liveNowOnAir": "Läuft gerade",
   "liveNowOnAirDesc": "Sender, die gerade auf Sendung sind (EPG).",
-  "liveNowOnAirEmpty": "Keine EPG-Daten, oder alle Sender ohne Programminfo."
+  "liveNowOnAirEmpty": "Keine EPG-Daten, oder alle Sender ohne Programminfo.",
+  "voiceUnavailable": "Mikrofon nicht verfügbar — prüfe die Berechtigung oder versuche ein anderes Gerät.",
+  "voiceListening": "Höre zu…",
+  "voiceTapToSpeak": "Mikrofon tippen und sprechen"
 }

@@ -7,9 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/data/services/voice_chat_service.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_feedback_sheet.dart';
@@ -583,6 +586,37 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
               padding: EdgeInsets.fromLTRB(
                   16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 8),
               child: Row(children: [
+                // Voice input button — only rendered on mobile
+                // (Android / iOS). Desktop and TV builds load the
+                // VoiceChatService but it short-circuits to
+                // isSupported=false, hiding this button.
+                if (PlatformHelper.isMobile) ...[
+                  _VoiceInputButton(
+                    enabled: !_waitingForAi,
+                    onPartial: (text) {
+                      // Show interim transcription as the user
+                      // speaks — same UX as Gboard / Google
+                      // Keyboard's microphone overlay.
+                      setState(() {
+                        _input.text = text;
+                        _input.selection = TextSelection.collapsed(
+                            offset: text.length);
+                      });
+                    },
+                    onFinal: (text) {
+                      // Auto-send on STT completion. The transcript
+                      // is committed text — kullanıcı düzeltmek
+                      // isterse zaten ses tanıma kaba olduğunda
+                      // tekrar dener; otomatik göndermek voice
+                      // chat'in tüm noktasını kazanır.
+                      final t = text.trim();
+                      if (t.isEmpty) return;
+                      _input.text = t;
+                      _send(t);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: TextField(
                     controller: _input,
@@ -1276,6 +1310,155 @@ class _SpoilerShieldBadgeState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Mic button at the left of the chat input row. Toggles between
+/// idle and listening states; the listening state pulses with a
+/// red glow so the user has clear feedback that the recogniser is
+/// hot. On Android 6+ the runtime RECORD_AUDIO permission gets
+/// requested on the first tap (handled inside speech_to_text).
+///
+/// Streams partial transcripts through [onPartial] so the text
+/// field can update live as the user speaks. The final transcript
+/// fires through [onFinal] when the recogniser commits (after a
+/// 3-second pause of silence or when the user taps to stop).
+class _VoiceInputButton extends ConsumerStatefulWidget {
+  final bool enabled;
+  final void Function(String partial) onPartial;
+  final void Function(String finalText) onFinal;
+
+  const _VoiceInputButton({
+    required this.enabled,
+    required this.onPartial,
+    required this.onFinal,
+  });
+
+  @override
+  ConsumerState<_VoiceInputButton> createState() =>
+      _VoiceInputButtonState();
+}
+
+class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
+    with SingleTickerProviderStateMixin {
+  bool _listening = false;
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    // Warm up the engine asynchronously so the first tap doesn't
+    // have an extra 200-400 ms init latency on top of mic
+    // permission round-trip. Fire-and-forget — failures just mean
+    // isSupported stays false and the button hides itself.
+    Future.microtask(() async {
+      await ref.read(voiceChatServiceProvider).ensureInitialised();
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    // Best-effort: if the user closes the sheet mid-dictation,
+    // tear the listener down so the mic light doesn't stay on.
+    ref.read(voiceChatServiceProvider).stopListening();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    final svc = ref.read(voiceChatServiceProvider);
+    if (_listening) {
+      await svc.stopListening();
+      if (mounted) {
+        setState(() => _listening = false);
+        _pulseCtrl.stop();
+      }
+      return;
+    }
+    final lang = ref.read(settingsProvider).language;
+    final localeId =
+        lang == AppLanguage.system ? null : _mapLanguageToLocale(lang);
+    final ok = await svc.startListening(
+      localeId: localeId,
+      onPartial: widget.onPartial,
+      onFinal: (text) {
+        if (!mounted) return;
+        setState(() => _listening = false);
+        _pulseCtrl.stop();
+        widget.onFinal(text);
+      },
+    );
+    if (!mounted) return;
+    if (!ok) {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.voiceUnavailable)),
+      );
+      return;
+    }
+    setState(() => _listening = true);
+    _pulseCtrl.repeat(reverse: true);
+  }
+
+  String? _mapLanguageToLocale(AppLanguage lang) {
+    // BCP-47 tags the SpeechRecognizer engine expects. Missing
+    // locales degrade to the device default (Android's recogniser
+    // falls back gracefully) — important for Kurdish, where
+    // SpeechRecognizer support is patchy.
+    switch (lang.name) {
+      case 'tr':
+        return 'tr_TR';
+      case 'en':
+        return 'en_US';
+      case 'de':
+        return 'de_DE';
+      case 'fr':
+        return 'fr_FR';
+      case 'es':
+        return 'es_ES';
+      case 'ar':
+        return 'ar_SA';
+      case 'ru':
+        return 'ru_RU';
+      case 'ku':
+        // Most Android SpeechRecognizer engines don't ship Kurdish;
+        // fall back to Turkish — closest match for Kurmancî
+        // speakers using tr-TR keyboards on Turkish devices.
+        return 'tr_TR';
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = ref.watch(voiceChatServiceProvider);
+    if (!svc.isSupported) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (_, _) {
+        final glow = 0.5 + 0.5 * _pulseCtrl.value;
+        return FloatingActionButton.small(
+          heroTag: 'voice-input-fab',
+          backgroundColor: _listening
+              ? Colors.red.withValues(alpha: glow)
+              : AppColors.surfaceElevatedDark,
+          foregroundColor:
+              _listening ? Colors.white : AppColors.primary,
+          elevation: _listening ? 4 : 0,
+          onPressed: widget.enabled ? _toggle : null,
+          child: Icon(
+            _listening ? Icons.stop_circle : Icons.mic_none,
+            size: 18,
+          ),
+        );
+      },
     );
   }
 }

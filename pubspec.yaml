@@ -68,6 +68,13 @@ dependencies:
   screen_brightness: ^2.1.2
   youtube_explode_dart: ^3.1.0
   permission_handler: ^12.0.1
+  # Voice-chat stack (mobile only — `speech_to_text` is a native
+  # SpeechRecognizer wrapper that targets Android + iOS, no desktop
+  # support). `flutter_tts` similarly wraps the platform TTS engine.
+  # Both are guarded behind PlatformHelper.isMobile so desktop /
+  # Linux builds don't try to load missing native plugins.
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:

@@ -556,5 +556,8 @@
   "profileGroupClear": "Выключить",
   "liveNowOnAir": "Сейчас в эфире",
   "liveNowOnAirDesc": "Каналы в прямом эфире сейчас, по данным EPG.",
-  "liveNowOnAirEmpty": "Нет данных EPG или все каналы без информации о программе."
+  "liveNowOnAirEmpty": "Нет данных EPG или все каналы без информации о программе.",
+  "voiceUnavailable": "Микрофон недоступен — проверь разрешение или используй другое устройство.",
+  "voiceListening": "Слушаю…",
+  "voiceTapToSpeak": "Коснись микрофона и говори"
 }

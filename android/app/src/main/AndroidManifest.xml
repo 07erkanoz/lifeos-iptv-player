@@ -16,6 +16,12 @@
     <!-- Chromecast: Wi-Fi device discovery (Android 13+) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
+    <!-- Voice chat with AI assistant (mobile only).
+         Runtime-requested before the user's first mic tap; the
+         speech_to_text plugin also needs the queries block at the
+         bottom of this manifest to find the SpeechRecognizer
+         service on Android 11+. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="LifeosTV"
@@ -71,6 +77,18 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
+        </intent>
+        <!-- speech_to_text on Android 11+ must declare the
+             SpeechRecognizer service it intends to bind to,
+             otherwise the plugin returns "not available" even when
+             Google's speech services are installed. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <!-- flutter_tts on Android 11+ requires this query to
+             discover the platform TTS engine. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
 </manifest>

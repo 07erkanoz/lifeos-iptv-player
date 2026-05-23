@@ -1397,4 +1397,14 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get liveNowOnAirEmpty =>
       'Pas de données EPG, ou toutes les chaînes sans programme.';
+
+  @override
+  String get voiceUnavailable =>
+      'Micro indisponible — vérifie l\'autorisation ou essaie un autre appareil.';
+
+  @override
+  String get voiceListening => 'J\'écoute…';
+
+  @override
+  String get voiceTapToSpeak => 'Appuie sur le micro et parle';
 }

@@ -1383,4 +1383,14 @@ class AppLocalizationsKu extends AppLocalizations {
   @override
   String get liveNowOnAirEmpty =>
       'Daneya EPG tune, an hemû kanal bê agahiya bername ne.';
+
+  @override
+  String get voiceUnavailable =>
+      'Mîkrofon tune ye — destûrê kontrol bike an cîhazek din biceribîne.';
+
+  @override
+  String get voiceListening => 'Guhdarî dikim…';
+
+  @override
+  String get voiceTapToSpeak => 'Mîkrofonê bike û biaxive';
 }

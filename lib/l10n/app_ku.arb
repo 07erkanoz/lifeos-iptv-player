@@ -556,5 +556,8 @@
   "profileGroupClear": "Vekirin",
   "liveNowOnAir": "Aniha li ser hewayê",
   "liveNowOnAirDesc": "Kanalên ku niha weşana xwe dikin (EPG).",
-  "liveNowOnAirEmpty": "Daneya EPG tune, an hemû kanal bê agahiya bername ne."
+  "liveNowOnAirEmpty": "Daneya EPG tune, an hemû kanal bê agahiya bername ne.",
+  "voiceUnavailable": "Mîkrofon tune ye — destûrê kontrol bike an cîhazek din biceribîne.",
+  "voiceListening": "Guhdarî dikim…",
+  "voiceTapToSpeak": "Mîkrofonê bike û biaxive"
 }

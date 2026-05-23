@@ -1386,4 +1386,14 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get liveNowOnAirEmpty =>
       'Нет данных EPG или все каналы без информации о программе.';
+
+  @override
+  String get voiceUnavailable =>
+      'Микрофон недоступен — проверь разрешение или используй другое устройство.';
+
+  @override
+  String get voiceListening => 'Слушаю…';
+
+  @override
+  String get voiceTapToSpeak => 'Коснись микрофона и говори';
 }

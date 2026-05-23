@@ -1382,4 +1382,14 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get liveNowOnAirEmpty =>
       'EPG verisi yok ya da tüm kanallarda program bilgisi eksik.';
+
+  @override
+  String get voiceUnavailable =>
+      'Mikrofon kullanılamıyor — izni kontrol et veya sesle yazmayı destekleyen bir cihaz dene.';
+
+  @override
+  String get voiceListening => 'Dinliyorum…';
+
+  @override
+  String get voiceTapToSpeak => 'Mikrofona dokun ve konuş';
 }

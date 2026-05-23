@@ -556,5 +556,8 @@
   "profileGroupClear": "Désactiver",
   "liveNowOnAir": "En direct",
   "liveNowOnAirDesc": "Chaînes en cours de diffusion, depuis l'EPG.",
-  "liveNowOnAirEmpty": "Pas de données EPG, ou toutes les chaînes sans programme."
+  "liveNowOnAirEmpty": "Pas de données EPG, ou toutes les chaînes sans programme.",
+  "voiceUnavailable": "Micro indisponible — vérifie l'autorisation ou essaie un autre appareil.",
+  "voiceListening": "J'écoute…",
+  "voiceTapToSpeak": "Appuie sur le micro et parle"
 }

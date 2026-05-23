@@ -556,5 +556,8 @@
   "profileGroupClear": "إيقاف",
   "liveNowOnAir": "يُبث الآن",
   "liveNowOnAirDesc": "القنوات التي تبث الآن من دليل البرامج.",
-  "liveNowOnAirEmpty": "لا توجد بيانات EPG، أو جميع القنوات بلا معلومات برنامج."
+  "liveNowOnAirEmpty": "لا توجد بيانات EPG، أو جميع القنوات بلا معلومات برنامج.",
+  "voiceUnavailable": "الميكروفون غير متاح — تحقق من الإذن أو جرب جهازًا آخر.",
+  "voiceListening": "أستمع…",
+  "voiceTapToSpeak": "انقر على الميكروفون وتحدث"
 }
