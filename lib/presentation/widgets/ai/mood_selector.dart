@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/state/group_mode_provider.dart';
 import 'package:lifeostv/presentation/state/mood_picks_provider.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart'
     show PersonalizedPickCard;
@@ -67,6 +69,11 @@ class MoodSelector extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 10),
+              // Group-mode toggle. When armed the chip surfaces the
+              // count of profiles in the group; tap to open the
+              // multi-select sheet that armed it.
+              const _GroupModeChip(),
             ]),
           ),
           // Horizontal chip strip — explicit ScrollConfiguration so
@@ -497,6 +504,240 @@ class _MoodFeedbackButton extends StatelessWidget {
             child: Icon(Icons.more_horiz,
                 color: Colors.white, size: 16),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact toggle chip surfaced in the mood selector header. When
+/// group mode is off, shows an outlined "Grup" icon. When armed,
+/// fills with the primary colour and surfaces the participant
+/// count, e.g. "🛡 3 kişi".
+///
+/// Tap → opens [_GroupModePickerSheet] with the household's full
+/// profile list. The user multi-selects 2+ profiles; on save the
+/// taste profile aggregates over them and downstream rails
+/// (mood / Sana Özel / hero) all rebuild against the new signal.
+class _GroupModeChip extends ConsumerWidget {
+  const _GroupModeChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final group = ref.watch(groupModeProfileIdsProvider);
+    final active = group.length >= 2;
+    final l10n = AppLocalizations.of(context)!;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _GroupModePickerSheet.show(context),
+      onLongPress: active
+          ? () => ref.read(groupModeProfileIdsProvider.notifier).clear()
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.primary.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: active
+                ? AppColors.primary
+                : AppColors.borderDark,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active ? Icons.groups : Icons.groups_outlined,
+              size: 14,
+              color: active
+                  ? AppColors.primary
+                  : AppColors.textSecondaryDark,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              active
+                  ? '${group.length} ${l10n.profileGroupShort}'
+                  : l10n.profileGroupMode,
+              style: TextStyle(
+                color: active
+                    ? AppColors.primary
+                    : AppColors.textSecondaryDark,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-sheet multi-select for assembling a group. Lists every
+/// profile and lets the user tick 2+. Clearing → group mode off.
+class _GroupModePickerSheet extends ConsumerStatefulWidget {
+  const _GroupModePickerSheet();
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _GroupModePickerSheet(),
+    );
+  }
+
+  @override
+  ConsumerState<_GroupModePickerSheet> createState() =>
+      _GroupModePickerSheetState();
+}
+
+class _GroupModePickerSheetState
+    extends ConsumerState<_GroupModePickerSheet> {
+  late Set<int> _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    final current = ref.read(groupModeProfileIdsProvider);
+    final activeId = ref.read(activeProfileIdProvider).value ?? 1;
+    _draft = {...current, activeId};
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final profilesAsync = ref.watch(profilesListProvider);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.textTertiaryDark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(children: [
+              const Icon(Icons.groups, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Text(
+                l10n.profileGroupMode,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              l10n.profileGroupModeDesc,
+              style: const TextStyle(
+                color: AppColors.textSecondaryDark,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            profilesAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 30),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text('$e'),
+              data: (profiles) {
+                if (profiles.length < 2) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      l10n.profileGroupNeedsTwo,
+                      style: const TextStyle(
+                        color: AppColors.textTertiaryDark,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+                return Column(
+                  children: profiles
+                      .map((p) => CheckboxListTile(
+                            value: _draft.contains(p.id),
+                            onChanged: (v) {
+                              setState(() {
+                                if (v == true) {
+                                  _draft.add(p.id);
+                                } else {
+                                  _draft.remove(p.id);
+                                }
+                              });
+                            },
+                            title: Text(p.name),
+                            subtitle: p.isKids
+                                ? Text(
+                                    l10n.profileKids,
+                                    style: const TextStyle(
+                                      color: Colors.orange,
+                                      fontSize: 11,
+                                    ),
+                                  )
+                                : null,
+                            controlAffinity:
+                                ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                          ))
+                      .toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    ref
+                        .read(groupModeProfileIdsProvider.notifier)
+                        .clear();
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(l10n.profileGroupClear),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _draft.length >= 2
+                      ? () {
+                          ref
+                              .read(groupModeProfileIdsProvider
+                                  .notifier)
+                              .set(_draft);
+                          Navigator.of(context).pop();
+                        }
+                      : null,
+                  child: Text(l10n.ok),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

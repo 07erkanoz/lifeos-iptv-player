@@ -1357,4 +1357,20 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get profileDefault => 'Standard';
+
+  @override
+  String get profileGroupMode => 'Moda komê';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Bijareyên çend profîlan biheve, da ku AI ji bo herkesî pêşniyaran bide.';
+
+  @override
+  String get profileGroupShort => 'kes';
+
+  @override
+  String get profileGroupNeedsTwo => 'Moda komê herî kêm 2 profîl divê.';
+
+  @override
+  String get profileGroupClear => 'Vekirin';
 }

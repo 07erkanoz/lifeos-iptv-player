@@ -1367,4 +1367,21 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get profileDefault => 'Standard';
+
+  @override
+  String get profileGroupMode => 'Gruppenmodus';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Mehrere Profile zusammenführen, damit die KI für alle passende Vorschläge macht.';
+
+  @override
+  String get profileGroupShort => 'Personen';
+
+  @override
+  String get profileGroupNeedsTwo =>
+      'Gruppenmodus benötigt mindestens 2 Profile.';
+
+  @override
+  String get profileGroupClear => 'Ausschalten';
 }

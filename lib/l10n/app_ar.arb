@@ -548,5 +548,10 @@
   "profileSwitch": "تبديل الملف",
   "profilePinPrompt": "أدخل رمز PIN لهذا الملف",
   "profilePinWrong": "رمز PIN خاطئ",
-  "profileDefault": "افتراضي"
+  "profileDefault": "افتراضي",
+  "profileGroupMode": "وضع المجموعة",
+  "profileGroupModeDesc": "ادمج أذواق ملفات شخصية متعددة لتقترح الذكاء الاصطناعي ما يناسب الجميع.",
+  "profileGroupShort": "أشخاص",
+  "profileGroupNeedsTwo": "وضع المجموعة يحتاج إلى ملفين شخصيين على الأقل.",
+  "profileGroupClear": "إيقاف"
 }

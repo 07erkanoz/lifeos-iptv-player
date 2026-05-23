@@ -1357,4 +1357,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileDefault => 'Default';
+
+  @override
+  String get profileGroupMode => 'Group mode';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Blend multiple profiles\' tastes so the AI recommends what works for everyone.';
+
+  @override
+  String get profileGroupShort => 'people';
+
+  @override
+  String get profileGroupNeedsTwo => 'Group mode needs at least 2 profiles.';
+
+  @override
+  String get profileGroupClear => 'Turn off';
 }

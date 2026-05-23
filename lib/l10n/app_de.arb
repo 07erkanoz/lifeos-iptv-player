@@ -548,5 +548,10 @@
   "profileSwitch": "Profil wechseln",
   "profilePinPrompt": "PIN für dieses Profil eingeben",
   "profilePinWrong": "PIN falsch",
-  "profileDefault": "Standard"
+  "profileDefault": "Standard",
+  "profileGroupMode": "Gruppenmodus",
+  "profileGroupModeDesc": "Mehrere Profile zusammenführen, damit die KI für alle passende Vorschläge macht.",
+  "profileGroupShort": "Personen",
+  "profileGroupNeedsTwo": "Gruppenmodus benötigt mindestens 2 Profile.",
+  "profileGroupClear": "Ausschalten"
 }

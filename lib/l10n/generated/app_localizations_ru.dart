@@ -1359,4 +1359,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileDefault => 'По умолчанию';
+
+  @override
+  String get profileGroupMode => 'Групповой режим';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Объедините вкусы нескольких профилей, чтобы ИИ предлагал то, что нравится всем.';
+
+  @override
+  String get profileGroupShort => 'чел.';
+
+  @override
+  String get profileGroupNeedsTwo =>
+      'Для группового режима нужно минимум 2 профиля.';
+
+  @override
+  String get profileGroupClear => 'Выключить';
 }

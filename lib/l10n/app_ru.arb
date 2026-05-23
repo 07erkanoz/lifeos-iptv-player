@@ -548,5 +548,10 @@
   "profileSwitch": "Сменить профиль",
   "profilePinPrompt": "Введите PIN для этого профиля",
   "profilePinWrong": "Неверный PIN",
-  "profileDefault": "По умолчанию"
+  "profileDefault": "По умолчанию",
+  "profileGroupMode": "Групповой режим",
+  "profileGroupModeDesc": "Объедините вкусы нескольких профилей, чтобы ИИ предлагал то, что нравится всем.",
+  "profileGroupShort": "чел.",
+  "profileGroupNeedsTwo": "Для группового режима нужно минимум 2 профиля.",
+  "profileGroupClear": "Выключить"
 }

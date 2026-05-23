@@ -1351,4 +1351,21 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get profileDefault => 'افتراضي';
+
+  @override
+  String get profileGroupMode => 'وضع المجموعة';
+
+  @override
+  String get profileGroupModeDesc =>
+      'ادمج أذواق ملفات شخصية متعددة لتقترح الذكاء الاصطناعي ما يناسب الجميع.';
+
+  @override
+  String get profileGroupShort => 'أشخاص';
+
+  @override
+  String get profileGroupNeedsTwo =>
+      'وضع المجموعة يحتاج إلى ملفين شخصيين على الأقل.';
+
+  @override
+  String get profileGroupClear => 'إيقاف';
 }

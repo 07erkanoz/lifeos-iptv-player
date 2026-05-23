@@ -548,5 +548,10 @@
   "profileSwitch": "Profîlê biguherîne",
   "profilePinPrompt": "PINa vê profîlê binivîse",
   "profilePinWrong": "PIN şaş e",
-  "profileDefault": "Standard"
+  "profileDefault": "Standard",
+  "profileGroupMode": "Moda komê",
+  "profileGroupModeDesc": "Bijareyên çend profîlan biheve, da ku AI ji bo herkesî pêşniyaran bide.",
+  "profileGroupShort": "kes",
+  "profileGroupNeedsTwo": "Moda komê herî kêm 2 profîl divê.",
+  "profileGroupClear": "Vekirin"
 }

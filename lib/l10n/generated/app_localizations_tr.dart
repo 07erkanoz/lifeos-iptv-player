@@ -1356,4 +1356,20 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get profileDefault => 'Varsayılan';
+
+  @override
+  String get profileGroupMode => 'Grup modu';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Birden fazla profilin zevkini birleştir, AI ortak öneriler versin.';
+
+  @override
+  String get profileGroupShort => 'kişi';
+
+  @override
+  String get profileGroupNeedsTwo => 'Grup için en az 2 profile ihtiyaç var.';
+
+  @override
+  String get profileGroupClear => 'Kapat';
 }

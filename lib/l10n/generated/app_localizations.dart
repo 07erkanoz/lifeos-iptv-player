@@ -2671,6 +2671,36 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Varsayılan'**
   String get profileDefault;
+
+  /// No description provided for @profileGroupMode.
+  ///
+  /// In tr, this message translates to:
+  /// **'Grup modu'**
+  String get profileGroupMode;
+
+  /// No description provided for @profileGroupModeDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Birden fazla profilin zevkini birleştir, AI ortak öneriler versin.'**
+  String get profileGroupModeDesc;
+
+  /// No description provided for @profileGroupShort.
+  ///
+  /// In tr, this message translates to:
+  /// **'kişi'**
+  String get profileGroupShort;
+
+  /// No description provided for @profileGroupNeedsTwo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Grup için en az 2 profile ihtiyaç var.'**
+  String get profileGroupNeedsTwo;
+
+  /// No description provided for @profileGroupClear.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kapat'**
+  String get profileGroupClear;
 }
 
 class _AppLocalizationsDelegate

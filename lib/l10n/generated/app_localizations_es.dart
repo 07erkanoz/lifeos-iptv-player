@@ -1360,4 +1360,21 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get profileDefault => 'Predeterminado';
+
+  @override
+  String get profileGroupMode => 'Modo grupo';
+
+  @override
+  String get profileGroupModeDesc =>
+      'Combina varios perfiles para que la IA recomiende algo que guste a todos.';
+
+  @override
+  String get profileGroupShort => 'pers.';
+
+  @override
+  String get profileGroupNeedsTwo =>
+      'El modo grupo necesita al menos 2 perfiles.';
+
+  @override
+  String get profileGroupClear => 'Desactivar';
 }

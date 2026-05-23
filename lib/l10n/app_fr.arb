@@ -548,5 +548,10 @@
   "profileSwitch": "Changer de profil",
   "profilePinPrompt": "Entrez le PIN de ce profil",
   "profilePinWrong": "PIN incorrect",
-  "profileDefault": "Par défaut"
+  "profileDefault": "Par défaut",
+  "profileGroupMode": "Mode groupe",
+  "profileGroupModeDesc": "Combine plusieurs profils pour que l'IA propose ce qui plaît à tout le monde.",
+  "profileGroupShort": "pers.",
+  "profileGroupNeedsTwo": "Le mode groupe nécessite au moins 2 profils.",
+  "profileGroupClear": "Désactiver"
 }

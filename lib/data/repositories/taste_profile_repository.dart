@@ -4,6 +4,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/domain/models/taste_profile.dart';
+import 'package:lifeostv/presentation/state/group_mode_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'taste_profile_repository.g.dart';
@@ -39,7 +40,26 @@ class TasteProfileRepository {
   static const double _weightHiddenCategory = -1.0;
   static const double _weightDislike = -1.5;
 
-  Future<TasteProfile> build() async {
+  /// Build a TasteProfile against the active profile by default,
+  /// or against a list of profiles when [profileIds] is non-null.
+  /// Group mode aggregates each profile's signals together so the
+  /// AI sees what the family (or any selected subset) collectively
+  /// likes — useful when more than one person is watching together
+  /// and the recommendation needs to thread the needle.
+  ///
+  /// In group mode each profile's favourites / history / feedback
+  /// gets equal weight by stacking onto the same affinity maps.
+  /// The downstream prompt logic doesn't need to know whether the
+  /// profile came from one person or many; the aggregate object
+  /// stays the same shape.
+  Future<TasteProfile> build({List<int>? profileIds}) async {
+    final ids = profileIds == null || profileIds.isEmpty
+        ? <int>[_pid]
+        : profileIds.toSet().toList();
+    return _buildForProfiles(ids);
+  }
+
+  Future<TasteProfile> _buildForProfiles(List<int> profileIds) async {
     final categoryAffinity = <String, double>{};
     final actorAffinity = <String, double>{};
     final directorAffinity = <String, double>{};
@@ -81,10 +101,10 @@ class TasteProfileRepository {
     }
 
     // ── Favourites ────────────────────────────────────────────────
-    // All four user-table queries below filter by the active profile
-    // id so a household sharing one install gets per-person taste
-    // signals instead of a mixed-bag rail.
-    final pid = _pid;
+    // Profile id set — single in solo mode, multiple in group mode.
+    // Both branches funnel through `isIn(pids)` so the rest of the
+    // code path stays identical regardless of mode.
+    final pids = profileIds;
     final favRows = await (_db.select(_db.channels).join([
       innerJoin(
         _db.favorites,
@@ -97,8 +117,10 @@ class TasteProfileRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
-          ..where(_db.favorites.profileId.equals(pid))
-          ..limit(60))
+          ..where(_db.favorites.profileId.isIn(pids))
+          // Larger row cap in group mode so each profile still gets
+          // meaningful representation in the aggregate.
+          ..limit(60 * pids.length))
         .get();
     for (final r in favRows) {
       apply(r.readTable(_db.channels), r.readTableOrNull(_db.categories),
@@ -119,8 +141,8 @@ class TasteProfileRepository {
       ),
     ])
           ..where(_db.playbackProgress.position.isBiggerThanValue(0) &
-              _db.playbackProgress.profileId.equals(pid))
-          ..limit(150))
+              _db.playbackProgress.profileId.isIn(pids))
+          ..limit(150 * pids.length))
         .get();
     for (final r in histRows) {
       final ch = r.readTable(_db.channels);
@@ -214,12 +236,20 @@ TasteProfileRepository tasteProfileRepository(Ref ref) {
 /// One-shot async profile. AI rail providers `ref.watch` this so
 /// the profile is computed once per dashboard mount instead of
 /// each rail rebuilding it. Auto-invalidates whenever feedback
-/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents).
+/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents)
+/// or the group-mode profile set changes.
 @riverpod
 Future<TasteProfile> tasteProfile(Ref ref) async {
   // Pulling in the dislike stream invalidates the profile any time
   // feedback flips, so every downstream rail sees the new weights
   // on the very next paint.
   ref.watch(dislikedStreamIdsProvider);
-  return ref.watch(tasteProfileRepositoryProvider).build();
+  // Group mode: when 2+ profiles are armed, build an aggregate
+  // profile across all of them. Empty / single-profile group falls
+  // through to the active-profile default inside build().
+  final group = ref.watch(groupModeProfileIdsProvider);
+  final ids = group.length >= 2 ? group.toList() : null;
+  return ref
+      .watch(tasteProfileRepositoryProvider)
+      .build(profileIds: ids);
 }

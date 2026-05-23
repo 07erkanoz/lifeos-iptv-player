@@ -510,5 +510,10 @@
   "profileSwitch": "Switch Profile",
   "profilePinPrompt": "Enter PIN for this profile",
   "profilePinWrong": "Wrong PIN",
-  "profileDefault": "Default"
+  "profileDefault": "Default",
+  "profileGroupMode": "Group mode",
+  "profileGroupModeDesc": "Blend multiple profiles' tastes so the AI recommends what works for everyone.",
+  "profileGroupShort": "people",
+  "profileGroupNeedsTwo": "Group mode needs at least 2 profiles.",
+  "profileGroupClear": "Turn off"
 }
