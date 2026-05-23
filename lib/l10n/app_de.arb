@@ -553,5 +553,8 @@
   "profileGroupModeDesc": "Mehrere Profile zusammenführen, damit die KI für alle passende Vorschläge macht.",
   "profileGroupShort": "Personen",
   "profileGroupNeedsTwo": "Gruppenmodus benötigt mindestens 2 Profile.",
-  "profileGroupClear": "Ausschalten"
+  "profileGroupClear": "Ausschalten",
+  "liveNowOnAir": "Läuft gerade",
+  "liveNowOnAirDesc": "Sender, die gerade auf Sendung sind (EPG).",
+  "liveNowOnAirEmpty": "Keine EPG-Daten, oder alle Sender ohne Programminfo."
 }

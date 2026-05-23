@@ -553,5 +553,8 @@
   "profileGroupModeDesc": "Объедините вкусы нескольких профилей, чтобы ИИ предлагал то, что нравится всем.",
   "profileGroupShort": "чел.",
   "profileGroupNeedsTwo": "Для группового режима нужно минимум 2 профиля.",
-  "profileGroupClear": "Выключить"
+  "profileGroupClear": "Выключить",
+  "liveNowOnAir": "Сейчас в эфире",
+  "liveNowOnAirDesc": "Каналы в прямом эфире сейчас, по данным EPG.",
+  "liveNowOnAirEmpty": "Нет данных EPG или все каналы без информации о программе."
 }

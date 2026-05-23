@@ -2701,6 +2701,24 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Kapat'**
   String get profileGroupClear;
+
+  /// No description provided for @liveNowOnAir.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şu an canlıda'**
+  String get liveNowOnAir;
+
+  /// No description provided for @liveNowOnAirDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'EPG\'den şu anki yayın akışı.'**
+  String get liveNowOnAirDesc;
+
+  /// No description provided for @liveNowOnAirEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'EPG verisi yok ya da tüm kanallarda program bilgisi eksik.'**
+  String get liveNowOnAirEmpty;
 }
 
 class _AppLocalizationsDelegate

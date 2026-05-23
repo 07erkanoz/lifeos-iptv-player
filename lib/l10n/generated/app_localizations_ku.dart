@@ -1373,4 +1373,14 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'Vekirin';
+
+  @override
+  String get liveNowOnAir => 'Aniha li ser hewayê';
+
+  @override
+  String get liveNowOnAirDesc => 'Kanalên ku niha weşana xwe dikin (EPG).';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'Daneya EPG tune, an hemû kanal bê agahiya bername ne.';
 }

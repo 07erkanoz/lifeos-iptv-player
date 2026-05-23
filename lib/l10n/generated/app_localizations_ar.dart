@@ -1368,4 +1368,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'إيقاف';
+
+  @override
+  String get liveNowOnAir => 'يُبث الآن';
+
+  @override
+  String get liveNowOnAirDesc => 'القنوات التي تبث الآن من دليل البرامج.';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'لا توجد بيانات EPG، أو جميع القنوات بلا معلومات برنامج.';
 }

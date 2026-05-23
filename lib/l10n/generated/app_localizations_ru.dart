@@ -1376,4 +1376,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'Выключить';
+
+  @override
+  String get liveNowOnAir => 'Сейчас в эфире';
+
+  @override
+  String get liveNowOnAirDesc => 'Каналы в прямом эфире сейчас, по данным EPG.';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'Нет данных EPG или все каналы без информации о программе.';
 }

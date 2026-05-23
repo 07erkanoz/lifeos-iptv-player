@@ -553,5 +553,8 @@
   "profileGroupModeDesc": "ادمج أذواق ملفات شخصية متعددة لتقترح الذكاء الاصطناعي ما يناسب الجميع.",
   "profileGroupShort": "أشخاص",
   "profileGroupNeedsTwo": "وضع المجموعة يحتاج إلى ملفين شخصيين على الأقل.",
-  "profileGroupClear": "إيقاف"
+  "profileGroupClear": "إيقاف",
+  "liveNowOnAir": "يُبث الآن",
+  "liveNowOnAirDesc": "القنوات التي تبث الآن من دليل البرامج.",
+  "liveNowOnAirEmpty": "لا توجد بيانات EPG، أو جميع القنوات بلا معلومات برنامج."
 }

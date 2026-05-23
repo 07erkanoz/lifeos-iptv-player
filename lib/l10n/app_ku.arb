@@ -553,5 +553,8 @@
   "profileGroupModeDesc": "Bijareyên çend profîlan biheve, da ku AI ji bo herkesî pêşniyaran bide.",
   "profileGroupShort": "kes",
   "profileGroupNeedsTwo": "Moda komê herî kêm 2 profîl divê.",
-  "profileGroupClear": "Vekirin"
+  "profileGroupClear": "Vekirin",
+  "liveNowOnAir": "Aniha li ser hewayê",
+  "liveNowOnAirDesc": "Kanalên ku niha weşana xwe dikin (EPG).",
+  "liveNowOnAirEmpty": "Daneya EPG tune, an hemû kanal bê agahiya bername ne."
 }

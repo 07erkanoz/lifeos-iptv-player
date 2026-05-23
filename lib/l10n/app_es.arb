@@ -553,5 +553,8 @@
   "profileGroupModeDesc": "Combina varios perfiles para que la IA recomiende algo que guste a todos.",
   "profileGroupShort": "pers.",
   "profileGroupNeedsTwo": "El modo grupo necesita al menos 2 perfiles.",
-  "profileGroupClear": "Desactivar"
+  "profileGroupClear": "Desactivar",
+  "liveNowOnAir": "Ahora en directo",
+  "liveNowOnAirDesc": "Canales emitiendo ahora mismo (EPG).",
+  "liveNowOnAirEmpty": "Sin datos EPG o todos los canales sin información de programa."
 }

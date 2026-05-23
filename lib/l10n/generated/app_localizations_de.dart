@@ -1384,4 +1384,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'Ausschalten';
+
+  @override
+  String get liveNowOnAir => 'Läuft gerade';
+
+  @override
+  String get liveNowOnAirDesc => 'Sender, die gerade auf Sendung sind (EPG).';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'Keine EPG-Daten, oder alle Sender ohne Programminfo.';
 }

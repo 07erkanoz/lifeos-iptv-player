@@ -21,6 +21,7 @@ import 'package:lifeostv/presentation/widgets/ai/weekly_digest_banner.dart';
 import 'package:lifeostv/presentation/widgets/ai/tonight_chat_sheet.dart';
 import 'package:lifeostv/presentation/widgets/content/content_list.dart';
 import 'package:lifeostv/presentation/widgets/content/hero_banner.dart';
+import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/data/repositories/watchlist_repository.dart';
@@ -463,6 +464,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // mood-based rail right below the chips. Also
                   // hides itself when no Gemini key is configured.
                   MoodSelector(onTap: _openDetail),
+
+                  // "Şu an canlıda" — EPG-driven rail of live
+                  // channels currently broadcasting. Hides itself
+                  // when no EPG data is available (rail's own
+                  // provider returns []).
+                  LiveNowOnAirRail(onTap: (ch) => _openDetail(ch)),
 
                   // Continue Watching (movies + series with unfinished progress)
                   continueWatchingAsync.when(

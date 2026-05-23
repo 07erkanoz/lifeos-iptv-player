@@ -515,5 +515,8 @@
   "profileGroupModeDesc": "Blend multiple profiles' tastes so the AI recommends what works for everyone.",
   "profileGroupShort": "people",
   "profileGroupNeedsTwo": "Group mode needs at least 2 profiles.",
-  "profileGroupClear": "Turn off"
+  "profileGroupClear": "Turn off",
+  "liveNowOnAir": "On now",
+  "liveNowOnAirDesc": "Channels broadcasting right now, sourced from EPG.",
+  "liveNowOnAirEmpty": "No EPG data, or every channel is missing programme info."
 }

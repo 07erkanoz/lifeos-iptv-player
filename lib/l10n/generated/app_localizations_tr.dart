@@ -1372,4 +1372,14 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'Kapat';
+
+  @override
+  String get liveNowOnAir => 'Şu an canlıda';
+
+  @override
+  String get liveNowOnAirDesc => 'EPG\'den şu anki yayın akışı.';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'EPG verisi yok ya da tüm kanallarda program bilgisi eksik.';
 }

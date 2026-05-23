@@ -1373,4 +1373,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileGroupClear => 'Turn off';
+
+  @override
+  String get liveNowOnAir => 'On now';
+
+  @override
+  String get liveNowOnAirDesc =>
+      'Channels broadcasting right now, sourced from EPG.';
+
+  @override
+  String get liveNowOnAirEmpty =>
+      'No EPG data, or every channel is missing programme info.';
 }

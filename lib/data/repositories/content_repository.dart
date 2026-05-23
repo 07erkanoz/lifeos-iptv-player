@@ -643,6 +643,53 @@ class ContentRepository {
     }
   }
 
+  /// Live channels currently broadcasting something — joined with
+  /// the Program that is on-air right now. Powers the dashboard /
+  /// Live TV "Şu an canlıda" rail.
+  ///
+  /// Returns up to [limit] channels whose programmes table contains
+  /// a row covering `now`. Channels with no EPG entry for the
+  /// current slot are excluded (we don't want to render a "now"
+  /// rail with empty programme titles). Sorted by program title
+  /// alphabetically as a stable default; the UI may re-sort.
+  ///
+  /// Single-shot, not a stream — the rail invalidates on a minute
+  /// timer in the UI rather than re-querying Drift continuously.
+  Future<List<({Channel channel, Program program})>> liveNowOnAir({
+    int limit = 30,
+  }) async {
+    final now = DateTime.now();
+    // JOIN programs with the channels they reference. Filter to the
+    // slot that contains `now`. Limit channels.type to 'live' so we
+    // never accidentally surface VOD rows here.
+    final rows = await (_db.select(_db.programs).join([
+      innerJoin(
+        _db.channels,
+        _db.channels.streamId.equalsExp(_db.programs.channelId) &
+            _db.channels.type.equals('live'),
+      ),
+    ])
+          ..where(_db.programs.start.isSmallerOrEqualValue(now) &
+              _db.programs.stop.isBiggerThanValue(now))
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.programs.title,
+                mode: OrderingMode.asc),
+          ])
+          ..limit(limit))
+        .get();
+    final out = <({Channel channel, Program program})>[];
+    final seen = <int>{};
+    for (final r in rows) {
+      final ch = r.readTable(_db.channels);
+      // Deduplicate against channels that have multiple overlapping
+      // EPG entries (rare but happens with imported XMLTV feeds).
+      if (!seen.add(ch.streamId)) continue;
+      out.add((channel: ch, program: r.readTable(_db.programs)));
+    }
+    return out;
+  }
+
   Stream<List<Program>> watchPrograms(int channelId) {
     final now = DateTime.now();
     return (_db.select(_db.programs)
