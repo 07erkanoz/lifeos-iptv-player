@@ -1208,6 +1208,12 @@ class _SpoilerShieldBadgeState
 
   @override
   Widget build(BuildContext context) {
+    // Defensive double-gate: chat sheet itself is opened by an
+    // AI-gated FAB, but if some future caller reaches the chat
+    // surface without a key, this badge must not render.
+    final hasAiKey = ref.watch(settingsProvider).hasAiKey;
+    if (!hasAiKey) return const SizedBox.shrink();
+
     final ctx = ref.watch(chatEpisodeContextProvider);
     final active = ctx != null;
     return Focus(

@@ -133,9 +133,17 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
     // automatically so the user sees what happened before they
     // click play. Wrapped in a post-frame so we don't fire inside
     // build (Riverpod will throw if we touch providers too early).
+    //
+    // Defensive gate: if the user doesn't have an AI key configured
+    // the build() branch already returns SizedBox.shrink(), but
+    // initState still runs. Skipping the fetch here avoids burning
+    // a Gemini call attempt that we know will short-circuit at the
+    // service layer anyway.
     if (widget.autoExpand) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        final hasAiKey = ref.read(settingsProvider).hasAiKey;
+        if (!hasAiKey) return;
         _fetchRecap();
       });
     }

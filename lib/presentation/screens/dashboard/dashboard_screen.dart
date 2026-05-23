@@ -747,8 +747,15 @@ final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) as
     // Skip the AI step when there's nothing to rerank (cold list,
     // single item, or AI disabled). Yield the base list unchanged so
     // the user still sees their history immediately.
+    //
+    // Two gates here so we never accidentally call Gemini when the
+    // user has opted out of AI: `hasAiKey` from settings AND
+    // `geminiServiceProvider` returning a non-null instance. The
+    // provider already checks the key, but reading hasAiKey first
+    // lets us skip even the service lookup on the cold path.
+    final hasAiKey = ref.read(settingsProvider).hasAiKey;
     final gemini = ref.read(geminiServiceProvider);
-    if (gemini == null || base.length < 3) {
+    if (!hasAiKey || gemini == null || base.length < 3) {
       yield base;
       continue;
     }
