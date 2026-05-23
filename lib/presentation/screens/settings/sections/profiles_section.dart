@@ -111,7 +111,7 @@ class ProfilesSection extends ConsumerWidget {
                         return _ProfileTile(
                           profile: others[i],
                           onTap: () async {
-                            await _switchProfile(ref, others[i]);
+                            await _switchProfile(context, ref, others[i]);
                           },
                           onEdit: () =>
                               _openEditor(context, ref, others[i]),
@@ -128,17 +128,85 @@ class ProfilesSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _switchProfile(WidgetRef ref, Profile target) async {
-    // If the profile has a PIN we'd surface a sheet here. PIN flow
-    // ships in Sprint 2c — for now just respect the existence of a
-    // pin and ask for it inline. Empty / null PIN → switch
-    // immediately.
+  Future<void> _switchProfile(
+      BuildContext context, WidgetRef ref, Profile target) async {
+    // PIN gate — same UX as the picker sheet uses. We deliberately
+    // duplicate the prompt rather than extract a shared helper, so
+    // both surfaces stay self-contained and easy to change in
+    // isolation.
+    if (target.pin != null && target.pin!.isNotEmpty) {
+      final ok = await _promptForPin(context, target);
+      if (!ok) return;
+    }
     final repo = await ref.read(profileRepositoryProvider.future);
     await repo.setActiveProfile(target.id);
-    // Invalidate everything that filters by active profile so the
-    // rest of the app re-renders against the new id.
     ref.invalidate(activeProfileIdProvider);
     ref.invalidate(activeProfileProvider);
+  }
+
+  Future<bool> _promptForPin(BuildContext context, Profile profile) async {
+    final controller = TextEditingController();
+    final l10n = AppLocalizations.of(context)!;
+    var wrong = false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setLocal) {
+        return AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.lock_outline, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(profile.name)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.profilePinPrompt,
+                  style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  errorText: wrong ? l10n.profilePinWrong : null,
+                  counterText: '',
+                ),
+                onSubmitted: (v) {
+                  if (v.trim() == profile.pin) {
+                    Navigator.of(ctx).pop(true);
+                  } else {
+                    setLocal(() => wrong = true);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(l10n.cancel)),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.trim() == profile.pin) {
+                  Navigator.of(ctx).pop(true);
+                } else {
+                  setLocal(() => wrong = true);
+                }
+              },
+              child: Text(l10n.ok),
+            ),
+          ],
+        );
+      }),
+    );
+    return result == true;
   }
 
   Future<void> _openEditor(

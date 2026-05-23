@@ -8,7 +8,9 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/widgets/profile/profile_picker_sheet.dart';
 import 'package:lifeostv/presentation/widgets/layout/sidebar_search_button.dart';
 
 class AppSidebar extends ConsumerStatefulWidget {
@@ -259,8 +261,16 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
                   ),
                   // Search button (pushes /search route)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: SidebarSearchButton(isExpanded: _isExpanded),
+                  ),
+                  // Profile avatar button — tap to open the
+                  // "Kim izliyor?" picker sheet. Sits below the
+                  // search button so it's the very last item before
+                  // the safe-area gap, mirroring Netflix's TV layout.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    child: _SidebarProfileButton(isExpanded: _isExpanded),
                   ),
                 ],
               ),
@@ -446,6 +456,138 @@ class _SidebarItemState extends State<_SidebarItem> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bottom-of-sidebar avatar button — opens the profile picker sheet.
+/// Shows the active profile's avatar glyph at the same width as
+/// other sidebar items, and the profile name when the sidebar is
+/// expanded.
+///
+/// Focus / D-pad: standard Focus + onKeyEvent so the Android TV
+/// remote can land on it as part of the sidebar's keyboard sweep.
+/// Visual highlight on focus uses the same primary-coloured border
+/// idiom as the rest of the sidebar items.
+class _SidebarProfileButton extends ConsumerStatefulWidget {
+  final bool isExpanded;
+  const _SidebarProfileButton({required this.isExpanded});
+
+  @override
+  ConsumerState<_SidebarProfileButton> createState() =>
+      _SidebarProfileButtonState();
+}
+
+class _SidebarProfileButtonState
+    extends ConsumerState<_SidebarProfileButton> {
+  bool _focused = false;
+
+  void _open() {
+    ProfilePickerSheet.show(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = ref.watch(activeProfileProvider);
+    final profile = active.value;
+    final avatarKey = profile?.avatarKey ?? 'default';
+    final name = profile?.name ??
+        AppLocalizations.of(context)!.profileDefault;
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          _open();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: InkWell(
+        onTap: _open,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: EdgeInsets.symmetric(
+              horizontal: widget.isExpanded ? 10 : 0,
+              vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: _focused
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
+            border: Border.all(
+              color: _focused ? AppColors.primary : Colors.transparent,
+              width: _focused ? 2 : 0,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: widget.isExpanded
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
+            children: [
+              _SidebarAvatarGlyph(avatarKey: avatarKey, size: 28),
+              if (widget.isExpanded) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.unfold_more,
+                    color: AppColors.textTertiaryDark, size: 16),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tiny version of the avatar palette used in the sidebar button
+/// (sized for a 28px slot, matching the sidebar nav icon width).
+/// Kept inline rather than imported from profile_picker_sheet so
+/// the sidebar doesn't pull in the full picker file when only the
+/// glyph is needed.
+class _SidebarAvatarGlyph extends StatelessWidget {
+  final String avatarKey;
+  final double size;
+  const _SidebarAvatarGlyph(
+      {required this.avatarKey, required this.size});
+
+  static const _avatars = <String, (IconData, Color)>{
+    'default': (Icons.person, Color(0xFF6B7280)),
+    'cat': (Icons.pets, Color(0xFFEC4899)),
+    'panda': (Icons.face_retouching_natural, Color(0xFF10B981)),
+    'rocket': (Icons.rocket_launch, Color(0xFFF59E0B)),
+    'kid': (Icons.child_care, Color(0xFFFB923C)),
+    'star': (Icons.star, Color(0xFFFACC15)),
+    'shield': (Icons.shield_moon, Color(0xFF8B5CF6)),
+    'movie': (Icons.movie_filter, Color(0xFFEF4444)),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final pair = _avatars[avatarKey] ?? _avatars['default']!;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: pair.$2.withValues(alpha: 0.18),
+      ),
+      child: Center(
+        child: Icon(pair.$1, color: pair.$2, size: size * 0.55),
       ),
     );
   }
