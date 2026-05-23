@@ -148,6 +148,15 @@ class GeminiService {
     List<Map<String, dynamic>> categoryOverview = const [],
     String targetLanguage = 'tr',
     Map<String, dynamic> tasteProfile = const {},
+    /// Optional "user is currently watching X" hint. When set, the
+    /// system prompt switches to spoiler-aware mode: the AI can
+    /// discuss the show up to and including the given episode, but
+    /// must NOT reveal anything that happens beyond it.
+    ///
+    /// Shape: `{"title": str, "season": int, "episode": int,
+    ///          "epLabel": "S1E5"}`. Optional fields tolerated —
+    /// the prompt only depends on title + epLabel being present.
+    Map<String, dynamic>? currentEpisode,
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
 
@@ -207,6 +216,10 @@ class GeminiService {
         // re-deriving them from the favourites/history lists every
         // turn. Empty {} on cold-start profiles.
         if (tasteProfile.isNotEmpty) 'tasteProfile': tasteProfile,
+        // currentEpisode: spoiler-awareness hint. When present the
+        // system prompt switches into "spoiler-safe" mode and the
+        // AI must not reveal anything from past this episode.
+        if (currentEpisode != null) 'currentEpisode': currentEpisode,
       };
 
       // Build Gemini chat history. The first user turn carries the
@@ -1492,6 +1505,149 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
   /// Pick 3-5 items the AI thinks deserve front-page billboard
   /// treatment, each paired with a short hook tagline.
   ///
+  /// Re-rank the user's Continue Watching rail by current context
+  /// (time of day) and their aggregate taste profile, rather than
+  /// just last-watched-first.
+  ///
+  /// Why this matters: the raw history list always surfaces the
+  /// most recent thing the user touched, even if that's a horror
+  /// they started at 2am and forgot about. At 8 pm with the family
+  /// in the living room, the actual answer is a different
+  /// half-watched item further down the list. This rerank passes
+  /// the whole continue-watching set + the user's
+  /// [tasteProfile.toPromptJson] + the current [timeOfDay] bucket
+  /// to Gemini and asks for an ordering that fits the moment.
+  ///
+  /// The AI returns only stream IDs — no new picks, no removals.
+  /// We resolve back to the original [Channel] rows on the client
+  /// so the user never sees an item that isn't actually in their
+  /// history (no hallucination risk).
+  ///
+  /// Returns null on failure / empty / cold profile — caller
+  /// surfaces the raw history list unchanged.
+  Future<List<int>?> rerankContinueWatching({
+    required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> tasteProfile,
+    required String timeOfDay,
+    required String targetLanguage,
+  }) async {
+    if (_apiKey.isEmpty || items.length < 3) return null;
+
+    final systemPrompt = '''
+You re-rank a user's "Continue Watching" rail. Inputs are JSON:
+  * ITEMS — partially-watched items as
+    `{"streamId":<int>,"title":<str>,"type":<"movie"|"series">,
+       "genre":<str?>,"progressRatio":<0..1>,"daysSinceLastWatch":<int>}`.
+  * TASTE_PROFILE — aggregate weighted view of the user's
+    preferences (top categories / actors / directors with numeric
+    scores).
+  * TIME_OF_DAY — current bucket (`sabah` / `öğle` / `akşam` /
+    `gece`).
+
+Rules:
+  1. Reorder ONLY by streamId. Do NOT add new items, do NOT drop
+     items — every input id must appear exactly once in the output.
+  2. Pick the order that best fits THIS moment. Examples of how to
+     weigh:
+       * Evening + a half-watched comedy & a half-watched horror →
+         comedy first if the profile leans light, horror first if
+         the profile leans dark.
+       * High `progressRatio` (>0.6) items that match the current
+         mood should be promoted — they're 30 min from feeling
+         finished.
+       * `daysSinceLastWatch >= 7` items drop because the user
+         likely doesn't remember where they were.
+       * Items in `avoidedCategories` from TASTE_PROFILE go to the
+         bottom regardless of how recently they were touched.
+  3. If TASTE_PROFILE.isColdStart=true OR you can't find a clear
+     ordering signal, return the items in the same order they
+     came in — you're being asked to *improve*, not to invent
+     reasoning from nothing.
+
+Output strict JSON:
+  {"order":[<int>,<int>,...]}.
+''';
+
+    final userTurn = 'ITEMS: ${jsonEncode(items)}\n'
+        'TASTE_PROFILE: ${jsonEncode(tasteProfile)}\n'
+        'TIME_OF_DAY: $timeOfDay';
+
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/$_model:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemPrompt},
+            ],
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': userTurn},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': {
+              'type': 'OBJECT',
+              'properties': {
+                'order': {
+                  'type': 'ARRAY',
+                  'items': {'type': 'INTEGER'},
+                },
+              },
+              'required': ['order'],
+            },
+            'temperature': 0.3, // deterministic-ish — this is a sort
+            'maxOutputTokens': 512,
+          },
+        },
+      );
+      if (res.statusCode != 200 || res.data == null) return null;
+      final candidates = res.data!['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final text = candidates[0]['content']?['parts']?[0]?['text']
+          ?.toString()
+          .trim();
+      if (text == null || text.isEmpty) return null;
+      Map<String, dynamic>? parsed;
+      try {
+        parsed = jsonDecode(text) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('[Gemini] rerankContinueWatching JSON decode failed: $e');
+        return null;
+      }
+      final raw = parsed['order'];
+      if (raw is! List) return null;
+      final order = <int>[];
+      for (final v in raw) {
+        if (v is int) {
+          order.add(v);
+        } else if (v is num) {
+          order.add(v.toInt());
+        }
+      }
+      // Sanity: AI must have returned exactly the same id set.
+      // If not, fall back to the original order — better safe than
+      // surfacing a partial / weird rail.
+      final inputIds =
+          items.map((m) => m['streamId'] as int).toSet();
+      if (order.toSet().difference(inputIds).isNotEmpty ||
+          inputIds.difference(order.toSet()).isNotEmpty) {
+        debugPrint(
+            '[Gemini] rerankContinueWatching: id set mismatch, ignoring');
+        return null;
+      }
+      return order;
+    } catch (e) {
+      debugPrint('[Gemini] rerankContinueWatching failed: $e');
+      return null;
+    }
+  }
+
   /// The hero banner cycles through these and shows the tagline
   /// alongside the title. Unlike [recommendForYou] (a rail of 12)
   /// this is a tight selection — the AI is asked to be choosy. A
@@ -2191,6 +2347,24 @@ lists:
     present, use this as the tie-breaker between equally-good
     candidates. If `isColdStart` is true, the user is new and you
     should lean on critical acclaim rather than their thin signal.
+  * "currentEpisode" — OPTIONAL spoiler hint:
+    `{"title": str, "season": int, "episode": int, "epLabel": str}`.
+    When present, the user IS CURRENTLY WATCHING this show and is
+    AT MOST through the given episode. SPOILER RULES become strict:
+      - You MAY discuss this show in detail up to and including
+        the given episode.
+      - You MUST NOT reveal any plot beat, character fate,
+        reveal, twist, death, or arc that happens AFTER the given
+        episode. Acceptable: "until S1E5 the main mystery is X".
+        NOT acceptable: "the season ends with Y".
+      - If the user asks about a later episode by number ("what
+        happens in S2E10?"), respond with a refusal that respects
+        the spoiler boundary, e.g. "S2E10'a kadar yaşadıklarını
+        bozmadan kalmayı tercih ederim — istersen biraz daha
+        ilerlediğinde tartışırız."
+      - When recommending OTHER shows or films, no spoiler
+        restriction applies — only the title named in
+        `currentEpisode` is locked.
 
 CRITICAL: queryMatches and library together represent what's
 ACTUALLY in the user's catalogue. NEVER say "yok" / "no such

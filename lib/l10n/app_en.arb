@@ -482,5 +482,10 @@
   "playerUpNext": "Up next",
   "playerStartingIn": "starts in",
   "playerCancelAutoplay": "Cancel",
-  "playerPlayNow": "Play now"
+  "playerPlayNow": "Play now",
+  "aiSpoilerShieldTitle": "Spoiler protection",
+  "aiSpoilerShieldDesc": "Pick a series and I'll only discuss it up to where you are — no future reveals.",
+  "aiSpoilerShieldOff": "Spoiler protection off",
+  "aiSpoilerShieldEmpty": "No series in progress. Play an episode, then come back.",
+  "aiSpoilerShieldUpTo": "Up to:"
 }

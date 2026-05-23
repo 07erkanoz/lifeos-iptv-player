@@ -1291,4 +1291,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerPlayNow => 'Смотреть сейчас';
+
+  @override
+  String get aiSpoilerShieldTitle => 'Защита от спойлеров';
+
+  @override
+  String get aiSpoilerShieldDesc =>
+      'Выбери сериал — буду обсуждать только до твоей текущей серии.';
+
+  @override
+  String get aiSpoilerShieldOff => 'Защита выключена';
+
+  @override
+  String get aiSpoilerShieldEmpty =>
+      'Нет сериала в просмотре. Посмотри серию и вернись.';
+
+  @override
+  String get aiSpoilerShieldUpTo => 'До:';
 }

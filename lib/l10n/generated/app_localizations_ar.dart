@@ -1284,4 +1284,21 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get playerPlayNow => 'تشغيل الآن';
+
+  @override
+  String get aiSpoilerShieldTitle => 'حماية من المفسدات';
+
+  @override
+  String get aiSpoilerShieldDesc =>
+      'اختر مسلسلًا — سأتحدث فقط حتى الحلقة التي وصلت إليها.';
+
+  @override
+  String get aiSpoilerShieldOff => 'الحماية معطلة';
+
+  @override
+  String get aiSpoilerShieldEmpty =>
+      'لا توجد مسلسلات قيد المشاهدة. شاهد حلقة ثم عُد.';
+
+  @override
+  String get aiSpoilerShieldUpTo => 'حتى:';
 }

@@ -520,5 +520,10 @@
   "playerUpNext": "Sıradaki bölüm",
   "playerStartingIn": "sn sonra başlıyor",
   "playerCancelAutoplay": "İptal",
-  "playerPlayNow": "Şimdi oynat"
+  "playerPlayNow": "Şimdi oynat",
+  "aiSpoilerShieldTitle": "Spoiler koruması",
+  "aiSpoilerShieldDesc": "Seçili diziyi sadece izlediğin bölüme kadar konuşalım — sonrasını söylemem.",
+  "aiSpoilerShieldOff": "Spoiler koruması kapalı",
+  "aiSpoilerShieldEmpty": "İzlediğin bir dizi yok. Bir bölüm oyna, sonra geri dön.",
+  "aiSpoilerShieldUpTo": "Bu bölüme kadar:"
 }

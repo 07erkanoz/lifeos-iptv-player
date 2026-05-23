@@ -520,5 +520,10 @@
   "playerUpNext": "Далее",
   "playerStartingIn": "начинается через",
   "playerCancelAutoplay": "Отмена",
-  "playerPlayNow": "Смотреть сейчас"
+  "playerPlayNow": "Смотреть сейчас",
+  "aiSpoilerShieldTitle": "Защита от спойлеров",
+  "aiSpoilerShieldDesc": "Выбери сериал — буду обсуждать только до твоей текущей серии.",
+  "aiSpoilerShieldOff": "Защита выключена",
+  "aiSpoilerShieldEmpty": "Нет сериала в просмотре. Посмотри серию и вернись.",
+  "aiSpoilerShieldUpTo": "До:"
 }

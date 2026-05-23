@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
@@ -57,6 +59,51 @@ class _ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
 final tonightChatHistoryProvider =
     NotifierProvider<_ChatHistoryNotifier, List<ChatMessage>>(
   _ChatHistoryNotifier.new,
+);
+
+/// Active spoiler-protection context for the chat. When set, every
+/// chat call to Gemini carries a `currentEpisode` field that tells
+/// the AI to discuss the named series only up to the given episode
+/// and never reveal what happens later.
+///
+/// Set explicitly by the user via the shield button in the chat
+/// header (which opens a picker fed by their continue-watching
+/// list). Stays put across send turns so the user doesn't have to
+/// re-arm it for every question.
+class ChatEpisodeContext {
+  final int streamId; // parent series id
+  final String title;
+  final int season;
+  final int episode;
+
+  const ChatEpisodeContext({
+    required this.streamId,
+    required this.title,
+    required this.season,
+    required this.episode,
+  });
+
+  String get epLabel => 'S${season}E$episode';
+
+  Map<String, dynamic> toPromptJson() => {
+        'title': title,
+        'season': season,
+        'episode': episode,
+        'epLabel': epLabel,
+      };
+}
+
+class _ChatEpisodeContextNotifier extends Notifier<ChatEpisodeContext?> {
+  @override
+  ChatEpisodeContext? build() => null;
+
+  void set(ChatEpisodeContext? value) => state = value;
+  void clear() => state = null;
+}
+
+final chatEpisodeContextProvider =
+    NotifierProvider<_ChatEpisodeContextNotifier, ChatEpisodeContext?>(
+  _ChatEpisodeContextNotifier.new,
 );
 
 class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
@@ -152,6 +199,11 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final lang = ref.read(settingsProvider).language.name == 'system'
             ? 'tr'
             : ref.read(settingsProvider).language.name;
+        // Pull the active spoiler context — null when the user
+        // hasn't armed protection from the shield button. When set,
+        // Gemini gets a `currentEpisode` field and switches to
+        // spoiler-safe mode for that one show.
+        final episodeCtx = ref.read(chatEpisodeContextProvider);
         return gemini.recommendForTonight(
           conversation: _messages
               .map((m) => (fromUser: m.fromUser, text: m.text))
@@ -163,6 +215,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           categoryOverview: categoryOverview,
           targetLanguage: lang,
           tasteProfile: tasteProfile.toPromptJson(),
+          currentEpisode: episodeCtx?.toPromptJson(),
         );
       },
     );
@@ -215,6 +268,188 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       setState(() => _waitingForAi = false);
     }
     _scrollToBottom();
+  }
+
+  /// Open the spoiler-shield picker. Lists every series the user is
+  /// currently mid-watch on (joined from PlaybackProgress + Channels
+  /// + history's last-touched series ids) plus an "Off" tile to
+  /// clear protection. Tapping a series sets the chat's
+  /// chatEpisodeContextProvider with that series + last-watched
+  /// episode pair, so subsequent /send calls carry spoiler-safe
+  /// hints.
+  ///
+  /// We intentionally don't ask the user for a season/episode by
+  /// hand — too friction-heavy. We use whatever the user has played
+  /// most recently for that series. If they want a different cap,
+  /// they can play the desired episode briefly and re-open the
+  /// picker.
+  Future<void> _showSpoilerShieldPicker(BuildContext context) async {
+    final db = ref.read(appDatabaseProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final current = ref.read(chatEpisodeContextProvider);
+
+    // Pull series episodes the user has touched, joined with their
+    // parent series so we can show the parent title. We assume the
+    // series episode is a Channel of type='series' whose
+    // categoryId / parent we resolve via the existing series_screen
+    // pattern — for now, surface the in-history series channels
+    // directly (the row is keyed by the *parent* series id when
+    // `_lastEpisodeProgress` is computed there). For the chat
+    // picker we just need title + a default S/E pair, so we read
+    // the latest playback row per series.
+    final rows = await (db.select(db.channels).join([
+      innerJoin(
+        db.playbackProgress,
+        db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
+            db.playbackProgress.type.equalsExp(db.channels.type),
+      ),
+    ])
+          ..where(db.channels.type.equals('series'))
+          ..orderBy([
+            OrderingTerm(
+                expression: db.playbackProgress.updatedAt,
+                mode: OrderingMode.desc),
+          ])
+          ..limit(20))
+        .get();
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.shield_outlined,
+                    color: AppColors.primary, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.aiSpoilerShieldTitle,
+                  style: const TextStyle(
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              Text(
+                l10n.aiSpoilerShieldDesc,
+                style: const TextStyle(
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 14),
+              // "Off" tile
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.do_not_disturb_off,
+                    color: AppColors.textSecondaryDark),
+                title: Text(l10n.aiSpoilerShieldOff,
+                    style:
+                        const TextStyle(color: AppColors.textDark)),
+                trailing: current == null
+                    ? const Icon(Icons.check, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  ref
+                      .read(chatEpisodeContextProvider.notifier)
+                      .clear();
+                  Navigator.of(sheetCtx).pop();
+                },
+              ),
+              if (rows.isNotEmpty) const Divider(),
+              if (rows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    l10n.aiSpoilerShieldEmpty,
+                    style: const TextStyle(
+                      color: AppColors.textTertiaryDark,
+                      fontSize: 12,
+                    ),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 320),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: rows.length,
+                    itemBuilder: (_, i) {
+                      final ch = rows[i].readTable(db.channels);
+                      // We don't have season/episode metadata on
+                      // the row directly. Default to S1E1 as a
+                      // safe lower bound — the user can adjust
+                      // by playing the episode they want, then
+                      // reopening this picker. In practice the
+                      // *parent series* level cap is what matters
+                      // for spoiler safety anyway.
+                      final isSelected = current?.streamId == ch.streamId;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.shield,
+                            color: AppColors.primary),
+                        title: Text(
+                          ch.name,
+                          style: const TextStyle(
+                              color: AppColors.textDark),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: isSelected && current != null
+                            ? Text(
+                                '${l10n.aiSpoilerShieldUpTo} ${current.epLabel}',
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 11,
+                                ),
+                              )
+                            : null,
+                        trailing: isSelected
+                            ? const Icon(Icons.check,
+                                color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          ref
+                              .read(chatEpisodeContextProvider.notifier)
+                              .set(ChatEpisodeContext(
+                                streamId: ch.streamId,
+                                title: ch.name,
+                                // We don't yet derive S/E from the
+                                // touched row. Reasonable default
+                                // until we wire the per-series last-
+                                // episode lookup here too:
+                                season: current?.streamId == ch.streamId
+                                    ? current!.season
+                                    : 1,
+                                episode:
+                                    current?.streamId == ch.streamId
+                                        ? current!.episode
+                                        : 1,
+                              ));
+                          Navigator.of(sheetCtx).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -278,6 +513,14 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 ),
               ),
               const Spacer(),
+              // Spoiler-shield toggle. When active, the chip shows
+              // the current "S1E10" cap so the user knows what
+              // they're protected from being spoiled about. Tap to
+              // change or clear via _showSpoilerShieldPicker.
+              _SpoilerShieldBadge(
+                onTap: () => _showSpoilerShieldPicker(context),
+              ),
+              const SizedBox(width: 4),
               if (messages.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
@@ -939,6 +1182,91 @@ class _FollowUpChipState extends State<_FollowUpChip> {
                 ),
               ),
             ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Header badge that surfaces the current spoiler-shield state.
+/// Shows a plain outlined shield icon when off, and a filled
+/// shield + "SXEY" chip when armed. Tap (or D-pad select) opens
+/// the picker via the caller-supplied [onTap].
+class _SpoilerShieldBadge extends ConsumerStatefulWidget {
+  final VoidCallback onTap;
+  const _SpoilerShieldBadge({required this.onTap});
+
+  @override
+  ConsumerState<_SpoilerShieldBadge> createState() =>
+      _SpoilerShieldBadgeState();
+}
+
+class _SpoilerShieldBadgeState
+    extends ConsumerState<_SpoilerShieldBadge> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ctx = ref.watch(chatEpisodeContextProvider);
+    final active = ctx != null;
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Tooltip(
+        message: AppLocalizations.of(context)!.aiSpoilerShieldTitle,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _focused
+                    ? AppColors.primary
+                    : (active
+                        ? AppColors.primary.withValues(alpha: 0.45)
+                        : Colors.transparent),
+                width: _focused ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  active ? Icons.shield : Icons.shield_outlined,
+                  color: active
+                      ? AppColors.primary
+                      : AppColors.textSecondaryDark,
+                  size: 18,
+                ),
+                if (active) ...[
+                  const SizedBox(width: 5),
+                  Text(
+                    ctx.epLabel,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

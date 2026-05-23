@@ -1289,4 +1289,21 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get playerPlayNow => 'Niha lêxe';
+
+  @override
+  String get aiSpoilerShieldTitle => 'Parastina spoîler';
+
+  @override
+  String get aiSpoilerShieldDesc =>
+      'Rêzefîlmek hilbijêre — ez tenê heta beşa te axiftim, ne pê de.';
+
+  @override
+  String get aiSpoilerShieldOff => 'Parastin nedaye';
+
+  @override
+  String get aiSpoilerShieldEmpty =>
+      'Tu rêzefîlmên temaşekirî tune. Beşekê lê bide, paşê vegere.';
+
+  @override
+  String get aiSpoilerShieldUpTo => 'Heta:';
 }

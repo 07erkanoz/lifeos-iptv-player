@@ -1288,4 +1288,21 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get playerPlayNow => 'Şimdi oynat';
+
+  @override
+  String get aiSpoilerShieldTitle => 'Spoiler koruması';
+
+  @override
+  String get aiSpoilerShieldDesc =>
+      'Seçili diziyi sadece izlediğin bölüme kadar konuşalım — sonrasını söylemem.';
+
+  @override
+  String get aiSpoilerShieldOff => 'Spoiler koruması kapalı';
+
+  @override
+  String get aiSpoilerShieldEmpty =>
+      'İzlediğin bir dizi yok. Bir bölüm oyna, sonra geri dön.';
+
+  @override
+  String get aiSpoilerShieldUpTo => 'Bu bölüme kadar:';
 }

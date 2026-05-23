@@ -35,10 +35,27 @@ class SeriesRecapInline extends ConsumerStatefulWidget {
   /// The recap covers everything strictly before this episode.
   final String nextEpisodeLabel;
 
+  /// Auto-fetch and expand on mount instead of waiting for a tap.
+  ///
+  /// Caller sets this true when the user has been away from this
+  /// series for a long time (default threshold: 7 days). The pre-
+  /// play "Son izlemende olanlar" auto-pause flow uses this to nudge
+  /// the user with a summary the moment they open the detail page.
+  /// When false (the default), the user has to tap to expand —
+  /// keeps the surface quiet for someone bingeing daily.
+  final bool autoExpand;
+
+  /// Optional hint string shown above the expand link when
+  /// [autoExpand] is true, e.g. "Son izlemenden 12 gün geçti".
+  /// Caller computes from [PlaybackProgress.updatedAt].
+  final String? autoExpandHint;
+
   const SeriesRecapInline({
     super.key,
     required this.series,
     required this.nextEpisodeLabel,
+    this.autoExpand = false,
+    this.autoExpandHint,
   });
 
   @override
@@ -109,6 +126,22 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-pause behaviour — if the caller flagged this as a "long
+    // time since last watched" situation, fetch + expand the recap
+    // automatically so the user sees what happened before they
+    // click play. Wrapped in a post-frame so we don't fire inside
+    // build (Riverpod will throw if we touch providers too early).
+    if (widget.autoExpand) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _fetchRecap();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final hasAiKey = ref.watch(settingsProvider).hasAiKey;
     if (!hasAiKey || widget.nextEpisodeLabel.trim().isEmpty) {
@@ -166,6 +199,23 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
                 ),
               ),
             ]),
+            // Auto-expand hint — caller passes a "N gün önce
+            // izledin" string when the user is returning to a
+            // series they haven't touched in a while, justifying
+            // why we proactively opened the recap.
+            if (widget.autoExpand &&
+                widget.autoExpandHint != null &&
+                widget.autoExpandHint!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                widget.autoExpandHint!,
+                style: TextStyle(
+                  color: AppColors.primary.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             if (_loading)
               Row(mainAxisSize: MainAxisSize.min, children: [

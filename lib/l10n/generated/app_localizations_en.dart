@@ -1289,4 +1289,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerPlayNow => 'Play now';
+
+  @override
+  String get aiSpoilerShieldTitle => 'Spoiler protection';
+
+  @override
+  String get aiSpoilerShieldDesc =>
+      'Pick a series and I\'ll only discuss it up to where you are — no future reveals.';
+
+  @override
+  String get aiSpoilerShieldOff => 'Spoiler protection off';
+
+  @override
+  String get aiSpoilerShieldEmpty =>
+      'No series in progress. Play an episode, then come back.';
+
+  @override
+  String get aiSpoilerShieldUpTo => 'Up to:';
 }

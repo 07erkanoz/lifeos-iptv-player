@@ -520,5 +520,10 @@
   "playerUpNext": "A continuación",
   "playerStartingIn": "empieza en",
   "playerCancelAutoplay": "Cancelar",
-  "playerPlayNow": "Reproducir ahora"
+  "playerPlayNow": "Reproducir ahora",
+  "aiSpoilerShieldTitle": "Protección contra spoilers",
+  "aiSpoilerShieldDesc": "Elige una serie — solo hablaré hasta el episodio donde estás.",
+  "aiSpoilerShieldOff": "Protección desactivada",
+  "aiSpoilerShieldEmpty": "No tienes ninguna serie en curso. Mira un episodio y vuelve.",
+  "aiSpoilerShieldUpTo": "Hasta:"
 }

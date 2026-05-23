@@ -2545,6 +2545,36 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Şimdi oynat'**
   String get playerPlayNow;
+
+  /// No description provided for @aiSpoilerShieldTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Spoiler koruması'**
+  String get aiSpoilerShieldTitle;
+
+  /// No description provided for @aiSpoilerShieldDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Seçili diziyi sadece izlediğin bölüme kadar konuşalım — sonrasını söylemem.'**
+  String get aiSpoilerShieldDesc;
+
+  /// No description provided for @aiSpoilerShieldOff.
+  ///
+  /// In tr, this message translates to:
+  /// **'Spoiler koruması kapalı'**
+  String get aiSpoilerShieldOff;
+
+  /// No description provided for @aiSpoilerShieldEmpty.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzlediğin bir dizi yok. Bir bölüm oyna, sonra geri dön.'**
+  String get aiSpoilerShieldEmpty;
+
+  /// No description provided for @aiSpoilerShieldUpTo.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu bölüme kadar:'**
+  String get aiSpoilerShieldUpTo;
 }
 
 class _AppLocalizationsDelegate

@@ -520,5 +520,10 @@
   "playerUpNext": "Als Nächstes",
   "playerStartingIn": "Sek",
   "playerCancelAutoplay": "Abbrechen",
-  "playerPlayNow": "Jetzt abspielen"
+  "playerPlayNow": "Jetzt abspielen",
+  "aiSpoilerShieldTitle": "Spoiler-Schutz",
+  "aiSpoilerShieldDesc": "Wähle eine Serie — ich rede nur bis zu deiner aktuellen Folge, keine Spoiler.",
+  "aiSpoilerShieldOff": "Spoiler-Schutz aus",
+  "aiSpoilerShieldEmpty": "Keine Serie in Wiedergabe. Schau eine Folge und komm zurück.",
+  "aiSpoilerShieldUpTo": "Bis:"
 }

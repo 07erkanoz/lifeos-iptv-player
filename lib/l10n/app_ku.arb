@@ -520,5 +520,10 @@
   "playerUpNext": "Ya pêşwext",
   "playerStartingIn": "çirke şûnde dest pê dike",
   "playerCancelAutoplay": "Bişopîne",
-  "playerPlayNow": "Niha lêxe"
+  "playerPlayNow": "Niha lêxe",
+  "aiSpoilerShieldTitle": "Parastina spoîler",
+  "aiSpoilerShieldDesc": "Rêzefîlmek hilbijêre — ez tenê heta beşa te axiftim, ne pê de.",
+  "aiSpoilerShieldOff": "Parastin nedaye",
+  "aiSpoilerShieldEmpty": "Tu rêzefîlmên temaşekirî tune. Beşekê lê bide, paşê vegere.",
+  "aiSpoilerShieldUpTo": "Heta:"
 }

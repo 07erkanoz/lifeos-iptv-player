@@ -520,5 +520,10 @@
   "playerUpNext": "التالي",
   "playerStartingIn": "يبدأ خلال",
   "playerCancelAutoplay": "إلغاء",
-  "playerPlayNow": "تشغيل الآن"
+  "playerPlayNow": "تشغيل الآن",
+  "aiSpoilerShieldTitle": "حماية من المفسدات",
+  "aiSpoilerShieldDesc": "اختر مسلسلًا — سأتحدث فقط حتى الحلقة التي وصلت إليها.",
+  "aiSpoilerShieldOff": "الحماية معطلة",
+  "aiSpoilerShieldEmpty": "لا توجد مسلسلات قيد المشاهدة. شاهد حلقة ثم عُد.",
+  "aiSpoilerShieldUpTo": "حتى:"
 }

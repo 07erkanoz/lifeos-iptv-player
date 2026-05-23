@@ -1992,11 +1992,32 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   // the action buttons and the plot so
                                   // it's discoverable without screaming.
                                   if (_lastEpisodeProgress != null &&
-                                      _lastEpisodeLabel.isNotEmpty)
-                                    SeriesRecapInline(
-                                      series: ch,
-                                      nextEpisodeLabel: _lastEpisodeLabel,
-                                    ),
+                                      _lastEpisodeLabel.isNotEmpty) ...[
+                                    // Auto-expand the recap when the
+                                    // user has been away from this
+                                    // series for a week or more — the
+                                    // "Episode summary auto-pause"
+                                    // surface from Sprint 1c. The
+                                    // user sees a refreshed catch-up
+                                    // automatically rather than
+                                    // having to hunt for the link.
+                                    Builder(builder: (_) {
+                                      final daysAway = DateTime.now()
+                                          .difference(_lastEpisodeProgress!
+                                              .updatedAt)
+                                          .inDays;
+                                      final isStale = daysAway >= 7;
+                                      return SeriesRecapInline(
+                                        series: ch,
+                                        nextEpisodeLabel:
+                                            _lastEpisodeLabel,
+                                        autoExpand: isStale,
+                                        autoExpandHint: isStale
+                                            ? 'Son izlemenden $daysAway gün geçti — kaldığın yeri hatırlatayım.'
+                                            : null,
+                                      );
+                                    }),
+                                  ],
                                   const SizedBox(height: 24),
                                   // Plot (max-width constrained for readability).
                                   // AI-aware wrapper — pixel-identical to

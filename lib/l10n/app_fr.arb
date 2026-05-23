@@ -520,5 +520,10 @@
   "playerUpNext": "À suivre",
   "playerStartingIn": "démarre dans",
   "playerCancelAutoplay": "Annuler",
-  "playerPlayNow": "Lire maintenant"
+  "playerPlayNow": "Lire maintenant",
+  "aiSpoilerShieldTitle": "Protection anti-spoiler",
+  "aiSpoilerShieldDesc": "Choisis une série — je n'irai pas plus loin que ton dernier épisode.",
+  "aiSpoilerShieldOff": "Protection désactivée",
+  "aiSpoilerShieldEmpty": "Aucune série en cours. Lance un épisode et reviens.",
+  "aiSpoilerShieldUpTo": "Jusqu'à :"
 }
