@@ -97,6 +97,17 @@ class _HeroBannerState extends State<HeroBanner> {
   Timer? _trailerScheduleTimer;
   int _trailerRequestId = 0; // bumped on every change to invalidate stale requests
   bool _trailerVisible = false;
+  /// Cached resolved stream URL for the currently-playing preview.
+  /// When the user taps the trailer to expand into the Netflix-style
+  /// fullscreen viewer, we hand this URL to a fresh sound-enabled
+  /// Player rather than transferring the muted preview's instance —
+  /// avoids media_kit state-contamination when two `Video` widgets
+  /// race over the same controller during the modal animation.
+  String? _trailerStreamUrl;
+  /// True while the expanded fullscreen trailer route is on-screen.
+  /// Auto-slide is suppressed in this window so the title doesn't
+  /// rotate out from underneath the user mid-trailer.
+  bool _trailerExpanded = false;
 
   bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
 
@@ -200,12 +211,15 @@ class _HeroBannerState extends State<HeroBanner> {
     _autoSlideTimer?.cancel();
     if (widget.channels.length > 1) {
       _autoSlideTimer = Timer.periodic(const Duration(seconds: 12), (_) {
-        if (mounted) {
-          final newIndex = (_currentIndex + 1) % widget.channels.length;
-          setState(() => _currentIndex = newIndex);
-          widget.onItemChanged?.call(widget.channels[newIndex]);
-          _scheduleTrailer(widget.channels[newIndex]);
-        }
+        if (!mounted) return;
+        // Don't rotate while the user is watching the expanded trailer
+        // — would yank the title out from under them. The timer keeps
+        // ticking but each fire is a no-op until the modal closes.
+        if (_trailerExpanded) return;
+        final newIndex = (_currentIndex + 1) % widget.channels.length;
+        setState(() => _currentIndex = newIndex);
+        widget.onItemChanged?.call(widget.channels[newIndex]);
+        _scheduleTrailer(widget.channels[newIndex]);
       });
     }
   }
@@ -231,7 +245,10 @@ class _HeroBannerState extends State<HeroBanner> {
   void _scheduleTrailer(Channel channel) {
     _trailerScheduleTimer?.cancel();
     _disposeTrailerPlayer();
-    setState(() => _trailerVisible = false);
+    setState(() {
+      _trailerVisible = false;
+      _trailerStreamUrl = null;
+    });
 
     // Live channels don't have trailers; mobile is too small / data
     // sensitive to autoplay, skip there too. TV is skipped because
@@ -295,7 +312,53 @@ class _HeroBannerState extends State<HeroBanner> {
       _trailerPlayer = player;
       _trailerController = controller;
       _trailerVisible = true;
+      _trailerStreamUrl = streamUrl;
     });
+  }
+
+  /// Suspend / resume the muted hero preview while the expanded
+  /// fullscreen trailer modal is showing. We pause the preview's
+  /// libmpv decoder while the modal is up — running two libmpv
+  /// instances on the same stream simultaneously is technically OK
+  /// but burns CPU on lower-end Android TV / desktop boxes for no
+  /// visible gain (the preview is fully covered by the modal).
+  void _pausePreviewForExpand() {
+    _autoSlideTimer?.cancel();
+    _trailerPlayer?.pause();
+  }
+
+  void _resumePreviewAfterExpand() {
+    _trailerPlayer?.play();
+    _startAutoSlide();
+  }
+
+  /// Open the Netflix-style fullscreen trailer viewer. Triggered by
+  /// tapping the muted preview region of the hero (everything that
+  /// isn't the title / button / chip block in the lower-left). Falls
+  /// back to the existing external-browser launch via `widget
+  /// .onTrailer` when no in-app stream is ready yet (e.g. the user
+  /// tapped before extraction finished, or extraction failed and we
+  /// only have a YouTube URL).
+  Future<void> _openTrailerExpanded(Channel channel) async {
+    final url = _trailerStreamUrl;
+    if (url == null || url.isEmpty) {
+      // No in-app stream → defer to the existing external-trailer
+      // path so the user still gets *some* trailer experience.
+      widget.onTrailer?.call(channel);
+      return;
+    }
+    setState(() => _trailerExpanded = true);
+    _pausePreviewForExpand();
+    try {
+      await Navigator.of(context, rootNavigator: true).push(
+        _TrailerFullscreenRoute(streamUrl: url, title: channel.name),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _trailerExpanded = false);
+        _resumePreviewAfterExpand();
+      }
+    }
   }
 
   void _disposeTrailerPlayer() {
@@ -385,6 +448,74 @@ class _HeroBannerState extends State<HeroBanner> {
                 fill: Colors.black,
                 controls: NoVideoControls,
                 fit: BoxFit.cover,
+              ),
+            ),
+
+          // ── Tap-to-expand layer ──
+          // Sits ABOVE the muted preview but BELOW the content overlay
+          // (badges / title / buttons / dots — those come later in the
+          // Stack and shadow this). MouseRegion adds a hover cue on
+          // desktop; the cue badge in the top-right shows "ses kapalı,
+          // izlemek için dokun" — same affordance Netflix uses.
+          if (_trailerVisible && _trailerStreamUrl != null)
+            Positioned.fill(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => _openTrailerExpanded(channel),
+                  child: Stack(
+                    children: [
+                      // Top-right hint badge — "Fragmanı sesli izle"
+                      // affordance so users know the preview is
+                      // interactive. Auto-hides when the badge would
+                      // overlap a narrow viewport (mobile branch
+                      // already skips trailers entirely so this only
+                      // shows on desktop / TV).
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: IgnorePointer(
+                          child: AnimatedOpacity(
+                            opacity: _trailerVisible ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 400),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.18)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.volume_off_rounded,
+                                    size: 14,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    l10n.watchTrailer,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
@@ -822,6 +953,203 @@ class _HeroButtonState extends State<_HeroButton> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Fullscreen trailer viewer
+//
+// Pushed by [_HeroBannerState._openTrailerExpanded] when the user taps
+// the muted preview. Opens with a custom transition so the trailer
+// scales up from the hero region rather than slide-from-bottom — keeps
+// the Netflix tap-to-expand affordance crisp.
+//
+// The route owns its OWN Player instance (not the hero preview's) so
+// the preview can stay alive and resume cleanly on dismiss. Audio is
+// unmuted, controls use media_kit's stock material set, and Esc /
+// back / X all dismiss.
+// ──────────────────────────────────────────────────────────────────────
+
+class _TrailerFullscreenRoute<T> extends PageRoute<T> {
+  _TrailerFullscreenRoute({required this.streamUrl, required this.title});
+
+  final String streamUrl;
+  final String title;
+
+  @override
+  Color? get barrierColor => Colors.black;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => false;
+
+  @override
+  bool get opaque => true;
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 280);
+
+  @override
+  Widget buildPage(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation) {
+    return _TrailerFullscreenView(streamUrl: streamUrl, title: title);
+  }
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
+    // Fade-and-zoom: starts at 92% scale + 0 opacity, ends at 100% /
+    // full opaque. Mimics the YouTube tap-to-fullscreen zoom — subtle
+    // enough not to nauseate but visible enough to read as "the
+    // preview just became the experience".
+    final fade = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final scale = Tween<double>(begin: 0.92, end: 1.0).animate(fade);
+    return FadeTransition(
+      opacity: fade,
+      child: ScaleTransition(scale: scale, child: child),
+    );
+  }
+}
+
+class _TrailerFullscreenView extends StatefulWidget {
+  const _TrailerFullscreenView({required this.streamUrl, required this.title});
+
+  final String streamUrl;
+  final String title;
+
+  @override
+  State<_TrailerFullscreenView> createState() => _TrailerFullscreenViewState();
+}
+
+class _TrailerFullscreenViewState extends State<_TrailerFullscreenView> {
+  late final Player _player;
+  late final VideoController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = Player();
+    _controller = VideoController(_player);
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      // Full volume; the preview was muted by design but the expanded
+      // experience is meant to be the actual trailer with audio.
+      await _player.setVolume(100);
+      await _player.setPlaylistMode(PlaylistMode.loop);
+      await _player.open(Media(widget.streamUrl), play: true);
+    } catch (_) {
+      // Open failed — close immediately so the user doesn't sit
+      // staring at a black screen.
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
+    if (mounted) setState(() => _ready = true);
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Esc / back closes the route. CallbackShortcuts is the cheapest
+    // way to bind Esc on desktop without pulling in a Focus tree.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.of(context).maybePop(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              // Trailer video — Material controls (play/pause, seek,
+              // volume, time). media_kit's stock controls are good
+              // enough that we don't need a bespoke skin for an
+              // ephemeral preview.
+              Positioned.fill(
+                child: _ready
+                    ? Video(
+                        controller: _controller,
+                        fit: BoxFit.contain,
+                        controls: AdaptiveVideoControls,
+                      )
+                    : const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+              ),
+
+              // Title strip — small subtle label so the user knows
+              // which trailer they're watching even after the
+              // controls auto-hide.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 80, 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.65),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Close button — top-right, large hit target. Mirrors
+              // the position of the "Fragmanı izle" badge so the eye
+              // returns to where the action started.
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(Icons.close, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
