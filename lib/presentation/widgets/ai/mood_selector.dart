@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -519,60 +520,82 @@ class _MoodFeedbackButton extends StatelessWidget {
 /// profile list. The user multi-selects 2+ profiles; on save the
 /// taste profile aggregates over them and downstream rails
 /// (mood / Sana Özel / hero) all rebuild against the new signal.
-class _GroupModeChip extends ConsumerWidget {
+class _GroupModeChip extends ConsumerStatefulWidget {
   const _GroupModeChip();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_GroupModeChip> createState() => _GroupModeChipState();
+}
+
+class _GroupModeChipState extends ConsumerState<_GroupModeChip> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
     final group = ref.watch(groupModeProfileIdsProvider);
     final active = group.length >= 2;
     final l10n = AppLocalizations.of(context)!;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _GroupModePickerSheet.show(context),
-      onLongPress: active
-          ? () => ref.read(groupModeProfileIdsProvider.notifier).clear()
-          : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.primary.withValues(alpha: 0.18)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: active
-                ? AppColors.primary
-                : AppColors.borderDark,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              active ? Icons.groups : Icons.groups_outlined,
-              size: 14,
-              color: active
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          _GroupModePickerSheet.show(context);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _GroupModePickerSheet.show(context),
+        onLongPress: active
+            ? () =>
+                ref.read(groupModeProfileIdsProvider.notifier).clear()
+            : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: active || _focused
+                ? AppColors.primary.withValues(alpha: 0.18)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _focused
                   ? AppColors.primary
-                  : AppColors.textSecondaryDark,
+                  : active
+                      ? AppColors.primary
+                      : AppColors.borderDark,
+              width: _focused ? 2 : 1,
             ),
-            const SizedBox(width: 4),
-            Text(
-              active
-                  ? '${group.length} ${l10n.profileGroupShort}'
-                  : l10n.profileGroupMode,
-              style: TextStyle(
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                active ? Icons.groups : Icons.groups_outlined,
+                size: 14,
                 color: active
                     ? AppColors.primary
                     : AppColors.textSecondaryDark,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Text(
+                active
+                    ? '${group.length} ${l10n.profileGroupShort}'
+                    : l10n.profileGroupMode,
+                style: TextStyle(
+                  color: active
+                      ? AppColors.primary
+                      : AppColors.textSecondaryDark,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

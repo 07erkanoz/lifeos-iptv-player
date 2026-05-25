@@ -643,6 +643,11 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 ),
                 const SizedBox(width: 8),
                 FloatingActionButton.small(
+                  // Explicit heroTag — voice mic FAB shares the row
+                  // and already declares 'voice-input-fab'. Without
+                  // a unique tag here Flutter raises a hero conflict
+                  // assertion when both render simultaneously.
+                  heroTag: 'chat-send-fab',
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,

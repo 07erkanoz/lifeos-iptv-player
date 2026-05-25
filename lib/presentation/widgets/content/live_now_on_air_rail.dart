@@ -101,6 +101,12 @@ class LiveNowOnAirRail extends ConsumerWidget {
                   separatorBuilder: (_, _) =>
                       const SizedBox(width: 10),
                   itemBuilder: (_, i) {
+                    // Don't autofocus the first card on every paint
+                    // — that would steal focus from elsewhere on the
+                    // dashboard during periodic minute-tick rebuilds.
+                    // Initial focus is up to TvFocusRegistry; once
+                    // the rail is in scope the user can D-pad onto
+                    // it like any other card.
                     return _NowOnAirCard(
                       channel: rows[i].channel,
                       program: rows[i].program,
