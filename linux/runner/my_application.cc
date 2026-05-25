@@ -25,11 +25,17 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Desktop chrome is rendered in Flutter so Linux should use an undecorated
-  // native window. This avoids the extra GTK title/icon row showing above the
-  // custom title bar.
+  // Decoration policy:
+  // We previously set decorated=FALSE so the window had no title row
+  // and the app could render its own chrome. On KDE Plasma Wayland +
+  // AMD, the kwin compositor occasionally still composites its own
+  // SSD on top of the undecorated surface (xdg_decoration_v1
+  // "Force SSD" heuristic), producing a mismatched / flashing border
+  // strip. Letting the host compositor own the decoration is the
+  // safest cross-distro behaviour — KDE Breeze paints a clean title
+  // bar, GNOME/Mutter draws its own, no extra strip on top.
   gtk_window_set_title(window, "LifeOs TV");
-  gtk_window_set_decorated(window, FALSE);
+  gtk_window_set_decorated(window, TRUE);
   gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
 
   GdkScreen* screen = gtk_widget_get_screen(GTK_WIDGET(window));
