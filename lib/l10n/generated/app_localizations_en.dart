@@ -1401,4 +1401,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Hide the system status bar so content fills the whole screen.';
+
+  @override
+  String get heroTrailerOnMobile => 'Play hero trailer';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Autoplay the muted YouTube trailer behind the dashboard hero. Costly on mobile data; off by default.';
 }

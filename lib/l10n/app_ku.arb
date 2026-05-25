@@ -561,5 +561,7 @@
   "voiceListening": "Guhdarî dikim…",
   "voiceTapToSpeak": "Mîkrofonê bike û biaxive",
   "fullscreenMode": "Moda dîmender tijî",
-  "fullscreenModeDesc": "Darikê rewşê veşêre, naverok hemû dîmenderê dagire."
+  "fullscreenModeDesc": "Darikê rewşê veşêre, naverok hemû dîmenderê dagire.",
+  "heroTrailerOnMobile": "Fragmana hero bilîze",
+  "heroTrailerOnMobileDesc": "Fragmana YouTube ya bêdeng a li paş hero ya dashboardê otomatîk bilîze. Bi daneya mobîl giran e; bi xwerû girtî ye."
 }

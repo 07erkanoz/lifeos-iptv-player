@@ -561,5 +561,7 @@
   "voiceListening": "Dinliyorum…",
   "voiceTapToSpeak": "Mikrofona dokun ve konuş",
   "fullscreenMode": "Tam ekran modu",
-  "fullscreenModeDesc": "Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın."
+  "fullscreenModeDesc": "Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.",
+  "heroTrailerOnMobile": "Anasayfa fragmanını oynat",
+  "heroTrailerOnMobileDesc": "Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı."
 }

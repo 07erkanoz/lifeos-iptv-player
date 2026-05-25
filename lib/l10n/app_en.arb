@@ -523,5 +523,7 @@
   "voiceListening": "Listening…",
   "voiceTapToSpeak": "Tap the mic and speak",
   "fullscreenMode": "Fullscreen mode",
-  "fullscreenModeDesc": "Hide the system status bar so content fills the whole screen."
+  "fullscreenModeDesc": "Hide the system status bar so content fills the whole screen.",
+  "heroTrailerOnMobile": "Play hero trailer",
+  "heroTrailerOnMobileDesc": "Autoplay the muted YouTube trailer behind the dashboard hero. Costly on mobile data; off by default."
 }

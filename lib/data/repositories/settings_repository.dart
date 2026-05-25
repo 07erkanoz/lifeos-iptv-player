@@ -38,6 +38,7 @@ class SettingsRepository {
   static const _keyLastSubLang = 'player_last_subtitle_lang';
   static const _keyLastSubTitle = 'player_last_subtitle_title';
   static const _keyFullscreenMode = 'fullscreen_mode';
+  static const _keyHeroTrailerOnMobile = 'hero_trailer_on_mobile';
 
   AppSettings loadSettings() {
     final themeIndex = _prefs.getInt(_keyTheme) ?? 2; // Default dark
@@ -78,6 +79,8 @@ class SettingsRepository {
       lastPlayerSubtitleTitle: _prefs.getString(_keyLastSubTitle),
       defaultAccountId: _prefs.getInt(_keyDefaultAccount),
       fullscreenMode: _prefs.getBool(_keyFullscreenMode) ?? false,
+      heroTrailerOnMobile:
+          _prefs.getBool(_keyHeroTrailerOnMobile) ?? false,
     );
   }
 
@@ -146,6 +149,8 @@ class SettingsRepository {
       await _prefs.setInt(_keyDefaultAccount, settings.defaultAccountId!);
     }
     await _prefs.setBool(_keyFullscreenMode, settings.fullscreenMode);
+    await _prefs.setBool(
+        _keyHeroTrailerOnMobile, settings.heroTrailerOnMobile);
   }
 
   Future<void> setDefaultAccount(int accountId) async {

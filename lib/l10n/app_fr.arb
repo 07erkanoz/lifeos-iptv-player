@@ -561,5 +561,7 @@
   "voiceListening": "J'écoute…",
   "voiceTapToSpeak": "Appuie sur le micro et parle",
   "fullscreenMode": "Mode plein écran",
-  "fullscreenModeDesc": "Masquer la barre d'état pour un contenu plein écran."
+  "fullscreenModeDesc": "Masquer la barre d'état pour un contenu plein écran.",
+  "heroTrailerOnMobile": "Lire la bande-annonce du hero",
+  "heroTrailerOnMobileDesc": "Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut."
 }

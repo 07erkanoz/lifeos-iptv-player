@@ -1403,4 +1403,11 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Скрыть строку состояния, чтобы контент занимал весь экран.';
+
+  @override
+  String get heroTrailerOnMobile => 'Воспроизводить трейлер на главной';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Автоматически воспроизводить беззвучный YouTube-трейлер за главным баннером. Расходует мобильный трафик; по умолчанию выключено.';
 }

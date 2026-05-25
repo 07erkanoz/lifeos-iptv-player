@@ -1400,4 +1400,11 @@ class AppLocalizationsKu extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Darikê rewşê veşêre, naverok hemû dîmenderê dagire.';
+
+  @override
+  String get heroTrailerOnMobile => 'Fragmana hero bilîze';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Fragmana YouTube ya bêdeng a li paş hero ya dashboardê otomatîk bilîze. Bi daneya mobîl giran e; bi xwerû girtî ye.';
 }

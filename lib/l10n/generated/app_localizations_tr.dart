@@ -1399,4 +1399,11 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.';
+
+  @override
+  String get heroTrailerOnMobile => 'Anasayfa fragmanını oynat';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.';
 }

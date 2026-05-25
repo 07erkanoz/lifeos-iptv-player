@@ -2749,6 +2749,18 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.'**
   String get fullscreenModeDesc;
+
+  /// No description provided for @heroTrailerOnMobile.
+  ///
+  /// In tr, this message translates to:
+  /// **'Anasayfa fragmanını oynat'**
+  String get heroTrailerOnMobile;
+
+  /// No description provided for @heroTrailerOnMobileDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.'**
+  String get heroTrailerOnMobileDesc;
 }
 
 class _AppLocalizationsDelegate

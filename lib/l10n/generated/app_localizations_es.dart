@@ -1404,4 +1404,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Ocultar la barra de estado para que el contenido ocupe toda la pantalla.';
+
+  @override
+  String get heroTrailerOnMobile => 'Reproducir tráiler del hero';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Reproduce automáticamente el tráiler de YouTube sin sonido detrás del hero del panel. Costoso con datos móviles; desactivado por defecto.';
 }

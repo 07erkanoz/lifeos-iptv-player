@@ -1414,4 +1414,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Masquer la barre d\'état pour un contenu plein écran.';
+
+  @override
+  String get heroTrailerOnMobile => 'Lire la bande-annonce du hero';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut.';
 }

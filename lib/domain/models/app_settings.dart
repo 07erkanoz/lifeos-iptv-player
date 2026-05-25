@@ -108,6 +108,16 @@ class AppSettings {
   /// SystemChrome.setEnabledSystemUIMode on every settings change.
   final bool fullscreenMode;
 
+  /// Mobile-only opt-in: autoplay the muted hero trailer on the
+  /// dashboard hero billboard on Android phones. Default off because
+  /// each trailer rotation extracts a YouTube stream and decodes
+  /// video in the background — wasteful on metered data and warm on
+  /// the phone. Users who like the desktop billboard vibe can flip
+  /// this on. No-op on desktop / TV (they always show the hero
+  /// trailer when [showTrailer] is true; this flag is only consulted
+  /// on the mobile branch of [_HeroBannerState._scheduleTrailer]).
+  final bool heroTrailerOnMobile;
+
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.system,
@@ -139,6 +149,7 @@ class AppSettings {
     this.lastPlayerSubtitleTitle,
     this.defaultAccountId,
     this.fullscreenMode = false,
+    this.heroTrailerOnMobile = false,
   });
 
   AppSettings copyWith({
@@ -174,6 +185,7 @@ class AppSettings {
     bool clearLastPlayerSubtitleLanguage = false,
     int? defaultAccountId,
     bool? fullscreenMode,
+    bool? heroTrailerOnMobile,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -215,6 +227,8 @@ class AppSettings {
           : (lastPlayerSubtitleTitle ?? this.lastPlayerSubtitleTitle),
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
       fullscreenMode: fullscreenMode ?? this.fullscreenMode,
+      heroTrailerOnMobile:
+          heroTrailerOnMobile ?? this.heroTrailerOnMobile,
     );
   }
 

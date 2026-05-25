@@ -871,6 +871,36 @@ class _PlayerSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
       ),
+      // Mobile-only opt-in: autoplay the muted hero trailer on the
+      // dashboard. Off by default — see [AppSettings.heroTrailerOnMobile]
+      // for the data-cost rationale. Hidden on desktop/TV (their hero
+      // already plays trailers unconditionally, gated only by the
+      // PiP-trailer toggle above).
+      if (PlatformHelper.isMobile) ...[
+        const SizedBox(height: 12),
+        SwitchListTile(
+          title: Text(l10n.heroTrailerOnMobile,
+              style: TextStyle(
+                  color: isDark
+                      ? AppColors.textDark
+                      : AppColors.textLight)),
+          subtitle: Text(
+            l10n.heroTrailerOnMobileDesc,
+            style: const TextStyle(
+                color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.heroTrailerOnMobile,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                  settings.copyWith(heroTrailerOnMobile: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          tileColor:
+              isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+      ],
     ]);
   }
 }

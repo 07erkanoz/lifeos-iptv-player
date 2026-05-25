@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:lifeostv/config/theme.dart';
@@ -10,6 +11,7 @@ import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/youtube_trailer_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 
 /// Data class for hero VOD info (fetched from API)
@@ -35,7 +37,7 @@ class HeroVodInfo {
   });
 }
 
-class HeroBanner extends StatefulWidget {
+class HeroBanner extends ConsumerStatefulWidget {
   final List<Channel> channels;
   final Function(Channel)? onPlay;
   final Function(Channel)? onDetails;
@@ -81,10 +83,10 @@ class HeroBanner extends StatefulWidget {
   });
 
   @override
-  State<HeroBanner> createState() => _HeroBannerState();
+  ConsumerState<HeroBanner> createState() => _HeroBannerState();
 }
 
-class _HeroBannerState extends State<HeroBanner> {
+class _HeroBannerState extends ConsumerState<HeroBanner> {
   int _currentIndex = 0;
   Timer? _autoSlideTimer;
   int _lastChannelCount = 0;
@@ -263,14 +265,18 @@ class _HeroBannerState extends State<HeroBanner> {
       _trailerStreamUrl = null;
     });
 
-    // Live channels don't have trailers; mobile is too small / data
-    // sensitive to autoplay, skip there too. TV is skipped because
+    // Live channels don't have trailers; mobile is data sensitive
+    // so we only autoplay when the user has explicitly opted in via
+    // Settings → "Anasayfa fragmanını oynat". TV is skipped because
     // the hero auto-rotates every 12s and on TV that meant a new
     // YouTube extract + libmpv Player init every cycle — visible
     // jank during D-pad navigation and constant GPU contention with
     // the main IPTV decoder.
     if (channel.type == 'live') return;
-    if (_isMobile(context)) return;
+    if (_isMobile(context) &&
+        !ref.read(settingsProvider).heroTrailerOnMobile) {
+      return;
+    }
     if (PlatformHelper.isTV) return;
 
     final fromApi = widget.vodInfo?.youtubeTrailer;
@@ -416,6 +422,29 @@ class _HeroBannerState extends State<HeroBanner> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mobile = _isMobile(context);
+
+    // React to the mobile-trailer toggle while the hero is on
+    // screen. Without this, the user has to leave the dashboard and
+    // come back before flipping the setting takes effect.
+    ref.listen<bool>(
+      settingsProvider.select((s) => s.heroTrailerOnMobile),
+      (prev, next) {
+        if (!mounted) return;
+        if (!_isMobile(context)) return;
+        if (next) {
+          if (widget.channels.isNotEmpty) {
+            _scheduleTrailer(widget.channels[_currentIndex]);
+          }
+        } else {
+          _trailerScheduleTimer?.cancel();
+          _trailerPlayer?.stop();
+          setState(() {
+            _trailerVisible = false;
+            _trailerStreamUrl = null;
+          });
+        }
+      },
+    );
 
     // Viewport-relative height — see [_heroHeight]. Old code used
     // fixed 200/280 px which looked correct on 720 p windows but

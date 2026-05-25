@@ -1411,4 +1411,11 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'Statusleiste ausblenden, Inhalt füllt den ganzen Bildschirm.';
+
+  @override
+  String get heroTrailerOnMobile => 'Hero-Trailer abspielen';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'Stummen YouTube-Trailer hinter dem Dashboard-Hero automatisch abspielen. Kostspielig im Mobilfunknetz; standardmäßig aus.';
 }

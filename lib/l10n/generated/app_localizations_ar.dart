@@ -1395,4 +1395,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get fullscreenModeDesc =>
       'إخفاء شريط الحالة العلوي حتى يملأ المحتوى الشاشة بالكامل.';
+
+  @override
+  String get heroTrailerOnMobile => 'تشغيل مقطع البطل';
+
+  @override
+  String get heroTrailerOnMobileDesc =>
+      'تشغيل مقطع YouTube الصامت خلف بطل لوحة التحكم تلقائيًا. يستهلك بيانات الجوال؛ متوقف افتراضيًا.';
 }
