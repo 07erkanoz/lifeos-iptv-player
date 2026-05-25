@@ -399,9 +399,13 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     AppLocalizations l10n,
     AsyncValue<List<Category>> categoriesAsync,
   ) {
+    final categories = categoriesAsync.maybeWhen(
+      data: (v) => v,
+      orElse: () => const <Category>[],
+    );
     return Column(
       children: [
-        _buildMobileTopBar(l10n),
+        _buildMobileTopBar(l10n, categories),
         Expanded(
           child: _selectedCategoryId != null
               ? _buildMobileChannelList(l10n)
@@ -411,7 +415,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     );
   }
 
-  Widget _buildMobileTopBar(AppLocalizations l10n) {
+  Widget _buildMobileTopBar(
+      AppLocalizations l10n, List<Category> categories) {
     String categoryLabel;
     IconData categoryIcon;
     if (_selectedCategoryId == _kFavoritesId) {
@@ -424,8 +429,15 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       categoryLabel = l10n.allChannels;
       categoryIcon = Icons.grid_view_rounded;
     } else {
-      categoryLabel = l10n.categories;
-      categoryIcon = Icons.category;
+      // Real category id — look up the actual catalogue name so the
+      // user can see "SPOR HD" instead of a generic "Kategoriler"
+      // label. Falls back to the generic label when the id doesn't
+      // resolve (stale state, mid-sync, etc.).
+      final match = categories
+          .where((c) => c.id == _selectedCategoryId)
+          .firstOrNull;
+      categoryLabel = match?.name ?? l10n.categories;
+      categoryIcon = Icons.tv;
     }
 
     return Container(
