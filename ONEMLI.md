@@ -108,22 +108,46 @@ https://drift.simonbinder.eu/Migrations/api/#complex-migrations
 
 ## 📋 Yapılacaklar (Sıralı)
 
-### Acil (Bir sonraki Drift schema değişikliğinden ÖNCE)
+### ✅ Yapıldı (v1.1.3 — commit `1659475`)
 
-1. **v18 migration'ı yeniden yaz** — `alterTable` + `TableMigration` ile create-copy-drop-rename
-2. **Test**: birden fazla user_version durumu (16, 17, half-applied, v18 zaten) üzerinde manuel test
-3. **Eski idempotent probe fix'i kaldır** veya `from < 18` dalında ayrıca tut
-4. **Schema doğrulama**: `schemaTest` / Drift'in `Schema Migration Verification` pattern'ı
+1. ~~**v18 migration'ı düzelt — create-copy-drop-rename pattern**~~
+   - `_fixCompositePrimaryKeys()` her boot'ta `beforeOpen`'da çalışıyor
+   - 6 per-profile tabloyu (`favorites`, `playback_progress`, `watchlist`,
+     `series_tracking`, `ai_feedback`, `search_history`) PRAGMA `table_info`
+     ile probe ediyor
+   - `profile_id` PK'da değilse (pk=0): tablo `_old_pk` olarak rename →
+     doğru PK ile yeni tablo create → `INSERT … SELECT … FROM …_old_pk` →
+     `DROP …_old_pk` — hepsi tek `transaction { … }` bloğunda
+   - Crash mid-step rollback yapar, half-renamed tablo kalmaz
+   - İdiomatik değil (Drift'in `TableMigration` API'si yerine raw SQL
+     `customStatement` kullanıldı) ama davranış eşdeğer
+
+### 🟡 Hâlâ Acil (Yapılması Gereken)
+
+2. **Drift `TableMigration` API'sine geçiş** (refactor — davranış değişikliği yok):
+   - Mevcut raw-SQL `_PkFix` class'ı Drift idiomatic değil
+   - `TableMigration(table, columnTransformer: …)` ile aynı sonuç daha
+     az kod ile, generated schema versiyonlarıyla otomatik senkron olur
+   - Schema değiştirilirken `_PkFix.recreateSql` ile `tables.dart`
+     manuel senkron tutmak gerekiyor — drift kaçırırsa runtime'da patlar
+3. **Test**: birden fazla user_version durumu (16, 17, half-applied,
+   v18 zaten, broken-PK-but-v18) üzerinde manuel test
+4. **Schema doğrulama**: `schemaTest` / Drift's `Schema Migration
+   Verification` pattern — CI'da otomatik koşmalı
 
 ### Önleyici
 
-5. **Yeni schema kuralı**: Her composite-PK değişikliği `TableMigration` kullanmalı, **asla** sadece `addColumn`
-6. **CI test ekle**: her schema versiyonundan diğerine migration testi otomatik koşmalı
-7. **Backup auto-trigger**: schema upgrade'i öncesi otomatik internal snapshot (kullanıcı yedeği değil — recovery için bir kopya)
+5. **Yeni schema kuralı**: Her composite-PK değişikliği `TableMigration`
+   kullanmalı, **asla** sadece `addColumn`. PR review checklist'e ekle.
+6. **CI test**: her schema versiyonundan diğerine migration testi otomatik koşmalı
+7. **Backup auto-trigger**: schema upgrade öncesi otomatik internal
+   snapshot (kullanıcı yedeği değil — recovery için bir kopya)
 
 ### Faz 2 Spesifik
 
-8. **Profile cleanup**: Mevcut `profileId` default=1 olan rows için doğrulama. Boş profile_id olan satır kalmamalı
+8. **Profile cleanup**: Mevcut `profile_id` default=1 olan rows için
+   doğrulama. Boş profile_id olan satır kalmamalı (rebuild ile bu
+   garanti edildi)
 
 ---
 
@@ -155,23 +179,35 @@ Bu durumda:
 
 | Commit | Açıklama |
 |---|---|
-| `b66c7ef` | Sprint 2a — buggy `addColumn` migration (v17→v18) |
+| `b66c7ef` | Sprint 2a — buggy `addColumn` migration (v17→v18) — **kök sorun bu commit'te** |
 | `aaec5e4` | Sprint 2b — repository'ler profile_id ile filtrele |
 | `881650d` | Sprint 2c — profile picker + PIN |
 | `1864a25` | Sprint 2d — group mood mode |
 | `b573ecc` | v1.1.1 — landing screen restore button + file picker SAF export |
-| `3d5357a` | **v1.1.2 — idempotent migration probe** (geçici fix, ASIL SORUN HALA VAR) |
+| `3d5357a` | v1.1.2 — idempotent migration probe (crash önler ama PK düzeltmez) |
+| `1659475` | **v1.1.3 — composite PK rebuild** ile favori toggle düzeltildi + player bottom-bar scroll |
+| `8697244` | ONEMLI.md ilk versiyon |
 
 ---
 
 ## 🚦 Status
 
-**Şu an**: Crash önleniyor (idempotent probe), kullanıcı verisine erişebiliyor.
-**Risk**: Bir sonraki composite PK değişikliği veya schema v19+ aynı tuzağa düşebilir.
-**Acil yapılacak**: `TableMigration` ile v18'i yeniden yaz (bir sonraki schema değişikliğinden önce).
+**Şu an** (v1.1.3+2013 sonrası):
+- Crash önleniyor (idempotent probe — `_migrateToV18Idempotent`)
+- Composite PK doğru rebuild ediliyor (`_fixCompositePrimaryKeys`)
+- Favori / watchlist / feedback / progress / search history toggle çalışıyor
+- Veri korunuyor — rebuild SELECT-INSERT ile
+
+**Kalan risk**: Mevcut çözüm raw SQL ile. Drift idiomatic değil. Yeni
+schema versiyonu (v19+) eklenirse `_PkFix.recreateSql` ile `tables.dart`
+manuel senkron tutulmalı — unutulursa runtime exception.
+
+**Sonraki composite-PK değişikliğinden ÖNCE**: `TableMigration` API'ye
+refactor (madde 2). Davranış aynı, ama compile-time safety kazanılır.
 
 **Bu işin sahibi**: Drift schema'ya dokunan herkes bu dosyayı okumalı.
 
 ---
 
-*Son güncelleme: 2026-05-23 — v1.1.2+2012 release sonrası*
+*Son güncelleme: 2026-05-25 — v1.1.3+2013 release sonrası, composite PK
+rebuild ile favori toggle bug'ı çözüldü.*
