@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory])
+@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +102,21 @@ class AppDatabase extends _$AppDatabase {
          // so re-running the migration on a half-applied DB is
          // safe.
          await _migrateToV18(m);
+       }
+       if (from < 19) {
+         // AI similar-content cache. New table, no PK rewrite —
+         // safe to use `createTable` directly. IF NOT EXISTS via
+         // raw SQL so a half-applied state isn't an issue.
+         await customStatement('''
+           CREATE TABLE IF NOT EXISTS ai_similar_cache (
+             stream_id INTEGER NOT NULL,
+             type TEXT NOT NULL,
+             payload_json TEXT NOT NULL,
+             source_hash TEXT NOT NULL,
+             generated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+             PRIMARY KEY (stream_id, type)
+           )
+         ''');
        }
     },
     beforeOpen: (details) async {

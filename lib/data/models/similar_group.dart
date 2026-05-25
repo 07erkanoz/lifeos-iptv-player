@@ -63,6 +63,15 @@ class SimilarGroup {
       items: parsed,
     );
   }
+
+  /// Symmetric to [fromJson]. Used by the Drift similar-content
+  /// cache to serialise the AI's response for instant reuse on
+  /// repeat opens.
+  Map<String, dynamic> toJson() => {
+        'axisLabel': axisLabel,
+        if (axisSubtitle != null) 'axisSubtitle': axisSubtitle,
+        'items': items.map((i) => i.toJson()).toList(),
+      };
 }
 
 /// A single AI pick inside a [SimilarGroup]. References a real
@@ -95,4 +104,9 @@ class SimilarItem {
     if (reason.isEmpty) return null;
     return SimilarItem(streamId: sid, reason: reason);
   }
+
+  Map<String, dynamic> toJson() => {
+        'streamId': streamId,
+        'reason': reason,
+      };
 }

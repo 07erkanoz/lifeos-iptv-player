@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/similar_group.dart';
+import 'package:lifeostv/data/repositories/ai_similar_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -90,6 +91,63 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       _groups = null;
     });
 
+    // ─── Drift cache fast path ───────────────────────────────
+    // Same (title, taste) pair as a previous open → instant hit,
+    // skipping the 5-10 s Gemini round-trip entirely. We compute
+    // the fingerprint up-front because we also need it on miss
+    // (to store the freshly-fetched result back under the same
+    // key).
+    final cacheRepo = ref.read(aiSimilarCacheRepositoryProvider);
+    final db = ref.read(appDatabaseProvider);
+    final favIdsForKey = await (db.select(db.favorites)
+          ..where((t) => t.streamType.equals(widget.current.type)))
+        .get()
+        .then((rows) => rows.map((r) => r.streamId).toList());
+    final cacheKey = AiSimilarCacheRepository.fingerprint(
+      streamId: widget.current.streamId,
+      type: widget.current.type,
+      favouriteIds: favIdsForKey,
+    );
+    final cached = await cacheRepo.lookup(
+      streamId: widget.current.streamId,
+      type: widget.current.type,
+      sourceHash: cacheKey,
+    );
+    if (cached != null) {
+      // Re-hydrate the JSON list back into SimilarGroup objects.
+      // Wrapped in try/catch so a malformed legacy row falls through
+      // to the live fetch instead of breaking the rail.
+      try {
+        final groups = cached
+            .map((e) =>
+                SimilarGroup.fromJson(e as Map<String, dynamic>))
+            .whereType<SimilarGroup>()
+            .toList();
+        if (groups.isEmpty) throw const FormatException('empty cache');
+        // Pull the same library sample we'd have built for prompt
+        // context so the cards have full Channel rows to render.
+        // Cheap query; bounded by the existing sampleLibraryForAi
+        // caller below would have done it anyway.
+        final sampleByType =
+            await ref.read(contentRepositoryProvider).sampleLibraryForAi(
+                  moviesPerType: widget.current.type == 'movie' ? 500 : 30,
+                  seriesPerType: widget.current.type == 'series' ? 500 : 30,
+                  livePerType: widget.current.type == 'live' ? 80 : 10,
+                );
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _failed = false;
+          _groups = groups;
+          _channelsById = {for (final c in sampleByType) c.streamId: c};
+          _cachedFor = widget.current.streamId;
+        });
+        return;
+      } catch (_) {
+        // fall through to live fetch
+      }
+    }
+
     final repo = ref.read(contentRepositoryProvider);
     // Pull a much bigger same-type sample of the library. 80 was
     // not enough for catalogues over a few hundred items — the
@@ -115,7 +173,9 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     //
     // For a fresh user with no history / favourites this stays
     // empty and AI falls back to pure item-similarity matching.
-    final db = ref.read(appDatabaseProvider);
+    // (Note: `db` is the same AppDatabase instance we used for the
+    // cache fingerprint above — Riverpod keepAlive provider, single
+    // shared connection, no shadowing needed.)
     final favoritesSample = <Channel>[];
     try {
       // Up to 10 favourite items matching the current type. Cheap
@@ -188,6 +248,16 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       _channelsById = byId;
       _cachedFor = widget.current.streamId;
     });
+
+    // Write the result to the Drift cache for the next time this
+    // title is opened. Fire-and-forget — a cache write failure is
+    // a soft regression (the rail still works, just slow next time).
+    cacheRepo.store(
+      streamId: widget.current.streamId,
+      type: widget.current.type,
+      sourceHash: cacheKey,
+      payload: groups.map((g) => g.toJson()).toList(),
+    );
   }
 
   String _userLanguageCode() {

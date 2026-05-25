@@ -198,6 +198,45 @@ class PersonalizedPicksCache extends Table {
 /// Channel row updates (sync refreshes plot/cast/year/etc.) the hash
 /// won't match and the cache miss triggers a fresh fetch, so stale
 /// content can't outlive its source.
+/// AI "Similar to this" rail cache.
+///
+/// The detail page's AiSimilarSection runs a 500-item Gemini prompt
+/// every time the user opens a title — 5-10 seconds on Flash 2.5.
+/// Most users reopen the same title multiple times in a session, so
+/// caching the result is the highest-ROI latency fix.
+///
+/// One row per (streamId, type) — the AI's grouped recommendations
+/// stored as JSON. `sourceHash` covers the inputs that would change
+/// the AI's answer (the user's recent favourites for the type) so a
+/// new favourite invalidates older rows on the next read.
+///
+/// TTL is enforced at read time (7 days). The table is small enough
+/// that we don't bother with proactive eviction.
+class AiSimilarCache extends Table {
+  /// `Channel.streamId` of the title the user opened.
+  IntColumn get streamId => integer()();
+
+  /// `Channel.type` — movie / series / live. Same id can coexist
+  /// across types in some Xtream catalogues, so it's part of the PK.
+  TextColumn get type => text()();
+
+  /// JSON-encoded `[{label, items: [{streamId, reason}, ...]}, ...]`
+  /// — the SimilarGroup payload, ready to be deserialised straight
+  /// into the existing UI.
+  TextColumn get payloadJson => text()();
+
+  /// Fingerprint of the inputs that would change the AI's answer:
+  /// current title + favourites-snapshot-hash + prompt-version.
+  /// Mismatch on read forces a refresh.
+  TextColumn get sourceHash => text()();
+
+  DateTimeColumn get generatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, type};
+}
+
 class PlotAiCache extends Table {
   /// `Channel.streamId` of the title this enrichment was generated for.
   IntColumn get streamId => integer()();

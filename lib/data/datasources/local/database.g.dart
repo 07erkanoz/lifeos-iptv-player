@@ -6677,6 +6677,395 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
   }
 }
 
+class $AiSimilarCacheTable extends AiSimilarCache
+    with TableInfo<$AiSimilarCacheTable, AiSimilarCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AiSimilarCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceHashMeta = const VerificationMeta(
+    'sourceHash',
+  );
+  @override
+  late final GeneratedColumn<String> sourceHash = GeneratedColumn<String>(
+    'source_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _generatedAtMeta = const VerificationMeta(
+    'generatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> generatedAt = GeneratedColumn<DateTime>(
+    'generated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    type,
+    payloadJson,
+    sourceHash,
+    generatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ai_similar_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AiSimilarCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('source_hash')) {
+      context.handle(
+        _sourceHashMeta,
+        sourceHash.isAcceptableOrUnknown(data['source_hash']!, _sourceHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceHashMeta);
+    }
+    if (data.containsKey('generated_at')) {
+      context.handle(
+        _generatedAtMeta,
+        generatedAt.isAcceptableOrUnknown(
+          data['generated_at']!,
+          _generatedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, type};
+  @override
+  AiSimilarCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AiSimilarCacheData(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      sourceHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_hash'],
+      )!,
+      generatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}generated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AiSimilarCacheTable createAlias(String alias) {
+    return $AiSimilarCacheTable(attachedDatabase, alias);
+  }
+}
+
+class AiSimilarCacheData extends DataClass
+    implements Insertable<AiSimilarCacheData> {
+  /// `Channel.streamId` of the title the user opened.
+  final int streamId;
+
+  /// `Channel.type` — movie / series / live. Same id can coexist
+  /// across types in some Xtream catalogues, so it's part of the PK.
+  final String type;
+
+  /// JSON-encoded `[{label, items: [{streamId, reason}, ...]}, ...]`
+  /// — the SimilarGroup payload, ready to be deserialised straight
+  /// into the existing UI.
+  final String payloadJson;
+
+  /// Fingerprint of the inputs that would change the AI's answer:
+  /// current title + favourites-snapshot-hash + prompt-version.
+  /// Mismatch on read forces a refresh.
+  final String sourceHash;
+  final DateTime generatedAt;
+  const AiSimilarCacheData({
+    required this.streamId,
+    required this.type,
+    required this.payloadJson,
+    required this.sourceHash,
+    required this.generatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['type'] = Variable<String>(type);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['source_hash'] = Variable<String>(sourceHash);
+    map['generated_at'] = Variable<DateTime>(generatedAt);
+    return map;
+  }
+
+  AiSimilarCacheCompanion toCompanion(bool nullToAbsent) {
+    return AiSimilarCacheCompanion(
+      streamId: Value(streamId),
+      type: Value(type),
+      payloadJson: Value(payloadJson),
+      sourceHash: Value(sourceHash),
+      generatedAt: Value(generatedAt),
+    );
+  }
+
+  factory AiSimilarCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AiSimilarCacheData(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      type: serializer.fromJson<String>(json['type']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      sourceHash: serializer.fromJson<String>(json['sourceHash']),
+      generatedAt: serializer.fromJson<DateTime>(json['generatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'type': serializer.toJson<String>(type),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'sourceHash': serializer.toJson<String>(sourceHash),
+      'generatedAt': serializer.toJson<DateTime>(generatedAt),
+    };
+  }
+
+  AiSimilarCacheData copyWith({
+    int? streamId,
+    String? type,
+    String? payloadJson,
+    String? sourceHash,
+    DateTime? generatedAt,
+  }) => AiSimilarCacheData(
+    streamId: streamId ?? this.streamId,
+    type: type ?? this.type,
+    payloadJson: payloadJson ?? this.payloadJson,
+    sourceHash: sourceHash ?? this.sourceHash,
+    generatedAt: generatedAt ?? this.generatedAt,
+  );
+  AiSimilarCacheData copyWithCompanion(AiSimilarCacheCompanion data) {
+    return AiSimilarCacheData(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      type: data.type.present ? data.type.value : this.type,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      sourceHash: data.sourceHash.present
+          ? data.sourceHash.value
+          : this.sourceHash,
+      generatedAt: data.generatedAt.present
+          ? data.generatedAt.value
+          : this.generatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiSimilarCacheData(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('generatedAt: $generatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(streamId, type, payloadJson, sourceHash, generatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AiSimilarCacheData &&
+          other.streamId == this.streamId &&
+          other.type == this.type &&
+          other.payloadJson == this.payloadJson &&
+          other.sourceHash == this.sourceHash &&
+          other.generatedAt == this.generatedAt);
+}
+
+class AiSimilarCacheCompanion extends UpdateCompanion<AiSimilarCacheData> {
+  final Value<int> streamId;
+  final Value<String> type;
+  final Value<String> payloadJson;
+  final Value<String> sourceHash;
+  final Value<DateTime> generatedAt;
+  final Value<int> rowid;
+  const AiSimilarCacheCompanion({
+    this.streamId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.sourceHash = const Value.absent(),
+    this.generatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AiSimilarCacheCompanion.insert({
+    required int streamId,
+    required String type,
+    required String payloadJson,
+    required String sourceHash,
+    this.generatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       type = Value(type),
+       payloadJson = Value(payloadJson),
+       sourceHash = Value(sourceHash);
+  static Insertable<AiSimilarCacheData> custom({
+    Expression<int>? streamId,
+    Expression<String>? type,
+    Expression<String>? payloadJson,
+    Expression<String>? sourceHash,
+    Expression<DateTime>? generatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (type != null) 'type': type,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (sourceHash != null) 'source_hash': sourceHash,
+      if (generatedAt != null) 'generated_at': generatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AiSimilarCacheCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? type,
+    Value<String>? payloadJson,
+    Value<String>? sourceHash,
+    Value<DateTime>? generatedAt,
+    Value<int>? rowid,
+  }) {
+    return AiSimilarCacheCompanion(
+      streamId: streamId ?? this.streamId,
+      type: type ?? this.type,
+      payloadJson: payloadJson ?? this.payloadJson,
+      sourceHash: sourceHash ?? this.sourceHash,
+      generatedAt: generatedAt ?? this.generatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (sourceHash.present) {
+      map['source_hash'] = Variable<String>(sourceHash.value);
+    }
+    if (generatedAt.present) {
+      map['generated_at'] = Variable<DateTime>(generatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiSimilarCacheCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('sourceHash: $sourceHash, ')
+          ..write('generatedAt: $generatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6698,6 +7087,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AiCallLogsTable aiCallLogs = $AiCallLogsTable(this);
   late final $AiFeedbackTable aiFeedback = $AiFeedbackTable(this);
   late final $SearchHistoryTable searchHistory = $SearchHistoryTable(this);
+  late final $AiSimilarCacheTable aiSimilarCache = $AiSimilarCacheTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6718,6 +7108,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     aiCallLogs,
     aiFeedback,
     searchHistory,
+    aiSimilarCache,
   ];
 }
 
@@ -10626,6 +11017,218 @@ typedef $$SearchHistoryTableProcessedTableManager =
       SearchHistoryData,
       PrefetchHooks Function()
     >;
+typedef $$AiSimilarCacheTableCreateCompanionBuilder =
+    AiSimilarCacheCompanion Function({
+      required int streamId,
+      required String type,
+      required String payloadJson,
+      required String sourceHash,
+      Value<DateTime> generatedAt,
+      Value<int> rowid,
+    });
+typedef $$AiSimilarCacheTableUpdateCompanionBuilder =
+    AiSimilarCacheCompanion Function({
+      Value<int> streamId,
+      Value<String> type,
+      Value<String> payloadJson,
+      Value<String> sourceHash,
+      Value<DateTime> generatedAt,
+      Value<int> rowid,
+    });
+
+class $$AiSimilarCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $AiSimilarCacheTable> {
+  $$AiSimilarCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AiSimilarCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $AiSimilarCacheTable> {
+  $$AiSimilarCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AiSimilarCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AiSimilarCacheTable> {
+  $$AiSimilarCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceHash => $composableBuilder(
+    column: $table.sourceHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get generatedAt => $composableBuilder(
+    column: $table.generatedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$AiSimilarCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AiSimilarCacheTable,
+          AiSimilarCacheData,
+          $$AiSimilarCacheTableFilterComposer,
+          $$AiSimilarCacheTableOrderingComposer,
+          $$AiSimilarCacheTableAnnotationComposer,
+          $$AiSimilarCacheTableCreateCompanionBuilder,
+          $$AiSimilarCacheTableUpdateCompanionBuilder,
+          (
+            AiSimilarCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $AiSimilarCacheTable,
+              AiSimilarCacheData
+            >,
+          ),
+          AiSimilarCacheData,
+          PrefetchHooks Function()
+        > {
+  $$AiSimilarCacheTableTableManager(
+    _$AppDatabase db,
+    $AiSimilarCacheTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AiSimilarCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AiSimilarCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AiSimilarCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> sourceHash = const Value.absent(),
+                Value<DateTime> generatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiSimilarCacheCompanion(
+                streamId: streamId,
+                type: type,
+                payloadJson: payloadJson,
+                sourceHash: sourceHash,
+                generatedAt: generatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String type,
+                required String payloadJson,
+                required String sourceHash,
+                Value<DateTime> generatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AiSimilarCacheCompanion.insert(
+                streamId: streamId,
+                type: type,
+                payloadJson: payloadJson,
+                sourceHash: sourceHash,
+                generatedAt: generatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AiSimilarCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AiSimilarCacheTable,
+      AiSimilarCacheData,
+      $$AiSimilarCacheTableFilterComposer,
+      $$AiSimilarCacheTableOrderingComposer,
+      $$AiSimilarCacheTableAnnotationComposer,
+      $$AiSimilarCacheTableCreateCompanionBuilder,
+      $$AiSimilarCacheTableUpdateCompanionBuilder,
+      (
+        AiSimilarCacheData,
+        BaseReferences<_$AppDatabase, $AiSimilarCacheTable, AiSimilarCacheData>,
+      ),
+      AiSimilarCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10663,6 +11266,8 @@ class $AppDatabaseManager {
       $$AiFeedbackTableTableManager(_db, _db.aiFeedback);
   $$SearchHistoryTableTableManager get searchHistory =>
       $$SearchHistoryTableTableManager(_db, _db.searchHistory);
+  $$AiSimilarCacheTableTableManager get aiSimilarCache =>
+      $$AiSimilarCacheTableTableManager(_db, _db.aiSimilarCache);
 }
 
 // **************************************************************************
