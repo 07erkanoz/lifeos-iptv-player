@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/live_tv_back_resolver.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
@@ -110,6 +111,13 @@ class LiveTvScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
+  /// SharedPreferences key for persisting the last-opened category
+  /// on Live TV. Saves the user from re-selecting the same channel
+  /// list every time they come back. Stored as a String — the same
+  /// shape `_selectedCategoryId` carries (`_kFavoritesId`,
+  /// `_kHistoryId`, `'__all__'`, or a real category id).
+  static const _kPrefLastCategory = 'live_tv_last_category';
+
   String? _selectedCategoryId;
   bool _categoriesCollapsed = isMobilePlatform;
   Timer? _currentTimeTimer;
@@ -151,10 +159,25 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     // Start timeline 1 hour before current time
     _timelineStart = DateTime(now.year, now.month, now.day, now.hour - 1);
 
-    // Auto-select "Favorites" on mobile so the screen isn't blank
+    // Auto-select "Favorites" on mobile so the screen isn't blank.
+    // The async block below replaces this default with whatever the
+    // user had selected the last time they were on Live TV.
     if (isMobilePlatform) {
       _selectedCategoryId = _kFavoritesId;
     }
+
+    // Restore the last-opened category from SharedPreferences. Runs
+    // post-frame so initState doesn't await; the UI shows the
+    // default (Favorites on mobile, null/empty on desktop) for ~50
+    // ms before swapping in the saved selection.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_kPrefLastCategory);
+      if (!mounted) return;
+      if (saved != null && saved.isNotEmpty) {
+        setState(() => _selectedCategoryId = saved);
+      }
+    });
 
     // Sync vertical scrolling between channel list and EPG grid
     _channelListScrollController.addListener(_onChannelListScroll);
@@ -328,10 +351,18 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     }
   }
 
-  /// Select category (sidebar stays open, user closes via toggle button)
+  /// Select category (sidebar stays open, user closes via toggle button).
+  /// Persists the choice to SharedPreferences so the next Live TV
+  /// open lands on the same category instead of resetting to
+  /// Favorites every time.
   void _selectCategory(String categoryId) {
     setState(() {
       _selectedCategoryId = categoryId;
+    });
+    // Fire-and-forget write — failure is a soft regression (next
+    // launch defaults to Favorites again), not worth blocking the UI.
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_kPrefLastCategory, categoryId);
     });
   }
 
