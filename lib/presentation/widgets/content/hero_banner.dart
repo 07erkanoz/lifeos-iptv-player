@@ -693,14 +693,24 @@ class _HeroBannerState extends State<HeroBanner> {
                       isPrimary: false,
                       onTap: () => widget.onDetails?.call(channel),
                     ),
-                    // Trailer button (if available)
+                    // Trailer button (if available). Route through
+                    // _openTrailerExpanded so:
+                    //   * TV remote D-pad lands here (the button is
+                    //     already Focus-wrapped via _HeroButton) and
+                    //     opens the in-app fullscreen viewer, not
+                    //     an external browser that the TV may not
+                    //     have configured.
+                    //   * When the in-app stream URL isn't ready,
+                    //     _openTrailerExpanded falls back to the
+                    //     onTrailer callback automatically — same
+                    //     behaviour as before for the failure path.
                     if (_hasTrailer) ...[
                       const SizedBox(width: 10),
                       _HeroButton(
                         icon: Icons.play_circle_outline,
                         label: l10n.watchTrailer,
                         isPrimary: false,
-                        onTap: () => widget.onTrailer?.call(channel),
+                        onTap: () => _openTrailerExpanded(channel),
                       ),
                     ],
                   ],

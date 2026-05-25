@@ -253,12 +253,26 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
                 ),
               )
             else if (_recap != null)
-              Text(
-                _recap!,
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                  height: 1.5,
+              // Long AI recaps (400+ words for late-series catch-up)
+              // were overflowing the detail page on TV — no scroll
+              // wrapper, the bottom half just vanished off-screen.
+              // Cap the recap area at 30 % of viewport height and
+              // make it scrollable so the user can D-pad / mouse-
+              // wheel through it.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight:
+                      MediaQuery.of(context).size.height * 0.30,
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    _recap!,
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
               ),
             const SizedBox(height: 10),

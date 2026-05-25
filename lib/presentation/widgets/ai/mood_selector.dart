@@ -746,7 +746,13 @@ class _GroupModePickerSheetState
                   child: Text(l10n.profileGroupClear),
                 ),
                 const SizedBox(width: 8),
+                // autofocus so the TV remote lands on the primary
+                // action when the sheet opens. The user can D-pad
+                // up through the checkbox list as needed; without
+                // this the focus starts on an arbitrary checkbox
+                // and the Onay button is hard to reach.
                 ElevatedButton(
+                  autofocus: true,
                   onPressed: _draft.length >= 2
                       ? () {
                           ref
