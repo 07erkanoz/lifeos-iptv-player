@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2522,7 +2524,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       if (channel.streamId == current.streamId) continue;
 
       var score = 0;
-      if (channel.categoryId == current.categoryId) score += 2;
+      // Category is the single strongest signal on Turkish IPTV
+      // catalogues — `channels.genre` is mostly empty but the
+      // category name encodes the genre. Without bumping this
+      // weight every series scores the same and the rail shows
+      // the same top-rated items for every detail page.
+      if (channel.categoryId == current.categoryId) score += 25;
       if (current.year != null && channel.year == current.year) score += 1;
 
       final itemGenres = _genreTokens(channel.genre ?? '');
@@ -2589,10 +2596,15 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           .toList();
     }
 
+    final tieRng = Random(current.streamId);
+    final tieOrder = <int, int>{
+      for (final e in scored) e.key.streamId: tieRng.nextInt(1 << 30),
+    };
     scored.sort((a, b) {
       final byScore = b.value.compareTo(a.value);
       if (byScore != 0) return byScore;
-      return (b.key.rating ?? 0).compareTo(a.key.rating ?? 0);
+      return (tieOrder[a.key.streamId] ?? 0)
+          .compareTo(tieOrder[b.key.streamId] ?? 0);
     });
 
     // Diversity cap — keep no more than half the slots for any

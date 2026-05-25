@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1595,7 +1597,13 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       if (channel.streamId == current.streamId) continue;
 
       var score = 0;
-      if (channel.categoryId == current.categoryId) score += 2;
+      // Category is the single strongest signal on Turkish IPTV
+      // catalogues — `channels.genre` is empty most of the time
+      // but the category name encodes the genre ("KORKU & PSiKOLOJiK",
+      // "AKSiYON & MACERA"). Without bumping this weight the
+      // algorithm gives every item the same score and the rail
+      // shows the same top-rated films for EVERY VOD detail.
+      if (channel.categoryId == current.categoryId) score += 25;
       if (current.year != null && channel.year == current.year) score += 1;
 
       final itemGenres = _genreTokens(channel.genre ?? '');
@@ -1659,10 +1667,27 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       return all.where((c) => c.streamId != current.streamId).take(limit).toList();
     }
 
+    // Sort: score desc, then per-current deterministic shuffle.
+    // Without the shuffle every tied score bucket falls back to
+    // rating, which on Türkish IPTV catalogues means the same
+    // ~15 high-rated films win every tie → "every VOD shows the
+    // same recommendations". The shuffle uses the current item's
+    // streamId as a seed, so:
+    //   * Same current → same order across opens (stable cache).
+    //   * Different current → different order (different seed).
+    final tieRng = Random(current.streamId);
+    final tieOrder = <int, int>{
+      for (final e in scored) e.key.streamId: tieRng.nextInt(1 << 30),
+    };
     scored.sort((a, b) {
       final byScore = b.value.compareTo(a.value);
       if (byScore != 0) return byScore;
-      return (b.key.rating ?? 0).compareTo(a.key.rating ?? 0);
+      // Equal score → seeded random tiebreaker (NOT rating). Rating
+      // is already absorbed into the score; using it as the
+      // tiebreaker on top of that just biases toward the same
+      // few items again.
+      return (tieOrder[a.key.streamId] ?? 0)
+          .compareTo(tieOrder[b.key.streamId] ?? 0);
     });
 
     // Diversity guard — without it the top-N tends to be a clone
