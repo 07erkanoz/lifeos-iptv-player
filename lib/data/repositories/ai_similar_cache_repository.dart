@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -61,14 +62,33 @@ class AiSimilarCacheRepository {
               t.streamId.equals(streamId) & t.type.equals(type))
           ..limit(1))
         .getSingleOrNull();
-    if (row == null) return null;
-    if (row.sourceHash != sourceHash) return null;
-    if (DateTime.now().difference(row.generatedAt) > _ttl) return null;
+    if (row == null) {
+      debugPrint(
+          '[similar-cache] MISS no row for streamId=$streamId type=$type');
+      return null;
+    }
+    if (row.sourceHash != sourceHash) {
+      debugPrint(
+          '[similar-cache] MISS hash mismatch streamId=$streamId '
+          'stored=${row.sourceHash} expected=$sourceHash');
+      return null;
+    }
+    final age = DateTime.now().difference(row.generatedAt);
+    if (age > _ttl) {
+      debugPrint('[similar-cache] MISS expired streamId=$streamId '
+          'age=${age.inHours}h');
+      return null;
+    }
     try {
       final decoded = jsonDecode(row.payloadJson);
-      if (decoded is List) return decoded;
+      if (decoded is List) {
+        debugPrint('[similar-cache] HIT streamId=$streamId '
+            'items=${decoded.length} age=${age.inMinutes}m');
+        return decoded;
+      }
       return null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[similar-cache] MISS decode error: $e');
       return null;
     }
   }
@@ -82,15 +102,22 @@ class AiSimilarCacheRepository {
     required String sourceHash,
     required List<dynamic> payload,
   }) async {
-    await _db.into(_db.aiSimilarCache).insertOnConflictUpdate(
-          AiSimilarCacheCompanion.insert(
-            streamId: streamId,
-            type: type,
-            payloadJson: jsonEncode(payload),
-            sourceHash: sourceHash,
-            generatedAt: Value(DateTime.now()),
-          ),
-        );
+    try {
+      await _db.into(_db.aiSimilarCache).insertOnConflictUpdate(
+            AiSimilarCacheCompanion.insert(
+              streamId: streamId,
+              type: type,
+              payloadJson: jsonEncode(payload),
+              sourceHash: sourceHash,
+              generatedAt: Value(DateTime.now()),
+            ),
+          );
+      debugPrint('[similar-cache] WROTE streamId=$streamId type=$type '
+          'items=${payload.length}');
+    } catch (e) {
+      debugPrint('[similar-cache] WRITE FAILED streamId=$streamId '
+          'error=$e');
+    }
   }
 
   /// FNV-1a 32-bit, same hash the personalized-picks cache uses.

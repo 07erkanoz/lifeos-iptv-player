@@ -289,23 +289,43 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_loading || _groups == null) {
-      return _Header(
-        title: l10n.aiSimilarTitle,
-        subtitle: l10n.aiSimilarLoading,
-        isDark: isDark,
-        child: const SizedBox(
-          height: 200,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
+    // Progressive enhancement:
+    //   * AI hasn't returned yet (loading) → show the algorithmic
+    //     fallback NOW so the rail is never blank. AI fetch keeps
+    //     running in the background; when it lands the result will
+    //     replace the fallback in the next paint.
+    //   * AI failed / returned nothing useful → stay on the
+    //     fallback permanently.
+    //   * AI returned groups → show those (upgrade from the fallback).
+    //
+    // Net effect: the user never waits 5-10 s on a spinner. The
+    // fallback (`_selectSimilarContent` in movies/series screens)
+    // uses category + genre overlap + director + cast + plot
+    // keywords — already a strong recommender on its own. AI is
+    // additive when the network cooperates, not a requirement for
+    // the rail to be useful.
+    final aiNotReady = _loading || _groups == null || _groups!.isEmpty || _failed;
+    if (aiNotReady) {
+      final fb = widget.fallbackBuilder?.call(context);
+      if (fb != null) return fb;
+      // No fallback supplied at all → only then show the spinner.
+      // Callers in movies / series screens always pass one, so this
+      // branch is the rare "AI assistant page, no algorithm seed"
+      // path.
+      if (_loading) {
+        return _Header(
+          title: l10n.aiSimilarTitle,
+          subtitle: l10n.aiSimilarLoading,
+          isDark: isDark,
+          child: const SizedBox(
+            height: 200,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           ),
-        ),
-      );
-    }
-
-    if (_failed || _groups!.isEmpty) {
-      return widget.fallbackBuilder?.call(context) ??
-          const SizedBox.shrink();
+        );
+      }
+      return const SizedBox.shrink();
     }
 
     return _Header(
