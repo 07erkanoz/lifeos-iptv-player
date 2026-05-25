@@ -245,7 +245,19 @@ class _HeroBannerState extends State<HeroBanner> {
   /// cache from a previous detail-page open).
   void _scheduleTrailer(Channel channel) {
     _trailerScheduleTimer?.cancel();
-    _disposeTrailerPlayer();
+    // ⚠️ Don't dispose the Player here.
+    //
+    // Earlier this method nuked the existing _trailerPlayer on every
+    // hero rotation, then _startTrailer instantiated a fresh one. On
+    // Wayland (KDE + AMD) media_kit re-acquires the EGL surface on
+    // each Player constructor → compositor flashes white briefly →
+    // user perceives a dashboard-wide flicker every 12 seconds.
+    //
+    // Fix: keep the Player alive across rotations. We just `stop()`
+    // the current playback, fade out the overlay, and the next
+    // _startTrailer call swaps the source via player.open() on the
+    // same instance. Same EGL surface, no compositor churn.
+    _trailerPlayer?.stop();
     setState(() {
       _trailerVisible = false;
       _trailerStreamUrl = null;
@@ -257,19 +269,9 @@ class _HeroBannerState extends State<HeroBanner> {
     // YouTube extract + libmpv Player init every cycle — visible
     // jank during D-pad navigation and constant GPU contention with
     // the main IPTV decoder.
-    //
-    // Linux is also skipped: KDE Wayland + AMD GPU users reported
-    // dashboard-wide flicker every 12s as the hero rotated and the
-    // muted-trailer Player was destroyed + recreated. media_kit on
-    // Wayland re-acquires the GPU surface on each Player.open and
-    // AMD/radeonsi compositors flash white briefly during the
-    // swap. The pretty muted-trailer preview isn't worth a flicker
-    // every 12 seconds — Linux users can still tap "Fragman İzle"
-    // for the on-demand fullscreen viewer.
     if (channel.type == 'live') return;
     if (_isMobile(context)) return;
     if (PlatformHelper.isTV) return;
-    if (PlatformHelper.isLinux) return;
 
     final fromApi = widget.vodInfo?.youtubeTrailer;
     final fromDb = channel.youtubeTrailer;
@@ -303,19 +305,40 @@ class _HeroBannerState extends State<HeroBanner> {
     if (reqId != _trailerRequestId) return;
     if (streamUrl == null) return;
 
-    final player = Player();
-    final controller = VideoController(player);
+    // Reuse the existing Player instance when we have one — only
+    // construct on the very first trailer (or after dispose() in
+    // widget teardown). See [_scheduleTrailer] comment for the
+    // Wayland flicker rationale.
+    final bool freshPlayer = _trailerPlayer == null;
+    final Player player;
+    final VideoController controller;
+    if (freshPlayer) {
+      player = Player();
+      controller = VideoController(player);
+    } else {
+      player = _trailerPlayer!;
+      controller = _trailerController!;
+    }
+
     try {
-      await player.setVolume(0);
-      await player.setPlaylistMode(PlaylistMode.loop);
+      if (freshPlayer) {
+        // One-time setup. setVolume + loop mode persist across
+        // subsequent open() calls, so we only configure them once.
+        await player.setVolume(0);
+        await player.setPlaylistMode(PlaylistMode.loop);
+      }
+      // open() swaps the source on the existing surface without
+      // touching the EGL context — no compositor flicker.
       await player.open(Media(streamUrl), play: true);
     } catch (_) {
-      player.dispose();
+      // Only dispose if this was a fresh Player that never made it
+      // into state — a reused one stays alive for the next attempt.
+      if (freshPlayer) player.dispose();
       return;
     }
 
     if (!mounted || reqId != _trailerRequestId) {
-      player.dispose();
+      if (freshPlayer) player.dispose();
       return;
     }
 
