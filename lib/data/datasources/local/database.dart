@@ -111,6 +111,20 @@ class AppDatabase extends _$AppDatabase {
       // didn't fire). Apply any missing parts here too.
       await _migrateToV18Idempotent();
 
+      // ⚠️ CRITICAL — see ONEMLI.md.
+      //
+      // The Sprint 2a addColumn-only migration left every per-
+      // profile table with the OLD primary key (streamId,
+      // streamType) instead of the new composite (streamId,
+      // streamType, profileId). The Drift-generated code expects
+      // the new PK, so inserts/upserts misbehave (the "favori
+      // butonu çalışmıyor" report).
+      //
+      // Fix: rebuild each table with the correct PK via create-
+      // copy-drop-rename. Probe PRAGMA table_info first so we only
+      // pay the cost on devices that genuinely have the wrong PK.
+      await _fixCompositePrimaryKeys();
+
       // Belt-and-braces seed: if the user nuked their DB or this is
       // a fresh install on v18+, ensure profile 1 exists before any
       // FK-bound query fires. INSERT OR IGNORE — no-op when present.
@@ -203,6 +217,178 @@ class AppDatabase extends _$AppDatabase {
       'ALTER TABLE $tableName ADD COLUMN profile_id INTEGER NOT NULL DEFAULT 1',
     );
   }
+
+  /// Walk every per-profile table and rebuild any whose primary
+  /// key still excludes `profile_id`. Idempotent: tables that
+  /// already have the correct composite PK skip immediately.
+  ///
+  /// PRAGMA table_info column shape: cid, name, type, notnull,
+  /// dflt_value, pk — `pk` is 0 for non-PK columns, and a 1-based
+  /// position when it IS part of the PK. We compare the actual
+  /// profile_id pk position to "should be part of PK"; mismatch
+  /// triggers the recreate-with-copy.
+  Future<void> _fixCompositePrimaryKeys() async {
+    // Each entry: (table name, full CREATE TABLE statement with
+    // correct PK, list of columns to copy). Column lists are
+    // verbatim from tables.dart so a future schema edit forces
+    // an update here too (which is the whole point — schema
+    // changes go through this file).
+    final tables = <_PkFix>[
+      _PkFix(
+        name: 'favorites',
+        recreateSql: '''
+          CREATE TABLE favorites (
+            stream_id INTEGER NOT NULL,
+            stream_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            thumbnail TEXT,
+            added_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (stream_id, stream_type, profile_id)
+          )
+        ''',
+        columns: ['stream_id', 'stream_type', 'name', 'thumbnail',
+            'added_at', 'profile_id'],
+      ),
+      _PkFix(
+        name: 'playback_progress',
+        recreateSql: '''
+          CREATE TABLE playback_progress (
+            stream_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            duration INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            is_finished INTEGER NOT NULL DEFAULT 0,
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (stream_id, type, profile_id)
+          )
+        ''',
+        columns: ['stream_id', 'type', 'position', 'duration',
+            'updated_at', 'is_finished', 'profile_id'],
+      ),
+      _PkFix(
+        name: 'watchlist',
+        recreateSql: '''
+          CREATE TABLE watchlist (
+            stream_id INTEGER NOT NULL,
+            stream_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            thumbnail TEXT,
+            added_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (stream_id, stream_type, profile_id)
+          )
+        ''',
+        columns: ['stream_id', 'stream_type', 'name', 'thumbnail',
+            'added_at', 'profile_id'],
+      ),
+      _PkFix(
+        name: 'series_tracking',
+        recreateSql: '''
+          CREATE TABLE series_tracking (
+            series_id INTEGER NOT NULL,
+            known_episode_count INTEGER NOT NULL,
+            new_episode_count INTEGER NOT NULL DEFAULT 0,
+            has_new_episodes INTEGER NOT NULL DEFAULT 0,
+            last_checked_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (series_id, profile_id)
+          )
+        ''',
+        columns: ['series_id', 'known_episode_count',
+            'new_episode_count', 'has_new_episodes', 'last_checked_at',
+            'profile_id'],
+      ),
+      _PkFix(
+        name: 'ai_feedback',
+        recreateSql: '''
+          CREATE TABLE ai_feedback (
+            stream_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            action TEXT NOT NULL,
+            feature TEXT,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (stream_id, type, action, profile_id)
+          )
+        ''',
+        columns: ['stream_id', 'type', 'action', 'feature',
+            'created_at', 'profile_id'],
+      ),
+      _PkFix(
+        name: 'search_history',
+        recreateSql: '''
+          CREATE TABLE search_history (
+            query TEXT NOT NULL,
+            last_used_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+            use_count INTEGER NOT NULL DEFAULT 1,
+            profile_id INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (query, profile_id)
+          )
+        ''',
+        columns: ['query', 'last_used_at', 'use_count', 'profile_id'],
+      ),
+    ];
+    for (final t in tables) {
+      if (await _isProfileIdMissingFromPk(t.name)) {
+        await _recreateTableWithPk(t);
+      }
+    }
+  }
+
+  /// Returns true when [tableName] exists but `profile_id`'s `pk`
+  /// column in PRAGMA table_info is 0 (= not part of the primary
+  /// key). Tables that don't exist yet return false — the create
+  /// path handles them.
+  Future<bool> _isProfileIdMissingFromPk(String tableName) async {
+    final rows = await customSelect(
+      'PRAGMA table_info($tableName)',
+    ).get();
+    if (rows.isEmpty) return false; // table doesn't exist yet
+    final profileRow =
+        rows.where((r) => r.data['name'] == 'profile_id').firstOrNull;
+    if (profileRow == null) return false; // column also missing
+    final pk = profileRow.data['pk'] as int? ?? 0;
+    return pk == 0;
+  }
+
+  /// Recreate [fix.name] with the correct composite PK. Order:
+  ///   1. Begin transaction
+  ///   2. Rename old → <name>_old_pk
+  ///   3. CREATE new table with the right schema
+  ///   4. INSERT INTO new SELECT cols FROM <name>_old_pk
+  ///   5. DROP <name>_old_pk
+  ///   6. Commit
+  /// All inside one `transaction { … }` block so a crash mid-step
+  /// rolls back rather than leaving the table half-renamed.
+  Future<void> _recreateTableWithPk(_PkFix fix) async {
+    await transaction(() async {
+      final tmp = '${fix.name}_old_pk';
+      await customStatement('ALTER TABLE ${fix.name} RENAME TO $tmp');
+      await customStatement(fix.recreateSql);
+      final cols = fix.columns.join(', ');
+      await customStatement(
+        'INSERT INTO ${fix.name} ($cols) SELECT $cols FROM $tmp',
+      );
+      await customStatement('DROP TABLE $tmp');
+    });
+  }
+}
+
+/// Helper record for [AppDatabase._fixCompositePrimaryKeys]. Holds
+/// the SQL needed to rebuild one table with the correct composite
+/// primary key + the column list used for the data copy.
+class _PkFix {
+  final String name;
+  final String recreateSql;
+  final List<String> columns;
+
+  const _PkFix({
+    required this.name,
+    required this.recreateSql,
+    required this.columns,
+  });
 }
 
 QueryExecutor _openConnection() {

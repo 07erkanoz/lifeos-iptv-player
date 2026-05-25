@@ -3468,8 +3468,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 _DpadIconBtn(icon: Icons.skip_next, onTap: _triggerNext),
               ],
 
-              const Spacer(),
-
+              // Action buttons grouped into a horizontally
+              // scrollable strip on the right. Portrait phones
+              // can't fit 10+ buttons in one row — without scroll
+              // the last ones got clipped behind the screen edge
+              // and were impossible to reach. SingleChildScrollView
+              // with reverse:false + Expanded gives the strip the
+              // full remaining width and lets the user pan.
+              const SizedBox(width: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: false,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
               // ─── Direct action buttons (D-pad accessible) ───
 
               // Audio track button
@@ -3600,7 +3613,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   onTap: _toggleFullscreen,
                 ),
               ],
-            ],
+                    ], // end inner Row
+                  ),
+                ),
+              ), // end Expanded SingleChildScrollView
+            ], // end outer Row
           ),
         ],
       ),
