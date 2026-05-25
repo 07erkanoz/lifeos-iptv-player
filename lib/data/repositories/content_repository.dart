@@ -7,6 +7,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
+import 'package:lifeostv/utils/search_normalizer.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,21 +87,58 @@ class ContentRepository {
   }
 
   /// Search channels by name across all types.
-  /// Uses Dart-side filtering for proper Turkish/Unicode case-insensitive search
-  /// (SQLite LIKE is only case-insensitive for ASCII characters).
+  ///
+  /// Uses [SearchNormalizer] so Turkish + Latin diacritics fold to
+  /// ASCII on both sides (`İnterstellar` matches `interstellar`,
+  /// `Şımarık` matches `simarik`). Multi-token queries do AND match
+  /// over a joined haystack of title + cast + director + genre +
+  /// category name — typing "matthew interstellar" lands the film
+  /// even though the second token is the title and the first lives
+  /// in the cast column.
+  ///
   /// Filters out channels from hidden categories.
   Future<List<Channel>> searchChannels(String query, {int limit = 50}) async {
-    final lowerQuery = query.toLowerCase();
+    final tokens = SearchNormalizer.tokens(query);
+    if (tokens.isEmpty) return const [];
     final rows = await (_db.select(_db.channels).join([
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
     ])..where(_db.categories.isHidden.equals(false))).get();
-    return rows
-        .map((row) => row.readTable(_db.channels))
-        .where((ch) => ch.name.toLowerCase().contains(lowerQuery))
-        .take(limit)
-        .toList();
+    final out = <Channel>[];
+    for (final row in rows) {
+      if (out.length >= limit) break;
+      final ch = row.readTable(_db.channels);
+      final cat = row.readTable(_db.categories);
+      final haystack = _buildHaystack(ch, cat);
+      if (SearchNormalizer.matches(haystack, tokens)) {
+        out.add(ch);
+      }
+    }
+    return out;
+  }
+
+  /// Pre-normalised concatenation of every searchable text column on
+  /// a channel + its category. Used by every search code path so the
+  /// matching semantics stay consistent: title, category name, cast,
+  /// director, genre, plot keywords, year.
+  ///
+  /// Plot is included but pre-trimmed to the first 200 chars — long
+  /// IPTV plots are noisy and inflating the haystack with their full
+  /// text causes spurious matches (every plot mentioning "film"
+  /// matching the token "film").
+  static String _buildHaystack(Channel ch, Category? cat) {
+    final plot = ch.plot ?? '';
+    final plotSnippet = plot.length > 200 ? plot.substring(0, 200) : plot;
+    return SearchNormalizer.normalise([
+      ch.name,
+      cat?.name ?? '',
+      ch.cast ?? '',
+      ch.director ?? '',
+      ch.genre ?? '',
+      ch.year ?? '',
+      plotSnippet,
+    ].join(' '));
   }
 
   /// Compact taste-signal records used by every AI recommendation
@@ -283,22 +321,26 @@ class ContentRepository {
     String query, {
     int limit = 60,
   }) async {
-    final tokens = query
-        .toLowerCase()
+    // Normalise via the shared SearchNormalizer so İ/ş/ğ/ü etc. are
+    // folded the same way as the search screen's plain-LIKE path.
+    // Drop chat stopwords so "filmleri öner" tokenises to {filmler}
+    // rather than dragging in {oner, filmleri, oner}.
+    final normalised = SearchNormalizer.normalise(query);
+    final rawTokens = normalised
         .replaceAll(RegExp(r"[^\p{L}\p{N}\s]", unicode: true), ' ')
         .split(RegExp(r'\s+'))
         .where((w) => w.length >= 3 && !_chatStopwords.contains(w))
         .toSet();
-    if (tokens.isEmpty) return const [];
+    if (rawTokens.isEmpty) return const [];
 
     // Expand synonyms — both country/language and genre.
     final expanded = <String>{};
-    for (final t in tokens) {
+    for (final t in rawTokens) {
       expanded.add(t);
       final cs = _countrySynonyms[t];
-      if (cs != null) expanded.addAll(cs);
+      if (cs != null) expanded.addAll(cs.map(SearchNormalizer.normalise));
       final gs = _genreSynonyms[t];
-      if (gs != null) expanded.addAll(gs);
+      if (gs != null) expanded.addAll(gs.map(SearchNormalizer.normalise));
     }
 
     // Pull a wide VOD slice joined with categories, ranked by
@@ -328,14 +370,8 @@ class ContentRepository {
     for (final r in rows) {
       if (out.length >= limit) break;
       final ch = r.readTable(_db.channels);
-      final cat = r.readTable(_db.categories);
-      final haystack = [
-        ch.name,
-        cat.name,
-        ch.cast ?? '',
-        ch.director ?? '',
-        ch.genre ?? '',
-      ].join(' ').toLowerCase();
+      final cat = r.readTableOrNull(_db.categories);
+      final haystack = _buildHaystack(ch, cat);
       if (expanded.any(haystack.contains)) {
         out.add(ch);
       }
@@ -423,8 +459,18 @@ class ContentRepository {
 
   /// Search channels by name filtered by type (movie/series/live).
   /// Filters out channels from hidden categories.
+  /// Type-scoped variant of [searchChannels]. Same diacritic-aware
+  /// multi-field matching, but limited to one of `movie` / `series`
+  /// / `live`. The dashboard search screen fires three of these in
+  /// parallel so each section gets its own bounded result list.
+  ///
+  /// Two-pass strategy: first an exact substring match; if that
+  /// returns nothing, fall back to a 1-edit Levenshtein fuzzy match
+  /// so typos like `tarkovsiy` / `intersttellar` still surface
+  /// results without waiting for the AI tier.
   Future<List<Channel>> searchChannelsByType(String query, String type, {int limit = 100}) async {
-    final lowerQuery = query.toLowerCase();
+    final tokens = SearchNormalizer.tokens(query);
+    if (tokens.isEmpty) return const [];
     final rows = await (_db.select(_db.channels).join([
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
@@ -433,11 +479,36 @@ class ContentRepository {
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))
     ).get();
-    return rows
-        .map((row) => row.readTable(_db.channels))
-        .where((ch) => ch.name.toLowerCase().contains(lowerQuery))
-        .take(limit)
-        .toList();
+
+    // Build (channel, haystack) tuples once so the fuzzy pass below
+    // doesn't re-normalise. The list is bounded by the type filter
+    // and hidden-category exclusion; for the user's catalogue this
+    // is a few thousand entries at most.
+    final pairs = rows.map((row) {
+      final ch = row.readTable(_db.channels);
+      final cat = row.readTable(_db.categories);
+      return (ch: ch, haystack: _buildHaystack(ch, cat));
+    }).toList();
+
+    // Pass 1: exact substring AND match.
+    final out = <Channel>[];
+    for (final p in pairs) {
+      if (out.length >= limit) break;
+      if (SearchNormalizer.matches(p.haystack, tokens)) {
+        out.add(p.ch);
+      }
+    }
+    if (out.isNotEmpty) return out;
+
+    // Pass 2: fuzzy fallback. Only runs when the strict pass found
+    // nothing — typos shouldn't crowd out correct hits.
+    for (final p in pairs) {
+      if (out.length >= limit) break;
+      if (SearchNormalizer.matchesFuzzy(p.haystack, tokens)) {
+        out.add(p.ch);
+      }
+    }
+    return out;
   }
 
   /// Canonical English ↔ Turkish bilingual genre synonyms.
