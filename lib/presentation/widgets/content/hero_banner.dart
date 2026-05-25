@@ -257,9 +257,19 @@ class _HeroBannerState extends State<HeroBanner> {
     // YouTube extract + libmpv Player init every cycle — visible
     // jank during D-pad navigation and constant GPU contention with
     // the main IPTV decoder.
+    //
+    // Linux is also skipped: KDE Wayland + AMD GPU users reported
+    // dashboard-wide flicker every 12s as the hero rotated and the
+    // muted-trailer Player was destroyed + recreated. media_kit on
+    // Wayland re-acquires the GPU surface on each Player.open and
+    // AMD/radeonsi compositors flash white briefly during the
+    // swap. The pretty muted-trailer preview isn't worth a flicker
+    // every 12 seconds — Linux users can still tap "Fragman İzle"
+    // for the on-demand fullscreen viewer.
     if (channel.type == 'live') return;
     if (_isMobile(context)) return;
     if (PlatformHelper.isTV) return;
+    if (PlatformHelper.isLinux) return;
 
     final fromApi = widget.vodInfo?.youtubeTrailer;
     final fromDb = channel.youtubeTrailer;
