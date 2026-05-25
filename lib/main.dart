@@ -118,6 +118,22 @@ class LifeosApp extends ConsumerWidget {
         ? Locale(settings.language.name)
         : null;
 
+    // Apply mobile fullscreen mode every time the setting flips.
+    // Mobile-only: on desktop / TV the SystemUiOverlay enum is a
+    // no-op (no top status bar to hide). We call this from build()
+    // so a settings toggle takes effect immediately without
+    // restarting the app.
+    if (PlatformHelper.isMobile) {
+      if (settings.fullscreenMode) {
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: [SystemUiOverlay.bottom], // keep gesture / nav bar
+        );
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    }
+
     final pipActive = ref.watch(pipProvider) != null;
 
     return MaterialApp.router(

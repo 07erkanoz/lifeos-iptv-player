@@ -521,5 +521,7 @@
   "liveNowOnAirEmpty": "No EPG data, or every channel is missing programme info.",
   "voiceUnavailable": "Microphone unavailable — check permission or try a device that supports voice typing.",
   "voiceListening": "Listening…",
-  "voiceTapToSpeak": "Tap the mic and speak"
+  "voiceTapToSpeak": "Tap the mic and speak",
+  "fullscreenMode": "Fullscreen mode",
+  "fullscreenModeDesc": "Hide the system status bar so content fills the whole screen."
 }

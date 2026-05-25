@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/presentation/screens/settings/sections/profiles_section.dart';
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
@@ -740,6 +741,35 @@ class _AppearanceSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
       ),
+      // Mobile-only: hide system status bar for an edge-to-edge feel.
+      // Hidden on desktop / TV because the SystemUiOverlay enum is a
+      // no-op there. The toggle takes effect immediately — the
+      // MaterialApp builder watches settings and re-applies the mode
+      // on every change.
+      if (PlatformHelper.isMobile) ...[
+        const SizedBox(height: 12),
+        SwitchListTile(
+          title: Text(l10n.fullscreenMode,
+              style: TextStyle(
+                  color: isDark
+                      ? AppColors.textDark
+                      : AppColors.textLight)),
+          subtitle: Text(
+            l10n.fullscreenModeDesc,
+            style: const TextStyle(
+                color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.fullscreenMode,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .setFullscreenMode(val),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          tileColor:
+              isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+      ],
     ]);
   }
 }

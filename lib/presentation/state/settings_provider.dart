@@ -29,4 +29,11 @@ class SettingsNotifier extends _$SettingsNotifier {
     updateSettings(state.copyWith(defaultAccountId: accountId));
     ref.read(settingsRepositoryProvider).setDefaultAccount(accountId);
   }
+
+  /// Toggle the mobile fullscreen (hide system status bar) mode.
+  /// main.dart listens to settingsProvider and re-applies
+  /// SystemChrome.setEnabledSystemUIMode on every change.
+  void setFullscreenMode(bool enabled) {
+    updateSettings(state.copyWith(fullscreenMode: enabled));
+  }
 }

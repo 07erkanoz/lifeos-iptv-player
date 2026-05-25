@@ -559,5 +559,7 @@
   "liveNowOnAirEmpty": "لا توجد بيانات EPG، أو جميع القنوات بلا معلومات برنامج.",
   "voiceUnavailable": "الميكروفون غير متاح — تحقق من الإذن أو جرب جهازًا آخر.",
   "voiceListening": "أستمع…",
-  "voiceTapToSpeak": "انقر على الميكروفون وتحدث"
+  "voiceTapToSpeak": "انقر على الميكروفون وتحدث",
+  "fullscreenMode": "وضع ملء الشاشة",
+  "fullscreenModeDesc": "إخفاء شريط الحالة العلوي حتى يملأ المحتوى الشاشة بالكامل."
 }

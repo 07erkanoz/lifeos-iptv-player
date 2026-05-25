@@ -1393,4 +1393,11 @@ class AppLocalizationsKu extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Mîkrofonê bike û biaxive';
+
+  @override
+  String get fullscreenMode => 'Moda dîmender tijî';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Darikê rewşê veşêre, naverok hemû dîmenderê dagire.';
 }

@@ -1407,4 +1407,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Appuie sur le micro et parle';
+
+  @override
+  String get fullscreenMode => 'Mode plein écran';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Masquer la barre d\'état pour un contenu plein écran.';
 }

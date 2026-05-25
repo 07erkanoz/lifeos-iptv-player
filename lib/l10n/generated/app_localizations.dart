@@ -2737,6 +2737,18 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Mikrofona dokun ve konuş'**
   String get voiceTapToSpeak;
+
+  /// No description provided for @fullscreenMode.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tam ekran modu'**
+  String get fullscreenMode;
+
+  /// No description provided for @fullscreenModeDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.'**
+  String get fullscreenModeDesc;
 }
 
 class _AppLocalizationsDelegate

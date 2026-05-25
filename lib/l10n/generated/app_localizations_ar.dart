@@ -1388,4 +1388,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'انقر على الميكروفون وتحدث';
+
+  @override
+  String get fullscreenMode => 'وضع ملء الشاشة';
+
+  @override
+  String get fullscreenModeDesc =>
+      'إخفاء شريط الحالة العلوي حتى يملأ المحتوى الشاشة بالكامل.';
 }

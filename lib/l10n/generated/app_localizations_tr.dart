@@ -1392,4 +1392,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Mikrofona dokun ve konuş';
+
+  @override
+  String get fullscreenMode => 'Tam ekran modu';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.';
 }

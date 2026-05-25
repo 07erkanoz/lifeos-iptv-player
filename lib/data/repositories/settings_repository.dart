@@ -37,6 +37,7 @@ class SettingsRepository {
   static const _keyLastAudioTitle = 'player_last_audio_title';
   static const _keyLastSubLang = 'player_last_subtitle_lang';
   static const _keyLastSubTitle = 'player_last_subtitle_title';
+  static const _keyFullscreenMode = 'fullscreen_mode';
 
   AppSettings loadSettings() {
     final themeIndex = _prefs.getInt(_keyTheme) ?? 2; // Default dark
@@ -76,6 +77,7 @@ class SettingsRepository {
       lastPlayerSubtitleLanguage: _prefs.getString(_keyLastSubLang),
       lastPlayerSubtitleTitle: _prefs.getString(_keyLastSubTitle),
       defaultAccountId: _prefs.getInt(_keyDefaultAccount),
+      fullscreenMode: _prefs.getBool(_keyFullscreenMode) ?? false,
     );
   }
 
@@ -143,6 +145,7 @@ class SettingsRepository {
     if (settings.defaultAccountId != null) {
       await _prefs.setInt(_keyDefaultAccount, settings.defaultAccountId!);
     }
+    await _prefs.setBool(_keyFullscreenMode, settings.fullscreenMode);
   }
 
   Future<void> setDefaultAccount(int accountId) async {

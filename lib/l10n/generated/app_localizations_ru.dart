@@ -1396,4 +1396,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Коснись микрофона и говори';
+
+  @override
+  String get fullscreenMode => 'Полноэкранный режим';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Скрыть строку состояния, чтобы контент занимал весь экран.';
 }

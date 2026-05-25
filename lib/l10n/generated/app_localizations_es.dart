@@ -1397,4 +1397,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Toca el micrófono y habla';
+
+  @override
+  String get fullscreenMode => 'Modo pantalla completa';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Ocultar la barra de estado para que el contenido ocupe toda la pantalla.';
 }

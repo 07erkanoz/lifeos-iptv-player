@@ -96,6 +96,18 @@ class AppSettings {
   // Account
   final int? defaultAccountId;
 
+  /// Mobile-only fullscreen toggle. When true, the app hides the
+  /// system status bar (top clock / battery / signal strip) so the
+  /// dashboard / movies / series feels edge-to-edge. The bottom
+  /// gesture / nav bar stays visible because hiding it would require
+  /// users to swipe up just to back out — too aggressive for a
+  /// general-purpose toggle.
+  ///
+  /// No-op on desktop / TV (those have no Android status bar to
+  /// hide). Wired in main.dart's settings listener which calls
+  /// SystemChrome.setEnabledSystemUIMode on every settings change.
+  final bool fullscreenMode;
+
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.system,
@@ -126,6 +138,7 @@ class AppSettings {
     this.lastPlayerSubtitleLanguage,
     this.lastPlayerSubtitleTitle,
     this.defaultAccountId,
+    this.fullscreenMode = false,
   });
 
   AppSettings copyWith({
@@ -160,6 +173,7 @@ class AppSettings {
     String? lastPlayerSubtitleTitle,
     bool clearLastPlayerSubtitleLanguage = false,
     int? defaultAccountId,
+    bool? fullscreenMode,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -200,6 +214,7 @@ class AppSettings {
           ? null
           : (lastPlayerSubtitleTitle ?? this.lastPlayerSubtitleTitle),
       defaultAccountId: defaultAccountId ?? this.defaultAccountId,
+      fullscreenMode: fullscreenMode ?? this.fullscreenMode,
     );
   }
 

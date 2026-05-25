@@ -559,5 +559,7 @@
   "liveNowOnAirEmpty": "EPG verisi yok ya da tüm kanallarda program bilgisi eksik.",
   "voiceUnavailable": "Mikrofon kullanılamıyor — izni kontrol et veya sesle yazmayı destekleyen bir cihaz dene.",
   "voiceListening": "Dinliyorum…",
-  "voiceTapToSpeak": "Mikrofona dokun ve konuş"
+  "voiceTapToSpeak": "Mikrofona dokun ve konuş",
+  "fullscreenMode": "Tam ekran modu",
+  "fullscreenModeDesc": "Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın."
 }

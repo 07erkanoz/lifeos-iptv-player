@@ -559,5 +559,7 @@
   "liveNowOnAirEmpty": "Pas de données EPG, ou toutes les chaînes sans programme.",
   "voiceUnavailable": "Micro indisponible — vérifie l'autorisation ou essaie un autre appareil.",
   "voiceListening": "J'écoute…",
-  "voiceTapToSpeak": "Appuie sur le micro et parle"
+  "voiceTapToSpeak": "Appuie sur le micro et parle",
+  "fullscreenMode": "Mode plein écran",
+  "fullscreenModeDesc": "Masquer la barre d'état pour un contenu plein écran."
 }

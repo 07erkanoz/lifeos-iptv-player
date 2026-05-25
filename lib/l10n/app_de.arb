@@ -559,5 +559,7 @@
   "liveNowOnAirEmpty": "Keine EPG-Daten, oder alle Sender ohne Programminfo.",
   "voiceUnavailable": "Mikrofon nicht verfügbar — prüfe die Berechtigung oder versuche ein anderes Gerät.",
   "voiceListening": "Höre zu…",
-  "voiceTapToSpeak": "Mikrofon tippen und sprechen"
+  "voiceTapToSpeak": "Mikrofon tippen und sprechen",
+  "fullscreenMode": "Vollbildmodus",
+  "fullscreenModeDesc": "Statusleiste ausblenden, Inhalt füllt den ganzen Bildschirm."
 }

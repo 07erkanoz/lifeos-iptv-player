@@ -1404,4 +1404,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get voiceTapToSpeak => 'Mikrofon tippen und sprechen';
+
+  @override
+  String get fullscreenMode => 'Vollbildmodus';
+
+  @override
+  String get fullscreenModeDesc =>
+      'Statusleiste ausblenden, Inhalt füllt den ganzen Bildschirm.';
 }
