@@ -145,6 +145,7 @@ class GeminiService {
     required List<Channel> favorites,
     required List<Channel> librarySample,
     List<Channel> queryMatches = const [],
+    List<Channel> recentAdditions = const [],
     List<Map<String, dynamic>> categoryOverview = const [],
     String targetLanguage = 'tr',
     Map<String, dynamic> tasteProfile = const {},
@@ -192,9 +193,22 @@ class GeminiService {
         dedupedMatches.add(c);
       }
 
+      // recentAdditions is its own labelled pool. Keep it free of ids
+      // already shown in the rating sample so the AI doesn't double-
+      // count, but it intentionally CAN overlap with queryMatches —
+      // the recency label is the signal that matters here.
+      final dedupedRecent = recentAdditions
+          .where((c) => !sampleIds.contains(c.streamId))
+          .toList();
+
       final contextBlob = <String, dynamic>{
         'recentlyWatched': recentlyWatched.map(compact).toList(),
         'favorites': favorites.map(compact).toList(),
+        // recentAdditions: freshest titles by catalogue add-date,
+        // newest first. The model is told (system prompt) to pull
+        // from here whenever the user asks about new / "yeni" content.
+        if (dedupedRecent.isNotEmpty)
+          'recentAdditions': dedupedRecent.map(compact).toList(),
         // queryMatches: pre-search results matching the user's latest
         // question. The standard top-rated `library` slice often
         // doesn't contain niche categories (e.g. Korean dramas in a
@@ -2327,7 +2341,7 @@ list. Only force MODE A when they explicitly say "listele",
 "göster", "öner", or describe constraints ("kısa polisiye", "90
 dakikalık komedi") that demand a result list.
 
-The first user turn contains a JSON context blob with up to five
+The first user turn contains a JSON context blob with up to six
 lists:
   * "recentlyWatched" + "favorites" — the user's taste signals.
   * "queryMatches" — items pre-searched from the library using the
@@ -2335,6 +2349,14 @@ lists:
     for "do I have X?" style queries: if the user asks for Korean
     dramas and queryMatches contains 173 Korean series, the answer
     is YES and you must list them from queryMatches.
+  * "recentAdditions" — the FRESHEST titles in the catalogue, newest
+    first (sorted by the date they were added to the library). This
+    is the AUTHORITATIVE list for "what's new?" / "yeni film/dizi var
+    mı?" / "son eklenenler" / "geçen hafta ne geldi?" style queries.
+    These titles are usually unrated and will NOT appear in "library"
+    (which is rating-sorted), so when the user asks about new content
+    you MUST pull from here — never answer "yeni bir şey yok" while
+    recentAdditions is non-empty.
   * "library" — broader top-rated cross-section. Use as fallback /
     variety when queryMatches doesn't fully answer.
   * "categories" — `[{name, type, count}]` overview of the catalogue
@@ -2366,11 +2388,13 @@ lists:
         restriction applies — only the title named in
         `currentEpisode` is locked.
 
-CRITICAL: queryMatches and library together represent what's
-ACTUALLY in the user's catalogue. NEVER say "yok" / "no such
-content" if a relevant category exists in `categories` OR an item
-appears in queryMatches. Instead, recommend from those items or
-mention the category by name.
+CRITICAL: queryMatches, recentAdditions and library together
+represent what's ACTUALLY in the user's catalogue. NEVER say "yok" /
+"no such content" if a relevant category exists in `categories` OR
+an item appears in queryMatches OR recentAdditions. Instead,
+recommend from those items or mention the category by name. For
+"what's new" questions specifically, recentAdditions is the source
+of truth — list its newest entries.
 
 YOUR ACTUAL VALUE — read carefully:
 The user could already filter by category locally; that's NOT what
@@ -2395,7 +2419,8 @@ local production, lean toward the ones whose year + cast field
 match what you know about the famous version.
 
 Hard rules:
-  - Only return streamIds that appear in queryMatches OR library.
+  - Only return streamIds that appear in queryMatches, recentAdditions,
+    library, recentlyWatched, or favorites. Never invent an id.
   - Match the user's language in both `message` and per-pick
     `reason` strings.
   - For Q&A turns the `message` may be 2-5 short paragraphs of
@@ -2429,7 +2454,7 @@ Respond with JSON only, matching the schema:
   "message": "<text — one sentence for MODE A, multi-paragraph for
               MODE B/C>",
   "recommendations": [
-    {"streamId": <int from library>, "reason": "<one sentence>"},
+    {"streamId": <int from any provided list>, "reason": "<one sentence>"},
     ...
   ],
   "followUps": ["<short chip>", "<short chip>", ...]

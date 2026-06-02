@@ -953,6 +953,39 @@ class ContentRepository {
     return [...results[0], ...results[1], ...results[2]];
   }
 
+  /// Freshest VOD by the Xtream `added` timestamp, newest first.
+  ///
+  /// [sampleLibraryForAi] orders by rating, so brand-new titles —
+  /// which usually carry no rating yet — sink to the bottom and never
+  /// reach the AI's prompt. The chat assistant then insists "yeni film
+  /// yok" even right after a catalogue refresh. This method gives the
+  /// chat a dedicated recency pool so "what's new?" actually works.
+  ///
+  /// `added` is a text-typed Unix-epoch string from the provider, so
+  /// we can't ORDER BY it in SQL meaningfully (lexical vs numeric).
+  /// We pull a bounded slice and sort numerically in Dart — the same
+  /// approach the hero billboard uses.
+  Future<List<Channel>> recentAdditionsForAi({int limit = 40}) async {
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
+    ])
+          ..where((_db.channels.type.equals('movie') |
+                  _db.channels.type.equals('series')) &
+              _db.categories.isHidden.equals(false))
+          ..limit(3000))
+        .get();
+    int parseAdded(Channel c) => int.tryParse(c.added?.trim() ?? '') ?? 0;
+    final all = rows.map((r) => r.readTable(_db.channels)).toList()
+      ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
+    // Drop rows with no `added` value at all — a zero timestamp isn't
+    // "recent", it's "unknown", and surfacing it as new would be a lie.
+    return all.where((c) => parseAdded(c) > 0).take(limit).toList();
+  }
+
   /// Watch channels that have playback progress (continue watching).
   /// Scoped to the active profile so the rail isolates per-person
   /// state — the kids' half-watched cartoons don't leak into the

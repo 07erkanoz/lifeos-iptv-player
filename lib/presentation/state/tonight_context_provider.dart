@@ -32,10 +32,17 @@ class TonightContext {
   /// output to titles the user can actually play.
   final List<Channel> librarySample;
 
+  /// Freshest VOD by the Xtream `added` timestamp, newest first. Sent
+  /// as its own labelled pool so the AI can answer "what's new?" /
+  /// "yeni filmler" — those titles are usually unrated and never make
+  /// it into the rating-sorted [librarySample].
+  final List<Channel> recentAdditions;
+
   const TonightContext({
     required this.recentlyWatched,
     required this.favorites,
     required this.librarySample,
+    required this.recentAdditions,
   });
 }
 
@@ -84,12 +91,24 @@ final tonightContextProvider = FutureProvider<TonightContext>((ref) async {
       .get();
   final favorites = favRows.map((row) => row.readTable(db.channels)).toList();
 
-  // Library cross-section.
-  final librarySample = await repo.sampleLibraryForAi();
+  // Library cross-section. Bumped from the 30/30 default so the chat
+  // reasons over a wider slice of the catalogue — a too-small sample
+  // is a big part of why the assistant felt "dumb" / kept suggesting
+  // the same handful of titles.
+  final librarySample = await repo.sampleLibraryForAi(
+    moviesPerType: 60,
+    seriesPerType: 60,
+    livePerType: 20,
+  );
+
+  // Dedicated recency pool so "yeni film var mı?" works — these are
+  // usually unrated and absent from the rating-sorted librarySample.
+  final recentAdditions = await repo.recentAdditionsForAi(limit: 40);
 
   return TonightContext(
     recentlyWatched: recentlyWatched,
     favorites: favorites,
     librarySample: librarySample,
+    recentAdditions: recentAdditions,
   );
 });

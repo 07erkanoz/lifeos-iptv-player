@@ -4299,11 +4299,18 @@ class _SearchButtonState extends State<_SearchButton> {
               ),
               if (widget.onClear != null)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: widget.onClear,
-                  child: Icon(
-                    Icons.close,
-                    color: AppColors.textTertiary(context),
-                    size: 18,
+                  // Padding gives the ✕ a finger-sized tap target so a
+                  // mobile tap clears the search instead of slipping
+                  // onto the surrounding button and reopening it.
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.close,
+                      color: AppColors.textTertiary(context),
+                      size: 18,
+                    ),
                   ),
                 ),
             ],

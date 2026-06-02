@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/config/router.dart';
 import 'package:lifeostv/core/platform_helper.dart';
+import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
@@ -105,11 +106,42 @@ void main() async {
   );
 }
 
-class LifeosApp extends ConsumerWidget {
+class LifeosApp extends ConsumerStatefulWidget {
   const LifeosApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LifeosApp> createState() => _LifeosAppState();
+}
+
+class _LifeosAppState extends ConsumerState<LifeosApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android restores the system bars whenever the app comes back
+    // from the background (or a phone call, or recents). Without this
+    // re-apply, the status bar "leaks" back in despite the user's
+    // fullscreen toggle being on. Re-assert the chosen mode on resume.
+    if (state == AppLifecycleState.resumed) {
+      applyMobileSystemUiMode(
+        fullscreen: ref.read(settingsProvider).fullscreenMode,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final router = ref.watch(routerProvider);
 
@@ -122,17 +154,9 @@ class LifeosApp extends ConsumerWidget {
     // Mobile-only: on desktop / TV the SystemUiOverlay enum is a
     // no-op (no top status bar to hide). We call this from build()
     // so a settings toggle takes effect immediately without
-    // restarting the app.
-    if (PlatformHelper.isMobile) {
-      if (settings.fullscreenMode) {
-        SystemChrome.setEnabledSystemUIMode(
-          SystemUiMode.manual,
-          overlays: [SystemUiOverlay.bottom], // keep gesture / nav bar
-        );
-      } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      }
-    }
+    // restarting the app. Resume re-application lives in
+    // didChangeAppLifecycleState.
+    applyMobileSystemUiMode(fullscreen: settings.fullscreenMode);
 
     final pipActive = ref.watch(pipProvider) != null;
 

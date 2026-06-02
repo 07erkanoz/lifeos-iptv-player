@@ -22,6 +22,7 @@ import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
+import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
@@ -339,9 +340,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   @override
   void dispose() {
     _saveProgress();
-    // Restore status bar & navigation bar on mobile
+    // Restore the APP-level system UI mode on mobile. The player used
+    // immersiveSticky while video was on screen; on the way out we must
+    // honour the user's fullscreen toggle rather than unconditionally
+    // forcing edgeToEdge — otherwise watching anything silently wiped
+    // the fullscreen preference and the status bar came back.
     if (isMobilePlatform) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      applyMobileSystemUiMode(
+        fullscreen: ref.read(settingsProvider).fullscreenMode,
+      );
     }
     // Restore window from fullscreen and always-on-top when leaving player.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {

@@ -101,14 +101,23 @@ class _SearchDialogState extends State<SearchDialog> {
                   autofocus: true,
                   style: const TextStyle(color: AppColors.textDark, fontSize: 16),
                   textInputAction: TextInputAction.search,
+                  // Rebuild so the bottom action row (the "Temizle" /
+                  // clear button) tracks whether there's text to clear.
+                  onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
                     hintText: widget.hintText,
                     hintStyle: const TextStyle(color: AppColors.textTertiaryDark),
                     prefixIcon: const Icon(Icons.search, color: AppColors.textTertiaryDark, size: 20),
+                    // The in-field ✕ clears AND applies (pops ''), so a
+                    // user who taps it gets back to the full, unfiltered
+                    // list immediately. Previously it only emptied the
+                    // text box without closing — users then backed out
+                    // (→ cancel → null), which left the old query and
+                    // its results stuck on screen.
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.clear, color: AppColors.textTertiaryDark, size: 18),
-                      onPressed: () => _controller.clear(),
+                      onPressed: _clear,
                     ),
                     filled: true,
                     fillColor: AppColors.surfaceDark,

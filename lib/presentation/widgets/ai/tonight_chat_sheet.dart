@@ -215,6 +215,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           favorites: ctx.favorites,
           librarySample: ctx.librarySample,
           queryMatches: queryMatches,
+          recentAdditions: ctx.recentAdditions,
           categoryOverview: categoryOverview,
           targetLanguage: lang,
           tasteProfile: tasteProfile.toPromptJson(),
