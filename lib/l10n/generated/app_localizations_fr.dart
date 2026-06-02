@@ -919,6 +919,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deviceSyncRemember => 'Garder ces appareils synchronisés';
 
   @override
+  String get deviceSyncNow => 'Synchroniser maintenant';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return '$count appareils jumelés';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return 'Synchronisé avec $count appareil(s)';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'Aucun appareil à synchroniser. Les deux doivent être ouverts et sur le même Wi-Fi.';
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

@@ -58,6 +58,22 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   bool _remember = true; // "keep these devices in sync" on the select screen
 
   LanSyncService get _svc => ref.read(lanSyncServiceProvider);
+  bool _syncingNow = false;
+
+  Future<void> _syncNow() async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _syncingNow = true);
+    await _svc.startAutoServer();
+    final n = await _svc.runAutoSyncPass();
+    if (!mounted) return;
+    ref.read(settingsProvider.notifier).reload();
+    ref.invalidate(activeProfileIdProvider);
+    setState(() => _syncingNow = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text(n > 0 ? l10n.deviceSyncResult(n) : l10n.deviceSyncResultNone),
+    ));
+  }
 
   @override
   void dispose() {
@@ -276,6 +292,31 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                   },
                 ),
               ),
+              // Paired-device count + manual "sync now" — only useful
+              // once at least one device has been paired.
+              if (_svc.hasTrustedPeers) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l10n.deviceSyncPaired(_svc.trustedPeers.length),
+                  style: const TextStyle(
+                      color: AppColors.textSecondaryDark, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _syncingNow ? null : _syncNow,
+                    icon: _syncingNow
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.primary))
+                        : const Icon(Icons.sync),
+                    label: Text(l10n.deviceSyncNow),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

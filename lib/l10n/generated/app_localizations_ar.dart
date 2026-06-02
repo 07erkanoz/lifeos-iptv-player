@@ -916,6 +916,23 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deviceSyncRemember => 'إبقاء هذه الأجهزة متزامنة';
 
   @override
+  String get deviceSyncNow => 'مزامنة الآن';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return '$count أجهزة مقترنة';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return 'تمت المزامنة مع $count جهاز';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'لا يوجد جهاز للمزامنة. يجب أن يكون كلاهما مفتوحًا وعلى نفس شبكة Wi-Fi.';
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

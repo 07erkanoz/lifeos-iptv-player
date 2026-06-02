@@ -915,6 +915,23 @@ class AppLocalizationsTr extends AppLocalizations {
   String get deviceSyncRemember => 'Bu cihazları otomatik eşitle';
 
   @override
+  String get deviceSyncNow => 'Şimdi eşitle';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return '$count eşleşmiş cihaz';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return '$count cihazla eşitlendi';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.';
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

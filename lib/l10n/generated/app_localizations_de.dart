@@ -919,6 +919,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get deviceSyncRemember => 'Diese Geräte synchron halten';
 
   @override
+  String get deviceSyncNow => 'Jetzt synchronisieren';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return '$count gekoppelte Geräte';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return 'Mit $count Gerät(en) synchronisiert';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'Kein Gerät zum Synchronisieren. Beide müssen geöffnet und im selben WLAN sein.';
+
+  @override
   String get channelList => 'Kanalliste';
 
   @override

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/settings_repository.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -255,13 +256,43 @@ class LanSyncService {
     return hash.toRadixString(16).padLeft(8, '0');
   }
 
+  static const String _kDeviceName = 'lan_sync_device_name';
+
+  /// Friendly, stable device label shown in peer pickers. Android's
+  /// `Platform.localHostname` is usually "localhost", so we derive a
+  /// readable per-platform default instead and cache it (the user can
+  /// override it later via [setDeviceName]).
   String get _deviceName {
-    try {
-      final h = Platform.localHostname.trim();
-      if (h.isNotEmpty) return h;
-    } catch (_) {}
-    return 'LifeOS (${Platform.operatingSystem})';
+    final stored = _prefs.getString(_kDeviceName)?.trim();
+    if (stored != null && stored.isNotEmpty) return stored;
+    return _defaultDeviceName();
   }
+
+  void setDeviceName(String name) {
+    _prefs.setString(_kDeviceName, name.trim());
+  }
+
+  String _defaultDeviceName() {
+    if (Platform.isAndroid) {
+      return PlatformHelper.isTV ? 'Android TV' : 'Android';
+    }
+    if (Platform.isIOS) return 'iPhone / iPad';
+    if (Platform.isLinux) {
+      try {
+        final h = Platform.localHostname.trim();
+        if (h.isNotEmpty && h != 'localhost') return 'Linux ($h)';
+      } catch (_) {}
+      return 'Linux';
+    }
+    if (Platform.isMacOS) return 'Mac';
+    if (Platform.isWindows) return 'Windows';
+    return 'LifeOS';
+  }
+
+  /// Active profile id (SharedPreferences, default 1). Used as the
+  /// fallback target when an incoming row's profile name doesn't exist
+  /// locally so favourites never silently vanish.
+  int get _activeProfileId => _prefs.getInt('active_profile_id') ?? 1;
 
   /// Android 13+ gates mDNS register/browse behind NEARBY_WIFI_DEVICES.
   /// No-op elsewhere. Same request the cast/DLNA discovery uses.
@@ -386,6 +417,13 @@ class LanSyncService {
         if (token.isNotEmpty && peerId.isNotEmpty) {
           addTrustedPeer(
               TrustedPeer(token: token, deviceId: peerId, name: peerName));
+          // Make pairing symmetric: this (sender) side should now also
+          // keep its server up and auto-sync on future launches.
+          _autoWanted = true;
+          _prefs.setBool('auto_sync_enabled', true);
+          if (kDebugMode) {
+            debugPrint('[LanSync] trusted peer added: $peerName ($peerId)');
+          }
         }
         res.write(jsonEncode({'deviceId': deviceId, 'name': _deviceName}));
       } else if (path == '/sync' && req.method == 'POST') {
@@ -564,8 +602,10 @@ class LanSyncService {
               final host = svc.host;
               final port = svc.port;
               if (host == null || port == 0) break;
-              final name = svc.attributes['device'] ?? svc.name;
               final id = svc.attributes['id'] ?? '';
+              // Never list ourselves — our own broadcast resolves too.
+              if (id.isNotEmpty && id == deviceId) break;
+              final name = svc.attributes['device'] ?? svc.name;
               if (found.add(SyncPeer(
                       name: name, host: host, port: port, deviceId: id)) &&
                   !controller.isClosed) {
@@ -930,6 +970,12 @@ class LanSyncService {
   Future<void> _mergeIncoming(Map<String, dynamic> snap) async {
     final profiles = await _db.select(_db.profiles).get();
     final nameToId = <String, int>{for (final p in profiles) p.name: p.id};
+    // Unknown profile name → fall back to the active profile so a
+    // single-profile user's favourites always land somewhere visible.
+    int resolveProfile(String? name) =>
+        (name != null ? nameToId[name] : null) ?? _activeProfileId;
+    var favAdded = 0;
+    var progAdded = 0;
 
     if (snap['favorites'] is List) {
       final existing = await _db.select(_db.favorites).get();
@@ -940,8 +986,7 @@ class LanSyncService {
         for (final raw in (snap['favorites'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
-          final pid = nameToId[(m['profileName'] ?? '') as String];
-          if (pid == null) continue;
+          final pid = resolveProfile(m['profileName'] as String?);
           final key = '$pid|${m['streamType']}|${m['streamId']}';
           if (have.contains(key)) continue;
           batch.insert(
@@ -957,6 +1002,7 @@ class LanSyncService {
             ),
             mode: InsertMode.insertOrIgnore,
           );
+          favAdded++;
         }
       });
     }
@@ -972,8 +1018,7 @@ class LanSyncService {
         for (final raw in (snap['progress'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
-          final pid = nameToId[(m['profileName'] ?? '') as String];
-          if (pid == null) continue;
+          final pid = resolveProfile(m['profileName'] as String?);
           final ts = (m['updatedAt'] ?? 0) as int;
           final key = '$pid|${m['type']}|${m['streamId']}';
           final localTs = localUpdated[key];
@@ -992,8 +1037,12 @@ class LanSyncService {
             ),
             mode: InsertMode.insertOrReplace,
           );
+          progAdded++;
         }
       });
+    }
+    if (kDebugMode) {
+      debugPrint('[LanSync] merged: favAdded=$favAdded progAdded=$progAdded');
     }
   }
 

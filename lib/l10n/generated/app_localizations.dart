@@ -1820,6 +1820,30 @@ abstract class AppLocalizations {
   /// **'Bu cihazları otomatik eşitle'**
   String get deviceSyncRemember;
 
+  /// No description provided for @deviceSyncNow.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdi eşitle'**
+  String get deviceSyncNow;
+
+  /// No description provided for @deviceSyncPaired.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} eşleşmiş cihaz'**
+  String deviceSyncPaired(int count);
+
+  /// No description provided for @deviceSyncResult.
+  ///
+  /// In tr, this message translates to:
+  /// **'{count} cihazla eşitlendi'**
+  String deviceSyncResult(int count);
+
+  /// No description provided for @deviceSyncResultNone.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.'**
+  String get deviceSyncResultNone;
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

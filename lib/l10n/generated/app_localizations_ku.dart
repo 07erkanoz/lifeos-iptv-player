@@ -915,6 +915,23 @@ class AppLocalizationsKu extends AppLocalizations {
   String get deviceSyncRemember => 'Van amûran hevdem bihêle';
 
   @override
+  String get deviceSyncNow => 'Niha hevdem bike';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return '$count amûrên cot-bûyî';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return 'Bi $count amûran re hevdem bû';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'Amûrek ji bo hevdemkirinê nehat dîtin. Divê herdu jî vekirî û li ser heman Wi-Fi bin.';
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

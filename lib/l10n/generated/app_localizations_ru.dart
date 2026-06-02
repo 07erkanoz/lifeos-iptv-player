@@ -918,6 +918,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deviceSyncRemember => 'Держать эти устройства синхронизированными';
 
   @override
+  String get deviceSyncNow => 'Синхронизировать сейчас';
+
+  @override
+  String deviceSyncPaired(int count) {
+    return 'Связанных устройств: $count';
+  }
+
+  @override
+  String deviceSyncResult(int count) {
+    return 'Синхронизировано с $count устройством(ами)';
+  }
+
+  @override
+  String get deviceSyncResultNone =>
+      'Нет устройства для синхронизации. Оба должны быть открыты и в одной Wi-Fi.';
+
+  @override
   String get channelList => 'Список каналов';
 
   @override
