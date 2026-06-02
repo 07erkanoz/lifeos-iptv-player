@@ -19,12 +19,23 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 final liveNowOnAirProvider =
     StreamProvider<List<({Channel channel, Program program})>>((ref) async* {
   final repo = ref.watch(contentRepositoryProvider);
-  yield await repo.liveNowOnAir();
-  // Re-emit on every minute boundary so a programme that ends at
-  // 21:00 falls off the rail at 21:00:xx, replaced by whatever
-  // started at 21:00 on the same channel.
-  await for (final _ in Stream<void>.periodic(const Duration(minutes: 1))) {
-    yield await repo.liveNowOnAir();
+  var data = await repo.liveNowOnAir();
+  yield data;
+  // Cadence depends on whether we already have data:
+  //   * empty  → EPG is probably still syncing in the background
+  //     (right after install / account switch). Re-check every 15s
+  //     so the rail appears within seconds of the sync landing,
+  //     instead of leaving an empty gap for up to a minute.
+  //   * has data → a programme that ends at 21:00 should fall off
+  //     the rail at 21:00:xx, replaced by whatever started then.
+  //     A 1-minute tick is plenty for that.
+  while (true) {
+    final delay = data.isEmpty
+        ? const Duration(seconds: 15)
+        : const Duration(minutes: 1);
+    await Future<void>.delayed(delay);
+    data = await repo.liveNowOnAir();
+    yield data;
   }
 });
 
@@ -46,6 +57,16 @@ class LiveNowOnAirRail extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dataAsync = ref.watch(liveNowOnAirProvider);
+
+    // Hide the ENTIRE rail — header included — until there's at least
+    // one channel on-air. Previously only the card strip collapsed,
+    // leaving the title + a ~110px empty gap dangling on the dashboard
+    // while EPG was still syncing, which read as "broken / stuck".
+    // While the first query is still in flight we also stay hidden
+    // (it resolves in milliseconds); the rail simply pops in once EPG
+    // data exists.
+    final rows = dataAsync.value ?? const [];
+    if (rows.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
@@ -89,30 +110,21 @@ class LiveNowOnAirRail extends ConsumerWidget {
           ),
           SizedBox(
             height: 110,
-            child: dataAsync.when(
-              loading: () => const _LoadingPlaceholder(),
-              error: (_, _) => const SizedBox.shrink(),
-              data: (rows) {
-                if (rows.isEmpty) return const SizedBox.shrink();
-                return ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: rows.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(width: 10),
-                  itemBuilder: (_, i) {
-                    // Don't autofocus the first card on every paint
-                    // — that would steal focus from elsewhere on the
-                    // dashboard during periodic minute-tick rebuilds.
-                    // Initial focus is up to TvFocusRegistry; once
-                    // the rail is in scope the user can D-pad onto
-                    // it like any other card.
-                    return _NowOnAirCard(
-                      channel: rows[i].channel,
-                      program: rows[i].program,
-                      onTap: () => onTap(rows[i].channel),
-                    );
-                  },
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: rows.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (_, i) {
+                // Don't autofocus the first card on every paint — that
+                // would steal focus from elsewhere on the dashboard
+                // during periodic minute-tick rebuilds. Initial focus
+                // is up to TvFocusRegistry; once the rail is in scope
+                // the user can D-pad onto it like any other card.
+                return _NowOnAirCard(
+                  channel: rows[i].channel,
+                  program: rows[i].program,
+                  onTap: () => onTap(rows[i].channel),
                 );
               },
             ),
@@ -296,24 +308,3 @@ class _NowOnAirCardState extends State<_NowOnAirCard> {
       );
 }
 
-class _LoadingPlaceholder extends StatelessWidget {
-  const _LoadingPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: 4,
-      separatorBuilder: (_, _) => const SizedBox(width: 10),
-      itemBuilder: (_, _) => Container(
-        width: 220,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.borderDark, width: 1),
-        ),
-      ),
-    );
-  }
-}
