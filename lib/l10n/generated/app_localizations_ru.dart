@@ -908,6 +908,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deviceSyncFinish => 'Готово';
 
   @override
+  String get deviceSyncAuto => 'Автосинхронизация';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Автоматически синхронизировать избранное и историю просмотра со связанными устройствами в той же сети Wi-Fi.';
+
+  @override
+  String get deviceSyncRemember => 'Держать эти устройства синхронизированными';
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

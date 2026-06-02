@@ -905,6 +905,16 @@ class AppLocalizationsTr extends AppLocalizations {
   String get deviceSyncFinish => 'Bitti';
 
   @override
+  String get deviceSyncAuto => 'Otomatik eşitleme';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Eşleşmiş cihazlarla favori ve izleme geçmişini, aynı Wi-Fi\'da olduklarında otomatik eşitle.';
+
+  @override
+  String get deviceSyncRemember => 'Bu cihazları otomatik eşitle';
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

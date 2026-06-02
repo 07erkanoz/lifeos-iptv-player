@@ -16,7 +16,21 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 ///   * RECEIVE — discover senders, type their PIN, choose which data
 ///               categories to pull, then apply.
 class DeviceSyncScreen extends ConsumerStatefulWidget {
-  const DeviceSyncScreen({super.key});
+  /// Start directly in RECEIVE mode (used from first-run onboarding,
+  /// where the only sensible action is to pull data into the fresh
+  /// device).
+  final bool startInReceive;
+
+  /// Called from the "done" button after a successful import. When
+  /// null we just pop. Onboarding passes a callback that routes to
+  /// the dashboard instead of back to the welcome screen.
+  final VoidCallback? onFinished;
+
+  const DeviceSyncScreen({
+    super.key,
+    this.startInReceive = false,
+    this.onFinished,
+  });
 
   @override
   ConsumerState<DeviceSyncScreen> createState() => _DeviceSyncScreenState();
@@ -25,7 +39,8 @@ class DeviceSyncScreen extends ConsumerStatefulWidget {
 enum _Mode { chooser, sending, receiving }
 
 class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
-  _Mode _mode = _Mode.chooser;
+  late _Mode _mode =
+      widget.startInReceive ? _Mode.receiving : _Mode.chooser;
 
   // Sending
   String? _pin;
@@ -40,6 +55,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   bool _importing = false;
   String? _error;
   SyncImportResult? _result;
+  bool _remember = true; // "keep these devices in sync" on the select screen
 
   LanSyncService get _svc => ref.read(lanSyncServiceProvider);
 
@@ -136,8 +152,25 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
         activeProfileId: activeProfileId,
       );
       if (!mounted) return;
-      // Refresh everything the import may have touched.
+      // Re-read settings from disk FIRST so any settings the import
+      // wrote (bypassing the notifier) are reflected before we layer
+      // the auto-sync flag on top — otherwise the stale in-memory
+      // state would clobber them.
       ref.read(settingsProvider.notifier).reload();
+      // Optionally pair the two devices for future auto-sync.
+      if (_remember) {
+        await _svc.establishTrust(peer, _pinController.text.trim());
+        if (mounted) {
+          ref
+              .read(settingsProvider.notifier)
+              .updateSettings(ref.read(settingsProvider).copyWith(
+                    autoSyncEnabled: true,
+                  ));
+          await _svc.startAutoServer();
+        }
+      }
+      if (!mounted) return;
+      // Refresh everything else the import may have touched.
       ref.invalidate(savedAccountsProvider);
       ref.invalidate(currentAccountProvider);
       ref.invalidate(activeProfileIdProvider);
@@ -215,6 +248,33 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                 title: l10n.deviceSyncReceive,
                 subtitle: l10n.deviceSyncReceiveHint,
                 onTap: () => setState(() => _mode = _Mode.receiving),
+              ),
+              const SizedBox(height: 20),
+              // Auto-sync toggle — only meaningful once devices have
+              // paired, but we let the user pre-enable it too.
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  value: ref.watch(settingsProvider).autoSyncEnabled,
+                  activeThumbColor: AppColors.primary,
+                  title: Text(l10n.deviceSyncAuto,
+                      style: const TextStyle(color: AppColors.textDark)),
+                  subtitle: Text(l10n.deviceSyncAutoDesc,
+                      style: const TextStyle(
+                          color: AppColors.textSecondaryDark, fontSize: 12)),
+                  onChanged: (v) async {
+                    ref.read(settingsProvider.notifier).updateSettings(
+                        ref.read(settingsProvider).copyWith(autoSyncEnabled: v));
+                    if (v) {
+                      await _svc.startAutoServer();
+                    } else {
+                      await _svc.stopAutoServer();
+                    }
+                  },
+                ),
               ),
             ],
           ),
@@ -535,6 +595,13 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
             ],
           ),
         ),
+        CheckboxListTile(
+          value: _remember,
+          activeColor: AppColors.primary,
+          title: Text(l10n.deviceSyncRemember,
+              style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+          onChanged: (v) => setState(() => _remember = v ?? false),
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: SizedBox(
@@ -602,7 +669,13 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  onPressed: () {
+                    if (widget.onFinished != null) {
+                      widget.onFinished!.call();
+                    } else {
+                      Navigator.of(context).maybePop();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,

@@ -11,6 +11,9 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/config/router.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/system_ui.dart';
+import 'package:lifeostv/data/services/lan_sync_service.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart'
+    show activeProfileIdProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
@@ -119,6 +122,29 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Kick the LAN auto-sync once the first frame is up (providers
+    // ready, context available).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoSync());
+  }
+
+  /// When auto-sync is enabled, keep a token-gated server up so paired
+  /// peers can reach us, and actively two-way-merge favourites +
+  /// continue-watching with any trusted device on the LAN. Fire-and-
+  /// forget — failures are silent, the next resume retries.
+  void _maybeAutoSync() {
+    if (!ref.read(settingsProvider).autoSyncEnabled) return;
+    final svc = ref.read(lanSyncServiceProvider);
+    if (!svc.hasTrustedPeers) return;
+    () async {
+      try {
+        await svc.startAutoServer();
+        await svc.runAutoSyncPass();
+        if (!mounted) return;
+        // Drift favourites/progress are stream-backed, but settings /
+        // account providers aren't — nudge the ones that aren't.
+        ref.invalidate(activeProfileIdProvider);
+      } catch (_) {}
+    }();
   }
 
   @override
@@ -137,6 +163,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       applyMobileSystemUiMode(
         fullscreen: ref.read(settingsProvider).fullscreenMode,
       );
+      _maybeAutoSync();
     }
   }
 

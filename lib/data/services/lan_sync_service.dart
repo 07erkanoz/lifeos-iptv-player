@@ -63,7 +63,13 @@ class SyncPeer {
   final String name; // friendly device name from mDNS attributes
   final String host;
   final int port;
-  const SyncPeer({required this.name, required this.host, required this.port});
+  final String deviceId; // stable id from mDNS `id` attribute ('' if absent)
+  const SyncPeer({
+    required this.name,
+    required this.host,
+    required this.port,
+    this.deviceId = '',
+  });
 
   String get baseUrl => 'http://$host:$port';
 
@@ -114,6 +120,25 @@ class SyncManifest {
       };
 }
 
+/// A device this one has paired with before (PIN entered once). The
+/// shared [token] replaces the PIN for silent auto-sync; [deviceId]
+/// matches the `id` attribute the peer advertises over mDNS.
+class TrustedPeer {
+  final String token;
+  final String deviceId;
+  final String name;
+  const TrustedPeer(
+      {required this.token, required this.deviceId, required this.name});
+
+  Map<String, dynamic> toJson() =>
+      {'token': token, 'deviceId': deviceId, 'name': name};
+  factory TrustedPeer.fromJson(Map<String, dynamic> j) => TrustedPeer(
+        token: (j['token'] ?? '') as String,
+        deviceId: (j['deviceId'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+      );
+}
+
 /// Outcome of an import — how many rows of each kind were applied.
 class SyncImportResult {
   final int accounts;
@@ -138,22 +163,97 @@ class LanSyncService {
   static const String _serviceType = '_lifeostv-sync._tcp';
   static const int _payloadVersion = 1;
   static const String _pinHeader = 'x-sync-pin';
+  static const String _tokenHeader = 'x-sync-token';
+  static const String _kDeviceId = 'lan_sync_device_id';
+  static const String _kTrusted = 'lan_sync_trusted_peers';
 
   final AppDatabase _db;
   final SharedPreferences _prefs;
 
   LanSyncService(this._db, this._prefs);
 
-  // ── Sender state ─────────────────────────────────────────────────────────
+  static int _idCounter = 0;
+
+  // ── Server state ─────────────────────────────────────────────────────────
   HttpServer? _server;
   BonsoirBroadcast? _broadcast;
-  String? _pin;
+  String? _pin; // set only during manual pairing
+  bool _autoWanted = false; // keep server up for token-only auto-sync
 
   /// The PIN the receiver must enter (null when not broadcasting).
   String? get pin => _pin;
 
   /// True while this device is offering its data to peers.
   bool get isBroadcasting => _server != null;
+
+  /// Stable per-install id, advertised over mDNS so trusted peers can
+  /// recognise this device across sessions / IP changes.
+  String get deviceId {
+    var id = _prefs.getString(_kDeviceId);
+    if (id == null || id.isEmpty) {
+      id = _randomId();
+      _prefs.setString(_kDeviceId, id);
+    }
+    return id;
+  }
+
+  List<TrustedPeer> get trustedPeers {
+    final raw = _prefs.getString(_kTrusted);
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final list = jsonDecode(raw);
+      if (list is! List) return const [];
+      return [
+        for (final e in list)
+          if (e is Map) TrustedPeer.fromJson(e.cast<String, dynamic>())
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  bool get hasTrustedPeers => trustedPeers.isNotEmpty;
+
+  void _saveTrusted(List<TrustedPeer> peers) {
+    _prefs.setString(_kTrusted, jsonEncode([for (final p in peers) p.toJson()]));
+  }
+
+  /// Add / refresh a trusted peer (dedupe by deviceId).
+  void addTrustedPeer(TrustedPeer peer) {
+    final list = trustedPeers.where((p) => p.deviceId != peer.deviceId).toList()
+      ..add(peer);
+    _saveTrusted(list);
+  }
+
+  void removeTrustedPeer(String deviceId) {
+    _saveTrusted(
+        trustedPeers.where((p) => p.deviceId != deviceId).toList());
+  }
+
+  TrustedPeer? _trustedByToken(String token) {
+    for (final p in trustedPeers) {
+      if (p.token == token) return p;
+    }
+    return null;
+  }
+
+  /// Cheap unique-ish hex id (no dart:math — banned in some contexts).
+  static String _randomId() {
+    final seed =
+        '${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}-$pid';
+    return _fnv1a32(seed) + _fnv1a32('$seed-salt');
+  }
+
+  static String _fnv1a32(String input) {
+    const int offset = 0x811c9dc5;
+    const int prime = 0x01000193;
+    var hash = offset;
+    for (final b in utf8.encode(input)) {
+      hash ^= b;
+      hash = (hash * prime) & 0xFFFFFFFF;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
 
   String get _deviceName {
     try {
@@ -175,28 +275,21 @@ class LanSyncService {
     } catch (_) {}
   }
 
-  /// Start the HTTP server + mDNS broadcast. Returns the PIN to show.
-  Future<String> startSending() async {
-    await stopSending(); // idempotent — never double-bind
+  /// Bring up the HTTP server + mDNS broadcast if they aren't already.
+  /// Used by both manual pairing and the always-on auto-sync server.
+  Future<void> _ensureServerAndBroadcast() async {
+    if (_server != null) return;
     await _ensureNearbyPermission();
-
-    // Random-ish 6-digit PIN without dart:math (banned in some
-    // contexts here): derive from the current microsecond clock.
-    final seed = DateTime.now().microsecondsSinceEpoch;
-    final pin = (seed % 900000 + 100000).toString();
-    _pin = pin;
-
     final server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     _server = server;
     server.listen(_handleRequest, onError: (_) {});
-
     try {
       final broadcast = BonsoirBroadcast(
         service: BonsoirService(
           name: 'LifeOS-${_deviceName.replaceAll(RegExp(r"[^A-Za-z0-9]"), "")}',
           type: _serviceType,
           port: server.port,
-          attributes: {'device': _deviceName},
+          attributes: {'device': _deviceName, 'id': deviceId},
         ),
       );
       await broadcast.initialize();
@@ -207,11 +300,9 @@ class LanSyncService {
       // Even without mDNS the receiver can still connect by typed IP,
       // so we keep the server alive.
     }
-
-    return pin;
   }
 
-  Future<void> stopSending() async {
+  Future<void> _teardownServer() async {
     try {
       await _broadcast?.stop();
     } catch (_) {}
@@ -220,14 +311,52 @@ class LanSyncService {
       await _server?.close(force: true);
     } catch (_) {}
     _server = null;
+  }
+
+  /// Start the HTTP server + mDNS broadcast for MANUAL pairing.
+  /// Returns the PIN to show.
+  Future<String> startSending() async {
+    // 6-digit PIN derived from the microsecond clock (no dart:math).
+    final seed = DateTime.now().microsecondsSinceEpoch;
+    _pin = (seed % 900000 + 100000).toString();
+    await _ensureServerAndBroadcast();
+    return _pin!;
+  }
+
+  /// Leave the manual pairing screen. Keeps the server alive in
+  /// token-only auto mode when auto-sync is on, otherwise tears down.
+  Future<void> stopSending() async {
     _pin = null;
+    if (!_autoWanted) await _teardownServer();
+  }
+
+  /// Keep a token-gated server up so trusted peers can push/pull while
+  /// the app is open. Called at startup when auto-sync is enabled.
+  Future<void> startAutoServer() async {
+    _autoWanted = true;
+    await _ensureServerAndBroadcast();
+  }
+
+  Future<void> stopAutoServer() async {
+    _autoWanted = false;
+    if (_pin == null) await _teardownServer();
+  }
+
+  /// A request is authorised if it carries the active pairing PIN OR a
+  /// token belonging to an already-trusted peer.
+  bool _authorised(HttpRequest req) {
+    final givenPin = req.headers.value(_pinHeader);
+    if (_pin != null && givenPin == _pin) return true;
+    final token = req.headers.value(_tokenHeader);
+    if (token != null && token.isNotEmpty && _trustedByToken(token) != null) {
+      return true;
+    }
+    return false;
   }
 
   Future<void> _handleRequest(HttpRequest req) async {
     final res = req.response;
-    // CORS-free local server; reject anything without the right PIN.
-    final givenPin = req.headers.value(_pinHeader);
-    if (_pin == null || givenPin != _pin) {
+    if (!_authorised(req)) {
       res.statusCode = HttpStatus.forbidden;
       await res.close();
       return;
@@ -245,6 +374,27 @@ class LanSyncService {
             .whereType<SyncCategory>()
             .toSet();
         res.write(jsonEncode(await _buildPayload(cats)));
+      } else if (path == '/trust' && req.method == 'POST') {
+        // The receiver establishes mutual trust: it sends a shared
+        // token + its own id/name; we store it and hand back ours so
+        // it can store us too.
+        final body = await utf8.decoder.bind(req).join();
+        final m = (jsonDecode(body) as Map).cast<String, dynamic>();
+        final token = (m['token'] ?? '') as String;
+        final peerId = (m['deviceId'] ?? '') as String;
+        final peerName = (m['name'] ?? '') as String;
+        if (token.isNotEmpty && peerId.isNotEmpty) {
+          addTrustedPeer(
+              TrustedPeer(token: token, deviceId: peerId, name: peerName));
+        }
+        res.write(jsonEncode({'deviceId': deviceId, 'name': _deviceName}));
+      } else if (path == '/sync' && req.method == 'POST') {
+        // Two-way merge: ingest the caller's rows, then return ours so
+        // both sides converge in a single round trip.
+        final body = await utf8.decoder.bind(req).join();
+        final incoming = (jsonDecode(body) as Map).cast<String, dynamic>();
+        await _mergeIncoming(incoming);
+        res.write(jsonEncode(await _buildSyncSnapshot()));
       } else {
         res.statusCode = HttpStatus.notFound;
       }
@@ -415,7 +565,9 @@ class LanSyncService {
               final port = svc.port;
               if (host == null || port == 0) break;
               final name = svc.attributes['device'] ?? svc.name;
-              if (found.add(SyncPeer(name: name, host: host, port: port)) &&
+              final id = svc.attributes['id'] ?? '';
+              if (found.add(SyncPeer(
+                      name: name, host: host, port: port, deviceId: id)) &&
                   !controller.isClosed) {
                 controller.add(found.toList());
               }
@@ -693,6 +845,212 @@ class LanSyncService {
     // Fire-and-forget; saveSettings is async but the prefs write is
     // effectively synchronous for our purposes.
     unawaited(repo.saveSettings(next));
+  }
+
+  // ── Trust + auto-sync (favourites + continue-watching) ───────────────────
+
+  /// Receiver side: after a manual transfer the user can opt to keep
+  /// the devices paired. We mint a shared token, POST it to the sender
+  /// (PIN-gated `/trust`), store the sender as trusted, and the sender
+  /// stores us. Future syncs use the token — no PIN re-entry.
+  Future<bool> establishTrust(SyncPeer peer, String pin) async {
+    try {
+      final token = _randomId();
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {_pinHeader: pin},
+        validateStatus: (s) => s != null && s < 500,
+      ));
+      final res = await dio.postUri<dynamic>(
+        Uri.parse('${peer.baseUrl}/trust'),
+        data: jsonEncode({
+          'token': token,
+          'deviceId': deviceId,
+          'name': _deviceName,
+        }),
+      );
+      if (res.statusCode != 200) return false;
+      final data =
+          res.data is String ? jsonDecode(res.data as String) : res.data;
+      if (data is! Map) return false;
+      final m = data.cast<String, dynamic>();
+      addTrustedPeer(TrustedPeer(
+        token: token,
+        deviceId: (m['deviceId'] ?? peer.deviceId) as String,
+        name: (m['name'] ?? peer.name) as String,
+      ));
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[LanSync] establishTrust failed: $e');
+      return false;
+    }
+  }
+
+  /// Snapshot of favourites + continue-watching, keyed by profile NAME
+  /// (ids differ across devices). Used by the two-way `/sync` merge.
+  Future<Map<String, dynamic>> _buildSyncSnapshot() async {
+    final profiles = await _db.select(_db.profiles).get();
+    final idToName = {for (final p in profiles) p.id: p.name};
+    final favs = await _db.select(_db.favorites).get();
+    final prog = await _db.select(_db.playbackProgress).get();
+    return {
+      'v': _payloadVersion,
+      'favorites': [
+        for (final f in favs)
+          {
+            'profileName': idToName[f.profileId] ?? '',
+            'streamId': f.streamId,
+            'streamType': f.streamType,
+            'name': f.name,
+            'thumbnail': f.thumbnail,
+            'addedAt': f.addedAt.millisecondsSinceEpoch,
+          }
+      ],
+      'progress': [
+        for (final p in prog)
+          {
+            'profileName': idToName[p.profileId] ?? '',
+            'streamId': p.streamId,
+            'type': p.type,
+            'position': p.position,
+            'duration': p.duration,
+            'updatedAt': p.updatedAt.millisecondsSinceEpoch,
+            'isFinished': p.isFinished,
+          }
+      ],
+    };
+  }
+
+  /// Merge a peer's snapshot into our DB. Favourites are additive (a
+  /// row missing locally is inserted — we don't propagate deletes in
+  /// v1). Continue-watching is last-write-wins on `updatedAt`. Rows
+  /// for a profile name that doesn't exist locally are skipped (we
+  /// never auto-create profiles here).
+  Future<void> _mergeIncoming(Map<String, dynamic> snap) async {
+    final profiles = await _db.select(_db.profiles).get();
+    final nameToId = <String, int>{for (final p in profiles) p.name: p.id};
+
+    if (snap['favorites'] is List) {
+      final existing = await _db.select(_db.favorites).get();
+      final have = <String>{
+        for (final f in existing) '${f.profileId}|${f.streamType}|${f.streamId}'
+      };
+      await _db.batch((batch) {
+        for (final raw in (snap['favorites'] as List)) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, dynamic>();
+          final pid = nameToId[(m['profileName'] ?? '') as String];
+          if (pid == null) continue;
+          final key = '$pid|${m['streamType']}|${m['streamId']}';
+          if (have.contains(key)) continue;
+          batch.insert(
+            _db.favorites,
+            FavoritesCompanion.insert(
+              streamId: (m['streamId'] ?? 0) as int,
+              streamType: (m['streamType'] ?? '') as String,
+              name: (m['name'] ?? '') as String,
+              thumbnail: Value(m['thumbnail'] as String?),
+              addedAt: Value(DateTime.fromMillisecondsSinceEpoch(
+                  (m['addedAt'] ?? 0) as int)),
+              profileId: Value(pid),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+        }
+      });
+    }
+
+    if (snap['progress'] is List) {
+      final existing = await _db.select(_db.playbackProgress).get();
+      final localUpdated = <String, int>{
+        for (final p in existing)
+          '${p.profileId}|${p.type}|${p.streamId}':
+              p.updatedAt.millisecondsSinceEpoch
+      };
+      await _db.batch((batch) {
+        for (final raw in (snap['progress'] as List)) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, dynamic>();
+          final pid = nameToId[(m['profileName'] ?? '') as String];
+          if (pid == null) continue;
+          final ts = (m['updatedAt'] ?? 0) as int;
+          final key = '$pid|${m['type']}|${m['streamId']}';
+          final localTs = localUpdated[key];
+          // Only overwrite when the incoming row is strictly newer.
+          if (localTs != null && localTs >= ts) continue;
+          batch.insert(
+            _db.playbackProgress,
+            PlaybackProgressCompanion.insert(
+              streamId: (m['streamId'] ?? 0) as int,
+              type: (m['type'] ?? 'movie') as String,
+              position: (m['position'] ?? 0) as int,
+              duration: (m['duration'] ?? 0) as int,
+              updatedAt: Value(DateTime.fromMillisecondsSinceEpoch(ts)),
+              isFinished: Value((m['isFinished'] ?? false) as bool),
+              profileId: Value(pid),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+    }
+  }
+
+  /// Active pass: discover trusted peers on the LAN and run a two-way
+  /// `/sync` with each. Safe to call on app start / resume. Returns the
+  /// number of peers successfully synced.
+  Future<int> runAutoSyncPass({
+    Duration discovery = const Duration(seconds: 5),
+  }) async {
+    final trusted = trustedPeers;
+    if (trusted.isEmpty) return 0;
+    final byId = {for (final t in trusted) t.deviceId: t};
+
+    // Collect discovered peers over the window.
+    final peers = <SyncPeer>[];
+    final sub = discoverPeers(timeout: discovery).listen((list) {
+      peers
+        ..clear()
+        ..addAll(list);
+    });
+    await Future<void>.delayed(discovery + const Duration(milliseconds: 300));
+    await sub.cancel();
+
+    var synced = 0;
+    final seen = <String>{};
+    for (final peer in peers) {
+      final t = byId[peer.deviceId];
+      if (t == null) continue;
+      if (!seen.add(peer.deviceId)) continue;
+      if (await _syncWithPeer(peer, t.token)) synced++;
+    }
+    return synced;
+  }
+
+  Future<bool> _syncWithPeer(SyncPeer peer, String token) async {
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {_tokenHeader: token},
+        validateStatus: (s) => s != null && s < 500,
+      ));
+      final mine = await _buildSyncSnapshot();
+      final res = await dio.postUri<dynamic>(
+        Uri.parse('${peer.baseUrl}/sync'),
+        data: jsonEncode(mine),
+      );
+      if (res.statusCode != 200) return false;
+      final data =
+          res.data is String ? jsonDecode(res.data as String) : res.data;
+      if (data is! Map) return false;
+      await _mergeIncoming(data.cast<String, dynamic>());
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[LanSync] syncWithPeer failed: $e');
+      return false;
+    }
   }
 }
 

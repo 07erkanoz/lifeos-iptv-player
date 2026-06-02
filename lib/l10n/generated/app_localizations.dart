@@ -1802,6 +1802,24 @@ abstract class AppLocalizations {
   /// **'Bitti'**
   String get deviceSyncFinish;
 
+  /// No description provided for @deviceSyncAuto.
+  ///
+  /// In tr, this message translates to:
+  /// **'Otomatik eşitleme'**
+  String get deviceSyncAuto;
+
+  /// No description provided for @deviceSyncAutoDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşleşmiş cihazlarla favori ve izleme geçmişini, aynı Wi-Fi\'da olduklarında otomatik eşitle.'**
+  String get deviceSyncAutoDesc;
+
+  /// No description provided for @deviceSyncRemember.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu cihazları otomatik eşitle'**
+  String get deviceSyncRemember;
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

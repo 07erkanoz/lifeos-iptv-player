@@ -909,6 +909,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deviceSyncFinish => 'Terminé';
 
   @override
+  String get deviceSyncAuto => 'Synchronisation auto';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Synchronise automatiquement favoris et historique avec les appareils jumelés lorsqu\'ils sont sur le même Wi-Fi.';
+
+  @override
+  String get deviceSyncRemember => 'Garder ces appareils synchronisés';
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

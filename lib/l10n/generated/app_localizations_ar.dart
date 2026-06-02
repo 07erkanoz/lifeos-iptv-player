@@ -906,6 +906,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deviceSyncFinish => 'تم';
 
   @override
+  String get deviceSyncAuto => 'مزامنة تلقائية';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'مزامنة المفضلة وسجل المشاهدة تلقائيًا مع الأجهزة المقترنة عندما تكون على نفس شبكة Wi-Fi.';
+
+  @override
+  String get deviceSyncRemember => 'إبقاء هذه الأجهزة متزامنة';
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

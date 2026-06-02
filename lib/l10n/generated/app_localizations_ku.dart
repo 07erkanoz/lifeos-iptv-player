@@ -905,6 +905,16 @@ class AppLocalizationsKu extends AppLocalizations {
   String get deviceSyncFinish => 'Qediya';
 
   @override
+  String get deviceSyncAuto => 'Hevdemkirina xweber';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Bijarte û dîroka temaşeyê bi amûrên cot-bûyî re xweber hevdem bike gava ku ew li ser heman Wi-Fi bin.';
+
+  @override
+  String get deviceSyncRemember => 'Van amûran hevdem bihêle';
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

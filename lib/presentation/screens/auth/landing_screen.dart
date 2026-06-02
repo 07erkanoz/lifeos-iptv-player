@@ -8,6 +8,7 @@ import 'package:lifeostv/data/services/backup_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
+import 'package:lifeostv/presentation/screens/settings/device_sync_screen.dart';
 
 class LandingScreen extends ConsumerWidget {
   const LandingScreen({super.key});
@@ -63,7 +64,9 @@ class LandingScreen extends ConsumerWidget {
     final accountsAsync = ref.watch(savedAccountsProvider);
     return Scaffold(
       body: Center(
-        child: Column(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo area
@@ -136,7 +139,26 @@ class LandingScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
+            const SizedBox(height: 4),
+            // First-run transfer: pull account + profiles + data from
+            // another device already set up on the same Wi-Fi.
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DeviceSyncScreen(
+                    startInReceive: true,
+                    onFinished: () => context.go('/dashboard'),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.devices_other),
+              label: Text(l10n.deviceSyncReceive),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
           ],
+        ),
         ),
       ),
     );

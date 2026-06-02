@@ -907,6 +907,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceSyncFinish => 'Done';
 
   @override
+  String get deviceSyncAuto => 'Auto-sync';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Automatically sync favourites and watch history with paired devices when they\'re on the same Wi-Fi.';
+
+  @override
+  String get deviceSyncRemember => 'Keep these devices in sync';
+
+  @override
   String get channelList => 'Channel List';
 
   @override

@@ -909,6 +909,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deviceSyncFinish => 'Listo';
 
   @override
+  String get deviceSyncAuto => 'Sincronización automática';
+
+  @override
+  String get deviceSyncAutoDesc =>
+      'Sincroniza automáticamente favoritos e historial con dispositivos emparejados cuando estén en la misma Wi-Fi.';
+
+  @override
+  String get deviceSyncRemember => 'Mantener estos dispositivos sincronizados';
+
+  @override
   String get channelList => 'Lista de canales';
 
   @override

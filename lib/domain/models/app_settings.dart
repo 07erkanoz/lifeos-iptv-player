@@ -118,6 +118,12 @@ class AppSettings {
   /// on the mobile branch of [_HeroBannerState._scheduleTrailer]).
   final bool heroTrailerOnMobile;
 
+  /// When on, the app keeps a token-gated LAN sync server up while
+  /// open and, on start/resume, two-way-merges favourites + continue-
+  /// watching with any device it has previously paired with on the
+  /// same Wi-Fi. No-op until at least one device is paired.
+  final bool autoSyncEnabled;
+
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.system,
@@ -150,6 +156,7 @@ class AppSettings {
     this.defaultAccountId,
     this.fullscreenMode = false,
     this.heroTrailerOnMobile = false,
+    this.autoSyncEnabled = false,
   });
 
   AppSettings copyWith({
@@ -186,6 +193,7 @@ class AppSettings {
     int? defaultAccountId,
     bool? fullscreenMode,
     bool? heroTrailerOnMobile,
+    bool? autoSyncEnabled,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -229,6 +237,7 @@ class AppSettings {
       fullscreenMode: fullscreenMode ?? this.fullscreenMode,
       heroTrailerOnMobile:
           heroTrailerOnMobile ?? this.heroTrailerOnMobile,
+      autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
     );
   }
 
