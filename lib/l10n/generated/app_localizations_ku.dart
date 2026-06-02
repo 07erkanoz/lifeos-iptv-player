@@ -806,6 +806,25 @@ class AppLocalizationsKu extends AppLocalizations {
   String get castSearchAgain => 'Dîsa Bigere';
 
   @override
+  String castConnecting(String device) {
+    return 'Bi $device re tê girêdan…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'Li $device tê weşandin';
+  }
+
+  @override
+  String get castFailed =>
+      'Negirêda. Pê ewle be ku tu li ser heman tora Wi-Fi yî wek amûrê.';
+
+  @override
+  String castingBanner(String device) {
+    return 'Li $device tê weşandin';
+  }
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

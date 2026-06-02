@@ -806,6 +806,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get castSearchAgain => 'بحث مرة أخرى';
 
   @override
+  String castConnecting(String device) {
+    return 'جارٍ الاتصال بـ $device…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'يتم البث إلى $device';
+  }
+
+  @override
+  String get castFailed =>
+      'تعذّر الاتصال. تأكّد من أنك على نفس شبكة Wi-Fi مثل الجهاز.';
+
+  @override
+  String castingBanner(String device) {
+    return 'يتم البث إلى $device';
+  }
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

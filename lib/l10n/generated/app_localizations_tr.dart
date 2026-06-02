@@ -806,6 +806,25 @@ class AppLocalizationsTr extends AppLocalizations {
   String get castSearchAgain => 'Tekrar Ara';
 
   @override
+  String castConnecting(String device) {
+    return '$device cihazına bağlanılıyor…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return '$device cihazına yansıtılıyor';
+  }
+
+  @override
+  String get castFailed =>
+      'Bağlanılamadı. Cihazla aynı Wi-Fi ağında olduğundan emin ol.';
+
+  @override
+  String castingBanner(String device) {
+    return '$device cihazına yansıtılıyor';
+  }
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

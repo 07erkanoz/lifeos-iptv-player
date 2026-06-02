@@ -11,6 +11,13 @@
 
     <!-- Internet permission for IPTV streaming -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Network/Wi-Fi state — required for reliable mDNS / SSDP
+         discovery (Chromecast + DLNA). Without ACCESS_WIFI_STATE the
+         multicast lock and Wi-Fi interface checks the cast/bonsoir
+         stacks rely on can silently no-op, leaving the device list
+         empty. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Chromecast: mDNS multicast for device discovery -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- Chromecast: Wi-Fi device discovery (Android 13+) -->

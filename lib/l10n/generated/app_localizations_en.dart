@@ -807,6 +807,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get castSearchAgain => 'Search Again';
 
   @override
+  String castConnecting(String device) {
+    return 'Connecting to $device…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'Casting to $device';
+  }
+
+  @override
+  String get castFailed =>
+      'Couldn\'t connect. Make sure you\'re on the same Wi-Fi network as the device.';
+
+  @override
+  String castingBanner(String device) {
+    return 'Casting to $device';
+  }
+
+  @override
   String get channelList => 'Channel List';
 
   @override

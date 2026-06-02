@@ -2524,11 +2524,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // re-resolve it from a (potentially stale) context after the
       // load attempt completes.
       final messenger = ScaffoldMessenger.of(context);
+      final l10n = AppLocalizations.of(context)!;
       try {
         await DlnaService.instance.loadMedia(
           url: _currentUrl,
           title: _currentTitle,
         );
+        // TV confirmed PLAYING — tell the user which device has it now.
+        if (mounted) {
+          final name =
+              DlnaService.instance.state.device?.displayName ?? '';
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(l10n.castConnectedTo(name)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       } on DlnaPlaybackVerificationException catch (e) {
         // TV accepted the SOAP commands but never moved to PLAYING —
         // most common cause: DMR / Smart View / Screen Share toggle on
@@ -2731,6 +2743,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                         strokeWidth: 3,
+                      ),
+                    ),
+
+                  // -- Persistent "casting" banner ---------------------------
+                  // Always visible (independent of the auto-hiding
+                  // controls) so the user can SEE that playback has been
+                  // handed off to a TV and the phone is intentionally
+                  // idle. Mobile only — desktop uses HDMI, never casts.
+                  if (Platform.isAndroid || Platform.isIOS)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        child: _CastingBanner(),
                       ),
                     ),
 
@@ -4112,6 +4139,66 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+// ===========================================================================
+//  CASTING BANNER — persistent "now casting to <device>" strip
+// ===========================================================================
+
+/// Thin always-on bar shown at the top of the player while a
+/// Chromecast OR DLNA session is active. Listens to both service
+/// notifiers and merges them so a single banner covers either
+/// transport. Hidden (zero-size) when nothing is connected.
+class _CastingBanner extends StatelessWidget {
+  const _CastingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cast = CastService.instance;
+    final dlna = DlnaService.instance;
+    return ValueListenableBuilder<CastState>(
+      valueListenable: cast.stateNotifier,
+      builder: (context, castState, _) {
+        return ValueListenableBuilder<DlnaState>(
+          valueListenable: dlna.stateNotifier,
+          builder: (context, dlnaState, _) {
+            final castOn = castState.isConnected;
+            final dlnaOn = dlnaState.isConnected;
+            if (!castOn && !dlnaOn) return const SizedBox.shrink();
+            final name = castOn
+                ? (castState.device?.name ?? '')
+                : (dlnaState.device?.displayName ?? '');
+            final l10n = AppLocalizations.of(context)!;
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.black.withValues(alpha: 0.65),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.cast_connected,
+                      color: AppColors.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      l10n.castingBanner(name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

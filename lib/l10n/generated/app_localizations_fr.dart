@@ -810,6 +810,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get castSearchAgain => 'Rechercher à nouveau';
 
   @override
+  String castConnecting(String device) {
+    return 'Connexion à $device…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'Diffusion vers $device';
+  }
+
+  @override
+  String get castFailed =>
+      'Connexion impossible. Assure-toi d\'être sur le même réseau Wi-Fi que l\'appareil.';
+
+  @override
+  String castingBanner(String device) {
+    return 'Diffusion vers $device';
+  }
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

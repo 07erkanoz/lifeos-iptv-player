@@ -810,6 +810,25 @@ class AppLocalizationsDe extends AppLocalizations {
   String get castSearchAgain => 'Erneut suchen';
 
   @override
+  String castConnecting(String device) {
+    return 'Verbinde mit $device…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'Streame auf $device';
+  }
+
+  @override
+  String get castFailed =>
+      'Verbindung fehlgeschlagen. Stelle sicher, dass du im selben WLAN bist wie das Gerät.';
+
+  @override
+  String castingBanner(String device) {
+    return 'Streame auf $device';
+  }
+
+  @override
   String get channelList => 'Kanalliste';
 
   @override

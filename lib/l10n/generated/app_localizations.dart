@@ -1628,6 +1628,30 @@ abstract class AppLocalizations {
   /// **'Tekrar Ara'**
   String get castSearchAgain;
 
+  /// No description provided for @castConnecting.
+  ///
+  /// In tr, this message translates to:
+  /// **'{device} cihazına bağlanılıyor…'**
+  String castConnecting(String device);
+
+  /// No description provided for @castConnectedTo.
+  ///
+  /// In tr, this message translates to:
+  /// **'{device} cihazına yansıtılıyor'**
+  String castConnectedTo(String device);
+
+  /// No description provided for @castFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlanılamadı. Cihazla aynı Wi-Fi ağında olduğundan emin ol.'**
+  String get castFailed;
+
+  /// No description provided for @castingBanner.
+  ///
+  /// In tr, this message translates to:
+  /// **'{device} cihazına yansıtılıyor'**
+  String castingBanner(String device);
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

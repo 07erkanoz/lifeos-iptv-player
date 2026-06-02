@@ -7,6 +7,7 @@ import 'package:cast/device.dart';
 import 'package:cast/session.dart';
 import 'package:cast/session_manager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // ---------------------------------------------------------------------------
 //  Cast state
@@ -91,6 +92,24 @@ class CastService {
   }) async {
     // Only available on Android & iOS (mDNS)
     if (!(Platform.isAndroid || Platform.isIOS)) return [];
+
+    // Android 13+ requires NEARBY_WIFI_DEVICES at runtime for any LAN
+    // discovery that doesn't request ACCESS_FINE_LOCATION. Without the
+    // grant, bonsoir's mDNS browse returns no services → the picker
+    // shows an empty list and casting "silently doesn't work". This
+    // mirrors the DLNA service's request; it's a no-op on Android <13.
+    if (Platform.isAndroid) {
+      try {
+        final status = await Permission.nearbyWifiDevices.status;
+        if (!status.isGranted) {
+          final result = await Permission.nearbyWifiDevices.request();
+          if (kDebugMode) debugPrint('[Cast] nearbyWifiDevices: $result');
+        }
+      } catch (_) {
+        // permission_handler can throw on devices lacking the API;
+        // discovery still works via legacy paths there.
+      }
+    }
 
     final results = <CastDevice>{};
 

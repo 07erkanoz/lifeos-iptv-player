@@ -105,13 +105,54 @@ class CastButton extends StatelessWidget {
       ),
       builder: (_) => _DevicePickerSheet(
         onCastSelected: (device) async {
+          // Capture messenger + l10n BEFORE pop so the feedback
+          // snackbars survive the sheet's context being torn down.
+          final messenger = ScaffoldMessenger.of(context);
+          final l10n = AppLocalizations.of(context)!;
           Navigator.of(context).pop();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(l10n.castConnecting(device.name)),
+              duration: const Duration(seconds: 16),
+            ),
+          );
           final ok = await CastService.instance.connectToDevice(device);
-          if (ok) onCastStarted?.call();
+          messenger.hideCurrentSnackBar();
+          if (ok) {
+            onCastStarted?.call();
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(l10n.castConnectedTo(device.name)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          } else {
+            // Connect failed (timeout / receiver refused / device off
+            // the network). Tell the user instead of silently leaving
+            // local playback running with no explanation.
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(l10n.castFailed),
+                backgroundColor: Colors.red.shade800,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
         },
         onDlnaSelected: (device) {
+          final messenger = ScaffoldMessenger.of(context);
+          final l10n = AppLocalizations.of(context)!;
           Navigator.of(context).pop();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(l10n.castConnecting(device.displayName)),
+              duration: const Duration(seconds: 4),
+            ),
+          );
           DlnaService.instance.connectTo(device);
+          // The player's _onCastStarted drives the DLNA LOAD and shows
+          // its own success / failure feedback (it knows whether the
+          // TV actually started playing).
           onCastStarted?.call();
         },
       ),

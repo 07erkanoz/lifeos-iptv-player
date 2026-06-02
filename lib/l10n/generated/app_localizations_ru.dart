@@ -809,6 +809,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get castSearchAgain => 'Искать снова';
 
   @override
+  String castConnecting(String device) {
+    return 'Подключение к $device…';
+  }
+
+  @override
+  String castConnectedTo(String device) {
+    return 'Трансляция на $device';
+  }
+
+  @override
+  String get castFailed =>
+      'Не удалось подключиться. Убедитесь, что вы в той же сети Wi-Fi, что и устройство.';
+
+  @override
+  String castingBanner(String device) {
+    return 'Трансляция на $device';
+  }
+
+  @override
   String get channelList => 'Список каналов';
 
   @override
