@@ -828,6 +828,87 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get deviceSync => 'Transferencia entre dispositivos';
+
+  @override
+  String get deviceSyncDesc =>
+      'Comparte tu cuenta, favoritos y ajustes con otro dispositivo en la misma Wi-Fi. Sin servidor, internet ni cuenta.';
+
+  @override
+  String get deviceSyncSend => 'Enviar desde este dispositivo';
+
+  @override
+  String get deviceSyncSendHint =>
+      'Este dispositivo ofrece sus datos; el otro se conecta con un PIN.';
+
+  @override
+  String get deviceSyncReceive => 'Recibir de otro dispositivo';
+
+  @override
+  String get deviceSyncReceiveHint =>
+      'Encuentra un dispositivo en la red y trae sus datos aquí.';
+
+  @override
+  String get deviceSyncSendReady => 'Listo para enviar';
+
+  @override
+  String get deviceSyncPin => 'PIN';
+
+  @override
+  String get deviceSyncSendWaiting =>
+      'En el otro dispositivo elige \"Recibir de otro dispositivo\", encuentra este y escribe el PIN de arriba.';
+
+  @override
+  String get deviceSyncSelectDevice => 'Elige un dispositivo';
+
+  @override
+  String get deviceSyncSearching => 'Buscando dispositivos…';
+
+  @override
+  String get deviceSyncNoPeers =>
+      'No se encontraron dispositivos. Asegúrate de que ambos estén en la misma Wi-Fi y que el emisor tenga abierto \"Enviar desde este dispositivo\".';
+
+  @override
+  String get deviceSyncEnterPin => 'Introduce el PIN';
+
+  @override
+  String get deviceSyncConnect => 'Conectar';
+
+  @override
+  String get deviceSyncPinError =>
+      'PIN incorrecto o no se pudo alcanzar el dispositivo.';
+
+  @override
+  String get deviceSyncSelectData => 'Elige qué transferir';
+
+  @override
+  String get deviceSyncCatAccount => 'Inicio de sesión';
+
+  @override
+  String get deviceSyncCatProfiles => 'Perfiles';
+
+  @override
+  String get deviceSyncCatFavorites => 'Favoritos';
+
+  @override
+  String get deviceSyncCatProgress => 'Seguir viendo';
+
+  @override
+  String get deviceSyncCatSettings => 'Ajustes';
+
+  @override
+  String get deviceSyncStart => 'Transferir';
+
+  @override
+  String get deviceSyncImporting => 'Transfiriendo…';
+
+  @override
+  String get deviceSyncDone => 'Transferencia completada';
+
+  @override
+  String get deviceSyncFinish => 'Listo';
+
+  @override
   String get channelList => 'Lista de canales';
 
   @override

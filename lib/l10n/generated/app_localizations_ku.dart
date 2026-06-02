@@ -825,6 +825,86 @@ class AppLocalizationsKu extends AppLocalizations {
   }
 
   @override
+  String get deviceSync => 'Veguhastina navbera amûran';
+
+  @override
+  String get deviceSyncDesc =>
+      'Hesab, bijarte û mîhengên xwe bi amûreke din a li ser heman Wi-Fi re parve bike. Pêdivî bi server, înternet an hesab nîne.';
+
+  @override
+  String get deviceSyncSend => 'Ji vê amûrê bişîne';
+
+  @override
+  String get deviceSyncSendHint =>
+      'Ev amûr daneyên xwe pêşkêş dike; ya din bi PIN-ê re girêdide.';
+
+  @override
+  String get deviceSyncReceive => 'Ji amûreke din wergire';
+
+  @override
+  String get deviceSyncReceiveHint =>
+      'Amûreke li ser torê bibîne û daneyên wê bîne vir.';
+
+  @override
+  String get deviceSyncSendReady => 'Amade ye ji bo şandinê';
+
+  @override
+  String get deviceSyncPin => 'PIN';
+
+  @override
+  String get deviceSyncSendWaiting =>
+      'Li amûra din \"Ji amûreke din wergire\" hilbijêre, vê amûrê bibîne û PIN-a jorîn binivîse.';
+
+  @override
+  String get deviceSyncSelectDevice => 'Amûrekê hilbijêre';
+
+  @override
+  String get deviceSyncSearching => 'Li amûran tê gerîn…';
+
+  @override
+  String get deviceSyncNoPeers =>
+      'Amûr nehate dîtin. Pê ewle be ku herdu li ser heman Wi-Fi ne û li şandêr \"Ji vê amûrê bişîne\" vekirî ye.';
+
+  @override
+  String get deviceSyncEnterPin => 'PIN-ê binivîse';
+
+  @override
+  String get deviceSyncConnect => 'Girêde';
+
+  @override
+  String get deviceSyncPinError => 'PIN şaş e an nagihîje amûrê.';
+
+  @override
+  String get deviceSyncSelectData => 'Hilbijêre ka çi were veguhastin';
+
+  @override
+  String get deviceSyncCatAccount => 'Têketina hesêb';
+
+  @override
+  String get deviceSyncCatProfiles => 'Profîl';
+
+  @override
+  String get deviceSyncCatFavorites => 'Bijarte';
+
+  @override
+  String get deviceSyncCatProgress => 'Berdewamî temaşe';
+
+  @override
+  String get deviceSyncCatSettings => 'Mîheng';
+
+  @override
+  String get deviceSyncStart => 'Veguhêze';
+
+  @override
+  String get deviceSyncImporting => 'Tê veguhastin…';
+
+  @override
+  String get deviceSyncDone => 'Veguhastin temam bû';
+
+  @override
+  String get deviceSyncFinish => 'Qediya';
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

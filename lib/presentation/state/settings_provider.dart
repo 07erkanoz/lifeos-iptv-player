@@ -17,6 +17,13 @@ class SettingsNotifier extends _$SettingsNotifier {
     ref.read(settingsRepositoryProvider).saveSettings(newSettings);
   }
 
+  /// Re-read settings from disk. Used after the LAN sync import writes
+  /// SharedPreferences directly (bypassing this notifier) so the live
+  /// state — and everything that watches it — picks up the changes.
+  void reload() {
+    state = ref.read(settingsRepositoryProvider).loadSettings();
+  }
+
   void setTheme(AppThemeMode mode) {
     updateSettings(state.copyWith(themeMode: mode));
   }

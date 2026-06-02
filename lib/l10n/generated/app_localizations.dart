@@ -1652,6 +1652,156 @@ abstract class AppLocalizations {
   /// **'{device} cihazına yansıtılıyor'**
   String castingBanner(String device);
 
+  /// No description provided for @deviceSync.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cihazlar arası aktarım'**
+  String get deviceSync;
+
+  /// No description provided for @deviceSyncDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aynı Wi-Fi ağındaki başka bir cihazla hesap, favori ve ayarlarını paylaş. Sunucu, internet veya hesap gerekmez.'**
+  String get deviceSyncDesc;
+
+  /// No description provided for @deviceSyncSend.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu cihazdan gönder'**
+  String get deviceSyncSend;
+
+  /// No description provided for @deviceSyncSendHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu cihaz verileri sunar; diğer cihaz PIN ile bağlanır.'**
+  String get deviceSyncSendHint;
+
+  /// No description provided for @deviceSyncReceive.
+  ///
+  /// In tr, this message translates to:
+  /// **'Başka cihazdan al'**
+  String get deviceSyncReceive;
+
+  /// No description provided for @deviceSyncReceiveHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ağdaki bir cihazı bul ve verilerini bu cihaza aktar.'**
+  String get deviceSyncReceiveHint;
+
+  /// No description provided for @deviceSyncSendReady.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönderim hazır'**
+  String get deviceSyncSendReady;
+
+  /// No description provided for @deviceSyncPin.
+  ///
+  /// In tr, this message translates to:
+  /// **'PIN'**
+  String get deviceSyncPin;
+
+  /// No description provided for @deviceSyncSendWaiting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Diğer cihazda \"Başka cihazdan al\"ı seç, bu cihazı bul ve yukarıdaki PIN\'i gir.'**
+  String get deviceSyncSendWaiting;
+
+  /// No description provided for @deviceSyncSelectDevice.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bir cihaz seç'**
+  String get deviceSyncSelectDevice;
+
+  /// No description provided for @deviceSyncSearching.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cihazlar aranıyor…'**
+  String get deviceSyncSearching;
+
+  /// No description provided for @deviceSyncNoPeers.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cihaz bulunamadı. Her iki cihazın da aynı Wi-Fi ağında ve gönderen cihazda \"Bu cihazdan gönder\"in açık olduğundan emin ol.'**
+  String get deviceSyncNoPeers;
+
+  /// No description provided for @deviceSyncEnterPin.
+  ///
+  /// In tr, this message translates to:
+  /// **'PIN\'i gir'**
+  String get deviceSyncEnterPin;
+
+  /// No description provided for @deviceSyncConnect.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlan'**
+  String get deviceSyncConnect;
+
+  /// No description provided for @deviceSyncPinError.
+  ///
+  /// In tr, this message translates to:
+  /// **'PIN yanlış veya cihaza ulaşılamadı.'**
+  String get deviceSyncPinError;
+
+  /// No description provided for @deviceSyncSelectData.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktarılacak verileri seç'**
+  String get deviceSyncSelectData;
+
+  /// No description provided for @deviceSyncCatAccount.
+  ///
+  /// In tr, this message translates to:
+  /// **'Hesap girişi'**
+  String get deviceSyncCatAccount;
+
+  /// No description provided for @deviceSyncCatProfiles.
+  ///
+  /// In tr, this message translates to:
+  /// **'Profiller'**
+  String get deviceSyncCatProfiles;
+
+  /// No description provided for @deviceSyncCatFavorites.
+  ///
+  /// In tr, this message translates to:
+  /// **'Favoriler'**
+  String get deviceSyncCatFavorites;
+
+  /// No description provided for @deviceSyncCatProgress.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzlemeye devam et'**
+  String get deviceSyncCatProgress;
+
+  /// No description provided for @deviceSyncCatSettings.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ayarlar'**
+  String get deviceSyncCatSettings;
+
+  /// No description provided for @deviceSyncStart.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktar'**
+  String get deviceSyncStart;
+
+  /// No description provided for @deviceSyncImporting.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktarılıyor…'**
+  String get deviceSyncImporting;
+
+  /// No description provided for @deviceSyncDone.
+  ///
+  /// In tr, this message translates to:
+  /// **'Aktarım tamamlandı'**
+  String get deviceSyncDone;
+
+  /// No description provided for @deviceSyncFinish.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bitti'**
+  String get deviceSyncFinish;
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

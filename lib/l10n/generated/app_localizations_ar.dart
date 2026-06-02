@@ -825,6 +825,87 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get deviceSync => 'النقل بين الأجهزة';
+
+  @override
+  String get deviceSyncDesc =>
+      'شارك حسابك ومفضلاتك وإعداداتك مع جهاز آخر على نفس شبكة Wi-Fi. بدون خادم أو إنترنت أو حساب.';
+
+  @override
+  String get deviceSyncSend => 'إرسال من هذا الجهاز';
+
+  @override
+  String get deviceSyncSendHint =>
+      'هذا الجهاز يوفّر بياناته؛ والآخر يتصل برمز PIN.';
+
+  @override
+  String get deviceSyncReceive => 'استقبال من جهاز آخر';
+
+  @override
+  String get deviceSyncReceiveHint =>
+      'ابحث عن جهاز على الشبكة وانقل بياناته إلى هنا.';
+
+  @override
+  String get deviceSyncSendReady => 'جاهز للإرسال';
+
+  @override
+  String get deviceSyncPin => 'PIN';
+
+  @override
+  String get deviceSyncSendWaiting =>
+      'على الجهاز الآخر اختر \"استقبال من جهاز آخر\"، ابحث عن هذا الجهاز وأدخل رمز PIN أعلاه.';
+
+  @override
+  String get deviceSyncSelectDevice => 'اختر جهازًا';
+
+  @override
+  String get deviceSyncSearching => 'جارٍ البحث عن الأجهزة…';
+
+  @override
+  String get deviceSyncNoPeers =>
+      'لم يتم العثور على أجهزة. تأكد من أن كليهما على نفس شبكة Wi-Fi وأن المُرسِل قد فتح \"إرسال من هذا الجهاز\".';
+
+  @override
+  String get deviceSyncEnterPin => 'أدخل رمز PIN';
+
+  @override
+  String get deviceSyncConnect => 'اتصال';
+
+  @override
+  String get deviceSyncPinError =>
+      'رمز PIN غير صحيح أو تعذّر الوصول إلى الجهاز.';
+
+  @override
+  String get deviceSyncSelectData => 'اختر ما تريد نقله';
+
+  @override
+  String get deviceSyncCatAccount => 'تسجيل الدخول';
+
+  @override
+  String get deviceSyncCatProfiles => 'الملفات الشخصية';
+
+  @override
+  String get deviceSyncCatFavorites => 'المفضلة';
+
+  @override
+  String get deviceSyncCatProgress => 'متابعة المشاهدة';
+
+  @override
+  String get deviceSyncCatSettings => 'الإعدادات';
+
+  @override
+  String get deviceSyncStart => 'نقل';
+
+  @override
+  String get deviceSyncImporting => 'جارٍ النقل…';
+
+  @override
+  String get deviceSyncDone => 'اكتمل النقل';
+
+  @override
+  String get deviceSyncFinish => 'تم';
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

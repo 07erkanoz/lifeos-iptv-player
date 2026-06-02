@@ -825,6 +825,86 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get deviceSync => 'Cihazlar arası aktarım';
+
+  @override
+  String get deviceSyncDesc =>
+      'Aynı Wi-Fi ağındaki başka bir cihazla hesap, favori ve ayarlarını paylaş. Sunucu, internet veya hesap gerekmez.';
+
+  @override
+  String get deviceSyncSend => 'Bu cihazdan gönder';
+
+  @override
+  String get deviceSyncSendHint =>
+      'Bu cihaz verileri sunar; diğer cihaz PIN ile bağlanır.';
+
+  @override
+  String get deviceSyncReceive => 'Başka cihazdan al';
+
+  @override
+  String get deviceSyncReceiveHint =>
+      'Ağdaki bir cihazı bul ve verilerini bu cihaza aktar.';
+
+  @override
+  String get deviceSyncSendReady => 'Gönderim hazır';
+
+  @override
+  String get deviceSyncPin => 'PIN';
+
+  @override
+  String get deviceSyncSendWaiting =>
+      'Diğer cihazda \"Başka cihazdan al\"ı seç, bu cihazı bul ve yukarıdaki PIN\'i gir.';
+
+  @override
+  String get deviceSyncSelectDevice => 'Bir cihaz seç';
+
+  @override
+  String get deviceSyncSearching => 'Cihazlar aranıyor…';
+
+  @override
+  String get deviceSyncNoPeers =>
+      'Cihaz bulunamadı. Her iki cihazın da aynı Wi-Fi ağında ve gönderen cihazda \"Bu cihazdan gönder\"in açık olduğundan emin ol.';
+
+  @override
+  String get deviceSyncEnterPin => 'PIN\'i gir';
+
+  @override
+  String get deviceSyncConnect => 'Bağlan';
+
+  @override
+  String get deviceSyncPinError => 'PIN yanlış veya cihaza ulaşılamadı.';
+
+  @override
+  String get deviceSyncSelectData => 'Aktarılacak verileri seç';
+
+  @override
+  String get deviceSyncCatAccount => 'Hesap girişi';
+
+  @override
+  String get deviceSyncCatProfiles => 'Profiller';
+
+  @override
+  String get deviceSyncCatFavorites => 'Favoriler';
+
+  @override
+  String get deviceSyncCatProgress => 'İzlemeye devam et';
+
+  @override
+  String get deviceSyncCatSettings => 'Ayarlar';
+
+  @override
+  String get deviceSyncStart => 'Aktar';
+
+  @override
+  String get deviceSyncImporting => 'Aktarılıyor…';
+
+  @override
+  String get deviceSyncDone => 'Aktarım tamamlandı';
+
+  @override
+  String get deviceSyncFinish => 'Bitti';
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

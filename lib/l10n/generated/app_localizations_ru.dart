@@ -828,6 +828,86 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get deviceSync => 'Передача между устройствами';
+
+  @override
+  String get deviceSyncDesc =>
+      'Поделитесь аккаунтом, избранным и настройками с другим устройством в той же Wi-Fi. Без сервера, интернета и аккаунта.';
+
+  @override
+  String get deviceSyncSend => 'Отправить с этого устройства';
+
+  @override
+  String get deviceSyncSendHint =>
+      'Это устройство отдаёт данные; другое подключается по PIN-коду.';
+
+  @override
+  String get deviceSyncReceive => 'Получить с другого устройства';
+
+  @override
+  String get deviceSyncReceiveHint =>
+      'Найдите устройство в сети и перенесите его данные сюда.';
+
+  @override
+  String get deviceSyncSendReady => 'Готово к отправке';
+
+  @override
+  String get deviceSyncPin => 'PIN';
+
+  @override
+  String get deviceSyncSendWaiting =>
+      'На другом устройстве выберите \"Получить с другого устройства\", найдите это и введите PIN сверху.';
+
+  @override
+  String get deviceSyncSelectDevice => 'Выберите устройство';
+
+  @override
+  String get deviceSyncSearching => 'Поиск устройств…';
+
+  @override
+  String get deviceSyncNoPeers =>
+      'Устройства не найдены. Убедитесь, что оба в одной Wi-Fi и на отправителе открыто \"Отправить с этого устройства\".';
+
+  @override
+  String get deviceSyncEnterPin => 'Введите PIN';
+
+  @override
+  String get deviceSyncConnect => 'Подключить';
+
+  @override
+  String get deviceSyncPinError => 'Неверный PIN или устройство недоступно.';
+
+  @override
+  String get deviceSyncSelectData => 'Выберите, что передать';
+
+  @override
+  String get deviceSyncCatAccount => 'Вход в аккаунт';
+
+  @override
+  String get deviceSyncCatProfiles => 'Профили';
+
+  @override
+  String get deviceSyncCatFavorites => 'Избранное';
+
+  @override
+  String get deviceSyncCatProgress => 'Продолжить просмотр';
+
+  @override
+  String get deviceSyncCatSettings => 'Настройки';
+
+  @override
+  String get deviceSyncStart => 'Передать';
+
+  @override
+  String get deviceSyncImporting => 'Передача…';
+
+  @override
+  String get deviceSyncDone => 'Передача завершена';
+
+  @override
+  String get deviceSyncFinish => 'Готово';
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

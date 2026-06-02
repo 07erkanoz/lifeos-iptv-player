@@ -12,6 +12,7 @@ import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/presentation/screens/settings/sections/profiles_section.dart';
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
+import 'package:lifeostv/presentation/screens/settings/device_sync_screen.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
@@ -2318,6 +2319,21 @@ class _DataSection extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: surfaceColor,
         onTap: () => _importBackup(context, ref),
+      ),
+      const SizedBox(height: 12),
+      // Same-network device-to-device transfer (no cloud / file).
+      ListTile(
+        leading: const Icon(Icons.devices_other, color: AppColors.primary),
+        title: Text(l10n.deviceSync, style: TextStyle(color: textColor)),
+        subtitle: Text(
+          l10n.deviceSyncDesc,
+          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: surfaceColor,
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const DeviceSyncScreen(),
+        )),
       ),
       const SizedBox(height: 24),
       Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
