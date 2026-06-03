@@ -138,7 +138,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 // ---------------------------------------------------------------------------
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // -- Player ---------------------------------------------------------------
   late final Player _player;
   late final VideoController _controller;
@@ -276,6 +276,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Hide status bar & navigation bar on mobile (immersive mode)
     if (isMobilePlatform) {
@@ -338,7 +339,44 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Stop audio when the app leaves the foreground unless we're in
+    // Picture-in-Picture (where continued playback is the whole point).
+    // Without this, media_kit keeps decoding in the background and the
+    // user hears the video after pressing home / switching apps.
+    // Mobile only — on desktop a minimised / unfocused window
+    // shouldn't stop audio (the user may be listening while working).
+    if (!isMobilePlatform) return;
+    if (_isInPipMode || _pipTransitioning) return;
+    // Only true background states — NOT `inactive`, which also fires
+    // for transient things (notification shade, permission dialog) and
+    // for the PiP-entry transition, where pausing would defeat PiP.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      try {
+        _player.pause();
+      } catch (_) {}
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // ── Tear the player down FIRST, unconditionally ──
+    // Everything below (progress save, system-UI restore, timer/sub
+    // cancellation) is best-effort cleanup. If any of it threw or
+    // hung BEFORE we reached the player teardown, the libmpv decoder
+    // kept running — that's the "audio keeps playing after back" and
+    // "two videos on replay" bug. Stopping + disposing the player at
+    // the very top guarantees it never survives this screen.
+    try {
+      _player.pause();
+      _player.stop();
+      _player.dispose();
+    } catch (_) {}
+    _setPlayerActive(false);
+
     _saveProgress();
     // Restore the APP-level system UI mode on mobile. The player used
     // immersiveSticky while video was on screen; on the way out we must
@@ -364,12 +402,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _introMarkerSub?.cancel();
     _posUpdateTimer?.cancel();
     _channelInfoTimer?.cancel();
-    // Stop playback first so the decoder stops feeding the SurfaceTexture,
-    // then dispose the Player. media_kit registers VideoController cleanup
-    // against Player.dispose(), which releases the Android surface.
-    _player.stop();
-    _player.dispose();
-    _setPlayerActive(false);
+    // Player teardown already happened at the top of dispose().
     _hideTimer?.cancel();
     _progressTimer?.cancel();
     _saveProgressTimer?.cancel();
