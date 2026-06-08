@@ -55,4 +55,4 @@ final class FavoritesRepositoryProvider
 }
 
 String _$favoritesRepositoryHash() =>
-    r'451878fad8835a6c62cd64f29f3203322f75cc97';
+    r'fac7e67cf7b04f6aba128d72297cb9393b11953c';

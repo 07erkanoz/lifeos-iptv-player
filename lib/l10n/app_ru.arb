@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Умные подборки",
   "aiSimilarLoading": "Подбираем…",
   "aiSimilarFailed": "Не удалось загрузить — показан стандартный список.",
+  "aiSimilarSemanticAxis": "Похожая атмосфера и темы",
+  "aiSimilarSemanticReason": "Совпадает по теме и настроению",
   "statsTitle": "Статистика",
   "statsWatchTime": "Время просмотра",
   "statsAllTime": "За всё время",

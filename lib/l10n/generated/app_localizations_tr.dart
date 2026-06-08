@@ -1387,6 +1387,12 @@ class AppLocalizationsTr extends AppLocalizations {
       'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Benzer atmosfer ve tema';
+
+  @override
+  String get aiSimilarSemanticReason => 'Tema ve atmosfer olarak yakın';
+
+  @override
   String get statsTitle => 'İstatistikler';
 
   @override

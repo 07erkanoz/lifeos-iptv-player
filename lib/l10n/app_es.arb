@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Recomendaciones inteligentes",
   "aiSimilarLoading": "Preparando…",
   "aiSimilarFailed": "No se pudo cargar — mostrando lista básica.",
+  "aiSimilarSemanticAxis": "Ambiente y temas similares",
+  "aiSimilarSemanticReason": "Coincide en tema y tono",
   "statsTitle": "Estadísticas",
   "statsWatchTime": "Tiempo de visualización",
   "statsAllTime": "Total",

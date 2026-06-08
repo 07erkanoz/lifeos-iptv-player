@@ -2696,6 +2696,18 @@ abstract class AppLocalizations {
   /// **'Akıllı öneriler yüklenemedi — basit liste gösteriliyor.'**
   String get aiSimilarFailed;
 
+  /// No description provided for @aiSimilarSemanticAxis.
+  ///
+  /// In tr, this message translates to:
+  /// **'Benzer atmosfer ve tema'**
+  String get aiSimilarSemanticAxis;
+
+  /// No description provided for @aiSimilarSemanticReason.
+  ///
+  /// In tr, this message translates to:
+  /// **'Tema ve atmosfer olarak yakın'**
+  String get aiSimilarSemanticReason;
+
   /// No description provided for @statsTitle.
   ///
   /// In tr, this message translates to:

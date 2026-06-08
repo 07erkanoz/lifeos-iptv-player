@@ -53,4 +53,4 @@ final class PlayerRepositoryProvider
   }
 }
 
-String _$playerRepositoryHash() => r'4fef7fb180bc4fb9c1abf0e860594d3e1d9e4db7';
+String _$playerRepositoryHash() => r'93cfa2d945467c222863cb9dbdd9842fc4cfbcfb';

@@ -965,6 +965,8 @@ recap it without inventing details, reply with the single word
     String? currentPlot,
     String? currentDirector,
     String? currentCast,
+    String? currentThemes,
+    String? currentMood,
     required List<Map<String, dynamic>> librarySample,
     List<Map<String, dynamic>> favorites = const [],
     required String targetLanguage,
@@ -980,6 +982,12 @@ recap it without inventing details, reply with the single word
       if (currentDirector != null && currentDirector.isNotEmpty)
         'director': currentDirector,
       if (currentCast != null && currentCast.isNotEmpty) 'cast': currentCast,
+      // Enrichment-derived signals — these are what let "same theme"
+      // and "similar tone" axes mean something for Turkish IPTV
+      // catalogues that ship with no genre/mood metadata at all.
+      if (currentThemes != null && currentThemes.isNotEmpty)
+        'themes': currentThemes,
+      if (currentMood != null && currentMood.isNotEmpty) 'mood': currentMood,
       if (currentPlot != null && currentPlot.isNotEmpty) 'plot': currentPlot,
     };
 
@@ -1005,6 +1013,11 @@ Acceptable axes (use exact wording you choose, in $targetLanguage):
     crime drama, 2020+").
   • Same theme — thematic matches (e.g. "Father-son drama",
     "Heist comedies").
+
+If CURRENT_ITEM carries `themes` or `mood` fields, lean on them
+heavily for the "Similar tone & pacing" and "Same theme" axes —
+they are curated signals and usually more reliable than the raw
+genre string.
 
 Rules:
   1. Use **only** streamIds that appear in LIBRARY_SAMPLE. Never

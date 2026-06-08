@@ -1389,6 +1389,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t load smart picks — showing fallback.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Same vibe & themes';
+
+  @override
+  String get aiSimilarSemanticReason => 'Matches the mood and themes';
+
+  @override
   String get statsTitle => 'Statistics';
 
   @override

@@ -1388,6 +1388,12 @@ class AppLocalizationsKu extends AppLocalizations {
   String get aiSimilarFailed => 'Nehat barkirin — lîsteya hêsan tê nîşandan.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Hawa û mijarên nêz';
+
+  @override
+  String get aiSimilarSemanticReason => 'Di mijar û hawayê de nêz e';
+
+  @override
   String get statsTitle => 'Statîstîk';
 
   @override

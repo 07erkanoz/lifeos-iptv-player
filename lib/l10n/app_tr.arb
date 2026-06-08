@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Sana özel benzer içerikler",
   "aiSimilarLoading": "Hazırlanıyor…",
   "aiSimilarFailed": "Akıllı öneriler yüklenemedi — basit liste gösteriliyor.",
+  "aiSimilarSemanticAxis": "Benzer atmosfer ve tema",
+  "aiSimilarSemanticReason": "Tema ve atmosfer olarak yakın",
   "statsTitle": "İstatistikler",
   "statsWatchTime": "İzleme süresi",
   "statsAllTime": "Tüm zamanlar",

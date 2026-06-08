@@ -1399,6 +1399,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiSimilarFailed => 'Échec — affichage de la liste basique.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Ambiance et thèmes similaires';
+
+  @override
+  String get aiSimilarSemanticReason => 'Correspond au thème et à l\'ambiance';
+
+  @override
   String get statsTitle => 'Statistiques';
 
   @override

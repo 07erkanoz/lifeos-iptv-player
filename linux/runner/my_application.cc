@@ -25,17 +25,21 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Decoration policy:
-  // We previously set decorated=FALSE so the window had no title row
-  // and the app could render its own chrome. On KDE Plasma Wayland +
-  // AMD, the kwin compositor occasionally still composites its own
-  // SSD on top of the undecorated surface (xdg_decoration_v1
-  // "Force SSD" heuristic), producing a mismatched / flashing border
-  // strip. Letting the host compositor own the decoration is the
-  // safest cross-distro behaviour — KDE Breeze paints a clean title
-  // bar, GNOME/Mutter draws its own, no extra strip on top.
+  // Decoration policy (cross-distro, esp. KDE Wayland):
+  //
+  // Previous attempts produced two failure modes:
+  //   1. decorated=FALSE → kwin still composited SSD on undecorated
+  //      surfaces, producing a mismatched border strip.
+  //   2. decorated=TRUE → KDE Breeze (SSD) drew a title bar AND GTK
+  //      drew its own CSD header bar, stacking double decorations.
+  //
+  // Fix: ask the host compositor for the decoration (TRUE) AND
+  // explicitly clear GTK's CSD header bar via set_titlebar(NULL).
+  // Result: single decoration, painted by the OS (KDE Breeze,
+  // GNOME Adwaita, etc.), no in-app GTK strip.
   gtk_window_set_title(window, "LifeOs TV");
   gtk_window_set_decorated(window, TRUE);
+  gtk_window_set_titlebar(window, NULL);
   gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
 
   GdkScreen* screen = gtk_widget_get_screen(GTK_WIDGET(window));

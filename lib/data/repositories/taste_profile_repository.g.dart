@@ -55,12 +55,13 @@ final class TasteProfileRepositoryProvider
 }
 
 String _$tasteProfileRepositoryHash() =>
-    r'0ac0e4d104624f131b9b5469a32bf75a23b44823';
+    r'580fb699db4594f3785135416b14ec0c75f70347';
 
 /// One-shot async profile. AI rail providers `ref.watch` this so
 /// the profile is computed once per dashboard mount instead of
 /// each rail rebuilding it. Auto-invalidates whenever feedback
-/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents).
+/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents)
+/// or the group-mode profile set changes.
 
 @ProviderFor(tasteProfile)
 final tasteProfileProvider = TasteProfileProvider._();
@@ -68,7 +69,8 @@ final tasteProfileProvider = TasteProfileProvider._();
 /// One-shot async profile. AI rail providers `ref.watch` this so
 /// the profile is computed once per dashboard mount instead of
 /// each rail rebuilding it. Auto-invalidates whenever feedback
-/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents).
+/// changes (the repo watches `dislikedStreamIdsProvider`-equivalents)
+/// or the group-mode profile set changes.
 
 final class TasteProfileProvider
     extends
@@ -81,7 +83,8 @@ final class TasteProfileProvider
   /// One-shot async profile. AI rail providers `ref.watch` this so
   /// the profile is computed once per dashboard mount instead of
   /// each rail rebuilding it. Auto-invalidates whenever feedback
-  /// changes (the repo watches `dislikedStreamIdsProvider`-equivalents).
+  /// changes (the repo watches `dislikedStreamIdsProvider`-equivalents)
+  /// or the group-mode profile set changes.
   TasteProfileProvider._()
     : super(
         from: null,
@@ -108,4 +111,4 @@ final class TasteProfileProvider
   }
 }
 
-String _$tasteProfileHash() => r'c5a2ec182eadb75f2ee77bbe6e74f8412b35bab7';
+String _$tasteProfileHash() => r'e36e62292d7d5810ca017f57aac203ff9f1eef47';

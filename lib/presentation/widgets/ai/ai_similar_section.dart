@@ -9,8 +9,10 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/similar_group.dart';
 import 'package:lifeostv/data/repositories/ai_similar_cache_repository.dart';
+import 'package:lifeostv/data/repositories/content_enrichment_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/data/services/semantic_search_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -75,6 +77,65 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
   /// without N async lookups during scroll.
   Map<int, Channel> _channelsById = const {};
 
+  /// Build a semantic-similarity group from the on-device embedding
+  /// index. This is the part that actually reflects catalog
+  /// enrichment: the vectors are built from genre + themes + mood, so
+  /// neighbours here are "same vibe", not just "same genre word". It's
+  /// offline, instant, and per-title — so we always show it as the
+  /// first group, even when Gemini also returns axis groups below.
+  ///
+  /// Returns a null group when the anchor isn't embedded yet or there
+  /// aren't at least 2 resolvable neighbours (caller just skips it).
+  Future<({SimilarGroup? group, Map<int, Channel> channels})>
+      _embeddingGroup() async {
+    // Capture l10n before any await so we don't touch context across
+    // an async gap.
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final hits = await ref.read(semanticSearchServiceProvider).similarTo(
+            widget.current.streamId,
+            widget.current.type,
+            k: 14,
+            restrictType: widget.current.type,
+          );
+      if (hits.isEmpty) {
+        return (group: null, channels: const <int, Channel>{});
+      }
+      final db = ref.read(appDatabaseProvider);
+      final ids = hits.map((h) => h.streamId).toList();
+      final rows = await (db.select(db.channels)
+            ..where((t) => t.streamId.isIn(ids)))
+          .get();
+      final byId = {
+        for (final r in rows)
+          if (r.type == widget.current.type) r.streamId: r
+      };
+      final items = <SimilarItem>[];
+      for (final h in hits) {
+        if (h.streamId == widget.current.streamId) continue;
+        if (byId[h.streamId] == null) continue;
+        items.add(SimilarItem(
+          streamId: h.streamId,
+          reason: l10n.aiSimilarSemanticReason,
+        ));
+        if (items.length >= 10) break;
+      }
+      if (items.length < 2) {
+        return (group: null, channels: const <int, Channel>{});
+      }
+      return (
+        group: SimilarGroup(
+          axisLabel: l10n.aiSimilarSemanticAxis,
+          axisSubtitle: null,
+          items: items,
+        ),
+        channels: byId,
+      );
+    } catch (_) {
+      return (group: null, channels: const <int, Channel>{});
+    }
+  }
+
   Future<void> _fetchSimilar() async {
     final gemini = ref.read(geminiServiceProvider);
     if (gemini == null) {
@@ -90,6 +151,13 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       _failed = false;
       _groups = null;
     });
+
+    // Semantic (embedding) group — offline, instant, enrichment-aware.
+    // Computed once up-front and prepended to whatever the Gemini /
+    // cache path produces, so the rail ALWAYS reflects catalog
+    // enrichment (themes/mood live in the vectors).
+    final emb = await _embeddingGroup();
+    if (!mounted) return;
 
     // ─── Drift cache fast path ───────────────────────────────
     // Same (title, taste) pair as a previous open → instant hit,
@@ -138,8 +206,14 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
         setState(() {
           _loading = false;
           _failed = false;
-          _groups = groups;
-          _channelsById = {for (final c in sampleByType) c.streamId: c};
+          _groups = [
+            if (emb.group != null) emb.group!,
+            ...groups,
+          ];
+          _channelsById = {
+            for (final c in sampleByType) c.streamId: c,
+            ...emb.channels,
+          };
           _cachedFor = widget.current.streamId;
         });
         return;
@@ -215,14 +289,28 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
           if (ch.rating != null) 'rating': ch.rating,
         };
 
+    // Enrichment for the CURRENT item — feeds Gemini the themes/mood
+    // it can't read off the raw provider metadata, so axis picks like
+    // "same theme" / "similar tone" actually have signal to work with.
+    final curEnrich = await ref
+        .read(contentEnrichmentRepositoryProvider)
+        .lookup(widget.current.streamId, widget.current.type);
+
+    final effGenre = (widget.current.genre != null &&
+            widget.current.genre!.isNotEmpty)
+        ? widget.current.genre
+        : curEnrich?.genres;
+
     final groups = await gemini.findSimilarContent(
       currentTitle: widget.current.name,
       currentType: widget.current.type,
       currentYear: widget.current.year,
-      currentGenre: widget.current.genre,
+      currentGenre: effGenre,
       currentPlot: widget.current.plot,
       currentDirector: widget.current.director,
       currentCast: widget.current.cast,
+      currentThemes: curEnrich?.themes,
+      currentMood: curEnrich?.moodTags,
       librarySample: sample.map(compact).toList(),
       favorites: favoritesSample.map(compact).toList(),
       targetLanguage: _userLanguageCode(),
@@ -231,6 +319,19 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     if (!mounted) return;
 
     if (groups == null || groups.isEmpty) {
+      // Gemini gave nothing — but if we have a semantic group we can
+      // still show a genuinely useful, enrichment-aware rail instead
+      // of dropping to the metadata fallback.
+      if (emb.group != null) {
+        setState(() {
+          _loading = false;
+          _failed = false;
+          _groups = [emb.group!];
+          _channelsById = emb.channels;
+          _cachedFor = widget.current.streamId;
+        });
+        return;
+      }
       setState(() {
         _loading = false;
         _failed = true;
@@ -240,11 +341,17 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       return;
     }
 
-    final byId = {for (final c in sample) c.streamId: c};
+    final byId = {
+      for (final c in sample) c.streamId: c,
+      ...emb.channels,
+    };
     setState(() {
       _loading = false;
       _failed = false;
-      _groups = groups;
+      _groups = [
+        if (emb.group != null) emb.group!,
+        ...groups,
+      ];
       _channelsById = byId;
       _cachedFor = widget.current.streamId;
     });

@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Smarte Empfehlungen",
   "aiSimilarLoading": "Wird kuratiert…",
   "aiSimilarFailed": "Smarte Vorschläge nicht geladen — Standardliste.",
+  "aiSimilarSemanticAxis": "Ähnliche Stimmung & Themen",
+  "aiSimilarSemanticReason": "Passt thematisch und stimmungsmäßig",
   "statsTitle": "Statistik",
   "statsWatchTime": "Wiedergabezeit",
   "statsAllTime": "Gesamt",

@@ -1392,6 +1392,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get aiSimilarFailed => 'No se pudo cargar — mostrando lista básica.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Ambiente y temas similares';
+
+  @override
+  String get aiSimilarSemanticReason => 'Coincide en tema y tono';
+
+  @override
   String get statsTitle => 'Estadísticas';
 
   @override

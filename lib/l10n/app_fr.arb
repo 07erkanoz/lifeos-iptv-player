@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Suggestions intelligentes",
   "aiSimilarLoading": "Préparation…",
   "aiSimilarFailed": "Échec — affichage de la liste basique.",
+  "aiSimilarSemanticAxis": "Ambiance et thèmes similaires",
+  "aiSimilarSemanticReason": "Correspond au thème et à l'ambiance",
   "statsTitle": "Statistiques",
   "statsWatchTime": "Temps de visionnage",
   "statsAllTime": "Tous les temps",

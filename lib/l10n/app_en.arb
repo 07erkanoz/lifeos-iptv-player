@@ -515,6 +515,8 @@
   "aiSimilarTitle": "Smart similar picks",
   "aiSimilarLoading": "Curating picks…",
   "aiSimilarFailed": "Couldn't load smart picks — showing fallback.",
+  "aiSimilarSemanticAxis": "Same vibe & themes",
+  "aiSimilarSemanticReason": "Matches the mood and themes",
   "statsTitle": "Statistics",
   "statsWatchTime": "Watch time",
   "statsAllTime": "All time",

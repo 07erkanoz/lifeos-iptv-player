@@ -553,6 +553,8 @@
   "aiSimilarTitle": "اقتراحات ذكية",
   "aiSimilarLoading": "يحضّر…",
   "aiSimilarFailed": "تعذّر التحميل — عرض القائمة العادية.",
+  "aiSimilarSemanticAxis": "أجواء وموضوعات مشابهة",
+  "aiSimilarSemanticReason": "يتطابق في الموضوع والأجواء",
   "statsTitle": "الإحصائيات",
   "statsWatchTime": "مدة المشاهدة",
   "statsAllTime": "الإجمالي",

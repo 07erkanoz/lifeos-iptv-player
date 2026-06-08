@@ -1390,6 +1390,12 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось загрузить — показан стандартный список.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Похожая атмосфера и темы';
+
+  @override
+  String get aiSimilarSemanticReason => 'Совпадает по теме и настроению';
+
+  @override
   String get statsTitle => 'Статистика';
 
   @override

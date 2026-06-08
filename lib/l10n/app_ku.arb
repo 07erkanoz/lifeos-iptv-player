@@ -553,6 +553,8 @@
   "aiSimilarTitle": "Pêşniyarên jîr",
   "aiSimilarLoading": "Amade dike…",
   "aiSimilarFailed": "Nehat barkirin — lîsteya hêsan tê nîşandan.",
+  "aiSimilarSemanticAxis": "Hawa û mijarên nêz",
+  "aiSimilarSemanticReason": "Di mijar û hawayê de nêz e",
   "statsTitle": "Statîstîk",
   "statsWatchTime": "Dema temaşekirinê",
   "statsAllTime": "Hemû dem",

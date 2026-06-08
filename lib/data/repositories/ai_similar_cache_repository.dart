@@ -23,7 +23,10 @@ part 'ai_similar_cache_repository.g.dart';
 /// shifts.
 class AiSimilarCacheRepository {
   static const _ttl = Duration(days: 7);
-  static const _promptVersion = 'v1';
+  // v2: similar rail now blends an enrichment-aware semantic group and
+  // feeds themes/mood into the Gemini prompt — old v1 rows were
+  // genre-only, so invalidate them all by bumping the version.
+  static const _promptVersion = 'v2';
 
   final AppDatabase _db;
 

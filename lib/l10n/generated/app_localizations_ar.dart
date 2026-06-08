@@ -1384,6 +1384,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get aiSimilarFailed => 'تعذّر التحميل — عرض القائمة العادية.';
 
   @override
+  String get aiSimilarSemanticAxis => 'أجواء وموضوعات مشابهة';
+
+  @override
+  String get aiSimilarSemanticReason => 'يتطابق في الموضوع والأجواء';
+
+  @override
   String get statsTitle => 'الإحصائيات';
 
   @override

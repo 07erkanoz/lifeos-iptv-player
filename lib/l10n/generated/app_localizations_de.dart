@@ -1397,6 +1397,12 @@ class AppLocalizationsDe extends AppLocalizations {
       'Smarte Vorschläge nicht geladen — Standardliste.';
 
   @override
+  String get aiSimilarSemanticAxis => 'Ähnliche Stimmung & Themen';
+
+  @override
+  String get aiSimilarSemanticReason => 'Passt thematisch und stimmungsmäßig';
+
+  @override
   String get statsTitle => 'Statistik';
 
   @override
