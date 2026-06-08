@@ -371,8 +371,9 @@ class GeminiService {
           'description':
               'What is on LIVE right now: a list of channels with their '
                   'current programme (title + start/stop). Use for "şu an ne '
-                  'var" / "canlıda ne oynuyor".',
-          'parameters': {'type': 'OBJECT', 'properties': {}},
+                  'var" / "canlıda ne oynuyor". Takes no arguments.',
+          // No `parameters` — Gemini rejects an empty properties object,
+          // which 400s the whole request.
         },
         {
           'name': 'findPrograms',
@@ -547,7 +548,8 @@ class GeminiService {
           },
         );
         if (res.statusCode != 200) {
-          debugPrint('[Gemini] runAgent status=${res.statusCode}');
+          debugPrint('[Gemini] runAgent status=${res.statusCode} '
+              'body=${res.data}');
           return null;
         }
         final body = res.data;

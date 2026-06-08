@@ -202,12 +202,14 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // metrics. Telemetry write is fire-and-forget — the actual
     // user-facing response shape is unchanged.
     final instrumentation = ref.read(aiInstrumentationProvider);
-    final response = await instrumentation.record<TonightResponse>(
+    var response = await instrumentation.record<TonightResponse>(
       feature: 'chat',
       model: AiModelPolicy.chat,
       candidateCount: queryMatches.length + ctx.librarySample.length,
       outputCountOf: (r) => r.recommendations.length,
-      timeout: const Duration(seconds: 30),
+      // The agent can make several round-trips (search → act → present),
+      // so give it more headroom than the single-shot path used.
+      timeout: const Duration(seconds: 60),
       run: () {
         final lang = ref.read(settingsProvider).language.name == 'system'
             ? 'tr'
@@ -249,6 +251,29 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         );
       },
     );
+
+    // Resilience: if the agent path failed (transport / tool error),
+    // fall back to the plain recommendation call so the chat still
+    // answers instead of showing "couldn't reach the assistant".
+    if (response == null) {
+      final lang = ref.read(settingsProvider).language.name == 'system'
+          ? 'tr'
+          : ref.read(settingsProvider).language.name;
+      response = await gemini.recommendForTonight(
+        conversation: _messages
+            .map((m) => (fromUser: m.fromUser, text: m.text))
+            .toList(),
+        recentlyWatched: ctx.recentlyWatched,
+        favorites: ctx.favorites,
+        librarySample: ctx.librarySample,
+        queryMatches: queryMatches,
+        recentAdditions: ctx.recentAdditions,
+        categoryOverview: categoryOverview,
+        targetLanguage: lang,
+        tasteProfile: tasteProfile.toPromptJson(),
+        currentEpisode: ref.read(chatEpisodeContextProvider)?.toPromptJson(),
+      );
+    }
 
     if (!mounted) return;
 
