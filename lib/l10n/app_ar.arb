@@ -371,6 +371,7 @@
   "deviceSyncAutoDesc": "مزامنة المفضلة وسجل المشاهدة تلقائيًا مع الأجهزة المقترنة عندما تكون على نفس شبكة Wi-Fi.",
   "deviceSyncRemember": "إبقاء هذه الأجهزة متزامنة",
   "deviceSyncNow": "مزامنة الآن",
+  "deviceSyncForget": "إلغاء الإقران",
   "deviceSyncPaired": "{count} أجهزة مقترنة",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "تمت المزامنة مع {count} جهاز",

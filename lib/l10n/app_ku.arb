@@ -371,6 +371,7 @@
   "deviceSyncAutoDesc": "Bijarte û dîroka temaşeyê bi amûrên cot-bûyî re xweber hevdem bike gava ku ew li ser heman Wi-Fi bin.",
   "deviceSyncRemember": "Van amûran hevdem bihêle",
   "deviceSyncNow": "Niha hevdem bike",
+  "deviceSyncForget": "Cot rake",
   "deviceSyncPaired": "{count} amûrên cot-bûyî",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "Bi {count} amûran re hevdem bû",

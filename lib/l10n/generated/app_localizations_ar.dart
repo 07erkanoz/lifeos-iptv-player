@@ -922,6 +922,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deviceSyncNow => 'مزامنة الآن';
 
   @override
+  String get deviceSyncForget => 'إلغاء الإقران';
+
+  @override
   String deviceSyncPaired(int count) {
     return '$count أجهزة مقترنة';
   }

@@ -925,6 +925,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deviceSyncNow => 'Sincronizar ahora';
 
   @override
+  String get deviceSyncForget => 'Desvincular';
+
+  @override
   String deviceSyncPaired(int count) {
     return '$count dispositivos emparejados';
   }

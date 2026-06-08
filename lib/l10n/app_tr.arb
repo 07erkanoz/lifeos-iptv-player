@@ -377,6 +377,7 @@
   "deviceSyncAutoDesc": "Eşleşmiş cihazlarla favori ve izleme geçmişini, aynı Wi-Fi'da olduklarında otomatik eşitle.",
   "deviceSyncRemember": "Bu cihazları otomatik eşitle",
   "deviceSyncNow": "Şimdi eşitle",
+  "deviceSyncForget": "Eşleşmeyi kaldır",
   "deviceSyncPaired": "{count} eşleşmiş cihaz",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "{count} cihazla eşitlendi",

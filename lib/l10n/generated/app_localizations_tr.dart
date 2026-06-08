@@ -921,6 +921,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get deviceSyncNow => 'Şimdi eşitle';
 
   @override
+  String get deviceSyncForget => 'Eşleşmeyi kaldır';
+
+  @override
   String deviceSyncPaired(int count) {
     return '$count eşleşmiş cihaz';
   }

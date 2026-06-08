@@ -339,6 +339,7 @@
   "deviceSyncAutoDesc": "Automatically sync favourites and watch history with paired devices when they're on the same Wi-Fi.",
   "deviceSyncRemember": "Keep these devices in sync",
   "deviceSyncNow": "Sync now",
+  "deviceSyncForget": "Unpair",
   "deviceSyncPaired": "{count} paired devices",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "Synced with {count} device(s)",

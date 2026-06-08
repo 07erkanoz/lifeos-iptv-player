@@ -60,6 +60,18 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   LanSyncService get _svc => ref.read(lanSyncServiceProvider);
   bool _syncingNow = false;
 
+  void _forgetPeer(TrustedPeer p) {
+    _svc.removeTrustedPeer(p.deviceId);
+    // No peers left → auto-sync has nothing to do; turn it off and
+    // drop the background server so it doesn't keep broadcasting.
+    if (!_svc.hasTrustedPeers) {
+      ref.read(settingsProvider.notifier).updateSettings(
+          ref.read(settingsProvider).copyWith(autoSyncEnabled: false));
+      _svc.stopAutoServer();
+    }
+    setState(() {});
+  }
+
   Future<void> _syncNow() async {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
@@ -292,14 +304,44 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                   },
                 ),
               ),
-              // Paired-device count + manual "sync now" — only useful
-              // once at least one device has been paired.
+              // Paired devices — each removable — + manual "sync now".
               if (_svc.hasTrustedPeers) ...[
-                const SizedBox(height: 12),
-                Text(
-                  l10n.deviceSyncPaired(_svc.trustedPeers.length),
-                  style: const TextStyle(
-                      color: AppColors.textSecondaryDark, fontSize: 13),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l10n.deviceSyncPaired(_svc.trustedPeers.length),
+                    style: const TextStyle(
+                        color: AppColors.textSecondaryDark, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final p in _svc.trustedPeers)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.devices,
+                              color: AppColors.primary, size: 20),
+                          title: Text(
+                            p.name.isEmpty ? p.deviceId : p.name,
+                            style: const TextStyle(
+                                color: AppColors.textDark, fontSize: 14),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(Icons.link_off,
+                                color: Colors.red.shade400, size: 20),
+                            tooltip: l10n.deviceSyncForget,
+                            onPressed: () => _forgetPeer(p),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 SizedBox(

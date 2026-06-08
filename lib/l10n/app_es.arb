@@ -371,6 +371,7 @@
   "deviceSyncAutoDesc": "Sincroniza automáticamente favoritos e historial con dispositivos emparejados cuando estén en la misma Wi-Fi.",
   "deviceSyncRemember": "Mantener estos dispositivos sincronizados",
   "deviceSyncNow": "Sincronizar ahora",
+  "deviceSyncForget": "Desvincular",
   "deviceSyncPaired": "{count} dispositivos emparejados",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "Sincronizado con {count} dispositivo(s)",

@@ -371,6 +371,7 @@
   "deviceSyncAutoDesc": "Synchronise automatiquement favoris et historique avec les appareils jumelés lorsqu'ils sont sur le même Wi-Fi.",
   "deviceSyncRemember": "Garder ces appareils synchronisés",
   "deviceSyncNow": "Synchroniser maintenant",
+  "deviceSyncForget": "Dissocier",
   "deviceSyncPaired": "{count} appareils jumelés",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "Synchronisé avec {count} appareil(s)",

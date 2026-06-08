@@ -1832,6 +1832,12 @@ abstract class AppLocalizations {
   /// **'Şimdi eşitle'**
   String get deviceSyncNow;
 
+  /// No description provided for @deviceSyncForget.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eşleşmeyi kaldır'**
+  String get deviceSyncForget;
+
   /// No description provided for @deviceSyncPaired.
   ///
   /// In tr, this message translates to:

@@ -921,6 +921,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get deviceSyncNow => 'Niha hevdem bike';
 
   @override
+  String get deviceSyncForget => 'Cot rake';
+
+  @override
   String deviceSyncPaired(int count) {
     return '$count amûrên cot-bûyî';
   }

@@ -924,6 +924,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deviceSyncNow => 'Синхронизировать сейчас';
 
   @override
+  String get deviceSyncForget => 'Разорвать пару';
+
+  @override
   String deviceSyncPaired(int count) {
     return 'Связанных устройств: $count';
   }

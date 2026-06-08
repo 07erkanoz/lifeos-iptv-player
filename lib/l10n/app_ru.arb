@@ -371,6 +371,7 @@
   "deviceSyncAutoDesc": "Автоматически синхронизировать избранное и историю просмотра со связанными устройствами в той же сети Wi-Fi.",
   "deviceSyncRemember": "Держать эти устройства синхронизированными",
   "deviceSyncNow": "Синхронизировать сейчас",
+  "deviceSyncForget": "Разорвать пару",
   "deviceSyncPaired": "Связанных устройств: {count}",
   "@deviceSyncPaired": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResult": "Синхронизировано с {count} устройством(ами)",
