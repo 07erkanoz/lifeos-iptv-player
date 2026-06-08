@@ -953,6 +953,11 @@ class AppLocalizationsKu extends AppLocalizations {
   }
 
   @override
+  String embeddingStatus(int done) {
+    return '$done vektorên wateyî amade';
+  }
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

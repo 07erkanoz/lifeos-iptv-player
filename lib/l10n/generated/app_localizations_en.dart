@@ -955,6 +955,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String embeddingStatus(int done) {
+    return '$done semantic vectors ready';
+  }
+
+  @override
   String get channelList => 'Channel List';
 
   @override

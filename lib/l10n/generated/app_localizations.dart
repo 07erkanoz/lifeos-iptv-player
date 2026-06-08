@@ -1880,6 +1880,12 @@ abstract class AppLocalizations {
   /// **'{done} etiketlendi · {pending} bekliyor'**
   String catalogEnrichmentStatus(int done, int pending);
 
+  /// No description provided for @embeddingStatus.
+  ///
+  /// In tr, this message translates to:
+  /// **'{done} anlamsal vektör hazır'**
+  String embeddingStatus(int done);
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

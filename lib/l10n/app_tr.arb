@@ -388,6 +388,8 @@
   "catalogEnrichmentRun": "Şimdi çalıştır",
   "catalogEnrichmentStatus": "{done} etiketlendi · {pending} bekliyor",
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
+  "embeddingStatus": "{done} anlamsal vektör hazır",
+  "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
   "channelList": "Kanal Listesi",
   "searchChannelsHint": "Kanal ara...",
   "all": "Tümü",

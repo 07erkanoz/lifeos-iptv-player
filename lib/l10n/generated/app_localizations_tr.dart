@@ -953,6 +953,11 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String embeddingStatus(int done) {
+    return '$done anlamsal vektör hazır';
+  }
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

@@ -382,6 +382,8 @@
   "catalogEnrichmentRun": "شغّل الآن",
   "catalogEnrichmentStatus": "{done} موسوم · {pending} قيد الانتظار",
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
+  "embeddingStatus": "{done} متجهات دلالية جاهزة",
+  "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
   "channelList": "قائمة القنوات",
   "searchChannelsHint": "ابحث عن قناة...",
   "all": "الكل",

@@ -956,6 +956,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String embeddingStatus(int done) {
+    return '$done семантических векторов готово';
+  }
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

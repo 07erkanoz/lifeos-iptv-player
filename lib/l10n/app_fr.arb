@@ -382,6 +382,8 @@
   "catalogEnrichmentRun": "Lancer maintenant",
   "catalogEnrichmentStatus": "{done} étiquetés · {pending} en attente",
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
+  "embeddingStatus": "{done} vecteurs sémantiques prêts",
+  "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
   "channelList": "Liste des chaînes",
   "searchChannelsHint": "Rechercher des chaînes...",
   "all": "Tous",

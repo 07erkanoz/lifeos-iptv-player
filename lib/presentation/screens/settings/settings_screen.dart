@@ -15,7 +15,9 @@ import 'package:lifeostv/presentation/screens/settings/sections/profiles_section
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
 import 'package:lifeostv/presentation/screens/settings/device_sync_screen.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
+import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/content_enrichment_repository.dart';
+import 'package:lifeostv/data/repositories/content_embeddings_repository.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
@@ -1837,6 +1839,7 @@ class _EnrichmentStatusTileState
     extends ConsumerState<_EnrichmentStatusTile> {
   int? _done;
   int? _pending;
+  int? _embedded;
   bool _running = false;
   Timer? _poll;
 
@@ -1859,18 +1862,22 @@ class _EnrichmentStatusTileState
     final repo = ref.read(contentEnrichmentRepositoryProvider);
     final done = await repo.enrichedCount();
     final pending = await repo.pendingCount();
+    final embedded =
+        await ref.read(contentEmbeddingsRepositoryProvider).embeddedCount();
     if (!mounted) return;
     setState(() {
       _done = done;
       _pending = pending;
+      _embedded = embedded;
     });
   }
 
   Future<void> _runNow() async {
     setState(() => _running = true);
-    // Poll counts a few times while the runner works so the numbers
-    // visibly climb during the run.
+    // Poll counts a few times while the runners work so the numbers
+    // visibly climb. Embedding trails enrichment, so kick both.
     final runFuture = ref.read(catalogEnrichmentRunnerProvider).runOnce();
+    ref.read(catalogEmbeddingRunnerProvider).runOnce();
     for (var i = 0; i < 6; i++) {
       await Future<void>.delayed(const Duration(seconds: 3));
       if (!mounted) return;
@@ -1890,12 +1897,23 @@ class _EnrichmentStatusTileState
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              (_done == null || _pending == null)
-                  ? '—'
-                  : l10n.catalogEnrichmentStatus(_done!, _pending!),
-              style: const TextStyle(
-                  color: AppColors.textSecondaryDark, fontSize: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (_done == null || _pending == null)
+                      ? '—'
+                      : l10n.catalogEnrichmentStatus(_done!, _pending!),
+                  style: const TextStyle(
+                      color: AppColors.textSecondaryDark, fontSize: 12),
+                ),
+                if (_embedded != null && _embedded! > 0)
+                  Text(
+                    l10n.embeddingStatus(_embedded!),
+                    style: const TextStyle(
+                        color: AppColors.textTertiaryDark, fontSize: 11),
+                  ),
+              ],
             ),
           ),
           TextButton.icon(

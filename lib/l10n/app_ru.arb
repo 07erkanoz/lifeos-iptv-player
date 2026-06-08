@@ -382,6 +382,8 @@
   "catalogEnrichmentRun": "Запустить сейчас",
   "catalogEnrichmentStatus": "{done} размечено · {pending} в очереди",
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
+  "embeddingStatus": "{done} семантических векторов готово",
+  "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
   "channelList": "Список каналов",
   "searchChannelsHint": "Поиск каналов...",
   "all": "Все",

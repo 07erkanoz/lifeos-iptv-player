@@ -350,6 +350,8 @@
   "catalogEnrichmentRun": "Run now",
   "catalogEnrichmentStatus": "{done} tagged · {pending} pending",
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
+  "embeddingStatus": "{done} semantic vectors ready",
+  "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
   "channelList": "Channel List",
   "searchChannelsHint": "Search channels...",
   "all": "All",

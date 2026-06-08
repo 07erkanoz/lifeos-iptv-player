@@ -954,6 +954,11 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String embeddingStatus(int done) {
+    return '$done متجهات دلالية جاهزة';
+  }
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override
