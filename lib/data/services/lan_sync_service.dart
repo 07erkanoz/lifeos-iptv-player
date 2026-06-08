@@ -36,7 +36,7 @@ import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 //  Sync categories — what the user can opt into transferring
 // ---------------------------------------------------------------------------
 
-enum SyncCategory { account, favorites, progress, settings, profiles }
+enum SyncCategory { account, favorites, progress, settings, profiles, enrichment }
 
 extension SyncCategoryWire on SyncCategory {
   /// Stable wire key used in the `/export?cats=` query and payload map.
@@ -46,6 +46,7 @@ extension SyncCategoryWire on SyncCategory {
         SyncCategory.progress => 'progress',
         SyncCategory.settings => 'settings',
         SyncCategory.profiles => 'profiles',
+        SyncCategory.enrichment => 'enrichment',
       };
 
   static SyncCategory? fromWire(String s) {
@@ -93,6 +94,7 @@ class SyncManifest {
   final int favorites;
   final int progress;
   final bool hasSettings;
+  final int enrichment;
 
   const SyncManifest({
     required this.device,
@@ -101,6 +103,7 @@ class SyncManifest {
     required this.favorites,
     required this.progress,
     required this.hasSettings,
+    this.enrichment = 0,
   });
 
   factory SyncManifest.fromJson(Map<String, dynamic> j) => SyncManifest(
@@ -110,6 +113,7 @@ class SyncManifest {
         favorites: (j['favorites'] ?? 0) as int,
         progress: (j['progress'] ?? 0) as int,
         hasSettings: (j['hasSettings'] ?? false) as bool,
+        enrichment: (j['enrichment'] ?? 0) as int,
       );
 
   int countFor(SyncCategory c) => switch (c) {
@@ -118,6 +122,7 @@ class SyncManifest {
         SyncCategory.favorites => favorites,
         SyncCategory.progress => progress,
         SyncCategory.settings => hasSettings ? 1 : 0,
+        SyncCategory.enrichment => enrichment,
       };
 }
 
@@ -147,12 +152,14 @@ class SyncImportResult {
   final int favorites;
   final int progress;
   final bool settings;
+  final int enrichment;
   const SyncImportResult({
     this.accounts = 0,
     this.profiles = 0,
     this.favorites = 0,
     this.progress = 0,
     this.settings = false,
+    this.enrichment = 0,
   });
 }
 
@@ -450,6 +457,7 @@ class LanSyncService {
     final profiles = await _db.select(_db.profiles).get();
     final favs = await _db.select(_db.favorites).get();
     final prog = await _db.select(_db.playbackProgress).get();
+    final enrich = await _db.select(_db.contentEnrichment).get();
     return {
       'v': _payloadVersion,
       'device': _deviceName,
@@ -458,7 +466,70 @@ class LanSyncService {
       'favorites': favs.length,
       'progress': prog.length,
       'hasSettings': true,
+      'enrichment': enrich.length,
     };
+  }
+
+  /// Stable per-account keys ("type|url|username") for the active
+  /// accounts. Enrichment is keyed by raw streamId, which only lines
+  /// up across devices that share the same Xtream/M3U provider — so we
+  /// only apply received enrichment when the two devices have at least
+  /// one account in common.
+  Future<Set<String>> _accountKeys() async {
+    final rows = await _db.select(_db.accounts).get();
+    return {for (final a in rows) '${a.type}|${a.url}|${a.username ?? ""}'};
+  }
+
+  List<Map<String, dynamic>> _enrichmentToJson(
+      List<ContentEnrichmentData> rows) {
+    return [
+      for (final e in rows)
+        {
+          'streamId': e.streamId,
+          'type': e.type,
+          'genres': e.genres,
+          'year': e.year,
+          'mood': e.moodTags,
+          'themes': e.themes,
+          'warnings': e.contentWarnings,
+          'age': e.ageRating,
+          'confidence': e.confidence,
+          'source': e.source,
+        }
+    ];
+  }
+
+  /// Apply received enrichment rows (insert-or-replace). Returns count.
+  Future<int> _applyEnrichmentRows(List<dynamic> rows) async {
+    var n = 0;
+    await _db.batch((batch) {
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final m = raw.cast<String, dynamic>();
+        final sid = (m['streamId'] as num?)?.toInt();
+        final type = m['type'] as String?;
+        if (sid == null || type == null) continue;
+        batch.insert(
+          _db.contentEnrichment,
+          ContentEnrichmentCompanion.insert(
+            streamId: sid,
+            type: type,
+            genres: Value(m['genres'] as String?),
+            year: Value((m['year'] as num?)?.toInt()),
+            moodTags: Value(m['mood'] as String?),
+            themes: Value(m['themes'] as String?),
+            contentWarnings: Value(m['warnings'] as String?),
+            ageRating: Value(m['age'] as String?),
+            confidence: Value((m['confidence'] as num?)?.toDouble()),
+            source: Value(m['source'] as String?),
+            updatedAt: Value(DateTime.now()),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+        n++;
+      }
+    });
+    return n;
   }
 
   Future<Map<String, dynamic>> _buildPayload(Set<SyncCategory> cats) async {
@@ -529,6 +600,14 @@ class LanSyncService {
 
     if (cats.contains(SyncCategory.settings)) {
       out['settings'] = _exportSettings();
+    }
+
+    if (cats.contains(SyncCategory.enrichment)) {
+      final rows = await _db.select(_db.contentEnrichment).get();
+      out['enrichment'] = _enrichmentToJson(rows);
+      // Account fingerprints so the receiver can refuse mismatched
+      // catalogues (enrichment is keyed by raw streamId).
+      out['accountKeys'] = (await _accountKeys()).toList();
     }
 
     return out;
@@ -693,6 +772,7 @@ class LanSyncService {
     var favsAdded = 0;
     var progAdded = 0;
     var settingsApplied = false;
+    var enrichApplied = 0;
 
     // 1) Accounts — dedupe by (type, url, username). Insert account
     //    rows FIRST so favourites/progress streamIds line up once the
@@ -829,12 +909,33 @@ class LanSyncService {
       settingsApplied = true;
     }
 
+    // 6) Catalogue enrichment — only when the devices share an account
+    //    (enrichment is keyed by raw streamId, which only lines up on
+    //    the same provider). Saves the receiver from re-paying Gemini
+    //    to re-tag a catalogue the sender already tagged.
+    if (cats.contains(SyncCategory.enrichment) &&
+        payload['enrichment'] is List) {
+      final srcKeys = (payload['accountKeys'] is List)
+          ? (payload['accountKeys'] as List).whereType<String>().toSet()
+          : <String>{};
+      final mine = await _accountKeys();
+      final shareAccount =
+          srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty;
+      if (shareAccount) {
+        enrichApplied =
+            await _applyEnrichmentRows(payload['enrichment'] as List);
+      } else if (kDebugMode) {
+        debugPrint('[LanSync] enrichment skipped — no shared account');
+      }
+    }
+
     return SyncImportResult(
       accounts: accountsAdded,
       profiles: profilesAdded,
       favorites: favsAdded,
       progress: progAdded,
       settings: settingsApplied,
+      enrichment: enrichApplied,
     );
   }
 
@@ -934,8 +1035,13 @@ class LanSyncService {
     final idToName = {for (final p in profiles) p.id: p.name};
     final favs = await _db.select(_db.favorites).get();
     final prog = await _db.select(_db.playbackProgress).get();
+    final enrich = await _db.select(_db.contentEnrichment).get();
     return {
       'v': _payloadVersion,
+      // Account fingerprints so the peer only applies our enrichment
+      // when it shares the same provider (streamIds line up).
+      'accountKeys': (await _accountKeys()).toList(),
+      'enrichment': _enrichmentToJson(enrich),
       'favorites': [
         for (final f in favs)
           {
@@ -1041,8 +1147,24 @@ class LanSyncService {
         }
       });
     }
+
+    // Enrichment — additive, gated on a shared account (same provider
+    // → matching streamIds). This is what stops the second device from
+    // re-paying Gemini to tag a catalogue the first already tagged.
+    var enrichAdded = 0;
+    if (snap['enrichment'] is List) {
+      final srcKeys = (snap['accountKeys'] is List)
+          ? (snap['accountKeys'] as List).whereType<String>().toSet()
+          : <String>{};
+      final mine = await _accountKeys();
+      if (srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty) {
+        enrichAdded =
+            await _applyEnrichmentRows(snap['enrichment'] as List);
+      }
+    }
     if (kDebugMode) {
-      debugPrint('[LanSync] merged: favAdded=$favAdded progAdded=$progAdded');
+      debugPrint('[LanSync] merged: favAdded=$favAdded progAdded=$progAdded '
+          'enrichAdded=$enrichAdded');
     }
   }
 

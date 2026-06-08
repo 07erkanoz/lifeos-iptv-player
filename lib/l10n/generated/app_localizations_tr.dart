@@ -893,6 +893,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get deviceSyncCatSettings => 'Ayarlar';
 
   @override
+  String get deviceSyncCatEnrichment => 'Katalog etiketleri';
+
+  @override
   String get deviceSyncStart => 'Aktar';
 
   @override

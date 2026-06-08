@@ -368,6 +368,7 @@
   "deviceSyncCatFavorites": "Favoriler",
   "deviceSyncCatProgress": "İzlemeye devam et",
   "deviceSyncCatSettings": "Ayarlar",
+  "deviceSyncCatEnrichment": "Katalog etiketleri",
   "deviceSyncStart": "Aktar",
   "deviceSyncImporting": "Aktarılıyor…",
   "deviceSyncDone": "Aktarım tamamlandı",

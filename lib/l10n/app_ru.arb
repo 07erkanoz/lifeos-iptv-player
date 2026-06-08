@@ -362,6 +362,7 @@
   "deviceSyncCatFavorites": "Избранное",
   "deviceSyncCatProgress": "Продолжить просмотр",
   "deviceSyncCatSettings": "Настройки",
+  "deviceSyncCatEnrichment": "Теги каталога",
   "deviceSyncStart": "Передать",
   "deviceSyncImporting": "Передача…",
   "deviceSyncDone": "Передача завершена",

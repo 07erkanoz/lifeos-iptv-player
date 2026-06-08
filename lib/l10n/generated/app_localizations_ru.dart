@@ -896,6 +896,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deviceSyncCatSettings => 'Настройки';
 
   @override
+  String get deviceSyncCatEnrichment => 'Теги каталога';
+
+  @override
   String get deviceSyncStart => 'Передать';
 
   @override

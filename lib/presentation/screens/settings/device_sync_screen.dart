@@ -590,6 +590,8 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
       _SyncCatRow(SyncCategory.profiles, l10n.deviceSyncCatProfiles, m.profiles),
       _SyncCatRow(SyncCategory.favorites, l10n.deviceSyncCatFavorites, m.favorites),
       _SyncCatRow(SyncCategory.progress, l10n.deviceSyncCatProgress, m.progress),
+      _SyncCatRow(SyncCategory.enrichment, l10n.deviceSyncCatEnrichment,
+          m.enrichment),
       _SyncCatRow(SyncCategory.settings, l10n.deviceSyncCatSettings,
           m.hasSettings ? 1 : 0),
     ];

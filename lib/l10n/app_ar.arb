@@ -362,6 +362,7 @@
   "deviceSyncCatFavorites": "المفضلة",
   "deviceSyncCatProgress": "متابعة المشاهدة",
   "deviceSyncCatSettings": "الإعدادات",
+  "deviceSyncCatEnrichment": "وسوم المحتوى",
   "deviceSyncStart": "نقل",
   "deviceSyncImporting": "جارٍ النقل…",
   "deviceSyncDone": "اكتمل النقل",

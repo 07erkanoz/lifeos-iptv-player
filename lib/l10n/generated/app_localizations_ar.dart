@@ -894,6 +894,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deviceSyncCatSettings => 'الإعدادات';
 
   @override
+  String get deviceSyncCatEnrichment => 'وسوم المحتوى';
+
+  @override
   String get deviceSyncStart => 'نقل';
 
   @override

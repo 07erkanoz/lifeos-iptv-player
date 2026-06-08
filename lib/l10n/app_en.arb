@@ -330,6 +330,7 @@
   "deviceSyncCatFavorites": "Favourites",
   "deviceSyncCatProgress": "Continue watching",
   "deviceSyncCatSettings": "Settings",
+  "deviceSyncCatEnrichment": "Catalog tags",
   "deviceSyncStart": "Transfer",
   "deviceSyncImporting": "Transferring…",
   "deviceSyncDone": "Transfer complete",

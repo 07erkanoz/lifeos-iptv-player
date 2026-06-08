@@ -893,6 +893,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get deviceSyncCatSettings => 'Mîheng';
 
   @override
+  String get deviceSyncCatEnrichment => 'Etîketên katalogê';
+
+  @override
   String get deviceSyncStart => 'Veguhêze';
 
   @override

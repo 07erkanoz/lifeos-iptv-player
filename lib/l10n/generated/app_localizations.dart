@@ -1778,6 +1778,12 @@ abstract class AppLocalizations {
   /// **'Ayarlar'**
   String get deviceSyncCatSettings;
 
+  /// No description provided for @deviceSyncCatEnrichment.
+  ///
+  /// In tr, this message translates to:
+  /// **'Katalog etiketleri'**
+  String get deviceSyncCatEnrichment;
+
   /// No description provided for @deviceSyncStart.
   ///
   /// In tr, this message translates to:

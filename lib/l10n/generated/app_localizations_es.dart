@@ -897,6 +897,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deviceSyncCatSettings => 'Ajustes';
 
   @override
+  String get deviceSyncCatEnrichment => 'Etiquetas del catálogo';
+
+  @override
   String get deviceSyncStart => 'Transferir';
 
   @override

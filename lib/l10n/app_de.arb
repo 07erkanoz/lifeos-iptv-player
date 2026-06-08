@@ -362,6 +362,7 @@
   "deviceSyncCatFavorites": "Favoriten",
   "deviceSyncCatProgress": "Weiterschauen",
   "deviceSyncCatSettings": "Einstellungen",
+  "deviceSyncCatEnrichment": "Katalog-Tags",
   "deviceSyncStart": "Übertragen",
   "deviceSyncImporting": "Übertrage…",
   "deviceSyncDone": "Übertragung abgeschlossen",
