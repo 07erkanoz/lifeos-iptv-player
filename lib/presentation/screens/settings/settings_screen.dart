@@ -1874,18 +1874,18 @@ class _EnrichmentStatusTileState
 
   Future<void> _runNow() async {
     setState(() => _running = true);
-    // Poll counts a few times while the runners work so the numbers
-    // visibly climb. Embedding trails enrichment, so kick both.
-    final runFuture = ref.read(catalogEnrichmentRunnerProvider).runOnce();
+    // Kick both runners but DON'T await the full run — it can take a
+    // while and we don't want to wedge the button. Just poll the
+    // counts for ~20s so the user sees movement; the background timer
+    // keeps it going afterwards. (runOnce no-ops if already running.)
+    ref.read(catalogEnrichmentRunnerProvider).runOnce();
     ref.read(catalogEmbeddingRunnerProvider).runOnce();
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 7; i++) {
       await Future<void>.delayed(const Duration(seconds: 3));
       if (!mounted) return;
       await _refresh();
     }
-    await runFuture;
     if (!mounted) return;
-    await _refresh();
     setState(() => _running = false);
   }
 

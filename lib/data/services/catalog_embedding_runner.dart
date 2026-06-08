@@ -26,9 +26,9 @@ class CatalogEmbeddingRunner {
 
   bool _running = false;
 
-  // High cap — embeddings are cheap and 64/batch, so a single run can
-  // clear most catalogues. _running guards against overlap.
-  Future<int> runOnce({int maxBatchesPerRun = 300}) async {
+  // Moderate cap (64/batch → ~2560 items/run). Short enough that
+  // _running clears promptly; the 45s periodic re-kick continues.
+  Future<int> runOnce({int maxBatchesPerRun = 40}) async {
     final gemini = _gemini;
     if (gemini == null || _running) return 0;
     _running = true;
