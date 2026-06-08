@@ -51,7 +51,10 @@ class ContentRepository {
     if (type != null) {
       query.where((tbl) => tbl.type.equals(type));
     }
-    return query.watch();
+    // Overlay AI enrichment so empty-genre items show their inferred
+    // genre/year in the grid, the genre filter, AND the detail page
+    // (which receives the channel object from the grid tap).
+    return query.watch().asyncMap(_mergeEnrichment);
   }
 
   /// All channels of a given type (no limit — for "Tüm" grid + search)
@@ -65,9 +68,10 @@ class ContentRepository {
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)]);
-    return query.watch().map((rows) =>
-      rows.map((row) => row.readTable(_db.channels)).toList(),
-    );
+    return query
+        .watch()
+        .map((rows) => rows.map((row) => row.readTable(_db.channels)).toList())
+        .asyncMap(_mergeEnrichment);
   }
 
   /// Recent channels filtered by hidden categories.
@@ -105,10 +109,14 @@ class ContentRepository {
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
     ])..where(_db.categories.isHidden.equals(false))).get();
+    // Preload enrichment once so genre-less items can still match a
+    // genre query ("korku") and the returned channel carries the
+    // inferred genre.
+    final enrich = await _loadEnrichmentMap();
     final out = <Channel>[];
     for (final row in rows) {
       if (out.length >= limit) break;
-      final ch = row.readTable(_db.channels);
+      final ch = _applyEnrichment(row.readTable(_db.channels), enrich);
       final cat = row.readTable(_db.categories);
       final haystack = _buildHaystack(ch, cat);
       if (SearchNormalizer.matches(haystack, tokens)) {
@@ -483,9 +491,12 @@ class ContentRepository {
     // Build (channel, haystack) tuples once so the fuzzy pass below
     // doesn't re-normalise. The list is bounded by the type filter
     // and hidden-category exclusion; for the user's catalogue this
-    // is a few thousand entries at most.
+    // is a few thousand entries at most. Enrichment is overlaid first
+    // so a genre query ("korku") matches items whose provider genre
+    // was empty, and the returned channel carries the inferred genre.
+    final enrich = await _loadEnrichmentMap();
     final pairs = rows.map((row) {
-      final ch = row.readTable(_db.channels);
+      final ch = _applyEnrichment(row.readTable(_db.channels), enrich);
       final cat = row.readTable(_db.categories);
       return (ch: ch, haystack: _buildHaystack(ch, cat));
     }).toList();
@@ -960,32 +971,40 @@ class ContentRepository {
   /// candidates through [sampleLibraryForAi] / [recentAdditionsForAi]
   /// — benefit from enrichment without each re-querying the table.
   ///
-  /// No-op (single cheap query) when nothing needs filling.
+  /// No-op when nothing needs filling. Loads the whole (small)
+  /// enrichment table into a map rather than an `IN (...)` clause —
+  /// the id list can run to thousands on a full-library merge, which
+  /// would blow past SQLite's bound-variable limit.
   Future<List<Channel>> _mergeEnrichment(List<Channel> channels) async {
-    final needIds = <int>[
-      for (final c in channels)
-        if (c.genre == null || c.genre!.isEmpty) c.streamId
-    ];
-    if (needIds.isEmpty) return channels;
-    final rows = await (_db.select(_db.contentEnrichment)
-          ..where((t) => t.streamId.isIn(needIds)))
-        .get();
-    if (rows.isEmpty) return channels;
-    final byKey = {for (final r in rows) '${r.streamId}|${r.type}': r};
-    return [
-      for (final c in channels)
-        if ((c.genre == null || c.genre!.isEmpty) &&
-            byKey['${c.streamId}|${c.type}'] != null)
-          c.copyWith(
-            genre: Value(byKey['${c.streamId}|${c.type}']!.genres),
-            year: Value(
-                (c.year != null && c.year!.isNotEmpty)
-                    ? c.year
-                    : byKey['${c.streamId}|${c.type}']!.year?.toString()),
-          )
-        else
-          c
-    ];
+    final needsAny =
+        channels.any((c) => c.genre == null || c.genre!.isEmpty);
+    if (!needsAny) return channels;
+    final map = await _loadEnrichmentMap();
+    if (map.isEmpty) return channels;
+    return [for (final c in channels) _applyEnrichment(c, map)];
+  }
+
+  /// Full enrichment table as a `"streamId|type"` → row map. The table
+  /// only holds enriched items, so it's bounded and cheap to read.
+  Future<Map<String, ContentEnrichmentData>> _loadEnrichmentMap() async {
+    final rows = await _db.select(_db.contentEnrichment).get();
+    return {for (final r in rows) '${r.streamId}|${r.type}': r};
+  }
+
+  /// Overlay enrichment onto a single channel when its provider
+  /// `genre` / `year` are empty. Pure — takes a preloaded map so it's
+  /// cheap to call in a tight loop (search) or a list comprehension.
+  Channel _applyEnrichment(
+      Channel c, Map<String, ContentEnrichmentData> map) {
+    if (c.genre != null && c.genre!.isNotEmpty) return c;
+    final e = map['${c.streamId}|${c.type}'];
+    if (e == null) return c;
+    return c.copyWith(
+      genre: Value(e.genres),
+      year: Value((c.year != null && c.year!.isNotEmpty)
+          ? c.year
+          : e.year?.toString()),
+    );
   }
 
   /// Freshest VOD by the Xtream `added` timestamp, newest first.
