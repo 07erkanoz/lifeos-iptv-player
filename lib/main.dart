@@ -15,6 +15,9 @@ import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/data/services/lan_sync_service.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -132,6 +135,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeAutoSync();
       _maybeEnrichCatalog();
+      _maybeSyncEpg();
     });
     // Keep chipping away at the catalogue while the app is open: each
     // runOnce is bounded, so this periodic nudge continues where the
@@ -167,6 +171,25 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     // pass. The runner only processes items that already have a genre
     // signal, so it naturally trails enrichment.
     ref.read(catalogEmbeddingRunnerProvider).runOnce();
+  }
+
+  /// Background EPG sync at startup/resume so the dashboard "on now"
+  /// rail and the AI agent's live/EPG tools have data WITHOUT the user
+  /// first opening Live TV and scrolling the guide. Internally
+  /// throttled to once per 2h, so calling it every launch is cheap.
+  void _maybeSyncEpg() {
+    Future<void>.delayed(const Duration(seconds: 12), () async {
+      if (!mounted) return;
+      try {
+        final acc = await ref.read(currentAccountProvider.future);
+        if (acc == null) return;
+        final repo = ref.read(contentRepositoryProvider);
+        await repo.cleanupOldPrograms();
+        await repo.syncAllLiveEpg(acc.id);
+        if (!mounted) return;
+        ref.invalidate(liveNowOnAirProvider);
+      } catch (_) {}
+    });
   }
 
   /// When auto-sync is enabled, keep a token-gated server up so paired
@@ -210,6 +233,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       );
       _maybeAutoSync();
       _runEnrichPass();
+      _maybeSyncEpg();
     }
   }
 
