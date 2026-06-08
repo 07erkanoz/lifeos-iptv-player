@@ -276,6 +276,26 @@ class ContentEnrichment extends Table {
   Set<Column> get primaryKey => {streamId, type};
 }
 
+/// Semantic vector for a catalogue item, derived from its enriched
+/// text (title + genre + themes + mood). Powers offline semantic
+/// search and the "similar content" rail via local cosine similarity
+/// — no per-query LLM call. One row per (streamId, type).
+class ContentEmbeddings extends Table {
+  IntColumn get streamId => integer()();
+  TextColumn get type => text()(); // movie / series
+
+  /// Float32 vector, length [dims], L2-normalised on write so cosine
+  /// similarity reduces to a plain dot product. Stored as raw bytes.
+  BlobColumn get vector => blob()();
+  IntColumn get dims => integer()();
+
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, type};
+}
+
 class PlotAiCache extends Table {
   /// `Channel.streamId` of the title this enrichment was generated for.
   IntColumn get streamId => integer()();

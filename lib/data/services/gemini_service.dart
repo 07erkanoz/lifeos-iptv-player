@@ -2614,6 +2614,54 @@ Respond with JSON only, matching the schema:
     }
   }
 
+  /// Batch-embed [texts] with the Gemini embedding model. Returns one
+  /// vector (list of doubles, length [dims]) per input in order, or
+  /// null on transport failure. Vectors are NOT normalised here — the
+  /// caller normalises before storing so cosine == dot product.
+  Future<List<List<double>>?> embedTexts(
+    List<String> texts, {
+    int dims = 768,
+  }) async {
+    if (_apiKey.isEmpty || texts.isEmpty) return null;
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/${AiModelPolicy.embedding}:batchEmbedContents',
+        queryParameters: {'key': _apiKey},
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
+        data: {
+          'requests': [
+            for (final t in texts)
+              {
+                'model': 'models/${AiModelPolicy.embedding}',
+                'content': {
+                  'parts': [
+                    {'text': t},
+                  ],
+                },
+                'outputDimensionality': dims,
+              }
+          ],
+        },
+      );
+      if (res.statusCode != 200) {
+        debugPrint('[Gemini] embedTexts status=${res.statusCode}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final embs = body['embeddings'];
+      if (embs is! List) return null;
+      return [
+        for (final e in embs)
+          if (e is Map && e['values'] is List)
+            [for (final v in (e['values'] as List)) (v as num).toDouble()]
+      ];
+    } catch (e) {
+      debugPrint('[Gemini] embedTexts failed: $e');
+      return null;
+    }
+  }
+
   String _buildEnrichSystemPrompt(String lang) => '''
 You are a film & TV metadata expert with deep knowledge of world
 cinema AND Turkish catalogues. For EACH item in ITEMS_JSON (title +

@@ -7747,6 +7747,375 @@ class ContentEnrichmentCompanion
   }
 }
 
+class $ContentEmbeddingsTable extends ContentEmbeddings
+    with TableInfo<$ContentEmbeddingsTable, ContentEmbedding> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContentEmbeddingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vectorMeta = const VerificationMeta('vector');
+  @override
+  late final GeneratedColumn<Uint8List> vector = GeneratedColumn<Uint8List>(
+    'vector',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dimsMeta = const VerificationMeta('dims');
+  @override
+  late final GeneratedColumn<int> dims = GeneratedColumn<int>(
+    'dims',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    type,
+    vector,
+    dims,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'content_embeddings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ContentEmbedding> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('vector')) {
+      context.handle(
+        _vectorMeta,
+        vector.isAcceptableOrUnknown(data['vector']!, _vectorMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_vectorMeta);
+    }
+    if (data.containsKey('dims')) {
+      context.handle(
+        _dimsMeta,
+        dims.isAcceptableOrUnknown(data['dims']!, _dimsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dimsMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, type};
+  @override
+  ContentEmbedding map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ContentEmbedding(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      vector: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}vector'],
+      )!,
+      dims: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dims'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ContentEmbeddingsTable createAlias(String alias) {
+    return $ContentEmbeddingsTable(attachedDatabase, alias);
+  }
+}
+
+class ContentEmbedding extends DataClass
+    implements Insertable<ContentEmbedding> {
+  final int streamId;
+  final String type;
+
+  /// Float32 vector, length [dims], L2-normalised on write so cosine
+  /// similarity reduces to a plain dot product. Stored as raw bytes.
+  final Uint8List vector;
+  final int dims;
+  final DateTime updatedAt;
+  const ContentEmbedding({
+    required this.streamId,
+    required this.type,
+    required this.vector,
+    required this.dims,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['type'] = Variable<String>(type);
+    map['vector'] = Variable<Uint8List>(vector);
+    map['dims'] = Variable<int>(dims);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ContentEmbeddingsCompanion toCompanion(bool nullToAbsent) {
+    return ContentEmbeddingsCompanion(
+      streamId: Value(streamId),
+      type: Value(type),
+      vector: Value(vector),
+      dims: Value(dims),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ContentEmbedding.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ContentEmbedding(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      type: serializer.fromJson<String>(json['type']),
+      vector: serializer.fromJson<Uint8List>(json['vector']),
+      dims: serializer.fromJson<int>(json['dims']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'type': serializer.toJson<String>(type),
+      'vector': serializer.toJson<Uint8List>(vector),
+      'dims': serializer.toJson<int>(dims),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ContentEmbedding copyWith({
+    int? streamId,
+    String? type,
+    Uint8List? vector,
+    int? dims,
+    DateTime? updatedAt,
+  }) => ContentEmbedding(
+    streamId: streamId ?? this.streamId,
+    type: type ?? this.type,
+    vector: vector ?? this.vector,
+    dims: dims ?? this.dims,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ContentEmbedding copyWithCompanion(ContentEmbeddingsCompanion data) {
+    return ContentEmbedding(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      type: data.type.present ? data.type.value : this.type,
+      vector: data.vector.present ? data.vector.value : this.vector,
+      dims: data.dims.present ? data.dims.value : this.dims,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentEmbedding(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('vector: $vector, ')
+          ..write('dims: $dims, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    streamId,
+    type,
+    $driftBlobEquality.hash(vector),
+    dims,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ContentEmbedding &&
+          other.streamId == this.streamId &&
+          other.type == this.type &&
+          $driftBlobEquality.equals(other.vector, this.vector) &&
+          other.dims == this.dims &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ContentEmbeddingsCompanion extends UpdateCompanion<ContentEmbedding> {
+  final Value<int> streamId;
+  final Value<String> type;
+  final Value<Uint8List> vector;
+  final Value<int> dims;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ContentEmbeddingsCompanion({
+    this.streamId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.vector = const Value.absent(),
+    this.dims = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ContentEmbeddingsCompanion.insert({
+    required int streamId,
+    required String type,
+    required Uint8List vector,
+    required int dims,
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       type = Value(type),
+       vector = Value(vector),
+       dims = Value(dims);
+  static Insertable<ContentEmbedding> custom({
+    Expression<int>? streamId,
+    Expression<String>? type,
+    Expression<Uint8List>? vector,
+    Expression<int>? dims,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (type != null) 'type': type,
+      if (vector != null) 'vector': vector,
+      if (dims != null) 'dims': dims,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ContentEmbeddingsCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? type,
+    Value<Uint8List>? vector,
+    Value<int>? dims,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ContentEmbeddingsCompanion(
+      streamId: streamId ?? this.streamId,
+      type: type ?? this.type,
+      vector: vector ?? this.vector,
+      dims: dims ?? this.dims,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (vector.present) {
+      map['vector'] = Variable<Uint8List>(vector.value);
+    }
+    if (dims.present) {
+      map['dims'] = Variable<int>(dims.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentEmbeddingsCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('vector: $vector, ')
+          ..write('dims: $dims, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7771,6 +8140,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AiSimilarCacheTable aiSimilarCache = $AiSimilarCacheTable(this);
   late final $ContentEnrichmentTable contentEnrichment =
       $ContentEnrichmentTable(this);
+  late final $ContentEmbeddingsTable contentEmbeddings =
+      $ContentEmbeddingsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7793,6 +8164,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     searchHistory,
     aiSimilarCache,
     contentEnrichment,
+    contentEmbeddings,
   ];
 }
 
@@ -12244,6 +12616,219 @@ typedef $$ContentEnrichmentTableProcessedTableManager =
       ContentEnrichmentData,
       PrefetchHooks Function()
     >;
+typedef $$ContentEmbeddingsTableCreateCompanionBuilder =
+    ContentEmbeddingsCompanion Function({
+      required int streamId,
+      required String type,
+      required Uint8List vector,
+      required int dims,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ContentEmbeddingsTableUpdateCompanionBuilder =
+    ContentEmbeddingsCompanion Function({
+      Value<int> streamId,
+      Value<String> type,
+      Value<Uint8List> vector,
+      Value<int> dims,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ContentEmbeddingsTableFilterComposer
+    extends Composer<_$AppDatabase, $ContentEmbeddingsTable> {
+  $$ContentEmbeddingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get vector => $composableBuilder(
+    column: $table.vector,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dims => $composableBuilder(
+    column: $table.dims,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ContentEmbeddingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ContentEmbeddingsTable> {
+  $$ContentEmbeddingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get vector => $composableBuilder(
+    column: $table.vector,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dims => $composableBuilder(
+    column: $table.dims,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ContentEmbeddingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ContentEmbeddingsTable> {
+  $$ContentEmbeddingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get vector =>
+      $composableBuilder(column: $table.vector, builder: (column) => column);
+
+  GeneratedColumn<int> get dims =>
+      $composableBuilder(column: $table.dims, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ContentEmbeddingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ContentEmbeddingsTable,
+          ContentEmbedding,
+          $$ContentEmbeddingsTableFilterComposer,
+          $$ContentEmbeddingsTableOrderingComposer,
+          $$ContentEmbeddingsTableAnnotationComposer,
+          $$ContentEmbeddingsTableCreateCompanionBuilder,
+          $$ContentEmbeddingsTableUpdateCompanionBuilder,
+          (
+            ContentEmbedding,
+            BaseReferences<
+              _$AppDatabase,
+              $ContentEmbeddingsTable,
+              ContentEmbedding
+            >,
+          ),
+          ContentEmbedding,
+          PrefetchHooks Function()
+        > {
+  $$ContentEmbeddingsTableTableManager(
+    _$AppDatabase db,
+    $ContentEmbeddingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContentEmbeddingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContentEmbeddingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContentEmbeddingsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<Uint8List> vector = const Value.absent(),
+                Value<int> dims = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentEmbeddingsCompanion(
+                streamId: streamId,
+                type: type,
+                vector: vector,
+                dims: dims,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String type,
+                required Uint8List vector,
+                required int dims,
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentEmbeddingsCompanion.insert(
+                streamId: streamId,
+                type: type,
+                vector: vector,
+                dims: dims,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ContentEmbeddingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ContentEmbeddingsTable,
+      ContentEmbedding,
+      $$ContentEmbeddingsTableFilterComposer,
+      $$ContentEmbeddingsTableOrderingComposer,
+      $$ContentEmbeddingsTableAnnotationComposer,
+      $$ContentEmbeddingsTableCreateCompanionBuilder,
+      $$ContentEmbeddingsTableUpdateCompanionBuilder,
+      (
+        ContentEmbedding,
+        BaseReferences<
+          _$AppDatabase,
+          $ContentEmbeddingsTable,
+          ContentEmbedding
+        >,
+      ),
+      ContentEmbedding,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12285,6 +12870,8 @@ class $AppDatabaseManager {
       $$AiSimilarCacheTableTableManager(_db, _db.aiSimilarCache);
   $$ContentEnrichmentTableTableManager get contentEnrichment =>
       $$ContentEnrichmentTableTableManager(_db, _db.contentEnrichment);
+  $$ContentEmbeddingsTableTableManager get contentEmbeddings =>
+      $$ContentEmbeddingsTableTableManager(_db, _db.contentEmbeddings);
 }
 
 // **************************************************************************

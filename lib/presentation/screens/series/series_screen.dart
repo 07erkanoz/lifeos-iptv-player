@@ -16,6 +16,7 @@ import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/core/tv_focus/tv_poster_grid.dart';
 import 'package:lifeostv/core/tv_focus/tv_poster_grid_controller.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/services/semantic_search_service.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
@@ -1617,21 +1618,29 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           error: (_, _) => const <Channel>[],
         );
     final allSeriesAsync = ref.watch(_allSeriesProvider);
-    final similarSeries = allSeriesAsync.when(
-      data: (all) => _selectSimilarContent(
-        current: ch,
-        all: all,
-        genreText: genre.toString().isNotEmpty ? genre.toString() : ch.genre,
-        baseDirector: director.toString().isNotEmpty
-            ? director.toString()
-            : ch.director,
-        baseCast: cast.toString().isNotEmpty ? cast.toString() : ch.cast,
-        basePlot: plot.toString().isNotEmpty ? plot.toString() : ch.plot,
-        personalizationSeed: [...favoriteSeries, ...historySeries],
-      ),
-      loading: () => const <Channel>[],
-      error: (_, _) => const <Channel>[],
-    );
+    final embSimilar =
+        ref.watch(_embeddingSimilarSeriesProvider(ch.streamId)).value ??
+            const <Channel>[];
+    final similarSeries = embSimilar.isNotEmpty
+        ? embSimilar
+        : allSeriesAsync.when(
+            data: (all) => _selectSimilarContent(
+              current: ch,
+              all: all,
+              genreText:
+                  genre.toString().isNotEmpty ? genre.toString() : ch.genre,
+              baseDirector: director.toString().isNotEmpty
+                  ? director.toString()
+                  : ch.director,
+              baseCast:
+                  cast.toString().isNotEmpty ? cast.toString() : ch.cast,
+              basePlot:
+                  plot.toString().isNotEmpty ? plot.toString() : ch.plot,
+              personalizationSeed: [...favoriteSeries, ...historySeries],
+            ),
+            loading: () => const <Channel>[],
+            error: (_, _) => const <Channel>[],
+          );
 
     return Scaffold(
       backgroundColor: AppColors.background(context),
@@ -4127,6 +4136,28 @@ final _seriesChannelsProvider = StreamProvider.family<List<Channel>, String>((
 
 final _allSeriesProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(contentRepositoryProvider).watchAllChannelsByType('series');
+});
+
+/// Embedding-based "similar series" — see the movies equivalent.
+final _embeddingSimilarSeriesProvider =
+    FutureProvider.family<List<Channel>, int>((ref, streamId) async {
+  final hits = await ref
+      .watch(semanticSearchServiceProvider)
+      .similarTo(streamId, 'series', k: 30, restrictType: 'series');
+  if (hits.isEmpty) return const [];
+  final db = ref.watch(appDatabaseProvider);
+  final ids = hits.map((h) => h.streamId).toList();
+  final rows = await (db.select(db.channels)
+        ..where((t) => t.streamId.isIn(ids)))
+      .get();
+  final byId = {
+    for (final r in rows)
+      if (r.type == 'series') r.streamId: r
+  };
+  return [
+    for (final h in hits)
+      if (byId[h.streamId] != null) byId[h.streamId]!
+  ];
 });
 
 final _favSeriesIdsProvider = StreamProvider<List<int>>((ref) {

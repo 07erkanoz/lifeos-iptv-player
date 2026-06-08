@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache, ContentEnrichment])
+@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache, ContentEnrichment, ContentEmbeddings])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -134,6 +134,20 @@ class AppDatabase extends _$AppDatabase {
              age_rating TEXT,
              confidence REAL,
              source TEXT,
+             updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+             PRIMARY KEY (stream_id, type)
+           )
+         ''');
+       }
+       if (from < 21) {
+         // Semantic embeddings (offline similarity / search). New
+         // table, additive — IF NOT EXISTS for half-applied safety.
+         await customStatement('''
+           CREATE TABLE IF NOT EXISTS content_embeddings (
+             stream_id INTEGER NOT NULL,
+             type TEXT NOT NULL,
+             vector BLOB NOT NULL,
+             dims INTEGER NOT NULL,
              updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
              PRIMARY KEY (stream_id, type)
            )

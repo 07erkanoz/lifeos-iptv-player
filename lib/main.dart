@@ -14,6 +14,7 @@ import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/data/services/lan_sync_service.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
+import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -154,6 +155,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     Future<void>.delayed(const Duration(seconds: 8), () {
       if (!mounted) return;
       ref.read(catalogEnrichmentRunnerProvider).runOnce();
+      ref.read(catalogEmbeddingRunnerProvider).runOnce();
     });
   }
 
@@ -161,6 +163,10 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
     if (!ref.read(settingsProvider).hasAiKey) return;
     ref.read(catalogEnrichmentRunnerProvider).runOnce();
+    // Embeddings build on the enriched text — kick them in the same
+    // pass. The runner only processes items that already have a genre
+    // signal, so it naturally trails enrichment.
+    ref.read(catalogEmbeddingRunnerProvider).runOnce();
   }
 
   /// When auto-sync is enabled, keep a token-gated server up so paired
