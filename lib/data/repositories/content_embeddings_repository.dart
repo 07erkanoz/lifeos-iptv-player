@@ -106,6 +106,7 @@ class ContentEmbeddingsRepository {
           ..where((c.type.equals('movie') | c.type.equals('series')) &
               em.streamId.isNull() &
               ((c.genre.isNotNull() & c.genre.equals('').not()) |
+                  (c.plot.isNotNull() & c.plot.equals('').not()) |
                   e.streamId.isNotNull()))
           ..orderBy([OrderingTerm(expression: c.added, mode: OrderingMode.desc)])
           ..limit(limit))
@@ -136,6 +137,7 @@ class ContentEmbeddingsRepository {
       ..where((c.type.equals('movie') | c.type.equals('series')) &
           em.streamId.isNull() &
           ((c.genre.isNotNull() & c.genre.equals('').not()) |
+              (c.plot.isNotNull() & c.plot.equals('').not()) |
               e.streamId.isNotNull()));
     final row = await q.getSingle();
     return row.read(countExpr) ?? 0;
@@ -155,14 +157,51 @@ class ContentEmbeddingsRepository {
     final year = (ch.year != null && ch.year!.isNotEmpty)
         ? ch.year
         : en?.year?.toString();
+    // Plot/cast/director are the signals that make a vector
+    // *per-title* distinctive. Without them, two series that share a
+    // generic provider genre ("Drama") collapse onto nearly the same
+    // vector and the "similar" rail returns the same handful for
+    // everything. The plot in particular is the richest free-text
+    // signal and is present on Xtream series rows.
+    final plot = ch.plot?.trim();
+    final director = ch.director?.trim();
+    final cast = ch.cast?.trim();
     final parts = <String>[
       ch.name,
       if (genre != null && genre.isNotEmpty) genre,
       if (en?.themes != null && en!.themes!.isNotEmpty) en.themes!,
       if (en?.moodTags != null && en!.moodTags!.isNotEmpty) en.moodTags!,
+      if (director != null && director.isNotEmpty) 'Director: $director',
+      if (cast != null && cast.isNotEmpty) 'Cast: ${_firstCsv(cast, 6)}',
+      if (plot != null && plot.isNotEmpty) _truncate(plot, 600),
       if (year != null && year.isNotEmpty) year,
     ];
     return parts.join('. ');
+  }
+
+  /// First [n] comma-separated values (e.g. top-billed cast) so a long
+  /// 30-name cast list doesn't dominate the vector.
+  static String _firstCsv(String csv, int n) {
+    final parts = csv
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .take(n)
+        .toList();
+    return parts.join(', ');
+  }
+
+  /// Hard length cap on the plot so one verbose synopsis can't swamp
+  /// the embedding (the model truncates anyway; this keeps batches
+  /// well under the input cap and the signal balanced).
+  static String _truncate(String s, int max) =>
+      s.length <= max ? s : s.substring(0, max);
+
+  /// Wipe every stored vector. Used for a one-time rebuild when the
+  /// embedding *text recipe* changes (otherwise old weak vectors stick
+  /// around forever and the similar rail never improves).
+  Future<int> clearAll() async {
+    return _db.delete(_db.contentEmbeddings).go();
   }
 }
 

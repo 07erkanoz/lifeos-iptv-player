@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -16,6 +17,7 @@ import 'package:lifeostv/data/services/lan_sync_service.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/content_embeddings_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
@@ -156,11 +158,40 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     if (!ref.read(settingsProvider).hasAiKey) return;
     // Small delay so first-frame work (playlist load, dashboard rails)
     // isn't competing with enrichment HTTP on startup.
-    Future<void>.delayed(const Duration(seconds: 8), () {
+    Future<void>.delayed(const Duration(seconds: 8), () async {
+      if (!mounted) return;
+      await _maybeRebuildEmbeddings();
       if (!mounted) return;
       ref.read(catalogEnrichmentRunnerProvider).runOnce();
       ref.read(catalogEmbeddingRunnerProvider).runOnce();
     });
+  }
+
+  /// Current embedding *text recipe* version. Bump this whenever
+  /// [_buildText] changes so stored vectors get rebuilt from the new
+  /// text. v2 added plot + cast + director to the source text — the
+  /// old genre-only vectors collapsed onto each other and made the
+  /// "similar" rail return the same items for every title.
+  static const int _embeddingTextVersion = 2;
+
+  /// One-time-per-version wipe of [ContentEmbeddings] so the runner
+  /// re-embeds everything with the new text recipe. Cheap on a paid
+  /// tier; the rail keeps working off whatever's rebuilt so far.
+  Future<void> _maybeRebuildEmbeddings() async {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final applied = prefs.getInt('embeddingTextVersion') ?? 1;
+      if (applied >= _embeddingTextVersion) return;
+      final cleared =
+          await ref.read(contentEmbeddingsRepositoryProvider).clearAll();
+      await prefs.setInt('embeddingTextVersion', _embeddingTextVersion);
+      if (kDebugMode) {
+        debugPrint('[embed] text recipe v$_embeddingTextVersion — '
+            'cleared $cleared old vectors for rebuild');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[embed] rebuild check failed: $e');
+    }
   }
 
   void _runEnrichPass() {
