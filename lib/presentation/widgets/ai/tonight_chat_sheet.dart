@@ -359,6 +359,52 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           ],
         };
 
+      case 'searchLiveChannels':
+        final q = (args['query'] ?? '').toString();
+        final chans = await ref
+            .read(contentRepositoryProvider)
+            .searchLiveChannels(q, limit: 20);
+        return {
+          'results': [
+            for (final c in chans)
+              {'streamId': c.streamId, 'title': c.name, 'type': 'live'}
+          ],
+        };
+
+      case 'getLiveNowOnAir':
+        final rows =
+            await ref.read(contentRepositoryProvider).liveNowOnAir(limit: 30);
+        return {
+          'results': [
+            for (final r in rows)
+              {
+                'streamId': r.channel.streamId,
+                'channel': r.channel.name,
+                'now': r.program.title,
+                'startEpochMs': r.program.start.millisecondsSinceEpoch,
+                'stopEpochMs': r.program.stop.millisecondsSinceEpoch,
+              }
+          ],
+        };
+
+      case 'findPrograms':
+        final q = (args['query'] ?? '').toString();
+        final rows = await ref
+            .read(contentRepositoryProvider)
+            .searchUpcomingPrograms(q, limit: 20);
+        return {
+          'results': [
+            for (final r in rows)
+              {
+                'streamId': r.channel.streamId,
+                'channel': r.channel.name,
+                'title': r.program.title,
+                'startEpochMs': r.program.start.millisecondsSinceEpoch,
+                'stopEpochMs': r.program.stop.millisecondsSinceEpoch,
+              }
+          ],
+        };
+
       case 'addFavorite':
         final id = (args['streamId'] as num?)?.toInt();
         final type = args['type']?.toString();

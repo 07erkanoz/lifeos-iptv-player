@@ -772,6 +772,73 @@ class ContentRepository {
     return out;
   }
 
+  /// Keyword search over LIVE channels only — for the agent's
+  /// "open the news channel" / "CNN'i aç" style requests. Live
+  /// channels carry no embeddings, so this stays plain-text.
+  Future<List<Channel>> searchLiveChannels(String query, {int limit = 20}) async {
+    final tokens = SearchNormalizer.tokens(query);
+    if (tokens.isEmpty) return const [];
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(_db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+        _db.categories.type.equalsExp(_db.channels.type)),
+    ])
+      ..where(_db.channels.type.equals('live'))
+      ..where(_db.categories.isHidden.equals(false))
+    ).get();
+    final out = <Channel>[];
+    for (final r in rows) {
+      if (out.length >= limit) break;
+      final ch = r.readTable(_db.channels);
+      final cat = r.readTableOrNull(_db.categories);
+      if (SearchNormalizer.matches(_buildHaystack(ch, cat), tokens)) {
+        out.add(ch);
+      }
+    }
+    return out;
+  }
+
+  /// Upcoming EPG programmes whose title matches [query], starting now
+  /// or later, within [withinHours]. Powers the agent's "when's the
+  /// match / remind me about X" flows — each row carries the channel
+  /// plus the programme's start/stop so a reminder epoch is derivable.
+  Future<List<({Channel channel, Program program})>> searchUpcomingPrograms(
+    String query, {
+    int withinHours = 168,
+    int limit = 20,
+  }) async {
+    final tokens = SearchNormalizer.tokens(query);
+    if (tokens.isEmpty) return const [];
+    final now = DateTime.now();
+    final until = now.add(Duration(hours: withinHours));
+    final rows = await (_db.select(_db.programs).join([
+      innerJoin(
+        _db.channels,
+        _db.channels.streamId.equalsExp(_db.programs.channelId) &
+            _db.channels.type.equals('live'),
+      ),
+    ])
+          ..where(_db.programs.stop.isBiggerThanValue(now) &
+              _db.programs.start.isSmallerThanValue(until))
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.programs.start, mode: OrderingMode.asc),
+          ])
+          ..limit(2000))
+        .get();
+    final out = <({Channel channel, Program program})>[];
+    for (final r in rows) {
+      if (out.length >= limit) break;
+      final prog = r.readTable(_db.programs);
+      final hay = SearchNormalizer.normalise(
+          '${prog.title} ${prog.description ?? ''}');
+      if (SearchNormalizer.matches(hay, tokens)) {
+        out.add((channel: r.readTable(_db.channels), program: prog));
+      }
+    }
+    return out;
+  }
+
   Stream<List<Program>> watchPrograms(int channelId) {
     final now = DateTime.now();
     return (_db.select(_db.programs)

@@ -353,6 +353,43 @@ class GeminiService {
           },
         },
         {
+          'name': 'searchLiveChannels',
+          'description':
+              'Search LIVE TV channels by name (e.g. "CNN", "beIN Sports", '
+                  '"haber"). Returns channels with streamId/type=live so you '
+                  'can play one. Use this for live TV, not searchLibrary.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'query': {'type': 'STRING'},
+            },
+            'required': ['query'],
+          },
+        },
+        {
+          'name': 'getLiveNowOnAir',
+          'description':
+              'What is on LIVE right now: a list of channels with their '
+                  'current programme (title + start/stop). Use for "şu an ne '
+                  'var" / "canlıda ne oynuyor".',
+          'parameters': {'type': 'OBJECT', 'properties': {}},
+        },
+        {
+          'name': 'findPrograms',
+          'description':
+              'Search the EPG for UPCOMING programmes by title (e.g. a match, '
+                  'a show). Returns channel + programme title + startEpochMs / '
+                  'stopEpochMs. Use the startEpochMs to set a reminder, or '
+                  'playContent on the channel if it is already on.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'query': {'type': 'STRING'},
+            },
+            'required': ['query'],
+          },
+        },
+        {
           'name': 'playContent',
           'description': 'Start playing a title immediately on this device.',
           'parameters': {
@@ -578,8 +615,13 @@ ${_buildTonightSystemPrompt(lang)}
 
 ── AGENT MODE ──
 You also have TOOLS and can take actions on the user's behalf:
-  * searchLibrary(query, type?) — search their OWN library; call this
-    to ground yourself in real streamIds before recommending/acting.
+  * searchLibrary(query, type?) — search their OWN movie/series library;
+    call this to ground yourself in real streamIds before
+    recommending/acting. (Movies & series only.)
+  * searchLiveChannels(query) — find LIVE TV channels by name.
+  * getLiveNowOnAir() — what's airing live right now.
+  * findPrograms(query) — search the EPG for upcoming programmes
+    (matches, shows); returns startEpochMs you can pass to setReminder.
   * playContent(streamId, type) — start playback now.
   * openDetail(streamId, type) — open a title's page.
   * addFavorite / removeFavorite(streamId, type).
