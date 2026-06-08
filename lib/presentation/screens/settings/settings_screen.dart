@@ -195,27 +195,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     List<({IconData icon, String label})> sections,
     bool isDark,
   ) {
-    // If a section is selected, show it full-screen with back button
+    // If a section is selected, show it full-screen with back button.
+    // The PopScope intercepts the system/gesture back so it returns to
+    // the section LIST instead of bubbling up to the shell (which would
+    // jump to the dashboard or — without it — close the app). The
+    // innermost open PopScope wins, so this fires before AppShell's.
     if (_selectedIndex >= 0) {
-      return Scaffold(
-        backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-        appBar: AppBar(
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          setState(() => _selectedIndex = -1);
+        },
+        child: Scaffold(
           backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-          surfaceTintColor: Colors.transparent,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => setState(() => _selectedIndex = -1),
-          ),
-          title: Text(
-            sections[_selectedIndex.clamp(0, sections.length - 1)].label,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.textDark : AppColors.textLight,
+          appBar: AppBar(
+            backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() => _selectedIndex = -1),
+            ),
+            title: Text(
+              sections[_selectedIndex.clamp(0, sections.length - 1)].label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
             ),
           ),
+          body: _buildContent(settings, l10n),
         ),
-        body: _buildContent(settings, l10n),
       );
     }
 
