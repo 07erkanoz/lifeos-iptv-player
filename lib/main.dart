@@ -177,7 +177,9 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
         await svc.runAutoSyncPass();
         if (!mounted) return;
         // Drift favourites/progress are stream-backed, but settings /
-        // account providers aren't — nudge the ones that aren't.
+        // account providers aren't — nudge the ones that aren't. The
+        // settings reload picks up a Gemini key adopted from a peer.
+        ref.read(settingsProvider.notifier).reload();
         ref.invalidate(activeProfileIdProvider);
       } catch (_) {}
     }();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:file_picker/file_picker.dart';
@@ -1837,11 +1838,21 @@ class _EnrichmentStatusTileState
   int? _done;
   int? _pending;
   bool _running = false;
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     _refresh();
+    // Live-refresh while this screen is open so the background runner's
+    // progress is visible without the user pressing "Run now".
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
   }
 
   Future<void> _refresh() async {

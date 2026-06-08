@@ -2558,6 +2558,10 @@ Respond with JSON only, matching the schema:
       final res = await _dio.post<Map<String, dynamic>>(
         '$_endpoint/${AiModelPolicy.catalogEnrichment}:generateContent',
         queryParameters: {'key': _apiKey},
+        // A full 18-item structured-JSON answer in Turkish can take
+        // longer than the default 15s receive window; a premature
+        // timeout would look like a batch "failure" and stall the run.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
         data: {
           'systemInstruction': {
             'parts': [

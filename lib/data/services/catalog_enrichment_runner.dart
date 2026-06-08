@@ -85,11 +85,14 @@ class CatalogEnrichmentRunner {
         // Only persist ids we actually asked about (guard against any
         // hallucinated rows), and only when the model echoed a usable id.
         final asked = {for (final c in pending) c.streamId};
+        final typeOf = {for (final c in pending) c.streamId: c.type};
+        final returned = <int>{};
         final companions = <ContentEnrichmentCompanion>[];
         for (final r in results) {
           final sid = (r['streamId'] as num?)?.toInt();
           final type = r['type'] as String?;
           if (sid == null || type == null || !asked.contains(sid)) continue;
+          returned.add(sid);
           companions.add(ContentEnrichmentCompanion(
             streamId: Value(sid),
             type: Value(type),
@@ -104,15 +107,27 @@ class CatalogEnrichmentRunner {
             updatedAt: Value(DateTime.now()),
           ));
         }
-        await _repo.storeBatch(companions);
-        enriched += companions.length;
-        if (kDebugMode) {
-          debugPrint('[enrich] batch ${i + 1}: +${companions.length} '
-              '(total $enriched)');
+        // Tombstone the items the model OMITTED from a successful batch.
+        // Without this they stay at the front of the newest-first queue
+        // and get re-sent on every batch forever — the catalogue looks
+        // "stuck" at a number. A placeholder row (null genres) removes
+        // them from `pendingItems` so the queue always moves forward.
+        for (final c in pending) {
+          if (returned.contains(c.streamId)) continue;
+          companions.add(ContentEnrichmentCompanion(
+            streamId: Value(c.streamId),
+            type: Value(typeOf[c.streamId] ?? c.type),
+            source: const Value('text'),
+            confidence: const Value(0),
+            updatedAt: Value(DateTime.now()),
+          ));
         }
-
-        // If the model returned fewer than we asked, the rest are still
-        // pending and will retry — but pause to respect the rate limit.
+        await _repo.storeBatch(companions);
+        enriched += returned.length;
+        if (kDebugMode) {
+          debugPrint('[enrich] batch ${i + 1}: +${returned.length} '
+              '(${companions.length - returned.length} skipped) total $enriched');
+        }
         await Future<void>.delayed(_betweenBatches);
       }
     } catch (e) {

@@ -1036,12 +1036,16 @@ class LanSyncService {
     final favs = await _db.select(_db.favorites).get();
     final prog = await _db.select(_db.playbackProgress).get();
     final enrich = await _db.select(_db.contentEnrichment).get();
+    final geminiKey = SettingsRepository(_prefs).loadSettings().geminiApiKey;
     return {
       'v': _payloadVersion,
       // Account fingerprints so the peer only applies our enrichment
       // when it shares the same provider (streamIds line up).
       'accountKeys': (await _accountKeys()).toList(),
       'enrichment': _enrichmentToJson(enrich),
+      // Gemini key travels so paired devices can both enrich / use AI
+      // without re-entering it. Adopted only if the peer has none.
+      if (geminiKey != null && geminiKey.isNotEmpty) 'geminiApiKey': geminiKey,
       'favorites': [
         for (final f in favs)
           {
@@ -1160,6 +1164,17 @@ class LanSyncService {
       if (srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty) {
         enrichAdded =
             await _applyEnrichmentRows(snap['enrichment'] as List);
+      }
+    }
+    // Gemini key — adopt only when we don't already have one, so a
+    // device without AI configured inherits it from a paired device.
+    final incomingKey = snap['geminiApiKey'] as String?;
+    if (incomingKey != null && incomingKey.trim().isNotEmpty) {
+      final repo = SettingsRepository(_prefs);
+      final cur = repo.loadSettings();
+      if (cur.geminiApiKey == null || cur.geminiApiKey!.trim().isEmpty) {
+        unawaited(repo.saveSettings(cur.copyWith(geminiApiKey: incomingKey)));
+        if (kDebugMode) debugPrint('[LanSync] adopted Gemini key from peer');
       }
     }
     if (kDebugMode) {
