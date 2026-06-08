@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/models/similar_group.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
@@ -2515,6 +2516,142 @@ Respond with JSON only, matching the schema:
         'type': 'ARRAY',
         'items': {'type': 'STRING'},
         'nullable': true,
+      },
+    },
+  };
+
+  // ── Catalogue enrichment ────────────────────────────────────────────────
+
+  /// Infer missing metadata (genre / year / mood / themes / warnings /
+  /// age) for a batch of catalogue items whose provider fields are
+  /// empty. Title-only — cheap and fast on Flash-Lite. Returns one map
+  /// per resolved item with keys streamId, type, genres, year, mood,
+  /// themes, warnings, age, confidence; null on transport failure.
+  Future<List<Map<String, dynamic>>?> enrichCatalogBatch(
+    List<
+            ({
+              int streamId,
+              String type,
+              String title,
+              String? year,
+              String? cast,
+              String? director,
+            })>
+        items, {
+    String targetLanguage = 'tr',
+  }) async {
+    if (_apiKey.isEmpty || items.isEmpty) return null;
+    try {
+      final input = [
+        for (final it in items)
+          {
+            'streamId': it.streamId,
+            'type': it.type,
+            'title': it.title,
+            if (it.year != null && it.year!.isNotEmpty) 'year': it.year,
+            if (it.cast != null && it.cast!.isNotEmpty) 'cast': it.cast,
+            if (it.director != null && it.director!.isNotEmpty)
+              'director': it.director,
+          }
+      ];
+
+      final res = await _dio.post<Map<String, dynamic>>(
+        '$_endpoint/${AiModelPolicy.catalogEnrichment}:generateContent',
+        queryParameters: {'key': _apiKey},
+        data: {
+          'systemInstruction': {
+            'parts': [
+              {'text': _buildEnrichSystemPrompt(targetLanguage)},
+            ],
+          },
+          'contents': [
+            {
+              'role': 'user',
+              'parts': [
+                {'text': 'ITEMS_JSON: ${jsonEncode(input)}'},
+              ],
+            },
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json',
+            'responseSchema': _enrichResponseSchema,
+            'temperature': 0.2,
+            'maxOutputTokens': 8192,
+          },
+        },
+      );
+
+      if (res.statusCode != 200) {
+        debugPrint('[Gemini] enrichCatalogBatch status=${res.statusCode}');
+        return null;
+      }
+      final body = res.data;
+      if (body is! Map<String, dynamic>) return null;
+      final candidates = body['candidates'];
+      if (candidates is! List || candidates.isEmpty) return null;
+      final content = (candidates.first as Map)['content'];
+      if (content is! Map) return null;
+      final parts = content['parts'];
+      if (parts is! List || parts.isEmpty) return null;
+      final text = (parts.first as Map)['text']?.toString();
+      if (text == null || text.isEmpty) return null;
+      final start = text.indexOf('{');
+      final end = text.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
+      final decoded = jsonDecode(text.substring(start, end + 1));
+      if (decoded is! Map || decoded['results'] is! List) return null;
+      return [
+        for (final r in (decoded['results'] as List))
+          if (r is Map) r.cast<String, dynamic>()
+      ];
+    } catch (e) {
+      debugPrint('[Gemini] enrichCatalogBatch failed: $e');
+      return null;
+    }
+  }
+
+  String _buildEnrichSystemPrompt(String lang) => '''
+You are a film & TV metadata expert with deep knowledge of world
+cinema AND Turkish catalogues. For EACH item in ITEMS_JSON (title +
+type + optional year/cast/director) infer:
+  - genres: comma-separated (e.g. "Aksiyon, Gerilim")
+  - year: integer release year
+  - mood: comma-separated mood adjectives ("gergin, karanlık, hızlı")
+  - themes: comma-separated themes/keywords ("intikam, yapay zeka")
+  - warnings: comma-separated content warnings ("şiddet, küfür") — "" if none
+  - age: one of "7+", "13+", "16+", "18+"
+  - confidence: 0..1, how sure you are this is the real title you think it is
+
+Recognise titles across translations (Turkish ↔ original — e.g.
+"Sefiller" = "Les Misérables"). Use year/cast/director hints to
+disambiguate same-named productions. If a title is ambiguous or you
+don't recognise it, give your BEST guess from the words in the title
+and set confidence below 0.5 — never omit an item.
+
+Write genres / mood / themes / warnings labels in $lang. Return EXACTLY
+one result object per input item, echoing its streamId and type
+unchanged. JSON only, matching the schema.
+''';
+
+  static const Map<String, dynamic> _enrichResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'results': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'streamId': {'type': 'INTEGER'},
+            'type': {'type': 'STRING'},
+            'genres': {'type': 'STRING', 'nullable': true},
+            'year': {'type': 'INTEGER', 'nullable': true},
+            'mood': {'type': 'STRING', 'nullable': true},
+            'themes': {'type': 'STRING', 'nullable': true},
+            'warnings': {'type': 'STRING', 'nullable': true},
+            'age': {'type': 'STRING', 'nullable': true},
+            'confidence': {'type': 'NUMBER', 'nullable': true},
+          },
+        },
       },
     },
   };

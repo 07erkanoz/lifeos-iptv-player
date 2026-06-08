@@ -932,6 +932,13 @@ class AppLocalizationsTr extends AppLocalizations {
       'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.';
 
   @override
+  String get catalogEnrichment => 'Akıllı katalog etiketleme';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Eksik tür/yıl/ruh hali bilgisini AI ile arka planda doldurur. Arama, benzer içerikler ve kişisel önerileri belirgin şekilde iyileştirir.';
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

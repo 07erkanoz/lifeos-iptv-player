@@ -934,6 +934,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'No device to sync with. Both must be open and on the same Wi-Fi.';
 
   @override
+  String get catalogEnrichment => 'Smart catalogue tagging';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Fills in missing genre / year / mood with AI in the background. Noticeably improves search, similar titles and personalised picks.';
+
+  @override
   String get channelList => 'Channel List';
 
   @override

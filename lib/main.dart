@@ -12,6 +12,7 @@ import 'package:lifeostv/config/router.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/data/services/lan_sync_service.dart';
+import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -124,7 +125,26 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     WidgetsBinding.instance.addObserver(this);
     // Kick the LAN auto-sync once the first frame is up (providers
     // ready, context available).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoSync());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeAutoSync();
+      _maybeEnrichCatalog();
+    });
+  }
+
+  /// Background catalogue enrichment — fills missing genre/year/mood
+  /// via Gemini so search/similar/dashboard rails work on sparse
+  /// IPTV metadata. Gated on the setting + a Gemini key (the runner
+  /// itself no-ops without a key). Bounded + resumable, so a single
+  /// launch only does a slice and the rest happens next time.
+  void _maybeEnrichCatalog() {
+    if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
+    if (!ref.read(settingsProvider).hasAiKey) return;
+    // Small delay so first-frame work (playlist load, dashboard rails)
+    // isn't competing with enrichment HTTP on startup.
+    Future<void>.delayed(const Duration(seconds: 8), () {
+      if (!mounted) return;
+      ref.read(catalogEnrichmentRunnerProvider).runOnce();
+    });
   }
 
   /// When auto-sync is enabled, keep a token-gated server up so paired

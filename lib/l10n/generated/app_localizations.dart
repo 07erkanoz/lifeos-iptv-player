@@ -1844,6 +1844,18 @@ abstract class AppLocalizations {
   /// **'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.'**
   String get deviceSyncResultNone;
 
+  /// No description provided for @catalogEnrichment.
+  ///
+  /// In tr, this message translates to:
+  /// **'Akıllı katalog etiketleme'**
+  String get catalogEnrichment;
+
+  /// No description provided for @catalogEnrichmentDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Eksik tür/yıl/ruh hali bilgisini AI ile arka planda doldurur. Arama, benzer içerikler ve kişisel önerileri belirgin şekilde iyileştirir.'**
+  String get catalogEnrichmentDesc;
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

@@ -381,6 +381,8 @@
   "deviceSyncResult": "{count} cihazla eşitlendi",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi'da olmalı.",
+  "catalogEnrichment": "Akıllı katalog etiketleme",
+  "catalogEnrichmentDesc": "Eksik tür/yıl/ruh hali bilgisini AI ile arka planda doldurur. Arama, benzer içerikler ve kişisel önerileri belirgin şekilde iyileştirir.",
   "channelList": "Kanal Listesi",
   "searchChannelsHint": "Kanal ara...",
   "all": "Tümü",

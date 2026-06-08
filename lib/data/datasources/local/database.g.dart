@@ -7066,6 +7066,687 @@ class AiSimilarCacheCompanion extends UpdateCompanion<AiSimilarCacheData> {
   }
 }
 
+class $ContentEnrichmentTable extends ContentEnrichment
+    with TableInfo<$ContentEnrichmentTable, ContentEnrichmentData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContentEnrichmentTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<int> streamId = GeneratedColumn<int>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _genresMeta = const VerificationMeta('genres');
+  @override
+  late final GeneratedColumn<String> genres = GeneratedColumn<String>(
+    'genres',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _moodTagsMeta = const VerificationMeta(
+    'moodTags',
+  );
+  @override
+  late final GeneratedColumn<String> moodTags = GeneratedColumn<String>(
+    'mood_tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _themesMeta = const VerificationMeta('themes');
+  @override
+  late final GeneratedColumn<String> themes = GeneratedColumn<String>(
+    'themes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentWarningsMeta = const VerificationMeta(
+    'contentWarnings',
+  );
+  @override
+  late final GeneratedColumn<String> contentWarnings = GeneratedColumn<String>(
+    'content_warnings',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ageRatingMeta = const VerificationMeta(
+    'ageRating',
+  );
+  @override
+  late final GeneratedColumn<String> ageRating = GeneratedColumn<String>(
+    'age_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _confidenceMeta = const VerificationMeta(
+    'confidence',
+  );
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+    'confidence',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    streamId,
+    type,
+    genres,
+    year,
+    moodTags,
+    themes,
+    contentWarnings,
+    ageRating,
+    confidence,
+    source,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'content_enrichment';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ContentEnrichmentData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('genres')) {
+      context.handle(
+        _genresMeta,
+        genres.isAcceptableOrUnknown(data['genres']!, _genresMeta),
+      );
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('mood_tags')) {
+      context.handle(
+        _moodTagsMeta,
+        moodTags.isAcceptableOrUnknown(data['mood_tags']!, _moodTagsMeta),
+      );
+    }
+    if (data.containsKey('themes')) {
+      context.handle(
+        _themesMeta,
+        themes.isAcceptableOrUnknown(data['themes']!, _themesMeta),
+      );
+    }
+    if (data.containsKey('content_warnings')) {
+      context.handle(
+        _contentWarningsMeta,
+        contentWarnings.isAcceptableOrUnknown(
+          data['content_warnings']!,
+          _contentWarningsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('age_rating')) {
+      context.handle(
+        _ageRatingMeta,
+        ageRating.isAcceptableOrUnknown(data['age_rating']!, _ageRatingMeta),
+      );
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+        _confidenceMeta,
+        confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {streamId, type};
+  @override
+  ContentEnrichmentData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ContentEnrichmentData(
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      genres: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}genres'],
+      ),
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      ),
+      moodTags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mood_tags'],
+      ),
+      themes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}themes'],
+      ),
+      contentWarnings: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_warnings'],
+      ),
+      ageRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}age_rating'],
+      ),
+      confidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}confidence'],
+      ),
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ContentEnrichmentTable createAlias(String alias) {
+    return $ContentEnrichmentTable(attachedDatabase, alias);
+  }
+}
+
+class ContentEnrichmentData extends DataClass
+    implements Insertable<ContentEnrichmentData> {
+  final int streamId;
+  final String type;
+
+  /// Comma-separated genres ("Aksiyon, Gerilim").
+  final String? genres;
+  final int? year;
+
+  /// Comma-separated mood adjectives ("gergin, karanlık, hızlı") —
+  /// drives the dashboard "Ruh haline göre" rail.
+  final String? moodTags;
+
+  /// Comma-separated themes / keywords ("intikam, yapay zeka").
+  final String? themes;
+
+  /// Comma-separated content warnings ("şiddet, küfür").
+  final String? contentWarnings;
+
+  /// Coarse age suitability ("7+", "13+", "16+", "18+").
+  final String? ageRating;
+
+  /// Model self-reported 0..1 confidence — low values can be re-run.
+  final double? confidence;
+
+  /// How it was produced: 'text' (title-only) or 'vision' (poster).
+  final String? source;
+  final DateTime updatedAt;
+  const ContentEnrichmentData({
+    required this.streamId,
+    required this.type,
+    this.genres,
+    this.year,
+    this.moodTags,
+    this.themes,
+    this.contentWarnings,
+    this.ageRating,
+    this.confidence,
+    this.source,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stream_id'] = Variable<int>(streamId);
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || genres != null) {
+      map['genres'] = Variable<String>(genres);
+    }
+    if (!nullToAbsent || year != null) {
+      map['year'] = Variable<int>(year);
+    }
+    if (!nullToAbsent || moodTags != null) {
+      map['mood_tags'] = Variable<String>(moodTags);
+    }
+    if (!nullToAbsent || themes != null) {
+      map['themes'] = Variable<String>(themes);
+    }
+    if (!nullToAbsent || contentWarnings != null) {
+      map['content_warnings'] = Variable<String>(contentWarnings);
+    }
+    if (!nullToAbsent || ageRating != null) {
+      map['age_rating'] = Variable<String>(ageRating);
+    }
+    if (!nullToAbsent || confidence != null) {
+      map['confidence'] = Variable<double>(confidence);
+    }
+    if (!nullToAbsent || source != null) {
+      map['source'] = Variable<String>(source);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ContentEnrichmentCompanion toCompanion(bool nullToAbsent) {
+    return ContentEnrichmentCompanion(
+      streamId: Value(streamId),
+      type: Value(type),
+      genres: genres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(genres),
+      year: year == null && nullToAbsent ? const Value.absent() : Value(year),
+      moodTags: moodTags == null && nullToAbsent
+          ? const Value.absent()
+          : Value(moodTags),
+      themes: themes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(themes),
+      contentWarnings: contentWarnings == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentWarnings),
+      ageRating: ageRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ageRating),
+      confidence: confidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(confidence),
+      source: source == null && nullToAbsent
+          ? const Value.absent()
+          : Value(source),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ContentEnrichmentData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ContentEnrichmentData(
+      streamId: serializer.fromJson<int>(json['streamId']),
+      type: serializer.fromJson<String>(json['type']),
+      genres: serializer.fromJson<String?>(json['genres']),
+      year: serializer.fromJson<int?>(json['year']),
+      moodTags: serializer.fromJson<String?>(json['moodTags']),
+      themes: serializer.fromJson<String?>(json['themes']),
+      contentWarnings: serializer.fromJson<String?>(json['contentWarnings']),
+      ageRating: serializer.fromJson<String?>(json['ageRating']),
+      confidence: serializer.fromJson<double?>(json['confidence']),
+      source: serializer.fromJson<String?>(json['source']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'streamId': serializer.toJson<int>(streamId),
+      'type': serializer.toJson<String>(type),
+      'genres': serializer.toJson<String?>(genres),
+      'year': serializer.toJson<int?>(year),
+      'moodTags': serializer.toJson<String?>(moodTags),
+      'themes': serializer.toJson<String?>(themes),
+      'contentWarnings': serializer.toJson<String?>(contentWarnings),
+      'ageRating': serializer.toJson<String?>(ageRating),
+      'confidence': serializer.toJson<double?>(confidence),
+      'source': serializer.toJson<String?>(source),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ContentEnrichmentData copyWith({
+    int? streamId,
+    String? type,
+    Value<String?> genres = const Value.absent(),
+    Value<int?> year = const Value.absent(),
+    Value<String?> moodTags = const Value.absent(),
+    Value<String?> themes = const Value.absent(),
+    Value<String?> contentWarnings = const Value.absent(),
+    Value<String?> ageRating = const Value.absent(),
+    Value<double?> confidence = const Value.absent(),
+    Value<String?> source = const Value.absent(),
+    DateTime? updatedAt,
+  }) => ContentEnrichmentData(
+    streamId: streamId ?? this.streamId,
+    type: type ?? this.type,
+    genres: genres.present ? genres.value : this.genres,
+    year: year.present ? year.value : this.year,
+    moodTags: moodTags.present ? moodTags.value : this.moodTags,
+    themes: themes.present ? themes.value : this.themes,
+    contentWarnings: contentWarnings.present
+        ? contentWarnings.value
+        : this.contentWarnings,
+    ageRating: ageRating.present ? ageRating.value : this.ageRating,
+    confidence: confidence.present ? confidence.value : this.confidence,
+    source: source.present ? source.value : this.source,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ContentEnrichmentData copyWithCompanion(ContentEnrichmentCompanion data) {
+    return ContentEnrichmentData(
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      type: data.type.present ? data.type.value : this.type,
+      genres: data.genres.present ? data.genres.value : this.genres,
+      year: data.year.present ? data.year.value : this.year,
+      moodTags: data.moodTags.present ? data.moodTags.value : this.moodTags,
+      themes: data.themes.present ? data.themes.value : this.themes,
+      contentWarnings: data.contentWarnings.present
+          ? data.contentWarnings.value
+          : this.contentWarnings,
+      ageRating: data.ageRating.present ? data.ageRating.value : this.ageRating,
+      confidence: data.confidence.present
+          ? data.confidence.value
+          : this.confidence,
+      source: data.source.present ? data.source.value : this.source,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentEnrichmentData(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('genres: $genres, ')
+          ..write('year: $year, ')
+          ..write('moodTags: $moodTags, ')
+          ..write('themes: $themes, ')
+          ..write('contentWarnings: $contentWarnings, ')
+          ..write('ageRating: $ageRating, ')
+          ..write('confidence: $confidence, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    streamId,
+    type,
+    genres,
+    year,
+    moodTags,
+    themes,
+    contentWarnings,
+    ageRating,
+    confidence,
+    source,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ContentEnrichmentData &&
+          other.streamId == this.streamId &&
+          other.type == this.type &&
+          other.genres == this.genres &&
+          other.year == this.year &&
+          other.moodTags == this.moodTags &&
+          other.themes == this.themes &&
+          other.contentWarnings == this.contentWarnings &&
+          other.ageRating == this.ageRating &&
+          other.confidence == this.confidence &&
+          other.source == this.source &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ContentEnrichmentCompanion
+    extends UpdateCompanion<ContentEnrichmentData> {
+  final Value<int> streamId;
+  final Value<String> type;
+  final Value<String?> genres;
+  final Value<int?> year;
+  final Value<String?> moodTags;
+  final Value<String?> themes;
+  final Value<String?> contentWarnings;
+  final Value<String?> ageRating;
+  final Value<double?> confidence;
+  final Value<String?> source;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ContentEnrichmentCompanion({
+    this.streamId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.genres = const Value.absent(),
+    this.year = const Value.absent(),
+    this.moodTags = const Value.absent(),
+    this.themes = const Value.absent(),
+    this.contentWarnings = const Value.absent(),
+    this.ageRating = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.source = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ContentEnrichmentCompanion.insert({
+    required int streamId,
+    required String type,
+    this.genres = const Value.absent(),
+    this.year = const Value.absent(),
+    this.moodTags = const Value.absent(),
+    this.themes = const Value.absent(),
+    this.contentWarnings = const Value.absent(),
+    this.ageRating = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.source = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : streamId = Value(streamId),
+       type = Value(type);
+  static Insertable<ContentEnrichmentData> custom({
+    Expression<int>? streamId,
+    Expression<String>? type,
+    Expression<String>? genres,
+    Expression<int>? year,
+    Expression<String>? moodTags,
+    Expression<String>? themes,
+    Expression<String>? contentWarnings,
+    Expression<String>? ageRating,
+    Expression<double>? confidence,
+    Expression<String>? source,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (streamId != null) 'stream_id': streamId,
+      if (type != null) 'type': type,
+      if (genres != null) 'genres': genres,
+      if (year != null) 'year': year,
+      if (moodTags != null) 'mood_tags': moodTags,
+      if (themes != null) 'themes': themes,
+      if (contentWarnings != null) 'content_warnings': contentWarnings,
+      if (ageRating != null) 'age_rating': ageRating,
+      if (confidence != null) 'confidence': confidence,
+      if (source != null) 'source': source,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ContentEnrichmentCompanion copyWith({
+    Value<int>? streamId,
+    Value<String>? type,
+    Value<String?>? genres,
+    Value<int?>? year,
+    Value<String?>? moodTags,
+    Value<String?>? themes,
+    Value<String?>? contentWarnings,
+    Value<String?>? ageRating,
+    Value<double?>? confidence,
+    Value<String?>? source,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ContentEnrichmentCompanion(
+      streamId: streamId ?? this.streamId,
+      type: type ?? this.type,
+      genres: genres ?? this.genres,
+      year: year ?? this.year,
+      moodTags: moodTags ?? this.moodTags,
+      themes: themes ?? this.themes,
+      contentWarnings: contentWarnings ?? this.contentWarnings,
+      ageRating: ageRating ?? this.ageRating,
+      confidence: confidence ?? this.confidence,
+      source: source ?? this.source,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (streamId.present) {
+      map['stream_id'] = Variable<int>(streamId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (genres.present) {
+      map['genres'] = Variable<String>(genres.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (moodTags.present) {
+      map['mood_tags'] = Variable<String>(moodTags.value);
+    }
+    if (themes.present) {
+      map['themes'] = Variable<String>(themes.value);
+    }
+    if (contentWarnings.present) {
+      map['content_warnings'] = Variable<String>(contentWarnings.value);
+    }
+    if (ageRating.present) {
+      map['age_rating'] = Variable<String>(ageRating.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentEnrichmentCompanion(')
+          ..write('streamId: $streamId, ')
+          ..write('type: $type, ')
+          ..write('genres: $genres, ')
+          ..write('year: $year, ')
+          ..write('moodTags: $moodTags, ')
+          ..write('themes: $themes, ')
+          ..write('contentWarnings: $contentWarnings, ')
+          ..write('ageRating: $ageRating, ')
+          ..write('confidence: $confidence, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7088,6 +7769,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AiFeedbackTable aiFeedback = $AiFeedbackTable(this);
   late final $SearchHistoryTable searchHistory = $SearchHistoryTable(this);
   late final $AiSimilarCacheTable aiSimilarCache = $AiSimilarCacheTable(this);
+  late final $ContentEnrichmentTable contentEnrichment =
+      $ContentEnrichmentTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7109,6 +7792,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     aiFeedback,
     searchHistory,
     aiSimilarCache,
+    contentEnrichment,
   ];
 }
 
@@ -11229,6 +11913,337 @@ typedef $$AiSimilarCacheTableProcessedTableManager =
       AiSimilarCacheData,
       PrefetchHooks Function()
     >;
+typedef $$ContentEnrichmentTableCreateCompanionBuilder =
+    ContentEnrichmentCompanion Function({
+      required int streamId,
+      required String type,
+      Value<String?> genres,
+      Value<int?> year,
+      Value<String?> moodTags,
+      Value<String?> themes,
+      Value<String?> contentWarnings,
+      Value<String?> ageRating,
+      Value<double?> confidence,
+      Value<String?> source,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ContentEnrichmentTableUpdateCompanionBuilder =
+    ContentEnrichmentCompanion Function({
+      Value<int> streamId,
+      Value<String> type,
+      Value<String?> genres,
+      Value<int?> year,
+      Value<String?> moodTags,
+      Value<String?> themes,
+      Value<String?> contentWarnings,
+      Value<String?> ageRating,
+      Value<double?> confidence,
+      Value<String?> source,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ContentEnrichmentTableFilterComposer
+    extends Composer<_$AppDatabase, $ContentEnrichmentTable> {
+  $$ContentEnrichmentTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get genres => $composableBuilder(
+    column: $table.genres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get moodTags => $composableBuilder(
+    column: $table.moodTags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themes => $composableBuilder(
+    column: $table.themes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentWarnings => $composableBuilder(
+    column: $table.contentWarnings,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ageRating => $composableBuilder(
+    column: $table.ageRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ContentEnrichmentTableOrderingComposer
+    extends Composer<_$AppDatabase, $ContentEnrichmentTable> {
+  $$ContentEnrichmentTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get genres => $composableBuilder(
+    column: $table.genres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get moodTags => $composableBuilder(
+    column: $table.moodTags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get themes => $composableBuilder(
+    column: $table.themes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentWarnings => $composableBuilder(
+    column: $table.contentWarnings,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ageRating => $composableBuilder(
+    column: $table.ageRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ContentEnrichmentTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ContentEnrichmentTable> {
+  $$ContentEnrichmentTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get genres =>
+      $composableBuilder(column: $table.genres, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<String> get moodTags =>
+      $composableBuilder(column: $table.moodTags, builder: (column) => column);
+
+  GeneratedColumn<String> get themes =>
+      $composableBuilder(column: $table.themes, builder: (column) => column);
+
+  GeneratedColumn<String> get contentWarnings => $composableBuilder(
+    column: $table.contentWarnings,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ageRating =>
+      $composableBuilder(column: $table.ageRating, builder: (column) => column);
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ContentEnrichmentTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ContentEnrichmentTable,
+          ContentEnrichmentData,
+          $$ContentEnrichmentTableFilterComposer,
+          $$ContentEnrichmentTableOrderingComposer,
+          $$ContentEnrichmentTableAnnotationComposer,
+          $$ContentEnrichmentTableCreateCompanionBuilder,
+          $$ContentEnrichmentTableUpdateCompanionBuilder,
+          (
+            ContentEnrichmentData,
+            BaseReferences<
+              _$AppDatabase,
+              $ContentEnrichmentTable,
+              ContentEnrichmentData
+            >,
+          ),
+          ContentEnrichmentData,
+          PrefetchHooks Function()
+        > {
+  $$ContentEnrichmentTableTableManager(
+    _$AppDatabase db,
+    $ContentEnrichmentTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContentEnrichmentTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContentEnrichmentTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContentEnrichmentTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> streamId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> genres = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<String?> moodTags = const Value.absent(),
+                Value<String?> themes = const Value.absent(),
+                Value<String?> contentWarnings = const Value.absent(),
+                Value<String?> ageRating = const Value.absent(),
+                Value<double?> confidence = const Value.absent(),
+                Value<String?> source = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentEnrichmentCompanion(
+                streamId: streamId,
+                type: type,
+                genres: genres,
+                year: year,
+                moodTags: moodTags,
+                themes: themes,
+                contentWarnings: contentWarnings,
+                ageRating: ageRating,
+                confidence: confidence,
+                source: source,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int streamId,
+                required String type,
+                Value<String?> genres = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<String?> moodTags = const Value.absent(),
+                Value<String?> themes = const Value.absent(),
+                Value<String?> contentWarnings = const Value.absent(),
+                Value<String?> ageRating = const Value.absent(),
+                Value<double?> confidence = const Value.absent(),
+                Value<String?> source = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentEnrichmentCompanion.insert(
+                streamId: streamId,
+                type: type,
+                genres: genres,
+                year: year,
+                moodTags: moodTags,
+                themes: themes,
+                contentWarnings: contentWarnings,
+                ageRating: ageRating,
+                confidence: confidence,
+                source: source,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ContentEnrichmentTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ContentEnrichmentTable,
+      ContentEnrichmentData,
+      $$ContentEnrichmentTableFilterComposer,
+      $$ContentEnrichmentTableOrderingComposer,
+      $$ContentEnrichmentTableAnnotationComposer,
+      $$ContentEnrichmentTableCreateCompanionBuilder,
+      $$ContentEnrichmentTableUpdateCompanionBuilder,
+      (
+        ContentEnrichmentData,
+        BaseReferences<
+          _$AppDatabase,
+          $ContentEnrichmentTable,
+          ContentEnrichmentData
+        >,
+      ),
+      ContentEnrichmentData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11268,6 +12283,8 @@ class $AppDatabaseManager {
       $$SearchHistoryTableTableManager(_db, _db.searchHistory);
   $$AiSimilarCacheTableTableManager get aiSimilarCache =>
       $$AiSimilarCacheTableTableManager(_db, _db.aiSimilarCache);
+  $$ContentEnrichmentTableTableManager get contentEnrichment =>
+      $$ContentEnrichmentTableTableManager(_db, _db.contentEnrichment);
 }
 
 // **************************************************************************

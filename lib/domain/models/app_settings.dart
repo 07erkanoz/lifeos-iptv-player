@@ -124,6 +124,14 @@ class AppSettings {
   /// same Wi-Fi. No-op until at least one device is paired.
   final bool autoSyncEnabled;
 
+  /// When on (and a Gemini key is present), the app fills missing
+  /// genre / year / mood metadata for the catalogue in the background.
+  /// Improves search, "similar", and every dashboard AI rail on
+  /// catalogues whose provider leaves those fields empty. Default on —
+  /// it's the single biggest quality lever — but gated on having a key
+  /// so it's a no-op for users without AI.
+  final bool catalogEnrichmentEnabled;
+
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.system,
@@ -157,6 +165,7 @@ class AppSettings {
     this.fullscreenMode = false,
     this.heroTrailerOnMobile = false,
     this.autoSyncEnabled = false,
+    this.catalogEnrichmentEnabled = true,
   });
 
   AppSettings copyWith({
@@ -194,6 +203,7 @@ class AppSettings {
     bool? fullscreenMode,
     bool? heroTrailerOnMobile,
     bool? autoSyncEnabled,
+    bool? catalogEnrichmentEnabled,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -238,6 +248,8 @@ class AppSettings {
       heroTrailerOnMobile:
           heroTrailerOnMobile ?? this.heroTrailerOnMobile,
       autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
+      catalogEnrichmentEnabled:
+          catalogEnrichmentEnabled ?? this.catalogEnrichmentEnabled,
     );
   }
 

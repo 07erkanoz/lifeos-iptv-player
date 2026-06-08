@@ -950,7 +950,42 @@ class ContentRepository {
       topByType('series', seriesPerType),
       topByType('live', livePerType),
     ]);
-    return [...results[0], ...results[1], ...results[2]];
+    return _mergeEnrichment([...results[0], ...results[1], ...results[2]]);
+  }
+
+  /// Overlay AI catalogue enrichment onto channels whose provider
+  /// `genre` / `year` are empty. This is the SINGLE integration point
+  /// that lets every AI surface — search, "similar", and the dashboard
+  /// rails (Sana Özel, mood, hero, digest), which all build their
+  /// candidates through [sampleLibraryForAi] / [recentAdditionsForAi]
+  /// — benefit from enrichment without each re-querying the table.
+  ///
+  /// No-op (single cheap query) when nothing needs filling.
+  Future<List<Channel>> _mergeEnrichment(List<Channel> channels) async {
+    final needIds = <int>[
+      for (final c in channels)
+        if (c.genre == null || c.genre!.isEmpty) c.streamId
+    ];
+    if (needIds.isEmpty) return channels;
+    final rows = await (_db.select(_db.contentEnrichment)
+          ..where((t) => t.streamId.isIn(needIds)))
+        .get();
+    if (rows.isEmpty) return channels;
+    final byKey = {for (final r in rows) '${r.streamId}|${r.type}': r};
+    return [
+      for (final c in channels)
+        if ((c.genre == null || c.genre!.isEmpty) &&
+            byKey['${c.streamId}|${c.type}'] != null)
+          c.copyWith(
+            genre: Value(byKey['${c.streamId}|${c.type}']!.genres),
+            year: Value(
+                (c.year != null && c.year!.isNotEmpty)
+                    ? c.year
+                    : byKey['${c.streamId}|${c.type}']!.year?.toString()),
+          )
+        else
+          c
+    ];
   }
 
   /// Freshest VOD by the Xtream `added` timestamp, newest first.
@@ -983,7 +1018,8 @@ class ContentRepository {
       ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
     // Drop rows with no `added` value at all — a zero timestamp isn't
     // "recent", it's "unknown", and surfacing it as new would be a lie.
-    return all.where((c) => parseAdded(c) > 0).take(limit).toList();
+    final recent = all.where((c) => parseAdded(c) > 0).take(limit).toList();
+    return _mergeEnrichment(recent);
   }
 
   /// Watch channels that have playback progress (continue watching).

@@ -375,6 +375,8 @@
   "deviceSyncResult": "Bi {count} amûran re hevdem bû",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "Amûrek ji bo hevdemkirinê nehat dîtin. Divê herdu jî vekirî û li ser heman Wi-Fi bin.",
+  "catalogEnrichment": "Etîketkirina jîr a katalogê",
+  "catalogEnrichmentDesc": "Cure / sal / halet yên kêm bi AI di paşperdeyê de tijî dike. Lêgerîn, naveroka wekhev û pêşniyarên kesane bi awayekî berbiçav baştir dike.",
   "channelList": "Lîsteya Kanalan",
   "searchChannelsHint": "Li kanalê bigere...",
   "all": "Hemû",

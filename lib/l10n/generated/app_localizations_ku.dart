@@ -932,6 +932,13 @@ class AppLocalizationsKu extends AppLocalizations {
       'Amûrek ji bo hevdemkirinê nehat dîtin. Divê herdu jî vekirî û li ser heman Wi-Fi bin.';
 
   @override
+  String get catalogEnrichment => 'Etîketkirina jîr a katalogê';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Cure / sal / halet yên kêm bi AI di paşperdeyê de tijî dike. Lêgerîn, naveroka wekhev û pêşniyarên kesane bi awayekî berbiçav baştir dike.';
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

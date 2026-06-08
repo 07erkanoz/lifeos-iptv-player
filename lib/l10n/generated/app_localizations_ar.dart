@@ -933,6 +933,13 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يوجد جهاز للمزامنة. يجب أن يكون كلاهما مفتوحًا وعلى نفس شبكة Wi-Fi.';
 
   @override
+  String get catalogEnrichment => 'وسم ذكي للمحتوى';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'يملأ النوع / السنة / المزاج الناقص بالذكاء الاصطناعي في الخلفية. يحسّن البحث والعناوين المشابهة والتوصيات الشخصية بشكل ملحوظ.';
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

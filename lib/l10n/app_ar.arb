@@ -375,6 +375,8 @@
   "deviceSyncResult": "تمت المزامنة مع {count} جهاز",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "لا يوجد جهاز للمزامنة. يجب أن يكون كلاهما مفتوحًا وعلى نفس شبكة Wi-Fi.",
+  "catalogEnrichment": "وسم ذكي للمحتوى",
+  "catalogEnrichmentDesc": "يملأ النوع / السنة / المزاج الناقص بالذكاء الاصطناعي في الخلفية. يحسّن البحث والعناوين المشابهة والتوصيات الشخصية بشكل ملحوظ.",
   "channelList": "قائمة القنوات",
   "searchChannelsHint": "ابحث عن قناة...",
   "all": "الكل",

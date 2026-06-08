@@ -375,6 +375,8 @@
   "deviceSyncResult": "Sincronizado con {count} dispositivo(s)",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "No hay dispositivo para sincronizar. Ambos deben estar abiertos y en la misma Wi-Fi.",
+  "catalogEnrichment": "Etiquetado inteligente del catálogo",
+  "catalogEnrichmentDesc": "Rellena género / año / ambiente que falten con IA en segundo plano. Mejora notablemente la búsqueda, los títulos similares y las recomendaciones personalizadas.",
   "channelList": "Lista de canales",
   "searchChannelsHint": "Buscar canales...",
   "all": "Todos",

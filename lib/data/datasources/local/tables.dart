@@ -237,6 +237,45 @@ class AiSimilarCache extends Table {
   Set<Column> get primaryKey => {streamId, type};
 }
 
+/// AI-derived metadata for catalogue items whose provider fields are
+/// sparse (Turkish IPTV catalogues leave `genre` / `year` NULL on most
+/// titles). Filled once in the background by Gemini and read as a
+/// fallback by search / similar / dashboard rails when the channel's
+/// own columns are empty.
+class ContentEnrichment extends Table {
+  IntColumn get streamId => integer()();
+  TextColumn get type => text()(); // movie / series
+
+  /// Comma-separated genres ("Aksiyon, Gerilim").
+  TextColumn get genres => text().nullable()();
+  IntColumn get year => integer().nullable()();
+
+  /// Comma-separated mood adjectives ("gergin, karanlık, hızlı") —
+  /// drives the dashboard "Ruh haline göre" rail.
+  TextColumn get moodTags => text().nullable()();
+
+  /// Comma-separated themes / keywords ("intikam, yapay zeka").
+  TextColumn get themes => text().nullable()();
+
+  /// Comma-separated content warnings ("şiddet, küfür").
+  TextColumn get contentWarnings => text().nullable()();
+
+  /// Coarse age suitability ("7+", "13+", "16+", "18+").
+  TextColumn get ageRating => text().nullable()();
+
+  /// Model self-reported 0..1 confidence — low values can be re-run.
+  RealColumn get confidence => real().nullable()();
+
+  /// How it was produced: 'text' (title-only) or 'vision' (poster).
+  TextColumn get source => text().nullable()();
+
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {streamId, type};
+}
+
 class PlotAiCache extends Table {
   /// `Channel.streamId` of the title this enrichment was generated for.
   IntColumn get streamId => integer()();

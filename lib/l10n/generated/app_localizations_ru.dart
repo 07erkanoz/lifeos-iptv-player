@@ -935,6 +935,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Нет устройства для синхронизации. Оба должны быть открыты и в одной Wi-Fi.';
 
   @override
+  String get catalogEnrichment => 'Умная разметка каталога';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Заполняет недостающие жанр / год / настроение с помощью ИИ в фоне. Заметно улучшает поиск, похожие тайтлы и персональные подборки.';
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

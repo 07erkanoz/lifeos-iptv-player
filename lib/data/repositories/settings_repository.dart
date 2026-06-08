@@ -40,6 +40,7 @@ class SettingsRepository {
   static const _keyFullscreenMode = 'fullscreen_mode';
   static const _keyHeroTrailerOnMobile = 'hero_trailer_on_mobile';
   static const _keyAutoSyncEnabled = 'auto_sync_enabled';
+  static const _keyCatalogEnrichment = 'catalog_enrichment_enabled';
 
   AppSettings loadSettings() {
     final themeIndex = _prefs.getInt(_keyTheme) ?? 2; // Default dark
@@ -83,6 +84,8 @@ class SettingsRepository {
       heroTrailerOnMobile:
           _prefs.getBool(_keyHeroTrailerOnMobile) ?? false,
       autoSyncEnabled: _prefs.getBool(_keyAutoSyncEnabled) ?? false,
+      catalogEnrichmentEnabled:
+          _prefs.getBool(_keyCatalogEnrichment) ?? true,
     );
   }
 
@@ -154,6 +157,8 @@ class SettingsRepository {
     await _prefs.setBool(
         _keyHeroTrailerOnMobile, settings.heroTrailerOnMobile);
     await _prefs.setBool(_keyAutoSyncEnabled, settings.autoSyncEnabled);
+    await _prefs.setBool(
+        _keyCatalogEnrichment, settings.catalogEnrichmentEnabled);
   }
 
   Future<void> setDefaultAccount(int accountId) async {

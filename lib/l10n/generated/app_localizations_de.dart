@@ -936,6 +936,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Kein Gerät zum Synchronisieren. Beide müssen geöffnet und im selben WLAN sein.';
 
   @override
+  String get catalogEnrichment => 'Intelligente Katalog-Verschlagwortung';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Füllt fehlende Genre-/Jahr-/Stimmungsdaten im Hintergrund per KI. Verbessert Suche, ähnliche Titel und persönliche Empfehlungen deutlich.';
+
+  @override
   String get channelList => 'Kanalliste';
 
   @override

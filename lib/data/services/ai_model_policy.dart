@@ -42,4 +42,8 @@ class AiModelPolicy {
 
   /// Episode recap summaries — toplu batch çağrı, ucuz model.
   static const String episodeSummary = 'gemini-2.5-flash-lite';
+
+  /// Catalogue metadata enrichment — büyük toplu batch (binlerce
+  /// başlık), kısa yapılandırılmış JSON. En ucuz/hızlı model uygun.
+  static const String catalogEnrichment = 'gemini-2.5-flash-lite';
 }

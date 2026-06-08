@@ -375,6 +375,8 @@
   "deviceSyncResult": "Mit {count} Gerät(en) synchronisiert",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "Kein Gerät zum Synchronisieren. Beide müssen geöffnet und im selben WLAN sein.",
+  "catalogEnrichment": "Intelligente Katalog-Verschlagwortung",
+  "catalogEnrichmentDesc": "Füllt fehlende Genre-/Jahr-/Stimmungsdaten im Hintergrund per KI. Verbessert Suche, ähnliche Titel und persönliche Empfehlungen deutlich.",
   "channelList": "Kanalliste",
   "searchChannelsHint": "Kanal suchen...",
   "all": "Alle",

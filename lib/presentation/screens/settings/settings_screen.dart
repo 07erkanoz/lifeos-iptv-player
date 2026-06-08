@@ -13,6 +13,7 @@ import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/presentation/screens/settings/sections/profiles_section.dart';
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
 import 'package:lifeostv/presentation/screens/settings/device_sync_screen.dart';
+import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
@@ -1645,6 +1646,30 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
       // so the row isn't a dead end for users who haven't enabled AI
       // yet. Routes to a stream-backed log + per-feature stats view.
       if (hasKey) ...[
+        const SizedBox(height: 12),
+        // Smart catalogue tagging — fills missing genre/year/mood in
+        // the background. Default on; the single biggest quality lever
+        // for search / similar / dashboard rails.
+        SwitchListTile(
+          title: Text(l10n.catalogEnrichment,
+              style: TextStyle(
+                  color: isDark ? AppColors.textDark : AppColors.textLight)),
+          subtitle: Text(l10n.catalogEnrichmentDesc,
+              style: const TextStyle(
+                  color: AppColors.textSecondaryDark, fontSize: 13)),
+          value: widget.settings.catalogEnrichmentEnabled,
+          onChanged: (v) {
+            ref.read(settingsProvider.notifier).updateSettings(
+                widget.settings.copyWith(catalogEnrichmentEnabled: v));
+            if (v) {
+              // Kick a pass right away so the user sees the benefit
+              // without waiting for the next app launch.
+              ref.read(catalogEnrichmentRunnerProvider).runOnce();
+            }
+          },
+          activeThumbColor: AppColors.primary,
+          contentPadding: EdgeInsets.zero,
+        ),
         const SizedBox(height: 12),
         InkWell(
           borderRadius: BorderRadius.circular(12),

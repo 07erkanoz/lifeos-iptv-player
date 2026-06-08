@@ -936,6 +936,13 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun appareil à synchroniser. Les deux doivent être ouverts et sur le même Wi-Fi.';
 
   @override
+  String get catalogEnrichment => 'Étiquetage intelligent du catalogue';
+
+  @override
+  String get catalogEnrichmentDesc =>
+      'Complète le genre / l\'année / l\'ambiance manquants via l\'IA en arrière-plan. Améliore nettement la recherche, les titres similaires et les recommandations personnalisées.';
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

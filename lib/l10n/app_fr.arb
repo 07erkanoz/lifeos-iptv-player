@@ -375,6 +375,8 @@
   "deviceSyncResult": "Synchronisé avec {count} appareil(s)",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "Aucun appareil à synchroniser. Les deux doivent être ouverts et sur le même Wi-Fi.",
+  "catalogEnrichment": "Étiquetage intelligent du catalogue",
+  "catalogEnrichmentDesc": "Complète le genre / l'année / l'ambiance manquants via l'IA en arrière-plan. Améliore nettement la recherche, les titres similaires et les recommandations personnalisées.",
   "channelList": "Liste des chaînes",
   "searchChannelsHint": "Rechercher des chaînes...",
   "all": "Tous",

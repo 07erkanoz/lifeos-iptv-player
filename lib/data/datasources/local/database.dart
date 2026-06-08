@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache])
+@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache, ContentEnrichment])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -114,6 +114,27 @@ class AppDatabase extends _$AppDatabase {
              payload_json TEXT NOT NULL,
              source_hash TEXT NOT NULL,
              generated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+             PRIMARY KEY (stream_id, type)
+           )
+         ''');
+       }
+       if (from < 20) {
+         // AI catalogue enrichment (fills sparse genre/year/mood for
+         // Turkish IPTV catalogues). New table, additive — no PK
+         // rewrite. IF NOT EXISTS so a half-applied state is safe.
+         await customStatement('''
+           CREATE TABLE IF NOT EXISTS content_enrichment (
+             stream_id INTEGER NOT NULL,
+             type TEXT NOT NULL,
+             genres TEXT,
+             year INTEGER,
+             mood_tags TEXT,
+             themes TEXT,
+             content_warnings TEXT,
+             age_rating TEXT,
+             confidence REAL,
+             source TEXT,
+             updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
              PRIMARY KEY (stream_id, type)
            )
          ''');

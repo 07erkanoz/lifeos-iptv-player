@@ -343,6 +343,8 @@
   "deviceSyncResult": "Synced with {count} device(s)",
   "@deviceSyncResult": { "placeholders": { "count": { "type": "int" } } },
   "deviceSyncResultNone": "No device to sync with. Both must be open and on the same Wi-Fi.",
+  "catalogEnrichment": "Smart catalogue tagging",
+  "catalogEnrichmentDesc": "Fills in missing genre / year / mood with AI in the background. Noticeably improves search, similar titles and personalised picks.",
   "channelList": "Channel List",
   "searchChannelsHint": "Search channels...",
   "all": "All",
