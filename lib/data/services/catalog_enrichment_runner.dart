@@ -46,7 +46,10 @@ class CatalogEnrichmentRunner {
   /// Process up to [maxBatchesPerRun] batches. No-op when there's no
   /// Gemini key or a run is already in flight. Returns how many items
   /// were enriched this call.
-  Future<int> runOnce({int maxBatchesPerRun = 20}) async {
+  // High cap so a single run chews through most catalogues end-to-end
+  // instead of stopping after a slice and looking "stuck". The
+  // _running guard stops the periodic re-kick from overlapping.
+  Future<int> runOnce({int maxBatchesPerRun = 300}) async {
     final gemini = _gemini;
     if (gemini == null || _running) return 0;
     _running = true;

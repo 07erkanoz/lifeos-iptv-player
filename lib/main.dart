@@ -142,7 +142,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     // last left off until everything is tagged (it no-ops when the
     // setting is off, there's no key, a run is in flight, or the
     // queue is empty).
-    _enrichTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+    _enrichTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (!mounted) return;
       _runEnrichPass();
     });
