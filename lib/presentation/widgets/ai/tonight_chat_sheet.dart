@@ -8,8 +8,12 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/tonight_recommendation.dart';
 import 'package:lifeostv/core/platform_helper.dart';
+import 'dart:convert';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/favorites_repository.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
+import 'package:lifeostv/data/services/semantic_search_service.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/voice_chat_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -114,6 +118,11 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   final ScrollController _scroll = ScrollController();
   bool _waitingForAi = false;
 
+  /// Navigation an agent tool requested (play / open detail). Deferred
+  /// until the agent loop finishes — running it mid-loop would pop the
+  /// sheet and unmount us while we're still awaiting Gemini.
+  Future<void> Function()? _pendingAgentNav;
+
   /// Read the persisted chat history. Backed by Riverpod so the list
   /// survives the modal closing — we used to keep it in a local
   /// `_messages` field that got wiped every time the user dismissed
@@ -202,24 +211,35 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final lang = ref.read(settingsProvider).language.name == 'system'
             ? 'tr'
             : ref.read(settingsProvider).language.name;
-        // Pull the active spoiler context — null when the user
-        // hasn't armed protection from the shield button. When set,
-        // Gemini gets a `currentEpisode` field and switches to
-        // spoiler-safe mode for that one show.
         final episodeCtx = ref.read(chatEpisodeContextProvider);
-        return gemini.recommendForTonight(
+        // Compact context blob the agent sees on turn 1. The model can
+        // also call searchLibrary to pull in anything beyond this slice.
+        Map<String, dynamic> compact(Channel c) => {
+              'streamId': c.streamId,
+              'title': c.name,
+              'type': c.type,
+              if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+              if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+            };
+        final contextBlob = <String, dynamic>{
+          'recentlyWatched': ctx.recentlyWatched.map(compact).toList(),
+          'favorites': ctx.favorites.map(compact).toList(),
+          'queryMatches': queryMatches.map(compact).toList(),
+          'library': ctx.librarySample.map(compact).toList(),
+          if (ctx.recentAdditions.isNotEmpty)
+            'recentAdditions': ctx.recentAdditions.map(compact).toList(),
+          if (categoryOverview.isNotEmpty) 'categories': categoryOverview,
+          if (tasteProfile.toPromptJson().isNotEmpty)
+            'tasteProfile': tasteProfile.toPromptJson(),
+          if (episodeCtx != null) 'currentEpisode': episodeCtx.toPromptJson(),
+        };
+        return gemini.runAgent(
           conversation: _messages
               .map((m) => (fromUser: m.fromUser, text: m.text))
               .toList(),
-          recentlyWatched: ctx.recentlyWatched,
-          favorites: ctx.favorites,
-          librarySample: ctx.librarySample,
-          queryMatches: queryMatches,
-          recentAdditions: ctx.recentAdditions,
-          categoryOverview: categoryOverview,
+          contextJson: jsonEncode(contextBlob),
           targetLanguage: lang,
-          tasteProfile: tasteProfile.toPromptJson(),
-          currentEpisode: episodeCtx?.toPromptJson(),
+          onToolCall: _agentToolCall,
         );
       },
     );
@@ -272,6 +292,162 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       setState(() => _waitingForAi = false);
     }
     _scrollToBottom();
+    // An agent tool asked us to play / open something — do it now that
+    // the loop is done and the message is on screen.
+    final nav = _pendingAgentNav;
+    _pendingAgentNav = null;
+    if (nav != null) await nav();
+  }
+
+  /// Executes one agent tool call against the app. Read tools return
+  /// data; favourite/profile run immediately; play/openDetail are
+  /// deferred (they pop the sheet) into [_pendingAgentNav].
+  Future<Map<String, dynamic>> _agentToolCall(
+      String name, Map<String, dynamic> args) async {
+    final db = ref.read(appDatabaseProvider);
+    Future<Channel?> resolve(int id) async {
+      final rows = await (db.select(db.channels)
+            ..where((t) => t.streamId.equals(id)))
+          .get();
+      return rows.isEmpty ? null : rows.first;
+    }
+
+    switch (name) {
+      case 'searchLibrary':
+        final q = (args['query'] ?? '').toString();
+        final type = args['type']?.toString();
+        final hits = await ref
+            .read(semanticSearchServiceProvider)
+            .search(q, k: 20, restrictType: type);
+        var channels = <Channel>[];
+        if (hits.isNotEmpty) {
+          final ids = hits.map((h) => h.streamId).toList();
+          final rows = await (db.select(db.channels)
+                ..where((t) => t.streamId.isIn(ids)))
+              .get();
+          final byId = {for (final r in rows) r.streamId: r};
+          channels = [
+            for (final h in hits)
+              if (byId[h.streamId] != null) byId[h.streamId]!
+          ];
+        }
+        // Fall back to keyword search when nothing's embedded yet.
+        if (channels.isEmpty) {
+          channels = await ref
+              .read(contentRepositoryProvider)
+              .searchChannels(q, limit: 20);
+          if (type != null) {
+            channels = channels.where((c) => c.type == type).toList();
+          }
+        }
+        return {
+          'results': [
+            for (final c in channels.take(20))
+              {
+                'streamId': c.streamId,
+                'title': c.name,
+                'type': c.type,
+                if (c.genre != null) 'genre': c.genre,
+                if (c.year != null) 'year': c.year,
+              }
+          ],
+        };
+
+      case 'addFavorite':
+        final id = (args['streamId'] as num?)?.toInt();
+        final type = args['type']?.toString();
+        if (id == null || type == null) return {'ok': false};
+        final ch = await resolve(id);
+        await ref.read(favoritesRepositoryProvider).addFavorite(
+            id, type, ch?.name ?? '', ch?.streamIcon);
+        return {'ok': true, 'title': ch?.name};
+
+      case 'removeFavorite':
+        final id = (args['streamId'] as num?)?.toInt();
+        final type = args['type']?.toString();
+        if (id == null || type == null) return {'ok': false};
+        await ref.read(favoritesRepositoryProvider).removeFavorite(id, type);
+        return {'ok': true};
+
+      case 'switchProfile':
+        final wanted = (args['name'] ?? '').toString().toLowerCase().trim();
+        final repo = await ref.read(profileRepositoryProvider.future);
+        final all = await repo.getAll();
+        final match = all.where((p) => p.name.toLowerCase() == wanted).toList();
+        if (match.isEmpty) {
+          return {
+            'ok': false,
+            'available': all.map((p) => p.name).toList(),
+          };
+        }
+        await repo.setActiveProfile(match.first.id);
+        ref.invalidate(activeProfileIdProvider);
+        return {'ok': true};
+
+      case 'playContent':
+        final id = (args['streamId'] as num?)?.toInt();
+        if (id == null) return {'ok': false};
+        final ch = await resolve(id);
+        if (ch == null) return {'ok': false, 'error': 'not found'};
+        _pendingAgentNav = () => _playChannel(ch);
+        return {'ok': true, 'title': ch.name};
+
+      case 'openDetail':
+        final id = (args['streamId'] as num?)?.toInt();
+        if (id == null) return {'ok': false};
+        final ch = await resolve(id);
+        if (ch == null) return {'ok': false, 'error': 'not found'};
+        _pendingAgentNav = () => _openDetailChannel(ch);
+        return {'ok': true, 'title': ch.name};
+
+      case 'setReminder':
+        // Implemented in the reminders milestone — report honestly so
+        // the model tells the user instead of claiming success.
+        return {'ok': false, 'note': 'reminders not available yet'};
+
+      default:
+        return {'error': 'unknown tool'};
+    }
+  }
+
+  Future<void> _playChannel(Channel ch) async {
+    final acc = ref.read(currentAccountProvider).value;
+    if (acc == null) return;
+    if (ch.streamUrl == null || ch.streamUrl!.isEmpty) {
+      if (acc.username == null || acc.password == null) return;
+    }
+    final url = StreamUrlBuilder.build(
+      acc.url,
+      acc.username ?? '',
+      acc.password ?? '',
+      ch.streamId,
+      ch.type,
+      directUrl: ch.streamUrl,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    context.push('/player', extra: {
+      'url': url,
+      'title': ch.name,
+      'type': _videoTypeFromString(ch.type),
+      'logo': ch.streamIcon,
+    });
+  }
+
+  Future<void> _openDetailChannel(Channel ch) async {
+    ref.read(pendingDetailChannelProvider.notifier).set(ch);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    switch (ch.type) {
+      case 'movie':
+        context.go('/movies');
+      case 'series':
+        context.go('/series');
+      case 'live':
+        context.go('/live');
+      default:
+        context.go('/dashboard');
+    }
   }
 
   /// Open the spoiler-shield picker. Lists every series the user is

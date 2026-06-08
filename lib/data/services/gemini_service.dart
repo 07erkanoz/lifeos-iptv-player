@@ -324,6 +324,284 @@ class GeminiService {
     }
   }
 
+  // ── Agentic chat (function calling) ──────────────────────────────────────
+
+  /// Tool declarations the agent can call. Read tools return data to
+  /// the model; action tools perform side effects via [onToolCall].
+  /// `presentRecommendations` is the model's way to deliver the
+  /// familiar message + recommendation cards + follow-up chips.
+  static const List<Map<String, dynamic>> _agentTools = [
+    {
+      'functionDeclarations': [
+        {
+          'name': 'searchLibrary',
+          'description':
+              'Search the user\'s OWN library semantically. Returns matching '
+                  'titles with their streamId/type/genre so you can act on '
+                  'them. Use before recommending or playing so you reference '
+                  'real ids.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'query': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'description': "optional 'movie' or 'series'",
+              },
+            },
+            'required': ['query'],
+          },
+        },
+        {
+          'name': 'playContent',
+          'description': 'Start playing a title immediately on this device.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'streamId': {'type': 'INTEGER'},
+              'type': {'type': 'STRING'},
+            },
+            'required': ['streamId', 'type'],
+          },
+        },
+        {
+          'name': 'openDetail',
+          'description': 'Open a title\'s detail page (no playback).',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'streamId': {'type': 'INTEGER'},
+              'type': {'type': 'STRING'},
+            },
+            'required': ['streamId', 'type'],
+          },
+        },
+        {
+          'name': 'addFavorite',
+          'description': 'Add a title to the user\'s favourites.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'streamId': {'type': 'INTEGER'},
+              'type': {'type': 'STRING'},
+            },
+            'required': ['streamId', 'type'],
+          },
+        },
+        {
+          'name': 'removeFavorite',
+          'description': 'Remove a title from the user\'s favourites.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'streamId': {'type': 'INTEGER'},
+              'type': {'type': 'STRING'},
+            },
+            'required': ['streamId', 'type'],
+          },
+        },
+        {
+          'name': 'switchProfile',
+          'description': 'Switch the active viewing profile by name.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'name': {'type': 'STRING'},
+            },
+            'required': ['name'],
+          },
+        },
+        {
+          'name': 'setReminder',
+          'description':
+              'Set a reminder for a title or a live programme at a given '
+                  'time. Provide epochMs (ms since epoch) for when to fire.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'streamId': {'type': 'INTEGER'},
+              'type': {'type': 'STRING'},
+              'title': {'type': 'STRING'},
+              'epochMs': {'type': 'INTEGER'},
+            },
+            'required': ['title', 'epochMs'],
+          },
+        },
+        {
+          'name': 'presentRecommendations',
+          'description':
+              'Deliver your final answer to the user: a short message, '
+                  'optional recommendation cards (streamId + one-line reason), '
+                  'and 3-4 follow-up chips. Call this when you are done — it '
+                  'ends your turn.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'message': {'type': 'STRING'},
+              'recommendations': {
+                'type': 'ARRAY',
+                'items': {
+                  'type': 'OBJECT',
+                  'properties': {
+                    'streamId': {'type': 'INTEGER'},
+                    'reason': {'type': 'STRING'},
+                  },
+                },
+              },
+              'followUps': {
+                'type': 'ARRAY',
+                'items': {'type': 'STRING'},
+              },
+            },
+            'required': ['message'],
+          },
+        },
+      ],
+    },
+  ];
+
+  /// Run the agent loop. [onToolCall] executes an action tool and
+  /// returns a small JSON result the model sees next. The loop ends
+  /// when the model calls `presentRecommendations` or replies with
+  /// plain text. Returns the resulting [TonightResponse].
+  Future<TonightResponse?> runAgent({
+    required List<({bool fromUser, String text})> conversation,
+    required String contextJson,
+    required String targetLanguage,
+    required Future<Map<String, dynamic>> Function(
+            String name, Map<String, dynamic> args)
+        onToolCall,
+    int maxRounds = 6,
+  }) async {
+    if (_apiKey.isEmpty || conversation.isEmpty) return null;
+    try {
+      final contents = <Map<String, dynamic>>[];
+      for (var i = 0; i < conversation.length; i++) {
+        final turn = conversation[i];
+        final isFirstUser = i == 0 && turn.fromUser;
+        contents.add({
+          'role': turn.fromUser ? 'user' : 'model',
+          'parts': [
+            {
+              'text': isFirstUser
+                  ? 'CONTEXT_JSON: $contextJson\n\nUSER: ${turn.text}'
+                  : turn.text
+            },
+          ],
+        });
+      }
+
+      for (var round = 0; round < maxRounds; round++) {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '$_endpoint/$_model:generateContent',
+          queryParameters: {'key': _apiKey},
+          data: {
+            'systemInstruction': {
+              'parts': [
+                {'text': _buildAgentSystemPrompt(targetLanguage)},
+              ],
+            },
+            'contents': contents,
+            'tools': _agentTools,
+            'generationConfig': {
+              'temperature': 0.6,
+              'maxOutputTokens': 2048,
+            },
+          },
+        );
+        if (res.statusCode != 200) {
+          debugPrint('[Gemini] runAgent status=${res.statusCode}');
+          return null;
+        }
+        final body = res.data;
+        if (body is! Map<String, dynamic>) return null;
+        final candidates = body['candidates'];
+        if (candidates is! List || candidates.isEmpty) return null;
+        final content = (candidates.first as Map)['content'];
+        if (content is! Map) return null;
+        final parts = (content['parts'] as List?) ?? const [];
+
+        // Collect any function calls in this turn.
+        final calls = <Map<String, dynamic>>[];
+        final textBuf = StringBuffer();
+        for (final p in parts) {
+          if (p is! Map) continue;
+          if (p['functionCall'] is Map) {
+            calls.add((p['functionCall'] as Map).cast<String, dynamic>());
+          } else if (p['text'] is String) {
+            textBuf.write(p['text']);
+          }
+        }
+
+        if (calls.isEmpty) {
+          // Plain-text final answer.
+          final t = textBuf.toString().trim();
+          return TonightResponse(message: t, recommendations: const []);
+        }
+
+        // Echo the model's content back, then answer each call.
+        contents.add({'role': 'model', 'parts': parts});
+        final responseParts = <Map<String, dynamic>>[];
+        for (final call in calls) {
+          final name = (call['name'] ?? '') as String;
+          final args = (call['args'] is Map)
+              ? (call['args'] as Map).cast<String, dynamic>()
+              : <String, dynamic>{};
+
+          if (name == 'presentRecommendations') {
+            // Terminal: build the final response from the model's args.
+            return TonightResponse.fromJson(args);
+          }
+
+          Map<String, dynamic> result;
+          try {
+            result = await onToolCall(name, args);
+          } catch (e) {
+            result = {'error': e.toString()};
+          }
+          responseParts.add({
+            'functionResponse': {'name': name, 'response': result},
+          });
+        }
+        contents.add({'role': 'function', 'parts': responseParts});
+      }
+      // Ran out of rounds without a terminal call.
+      return const TonightResponse(message: '', recommendations: []);
+    } catch (e) {
+      debugPrint('[Gemini] runAgent failed: $e');
+      return null;
+    }
+  }
+
+  String _buildAgentSystemPrompt(String lang) => '''
+${_buildTonightSystemPrompt(lang)}
+
+── AGENT MODE ──
+You also have TOOLS and can take actions on the user's behalf:
+  * searchLibrary(query, type?) — search their OWN library; call this
+    to ground yourself in real streamIds before recommending/acting.
+  * playContent(streamId, type) — start playback now.
+  * openDetail(streamId, type) — open a title's page.
+  * addFavorite / removeFavorite(streamId, type).
+  * switchProfile(name).
+  * setReminder(title, epochMs, streamId?, type?) — epochMs is the
+    absolute fire time in milliseconds since the Unix epoch.
+  * presentRecommendations(message, recommendations[], followUps[]) —
+    your FINAL answer with cards + chips. Call it when done.
+
+Rules:
+  * When the user asks to DO something ("aç", "oynat", "favorilere
+    ekle", "hatırlat", "profili değiştir"), call the matching action
+    tool — don't just describe it.
+  * Prefer searchLibrary to find the right streamId instead of
+    guessing one.
+  * To answer a recommendation/listing/discussion question, finish by
+    calling presentRecommendations (put cards in recommendations[] and
+    chips in followUps[]). For a pure action ("şunu aç"), you may end
+    with a short presentRecommendations message confirming what you did.
+  * Always respond in $lang.
+''';
+
   /// Four "fix this plot" use-cases the detail page wires to small
   /// inline links underneath the synopsis text. Each maps to a
   /// different system prompt — the user-visible action stays the
