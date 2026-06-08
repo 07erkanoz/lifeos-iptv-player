@@ -27,10 +27,13 @@ class CatalogEnrichmentRunner {
   // output-token cap (a 30-item Turkish response could truncate →
   // unparseable → looked like a "stop"). 18 is a safe ceiling.
   static const int _batchSize = 18;
-  static const Duration _betweenBatches = Duration(seconds: 4);
+  // Short gap between batches — paid tiers have generous RPM, so we
+  // mostly just avoid bursting. (Free-tier users are still bounded by
+  // their own RPM; a 429 triggers the backoff path below.)
+  static const Duration _betweenBatches = Duration(seconds: 1);
   // Backoff after a failed/empty batch (likely a transient rate-limit
   // or a one-off bad response) before we retry the same items.
-  static const Duration _afterFailure = Duration(seconds: 12);
+  static const Duration _afterFailure = Duration(seconds: 10);
 
   final ContentEnrichmentRepository _repo;
   final GeminiService? _gemini;
@@ -43,7 +46,7 @@ class CatalogEnrichmentRunner {
   /// Process up to [maxBatchesPerRun] batches. No-op when there's no
   /// Gemini key or a run is already in flight. Returns how many items
   /// were enriched this call.
-  Future<int> runOnce({int maxBatchesPerRun = 8}) async {
+  Future<int> runOnce({int maxBatchesPerRun = 20}) async {
     final gemini = _gemini;
     if (gemini == null || _running) return 0;
     _running = true;
