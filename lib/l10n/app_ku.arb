@@ -384,6 +384,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} vektorên wateyî amade",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "Dema temaşeyê hat",
   "channelList": "Lîsteya Kanalan",
   "searchChannelsHint": "Li kanalê bigere...",
   "all": "Hemû",

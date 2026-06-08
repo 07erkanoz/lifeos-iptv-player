@@ -962,6 +962,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'Hora de ver';
+
+  @override
   String get channelList => 'Lista de canales';
 
   @override

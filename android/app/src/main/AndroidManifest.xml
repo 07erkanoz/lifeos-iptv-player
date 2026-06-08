@@ -23,6 +23,9 @@
     <!-- Chromecast: Wi-Fi device discovery (Android 13+) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
+    <!-- Local reminder notifications (agent setReminder tool). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Voice chat with AI assistant (mobile only).
          Runtime-requested before the user's first mic tap; the
          speech_to_text plugin also needs the queries block at the

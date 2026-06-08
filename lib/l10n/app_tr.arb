@@ -390,6 +390,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} anlamsal vektör hazır",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "İzleme zamanı geldi",
   "channelList": "Kanal Listesi",
   "searchChannelsHint": "Kanal ara...",
   "all": "Tümü",

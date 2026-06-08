@@ -384,6 +384,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} vecteurs sémantiques prêts",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "C'est l'heure de regarder",
   "channelList": "Liste des chaînes",
   "searchChannelsHint": "Rechercher des chaînes...",
   "all": "Tous",

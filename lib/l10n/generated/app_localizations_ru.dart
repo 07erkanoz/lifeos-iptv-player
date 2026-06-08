@@ -961,6 +961,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'Время смотреть';
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

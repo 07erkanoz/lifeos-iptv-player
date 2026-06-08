@@ -1886,6 +1886,12 @@ abstract class AppLocalizations {
   /// **'{done} anlamsal vektör hazır'**
   String embeddingStatus(int done);
 
+  /// No description provided for @reminderBody.
+  ///
+  /// In tr, this message translates to:
+  /// **'İzleme zamanı geldi'**
+  String get reminderBody;
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:

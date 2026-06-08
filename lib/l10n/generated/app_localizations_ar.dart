@@ -959,6 +959,9 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'حان وقت المشاهدة';
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

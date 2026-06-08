@@ -384,6 +384,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} семантических векторов готово",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "Время смотреть",
   "channelList": "Список каналов",
   "searchChannelsHint": "Поиск каналов...",
   "all": "Все",

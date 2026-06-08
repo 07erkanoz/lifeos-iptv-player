@@ -962,6 +962,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'C\'est l\'heure de regarder';
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

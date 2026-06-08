@@ -958,6 +958,9 @@ class AppLocalizationsKu extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'Dema temaşeyê hat';
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

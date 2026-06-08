@@ -960,6 +960,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'Time to watch';
+
+  @override
   String get channelList => 'Channel List';
 
   @override

@@ -958,6 +958,9 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get reminderBody => 'İzleme zamanı geldi';
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

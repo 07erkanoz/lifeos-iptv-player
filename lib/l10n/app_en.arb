@@ -352,6 +352,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} semantic vectors ready",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "Time to watch",
   "channelList": "Channel List",
   "searchChannelsHint": "Search channels...",
   "all": "All",

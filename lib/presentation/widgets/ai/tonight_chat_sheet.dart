@@ -14,6 +14,7 @@ import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
 import 'package:lifeostv/data/services/semantic_search_service.dart';
+import 'package:lifeostv/data/services/notification_service.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/voice_chat_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -221,7 +222,12 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
               if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
               if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
             };
+        final now = DateTime.now();
         final contextBlob = <String, dynamic>{
+          // So the agent can compute epochMs for relative reminders
+          // ("Cuma 21:00", "2 saat sonra").
+          'nowEpochMs': now.millisecondsSinceEpoch,
+          'nowLocal': now.toIso8601String(),
           'recentlyWatched': ctx.recentlyWatched.map(compact).toList(),
           'favorites': ctx.favorites.map(compact).toList(),
           'queryMatches': queryMatches.map(compact).toList(),
@@ -401,9 +407,17 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         return {'ok': true, 'title': ch.name};
 
       case 'setReminder':
-        // Implemented in the reminders milestone — report honestly so
-        // the model tells the user instead of claiming success.
-        return {'ok': false, 'note': 'reminders not available yet'};
+        final title = (args['title'] ?? '').toString();
+        final epoch = (args['epochMs'] as num?)?.toInt();
+        if (title.isEmpty || epoch == null) return {'ok': false};
+        final l10n = AppLocalizations.of(context)!;
+        final ok = await ref.read(notificationServiceProvider).scheduleReminder(
+              id: (epoch ~/ 1000),
+              title: title,
+              body: l10n.reminderBody,
+              whenEpochMs: epoch,
+            );
+        return {'ok': ok};
 
       default:
         return {'error': 'unknown tool'};

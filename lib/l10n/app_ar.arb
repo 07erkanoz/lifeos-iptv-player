@@ -384,6 +384,7 @@
   "@catalogEnrichmentStatus": { "placeholders": { "done": { "type": "int" }, "pending": { "type": "int" } } },
   "embeddingStatus": "{done} متجهات دلالية جاهزة",
   "@embeddingStatus": { "placeholders": { "done": { "type": "int" } } },
+  "reminderBody": "حان وقت المشاهدة",
   "channelList": "قائمة القنوات",
   "searchChannelsHint": "ابحث عن قناة...",
   "all": "الكل",
