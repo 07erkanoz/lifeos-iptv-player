@@ -23,8 +23,14 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 ///   * **Gated** — the caller only invokes this when the user has a
 ///     Gemini key AND opted in.
 class CatalogEnrichmentRunner {
-  static const int _batchSize = 30;
+  // Smaller batches keep each structured-JSON response well under the
+  // output-token cap (a 30-item Turkish response could truncate →
+  // unparseable → looked like a "stop"). 18 is a safe ceiling.
+  static const int _batchSize = 18;
   static const Duration _betweenBatches = Duration(seconds: 4);
+  // Backoff after a failed/empty batch (likely a transient rate-limit
+  // or a one-off bad response) before we retry the same items.
+  static const Duration _afterFailure = Duration(seconds: 12);
 
   final ContentEnrichmentRepository _repo;
   final GeminiService? _gemini;
@@ -42,10 +48,11 @@ class CatalogEnrichmentRunner {
     if (gemini == null || _running) return 0;
     _running = true;
     var enriched = 0;
+    var consecutiveFailures = 0;
     try {
       for (var i = 0; i < maxBatchesPerRun; i++) {
         final pending = await _repo.pendingItems(limit: _batchSize);
-        if (pending.isEmpty) break;
+        if (pending.isEmpty) break; // everything enriched — done
 
         final input = [
           for (final c in pending)
@@ -61,10 +68,19 @@ class CatalogEnrichmentRunner {
         final results =
             await gemini.enrichCatalogBatch(input, targetLanguage: _targetLanguage);
         if (results == null || results.isEmpty) {
-          // Transport error or model returned nothing — stop this run
-          // rather than spin; next launch retries.
-          break;
+          // Transient failure (rate-limit / one-off bad response).
+          // Don't kill the whole run on the first hit — back off and
+          // retry the same items a couple of times before giving up.
+          consecutiveFailures++;
+          if (kDebugMode) {
+            debugPrint('[enrich] batch ${i + 1} empty/failed '
+                '(fail $consecutiveFailures)');
+          }
+          if (consecutiveFailures >= 3) break;
+          await Future<void>.delayed(_afterFailure);
+          continue;
         }
+        consecutiveFailures = 0;
 
         // Only persist ids we actually asked about (guard against any
         // hallucinated rows), and only when the model echoed a usable id.

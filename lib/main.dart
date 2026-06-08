@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -119,6 +120,8 @@ class LifeosApp extends ConsumerStatefulWidget {
 
 class _LifeosAppState extends ConsumerState<LifeosApp>
     with WidgetsBindingObserver {
+  Timer? _enrichTimer;
+
   @override
   void initState() {
     super.initState();
@@ -129,13 +132,20 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       _maybeAutoSync();
       _maybeEnrichCatalog();
     });
+    // Keep chipping away at the catalogue while the app is open: each
+    // runOnce is bounded, so this periodic nudge continues where the
+    // last left off until everything is tagged (it no-ops when the
+    // setting is off, there's no key, a run is in flight, or the
+    // queue is empty).
+    _enrichTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (!mounted) return;
+      _runEnrichPass();
+    });
   }
 
   /// Background catalogue enrichment — fills missing genre/year/mood
   /// via Gemini so search/similar/dashboard rails work on sparse
-  /// IPTV metadata. Gated on the setting + a Gemini key (the runner
-  /// itself no-ops without a key). Bounded + resumable, so a single
-  /// launch only does a slice and the rest happens next time.
+  /// IPTV metadata. Gated on the setting + a Gemini key.
   void _maybeEnrichCatalog() {
     if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
     if (!ref.read(settingsProvider).hasAiKey) return;
@@ -145,6 +155,12 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       if (!mounted) return;
       ref.read(catalogEnrichmentRunnerProvider).runOnce();
     });
+  }
+
+  void _runEnrichPass() {
+    if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
+    if (!ref.read(settingsProvider).hasAiKey) return;
+    ref.read(catalogEnrichmentRunnerProvider).runOnce();
   }
 
   /// When auto-sync is enabled, keep a token-gated server up so paired
@@ -169,6 +185,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
 
   @override
   void dispose() {
+    _enrichTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -184,6 +201,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
         fullscreen: ref.read(settingsProvider).fullscreenMode,
       );
       _maybeAutoSync();
+      _runEnrichPass();
     }
   }
 
