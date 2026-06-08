@@ -25,10 +25,20 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final canSystemPop = Navigator.of(context).canPop();
-
+    // ALWAYS intercept back at the shell. The shell is the home route,
+    // so a system pop here just finishes the activity (closes the app)
+    // — which is exactly the bug we're avoiding. Pushed routes (search,
+    // player, detail) sit ABOVE the shell on the root navigator and pop
+    // themselves before this ever fires, so intercepting here only
+    // affects the case where a tab root is visible, where we want our
+    // own back ladder (non-home branch → Dashboard, Dashboard → exit
+    // confirm) to run instead of the OS closing the app.
+    //
+    // Relying on `Navigator.of(context).canPop()` was the bug: inside
+    // GoRouter's nested-navigator tree it could report `true`, letting
+    // the OS pop the shell and close the app from any tab.
     return PopScope(
-      canPop: canSystemPop,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _handleBack();
