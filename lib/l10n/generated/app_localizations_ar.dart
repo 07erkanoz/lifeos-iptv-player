@@ -940,6 +940,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'يملأ النوع / السنة / المزاج الناقص بالذكاء الاصطناعي في الخلفية. يحسّن البحث والعناوين المشابهة والتوصيات الشخصية بشكل ملحوظ.';
 
   @override
+  String get catalogEnrichmentRun => 'شغّل الآن';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done موسوم · $pending قيد الانتظار';
+  }
+
+  @override
   String get channelList => 'قائمة القنوات';
 
   @override

@@ -939,6 +939,14 @@ class AppLocalizationsTr extends AppLocalizations {
       'Eksik tür/yıl/ruh hali bilgisini AI ile arka planda doldurur. Arama, benzer içerikler ve kişisel önerileri belirgin şekilde iyileştirir.';
 
   @override
+  String get catalogEnrichmentRun => 'Şimdi çalıştır';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done etiketlendi · $pending bekliyor';
+  }
+
+  @override
   String get channelList => 'Kanal Listesi';
 
   @override

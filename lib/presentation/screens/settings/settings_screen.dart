@@ -14,6 +14,7 @@ import 'package:lifeostv/presentation/screens/settings/sections/profiles_section
 import 'package:lifeostv/presentation/screens/settings/ai_debug_panel.dart';
 import 'package:lifeostv/presentation/screens/settings/device_sync_screen.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
+import 'package:lifeostv/data/repositories/content_enrichment_repository.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
@@ -1681,6 +1682,8 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
           activeThumbColor: AppColors.primary,
           contentPadding: EdgeInsets.zero,
         ),
+        if (widget.settings.catalogEnrichmentEnabled)
+          const _EnrichmentStatusTile(),
         const SizedBox(height: 12),
         InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -1815,6 +1818,89 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
       // `_howToOpen` toggle survives the linter without warnings.
       if (_howToOpen) const SizedBox.shrink(),
     ]);
+  }
+}
+
+/// Live progress readout for catalogue enrichment + a manual
+/// "run now" trigger, so the background filler is observable and
+/// testable instead of being an invisible process.
+class _EnrichmentStatusTile extends ConsumerStatefulWidget {
+  const _EnrichmentStatusTile();
+
+  @override
+  ConsumerState<_EnrichmentStatusTile> createState() =>
+      _EnrichmentStatusTileState();
+}
+
+class _EnrichmentStatusTileState
+    extends ConsumerState<_EnrichmentStatusTile> {
+  int? _done;
+  int? _pending;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final repo = ref.read(contentEnrichmentRepositoryProvider);
+    final done = await repo.enrichedCount();
+    final pending = await repo.pendingCount();
+    if (!mounted) return;
+    setState(() {
+      _done = done;
+      _pending = pending;
+    });
+  }
+
+  Future<void> _runNow() async {
+    setState(() => _running = true);
+    // Poll counts a few times while the runner works so the numbers
+    // visibly climb during the run.
+    final runFuture = ref.read(catalogEnrichmentRunnerProvider).runOnce();
+    for (var i = 0; i < 6; i++) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      await _refresh();
+    }
+    await runFuture;
+    if (!mounted) return;
+    await _refresh();
+    setState(() => _running = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              (_done == null || _pending == null)
+                  ? '—'
+                  : l10n.catalogEnrichmentStatus(_done!, _pending!),
+              style: const TextStyle(
+                  color: AppColors.textSecondaryDark, fontSize: 12),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _running ? null : _runNow,
+            icon: _running
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.primary))
+                : const Icon(Icons.play_arrow, size: 18),
+            label: Text(l10n.catalogEnrichmentRun),
+          ),
+        ],
+      ),
+    );
   }
 }
 

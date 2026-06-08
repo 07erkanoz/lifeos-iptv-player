@@ -939,6 +939,14 @@ class AppLocalizationsKu extends AppLocalizations {
       'Cure / sal / halet yên kêm bi AI di paşperdeyê de tijî dike. Lêgerîn, naveroka wekhev û pêşniyarên kesane bi awayekî berbiçav baştir dike.';
 
   @override
+  String get catalogEnrichmentRun => 'Niha bimeşîne';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done hatin etîketkirin · $pending li bendê';
+  }
+
+  @override
   String get channelList => 'Lîsteya Kanalan';
 
   @override

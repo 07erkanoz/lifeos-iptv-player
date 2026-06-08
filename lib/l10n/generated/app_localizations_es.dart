@@ -943,6 +943,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Rellena género / año / ambiente que falten con IA en segundo plano. Mejora notablemente la búsqueda, los títulos similares y las recomendaciones personalizadas.';
 
   @override
+  String get catalogEnrichmentRun => 'Ejecutar ahora';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done etiquetados · $pending pendientes';
+  }
+
+  @override
   String get channelList => 'Lista de canales';
 
   @override

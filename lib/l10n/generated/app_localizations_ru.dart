@@ -942,6 +942,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'Заполняет недостающие жанр / год / настроение с помощью ИИ в фоне. Заметно улучшает поиск, похожие тайтлы и персональные подборки.';
 
   @override
+  String get catalogEnrichmentRun => 'Запустить сейчас';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done размечено · $pending в очереди';
+  }
+
+  @override
   String get channelList => 'Список каналов';
 
   @override

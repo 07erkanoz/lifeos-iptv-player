@@ -74,6 +74,15 @@ class ContentEnrichmentRepository {
     return rows.map((r) => r.readTable(_db.channels)).toList();
   }
 
+  /// How many rows have been enriched so far (across all types).
+  /// Surfaced in Settings as a progress readout.
+  Future<int> enrichedCount() async {
+    final countExpr = _db.contentEnrichment.streamId.count();
+    final q = _db.selectOnly(_db.contentEnrichment)..addColumns([countExpr]);
+    final row = await q.getSingle();
+    return row.read(countExpr) ?? 0;
+  }
+
   /// How many VOD items still lack genre + enrichment. Drives the
   /// runner's "is there work left?" loop and a Settings progress hint.
   Future<int> pendingCount() async {

@@ -943,6 +943,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Complète le genre / l\'année / l\'ambiance manquants via l\'IA en arrière-plan. Améliore nettement la recherche, les titres similaires et les recommandations personnalisées.';
 
   @override
+  String get catalogEnrichmentRun => 'Lancer maintenant';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done étiquetés · $pending en attente';
+  }
+
+  @override
   String get channelList => 'Liste des chaînes';
 
   @override

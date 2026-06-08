@@ -941,6 +941,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Fills in missing genre / year / mood with AI in the background. Noticeably improves search, similar titles and personalised picks.';
 
   @override
+  String get catalogEnrichmentRun => 'Run now';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done tagged · $pending pending';
+  }
+
+  @override
   String get channelList => 'Channel List';
 
   @override

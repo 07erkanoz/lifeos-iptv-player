@@ -943,6 +943,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Füllt fehlende Genre-/Jahr-/Stimmungsdaten im Hintergrund per KI. Verbessert Suche, ähnliche Titel und persönliche Empfehlungen deutlich.';
 
   @override
+  String get catalogEnrichmentRun => 'Jetzt ausführen';
+
+  @override
+  String catalogEnrichmentStatus(int done, int pending) {
+    return '$done getaggt · $pending ausstehend';
+  }
+
+  @override
   String get channelList => 'Kanalliste';
 
   @override

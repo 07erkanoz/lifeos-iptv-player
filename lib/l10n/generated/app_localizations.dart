@@ -1856,6 +1856,18 @@ abstract class AppLocalizations {
   /// **'Eksik tür/yıl/ruh hali bilgisini AI ile arka planda doldurur. Arama, benzer içerikler ve kişisel önerileri belirgin şekilde iyileştirir.'**
   String get catalogEnrichmentDesc;
 
+  /// No description provided for @catalogEnrichmentRun.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdi çalıştır'**
+  String get catalogEnrichmentRun;
+
+  /// No description provided for @catalogEnrichmentStatus.
+  ///
+  /// In tr, this message translates to:
+  /// **'{done} etiketlendi · {pending} bekliyor'**
+  String catalogEnrichmentStatus(int done, int pending);
+
   /// No description provided for @channelList.
   ///
   /// In tr, this message translates to:
