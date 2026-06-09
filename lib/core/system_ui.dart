@@ -24,10 +24,14 @@ import 'package:lifeostv/core/platform_helper.dart';
 void applyMobileSystemUiMode({required bool fullscreen}) {
   if (!PlatformHelper.isMobile) return;
   if (fullscreen) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: [SystemUiOverlay.bottom], // keep gesture / nav bar
-    );
+    // `immersiveSticky` is the only mode that reliably hides the
+    // status bar across OEM skins. The earlier `manual + [bottom]`
+    // (hide status bar, keep the nav bar) was silently ignored on
+    // Huawei / HarmonyOS — the status strip stayed pinned at the top.
+    // immersiveSticky hides BOTH bars and auto-reveals them on an edge
+    // swipe, then re-hides — the standard fullscreen-media behaviour,
+    // consistent on Huawei/Xiaomi/Samsung alike.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   } else {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
