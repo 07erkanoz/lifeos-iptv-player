@@ -54,6 +54,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// the dashboard's branch primary (sidebar → right enters here).
   final FocusNode _heroFocusNode = FocusNode(debugLabel: 'DashboardHero');
 
+  /// Scroll controller for the dashboard list. Used to snap back to the
+  /// very top when D-pad focus re-enters the hero — otherwise the hero
+  /// stays clipped (the rails' focus-scroll never scrolls *up* past
+  /// the hero's top edge).
+  final ScrollController _dashScroll = ScrollController();
+
+  void _scrollDashboardToTop() {
+    if (!_dashScroll.hasClients) return;
+    _dashScroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
   /// Stable callback registered with [TvFocusRegistry]. Captured once
   /// so register/unregister identity matches across the widget life.
   late final VoidFocusCallback _branchPrimaryCb;
@@ -118,6 +133,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _branchPrimaryCb,
         );
     _heroFocusNode.dispose();
+    _dashScroll.dispose();
     super.dispose();
   }
 
@@ -328,6 +344,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onRefresh: _triggerSync,
             color: AppColors.primary,
             child: SingleChildScrollView(
+              controller: _dashScroll,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,17 +402,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // the dashboard for non-AI users looks unchanged).
                   const DashboardGreeting(),
 
-                  // Hero Banner with VOD info
-                  HeroBanner(
-                    channels: heroItems,
-                    vodInfo: _heroVodInfo,
-                    onItemChanged: _onHeroItemChanged,
-                    onPlay: _playChannel,
-                    onDetails: _openDetail,
-                    onTrailer: _openTrailer,
-                    playFocusNode: _heroFocusNode,
-                    onLeftEdge: _focusMainSidebar,
-                    aiTaglines: aiTaglines,
+                  // Hero Banner with VOD info. Wrapped in a focus
+                  // watcher: when D-pad focus enters ANY hero control
+                  // (Play / Trailer / +List), snap the list back to the
+                  // top so the whole hero is shown instead of staying
+                  // clipped under the rail the user came from.
+                  Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onFocusChange: (hasFocus) {
+                      if (hasFocus) _scrollDashboardToTop();
+                    },
+                    child: HeroBanner(
+                      channels: heroItems,
+                      vodInfo: _heroVodInfo,
+                      onItemChanged: _onHeroItemChanged,
+                      onPlay: _playChannel,
+                      onDetails: _openDetail,
+                      onTrailer: _openTrailer,
+                      playFocusNode: _heroFocusNode,
+                      onLeftEdge: _focusMainSidebar,
+                      aiTaglines: aiTaglines,
+                    ),
                   ),
 
                   const SizedBox(height: 18),
