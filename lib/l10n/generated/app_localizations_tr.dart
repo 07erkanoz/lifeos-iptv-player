@@ -291,6 +291,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get audioTrack => 'Ses İzi';
 
   @override
+  String get videoFit => 'Video ölçeği';
+
+  @override
+  String get videoFitContain => 'Sığdır (varsayılan)';
+
+  @override
+  String get videoFitCover => 'Doldur (kırp)';
+
+  @override
+  String get videoFitFill => 'Uzat';
+
+  @override
   String get subtitle => 'Altyazı';
 
   @override

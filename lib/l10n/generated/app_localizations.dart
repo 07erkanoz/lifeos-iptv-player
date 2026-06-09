@@ -668,6 +668,30 @@ abstract class AppLocalizations {
   /// **'Ses İzi'**
   String get audioTrack;
 
+  /// No description provided for @videoFit.
+  ///
+  /// In tr, this message translates to:
+  /// **'Video ölçeği'**
+  String get videoFit;
+
+  /// No description provided for @videoFitContain.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sığdır (varsayılan)'**
+  String get videoFitContain;
+
+  /// No description provided for @videoFitCover.
+  ///
+  /// In tr, this message translates to:
+  /// **'Doldur (kırp)'**
+  String get videoFitCover;
+
+  /// No description provided for @videoFitFill.
+  ///
+  /// In tr, this message translates to:
+  /// **'Uzat'**
+  String get videoFitFill;
+
   /// No description provided for @subtitle.
   ///
   /// In tr, this message translates to:

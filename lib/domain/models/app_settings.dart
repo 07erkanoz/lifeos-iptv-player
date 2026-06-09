@@ -132,6 +132,16 @@ class AppSettings {
   /// so it's a no-op for users without AI.
   final bool catalogEnrichmentEnabled;
 
+  /// Default video scaling mode for the player, persisted so the
+  /// user's choice sticks across sessions. One of:
+  ///   * 'contain' — keep aspect ratio, letter/pillar-box (default).
+  ///   * 'cover'   — fill the screen, cropping the overscan edges.
+  ///   * 'fill'    — stretch to fill (may distort).
+  /// Some streams ship a wrong/odd aspect ratio so the picture sits
+  /// small with thick black bars; 'cover' / 'fill' lets the user blow
+  /// it up. Also flippable live from the player via a control button.
+  final String videoFitMode;
+
   const AppSettings({
     this.themeMode = AppThemeMode.dark,
     this.language = AppLanguage.system,
@@ -166,6 +176,7 @@ class AppSettings {
     this.heroTrailerOnMobile = false,
     this.autoSyncEnabled = false,
     this.catalogEnrichmentEnabled = true,
+    this.videoFitMode = 'contain',
   });
 
   AppSettings copyWith({
@@ -204,6 +215,7 @@ class AppSettings {
     bool? heroTrailerOnMobile,
     bool? autoSyncEnabled,
     bool? catalogEnrichmentEnabled,
+    String? videoFitMode,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -250,6 +262,7 @@ class AppSettings {
       autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
       catalogEnrichmentEnabled:
           catalogEnrichmentEnabled ?? this.catalogEnrichmentEnabled,
+      videoFitMode: videoFitMode ?? this.videoFitMode,
     );
   }
 

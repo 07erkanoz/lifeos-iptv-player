@@ -291,6 +291,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get audioTrack => 'Audiospur';
 
   @override
+  String get videoFit => 'Videoanpassung';
+
+  @override
+  String get videoFitContain => 'Anpassen (Standard)';
+
+  @override
+  String get videoFitCover => 'Füllen (zuschneiden)';
+
+  @override
+  String get videoFitFill => 'Strecken';
+
+  @override
   String get subtitle => 'Untertitel';
 
   @override

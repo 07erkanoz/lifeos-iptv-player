@@ -291,6 +291,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get audioTrack => 'Аудиодорожка';
 
   @override
+  String get videoFit => 'Масштаб видео';
+
+  @override
+  String get videoFitContain => 'Вместить (умолч.)';
+
+  @override
+  String get videoFitCover => 'Заполнить (обрезка)';
+
+  @override
+  String get videoFitFill => 'Растянуть';
+
+  @override
   String get subtitle => 'Субтитры';
 
   @override

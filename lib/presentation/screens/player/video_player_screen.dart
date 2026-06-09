@@ -2018,6 +2018,66 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // mpv `sub-pos` / `sub-font-size` path was a dead end because libass wasn't
   // doing the drawing.
 
+  /// Map the persisted fit-mode string to a [BoxFit] for the Video
+  /// widget. Unknown values fall back to `contain` (the safe default).
+  static BoxFit _boxFitFor(String mode) {
+    switch (mode) {
+      case 'cover':
+        return BoxFit.cover;
+      case 'fill':
+        return BoxFit.fill;
+      case 'contain':
+      default:
+        return BoxFit.contain;
+    }
+  }
+
+  /// Control-bar icon reflecting the current fit mode.
+  static IconData _fitIcon(String mode) {
+    switch (mode) {
+      case 'cover':
+        return Icons.crop_free;
+      case 'fill':
+        return Icons.aspect_ratio;
+      case 'contain':
+      default:
+        return Icons.fit_screen;
+    }
+  }
+
+  String _fitLabel(String mode) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (mode) {
+      case 'cover':
+        return l10n.videoFitCover;
+      case 'fill':
+        return l10n.videoFitFill;
+      case 'contain':
+      default:
+        return l10n.videoFitContain;
+    }
+  }
+
+  /// Cycle contain → cover → fill → contain, persist the choice so it
+  /// sticks for the next video, and flash the new mode's name.
+  void _cycleVideoFit() {
+    const order = ['contain', 'cover', 'fill'];
+    final cur = ref.read(settingsProvider);
+    final idx = order.indexOf(cur.videoFitMode);
+    final next = order[(idx + 1) % order.length];
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(cur.copyWith(videoFitMode: next));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${AppLocalizations.of(context)!.videoFit}: '
+            '${_fitLabel(next)}'),
+        duration: const Duration(milliseconds: 1200),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showSpeedPicker() {
     final l10n = AppLocalizations.of(context)!;
     final speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -2762,6 +2822,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         key: _videoKey,
                         controller: _controller,
                         fill: Colors.black,
+                        // User-selectable scaling. Default 'contain'
+                        // (letter/pillar-box). 'cover' crops to fill,
+                        // 'fill' stretches — for streams whose declared
+                        // aspect ratio leaves the picture small.
+                        fit: _boxFitFor(
+                            ref.watch(settingsProvider).videoFitMode),
                         controls: NoVideoControls,
                         // media_kit renders subtitles via a Flutter widget by
                         // default — NOT via mpv/libass. So style/position must
@@ -3610,6 +3676,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
               // Stream stats (codec / resolution / bitrate / dropped frames)
               _DpadIconBtn(icon: Icons.info_outline, onTap: _showStreamStatsDialog),
+              const SizedBox(width: 6),
+
+              // Video fit / zoom toggle — cycles contain → cover →
+              // fill. Lets the user blow up streams whose declared
+              // aspect ratio leaves the picture small with black bars.
+              _DpadIconBtn(
+                icon: _fitIcon(ref.watch(settingsProvider).videoFitMode),
+                label: l10n.videoFit,
+                onTap: _cycleVideoFit,
+              ),
               const SizedBox(width: 6),
 
               // Channel list button (live TV only)

@@ -290,6 +290,18 @@ class AppLocalizationsKu extends AppLocalizations {
   String get audioTrack => 'Riya dengê';
 
   @override
+  String get videoFit => 'Pîvana vîdyoyê';
+
+  @override
+  String get videoFitContain => 'Bicîh bike (standard)';
+
+  @override
+  String get videoFitCover => 'Tijî bike (jêkirin)';
+
+  @override
+  String get videoFitFill => 'Dirêj bike';
+
+  @override
   String get subtitle => 'Binnivîs';
 
   @override

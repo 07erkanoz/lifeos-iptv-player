@@ -290,6 +290,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get audioTrack => 'Audio Track';
 
   @override
+  String get videoFit => 'Video fit';
+
+  @override
+  String get videoFitContain => 'Fit (default)';
+
+  @override
+  String get videoFitCover => 'Fill (crop)';
+
+  @override
+  String get videoFitFill => 'Stretch';
+
+  @override
   String get subtitle => 'Subtitle';
 
   @override

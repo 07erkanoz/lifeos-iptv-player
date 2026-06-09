@@ -290,6 +290,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get audioTrack => 'مسار الصوت';
 
   @override
+  String get videoFit => 'ملاءمة الفيديو';
+
+  @override
+  String get videoFitContain => 'ملاءمة (افتراضي)';
+
+  @override
+  String get videoFitCover => 'ملء (اقتصاص)';
+
+  @override
+  String get videoFitFill => 'تمديد';
+
+  @override
   String get subtitle => 'الترجمة';
 
   @override

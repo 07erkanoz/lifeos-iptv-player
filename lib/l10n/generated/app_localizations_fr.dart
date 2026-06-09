@@ -291,6 +291,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get audioTrack => 'Piste audio';
 
   @override
+  String get videoFit => 'Cadrage vidéo';
+
+  @override
+  String get videoFitContain => 'Ajuster (défaut)';
+
+  @override
+  String get videoFitCover => 'Remplir (rogner)';
+
+  @override
+  String get videoFitFill => 'Étirer';
+
+  @override
   String get subtitle => 'Sous-titres';
 
   @override
