@@ -338,8 +338,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // Save a history entry for live TV (so history grid works)
       _saveLiveHistory();
     } else {
+      // 20s (was 10s) — halves the main-isolate Drift writes during
+      // playback; resume accuracy within 20s is plenty. A final save
+      // also runs on dispose.
       _saveProgressTimer = Timer.periodic(
-        const Duration(seconds: 10),
+        const Duration(seconds: 20),
         (_) => _saveProgress(),
       );
     }
@@ -757,8 +760,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   double get _effectiveSubtitleBottomPadding =>
       _subtitleYOffset + (_showControls ? _controlsLift : 0);
 
+  /// Cached subtitle config so the Video widget receives a STABLE
+  /// object across rebuilds. Rebuilding it on every setState (position
+  /// tick, buffering, pause) allocated a TextStyle + Shadows + config
+  /// each frame AND made media_kit re-apply the subtitle layout — pure
+  /// waste during playback. Recomputed only when subtitle settings
+  /// change (via [_applySubtitleStyle]).
+  SubtitleViewConfiguration? _subtitleConfig;
+
+  SubtitleViewConfiguration get _cachedSubtitleConfig =>
+      _subtitleConfig ??= _buildSubtitleViewConfig();
+
   SubtitleViewConfiguration _buildSubtitleViewConfig() {
-    final s = ref.watch(settingsProvider);
+    final s = ref.read(settingsProvider);
     // Map user's settings.subtitleFontSize (20-110, mpv-like scale where
     // ~55 is the libmpv default) into Flutter logical pixels. 55 → 32 matches
     // media_kit's default TextStyle fontSize.
@@ -793,10 +807,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// the imperative API too costs nothing and is one bug class fewer.
   Future<void> _applySubtitleStyle() async {
     if (!mounted) return;
+    _subtitleConfig = _buildSubtitleViewConfig(); // refresh the cache
     setState(() {});
     final state = _videoKey.currentState;
     if (state != null) {
-      state.update(subtitleViewConfiguration: _buildSubtitleViewConfig());
+      state.update(subtitleViewConfiguration: _subtitleConfig);
       state.setSubtitleViewPadding(
         EdgeInsets.fromLTRB(16, 0, 16, _effectiveSubtitleBottomPadding),
         duration: const Duration(milliseconds: 120),
@@ -1016,10 +1031,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _subs.add(
       _player.stream.playing.listen((playing) {
         if (!mounted) return;
-        setState(() => _isPaused = !playing);
         if (!playing) {
           _controlsAnim.forward();
-          setState(() => _showControls = true);
+          // Coalesce into a single rebuild instead of two back-to-back.
+          setState(() {
+            _isPaused = true;
+            _showControls = true;
+          });
           _pushSubtitlePadding();
           _hideTimer?.cancel();
           // Show pause badge after 2s delay (VOD only, like Tauri)
@@ -1031,7 +1049,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           }
         } else {
           _pauseBadgeTimer?.cancel();
-          if (_showPauseBadge) setState(() => _showPauseBadge = false);
+          setState(() {
+            _isPaused = false;
+            _showPauseBadge = false;
+          });
           _resetHideTimer();
         }
       }),
@@ -2873,8 +2894,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         controls: NoVideoControls,
                         // media_kit renders subtitles via a Flutter widget by
                         // default — NOT via mpv/libass. So style/position must
-                        // live here, not in mpv setProperty calls.
-                        subtitleViewConfiguration: _buildSubtitleViewConfig(),
+                        // live here, not in mpv setProperty calls. Cached so
+                        // rebuilds reuse the same object (no per-frame churn).
+                        subtitleViewConfiguration: _cachedSubtitleConfig,
                       ),
                     ),
 

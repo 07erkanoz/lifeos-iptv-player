@@ -67,6 +67,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
+  // Node attached to the SELECTED category item — entering the sidebar
+  // focuses this real item instead of the bare scope (which traps focus
+  // → "no key works").
+  final FocusNode _selectedCatFocusNode =
+      FocusNode(debugLabel: 'MoviesSelectedCat');
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
@@ -108,6 +113,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
     }
     _categorySidebarScope.dispose();
+    _selectedCatFocusNode.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
     super.dispose();
@@ -134,7 +140,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           return true;
         case GridScreenBackAction.bounceToCategory:
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _categorySidebarScope.requestFocus();
+            if (mounted) _focusSidebarItem();
           });
           return true;
         case GridScreenBackAction.handToShell:
@@ -329,7 +335,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _categorySidebarScope.requestFocus();
+        if (mounted) _focusSidebarItem();
       });
     }
   }
@@ -431,12 +437,23 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     });
   }
 
+  /// Focus a concrete, focusable target inside the sidebar — the
+  /// selected item if live, else the scope as a fallback. Focusing the
+  /// bare scope with no focusable child orphans focus → "no key works".
+  void _focusSidebarItem() {
+    if (_selectedCatFocusNode.canRequestFocus) {
+      _selectedCatFocusNode.requestFocus();
+    } else {
+      _categorySidebarScope.requestFocus();
+    }
+  }
+
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
     if (!_categoriesCollapsed) {
-      // Already open — just focus the category scope.
+      // Already open — focus the selected category item.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _categorySidebarScope.requestFocus();
+        if (mounted) _focusSidebarItem();
       });
       return;
     }
@@ -593,7 +610,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Widget _buildCatItem(String name, bool isSelected, VoidCallback onTap, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
+      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, focusNode: isSelected ? _selectedCatFocusNode : null, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
     );
   }
 
@@ -1869,7 +1886,8 @@ class _FocusableCatItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onRightPressed;
   final VoidCallback? onLeftPressed;
-  const _FocusableCatItem({required this.name, required this.isSelected, required this.isDark, required this.onTap, this.onRightPressed, this.onLeftPressed});
+  final FocusNode? focusNode;
+  const _FocusableCatItem({required this.name, required this.isSelected, required this.isDark, required this.onTap, this.onRightPressed, this.onLeftPressed, this.focusNode});
   @override
   State<_FocusableCatItem> createState() => _FocusableCatItemState();
 }
@@ -1881,6 +1899,7 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
   Widget build(BuildContext context) {
     final isActive = widget.isSelected || _isFocused;
     return Focus(
+      focusNode: widget.focusNode,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {

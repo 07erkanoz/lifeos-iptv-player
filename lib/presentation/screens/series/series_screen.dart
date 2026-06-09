@@ -101,6 +101,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
+  // Stable node attached to the currently-SELECTED category item, so
+  // entering the sidebar focuses a real, focusable item rather than the
+  // bare scope (which, with no focusable child yet, traps focus → "no
+  // key works").
+  final FocusNode _selectedCatFocusNode =
+      FocusNode(debugLabel: 'SeriesSelectedCat');
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
@@ -138,6 +144,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
     }
     _categorySidebarScope.dispose();
+    _selectedCatFocusNode.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
     super.dispose();
@@ -162,7 +169,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           return true;
         case GridScreenBackAction.bounceToCategory:
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _categorySidebarScope.requestFocus();
+            if (mounted) _focusSidebarItem();
           });
           return true;
         case GridScreenBackAction.handToShell:
@@ -827,7 +834,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _categorySidebarScope.requestFocus();
+        if (mounted) _focusSidebarItem();
       });
     }
   }
@@ -980,11 +987,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     });
   }
 
+  /// Focus a concrete, focusable target inside the category sidebar —
+  /// the selected item if its node is live, else the scope as a last
+  /// resort. Focusing the bare scope when it has no focusable child
+  /// orphans focus and freezes D-pad input, which is the "no key works"
+  /// bug.
+  void _focusSidebarItem() {
+    if (_selectedCatFocusNode.canRequestFocus) {
+      _selectedCatFocusNode.requestFocus();
+    } else {
+      _categorySidebarScope.requestFocus();
+    }
+  }
+
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
     if (!_categoriesCollapsed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _categorySidebarScope.requestFocus();
+        if (mounted) _focusSidebarItem();
       });
       return;
     }
@@ -1176,6 +1196,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         name: name,
         isSelected: isSelected,
         isDark: isDark,
+        focusNode: isSelected ? _selectedCatFocusNode : null,
         onTap: onTap,
         onRightPressed: _focusGrid,
         onLeftPressed: _focusMainSidebar,
@@ -3324,6 +3345,7 @@ class _FocusableCatItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onRightPressed;
   final VoidCallback? onLeftPressed;
+  final FocusNode? focusNode;
   const _FocusableCatItem({
     required this.name,
     required this.isSelected,
@@ -3331,6 +3353,7 @@ class _FocusableCatItem extends StatefulWidget {
     required this.onTap,
     this.onRightPressed,
     this.onLeftPressed,
+    this.focusNode,
   });
   @override
   State<_FocusableCatItem> createState() => _FocusableCatItemState();
@@ -3343,6 +3366,7 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
   Widget build(BuildContext context) {
     final isActive = widget.isSelected || _isFocused;
     return Focus(
+      focusNode: widget.focusNode,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
