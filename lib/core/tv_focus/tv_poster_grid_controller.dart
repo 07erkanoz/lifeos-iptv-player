@@ -40,6 +40,15 @@ class TvPosterGridController {
   /// by callers to restore focus after a detail view closes.
   int _lastFocusedStreamId = -1;
 
+  /// Deferred-focus intent. On a slow TV, switching category swaps the
+  /// grid to a freshly-built widget whose async data + item FocusNodes
+  /// land several frames later than the 2-frame retry window. Instead
+  /// of dropping focus, we remember the intent here and fulfil it from
+  /// [attach] (when the streamIds arrive) or [registerItem] (when the
+  /// target poster finally mounts).
+  bool _pendingFocusFirst = false;
+  int _pendingFocusStreamId = -1;
+
   // ── Lifecycle: widget ↔ controller ──────────────────────────────────
 
   void attach({
@@ -54,6 +63,23 @@ class TvPosterGridController {
     _rowStride = rowStride;
     _paddingTop = paddingTop;
     _streamIds = streamIds;
+    // The data a deferred focus was waiting on may have just arrived.
+    if ((_pendingFocusFirst || _pendingFocusStreamId >= 0) &&
+        streamIds.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pendingFocusStreamId >= 0 &&
+            _streamIds.contains(_pendingFocusStreamId)) {
+          final id = _pendingFocusStreamId;
+          _pendingFocusStreamId = -1;
+          _pendingFocusFirst = false;
+          focusByStreamId(id);
+        } else if (_pendingFocusFirst) {
+          _pendingFocusFirst = false;
+          _pendingFocusStreamId = -1;
+          focusFirst();
+        }
+      });
+    }
   }
 
   void detach(ScrollController scrollController) {
@@ -66,6 +92,19 @@ class TvPosterGridController {
 
   void registerItem(int streamId, FocusNode node) {
     _nodes[streamId] = node;
+    // Fulfil a deferred focus the moment its target (or, for a
+    // first-item request, the first poster) actually mounts.
+    if (!node.canRequestFocus) return;
+    if (_pendingFocusStreamId == streamId) {
+      _pendingFocusStreamId = -1;
+      _pendingFocusFirst = false;
+      node.requestFocus();
+    } else if (_pendingFocusFirst &&
+        _streamIds.isNotEmpty &&
+        streamId == _streamIds.first) {
+      _pendingFocusFirst = false;
+      node.requestFocus();
+    }
   }
 
   void unregisterItem(int streamId, FocusNode node) {
@@ -92,7 +131,12 @@ class TvPosterGridController {
   /// Focus the first poster. Returns false only if the grid is empty.
   /// Synchronous for mounted items; async-retried for unmounted ones.
   bool focusFirst() {
-    if (_streamIds.isEmpty) return false;
+    // Grid data not loaded yet (slow TV / async category switch) — defer
+    // and let attach()/registerItem() deliver focus once items arrive.
+    if (_streamIds.isEmpty) {
+      _pendingFocusFirst = true;
+      return true;
+    }
     return focusIndex(0);
   }
 
@@ -101,6 +145,11 @@ class TvPosterGridController {
   /// when closing a detail view: caller doesn't need to remember which
   /// streamId was focused, the controller tracks it.
   bool focusCurrentOrFirst() {
+    // Nothing loaded yet → defer (see [focusFirst]).
+    if (_streamIds.isEmpty) {
+      _pendingFocusFirst = true;
+      return true;
+    }
     if (_lastFocusedStreamId >= 0 &&
         _streamIds.contains(_lastFocusedStreamId)) {
       return focusByStreamId(_lastFocusedStreamId);
@@ -132,7 +181,9 @@ class TvPosterGridController {
     // Item is not mounted: scroll into approximate position, then look
     // again on the next frame. Two retries cover the common case where
     // GridView builds in two passes (initial layout, then with the new
-    // viewport).
+    // viewport). Also arm the deferred path so a slower mount (weak TV)
+    // is still caught by registerItem().
+    _pendingFocusStreamId = streamId;
     _scrollToIndex(index);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _retryFocus(streamId, attemptsLeft: 2);
@@ -143,6 +194,7 @@ class TvPosterGridController {
   void _retryFocus(int streamId, {required int attemptsLeft}) {
     final node = _nodes[streamId];
     if (node != null && node.canRequestFocus) {
+      if (_pendingFocusStreamId == streamId) _pendingFocusStreamId = -1;
       node.requestFocus();
       return;
     }

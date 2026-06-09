@@ -231,6 +231,12 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
                 ? CachedNetworkImage(
                     imageUrl: widget.channel.streamIcon!,
                     fit: BoxFit.cover,
+                    // Decode posters down to ~poster width instead of
+                    // their full source resolution. A grid of full-res
+                    // decodes is a major jank + memory source on weak
+                    // Android TV GPUs; 320 px is plenty for a poster
+                    // tile and slashes decode cost.
+                    memCacheWidth: 320,
                     placeholder: (_, _) => _buildShimmer(),
                     errorWidget: (_, _, _) => _buildPlaceholder(),
                   )
