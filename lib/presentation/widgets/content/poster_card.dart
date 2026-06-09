@@ -487,6 +487,13 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
   }
 
   Widget _buildShimmer() {
+    // On Android TV, a grid load means dozens of these on screen at
+    // once. A spinning CircularProgressIndicator repaints every frame
+    // per card — a real drain on weak TV GPUs. Use a flat placeholder
+    // there; keep the spinner on phone/desktop.
+    if (PlatformHelper.isTV) {
+      return Container(color: AppColors.surfaceElevatedDark);
+    }
     return Container(
       color: AppColors.surfaceElevatedDark,
       child: Center(

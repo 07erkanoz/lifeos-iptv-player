@@ -1,9 +1,9 @@
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
+import 'package:lifeostv/core/perf/frosted.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
@@ -148,8 +148,8 @@ class _EpgOverlayState extends State<EpgOverlay>
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(20),
                     ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    child: Frosted(
+                      sigma: 24,
                       child: Container(
                         height: overlayHeight,
                         decoration: BoxDecoration(

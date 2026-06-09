@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +23,7 @@ import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/core/playback_signal.dart';
+import 'package:lifeostv/core/perf/frosted.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
@@ -3399,8 +3399,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Frosted(
+              sigma: 24,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 520),
                 padding: const EdgeInsets.all(16),
@@ -3936,8 +3936,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         opacity: _showChannelInfo ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 300),
         child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Frosted(
+            sigma: 20,
             child: Container(
               padding: const EdgeInsets.fromLTRB(28, 18, 28, 22),
               decoration: BoxDecoration(

@@ -1,6 +1,6 @@
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:lifeostv/core/perf/frosted.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -236,8 +236,8 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
       child: Align(
         alignment: Alignment.centerRight,
         child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Frosted(
+            sigma: 24,
             child: Container(
               width: panelWidth,
               height: double.infinity,

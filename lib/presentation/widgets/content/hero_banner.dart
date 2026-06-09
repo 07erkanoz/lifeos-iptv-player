@@ -832,22 +832,29 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
       );
     }
 
+    final scaledPoster = Transform.scale(
+      scale: 1.2,
+      child: CachedNetworkImage(
+        imageUrl: channel.streamIcon!,
+        fit: BoxFit.cover,
+        // Darkened backdrop — no need to decode at full res.
+        memCacheWidth: 720,
+        errorWidget: (_, _, _) => Container(color: AppColors.surfaceDark),
+      ),
+    );
     return Stack(
       key: ValueKey('poster_bg_${channel.streamId}'),
       fit: StackFit.expand,
       children: [
-        // Poster scaled to cover entire area (like a backdrop)
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Transform.scale(
-            scale: 1.2,
-            child: CachedNetworkImage(
-              imageUrl: channel.streamIcon!,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => Container(color: AppColors.surfaceDark),
-            ),
-          ),
-        ),
+        // Poster scaled to cover entire area (like a backdrop). Skip the
+        // GPU-heavy gaussian blur on Android TV — weak TV GPUs choke on
+        // it; the 45% darken overlay below keeps text readable anyway.
+        PlatformHelper.isTV
+            ? scaledPoster
+            : ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: scaledPoster,
+              ),
         // Darken overlay for text readability
         Container(color: Colors.black.withValues(alpha: 0.45)),
       ],
