@@ -814,11 +814,21 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
   }
 
-  /// Select category (sidebar stays open, user closes via toggle button)
+  /// Select a category, then (desktop/TV) collapse the sidebar like the
+  /// main sidebar and hand focus to the grid — more room + a
+  /// TiViMate-style flow. Focus moves to the grid as the sidebar's
+  /// FocusScope unmounts so it can't orphan focus (the freeze bug); the
+  /// grid controller's deferred-focus covers the not-yet-loaded case.
   void _selectCategory(String? categoryId) {
     setState(() {
       _selectedCategoryId = categoryId;
+      if (!isMobilePlatform) _categoriesCollapsed = true;
     });
+    if (!isMobilePlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _gridController.focusCurrentOrFirst();
+      });
+    }
   }
 
   /// Toggle category sidebar open/closed

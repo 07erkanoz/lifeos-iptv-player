@@ -312,11 +312,22 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     });
   }
 
-  /// Select category (sidebar stays open, user closes via toggle button)
+  /// Select a category, then (desktop/TV) collapse the sidebar like the
+  /// main sidebar and hand focus to the grid — more room for content and
+  /// a TiViMate-style flow. Focus MUST move to the grid before/with the
+  /// collapse or the sidebar's FocusScope unmounts while holding focus
+  /// (the freeze bug); the grid controller's deferred-focus handles the
+  /// not-yet-loaded case safely.
   void _selectCategory(String? categoryId) {
     setState(() {
       _selectedCategoryId = categoryId;
+      if (!isMobilePlatform) _categoriesCollapsed = true;
     });
+    if (!isMobilePlatform) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _gridController.focusCurrentOrFirst();
+      });
+    }
   }
 
   /// Toggle category sidebar open/closed

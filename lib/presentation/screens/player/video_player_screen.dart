@@ -900,8 +900,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await mpv.setProperty('cache', 'yes');
         await mpv.setProperty('cache-secs', '$bufSecs');
         await mpv.setProperty('demuxer-readahead-secs', '$bufSecs');
-        await mpv.setProperty('demuxer-max-bytes', '32MiB');
-        await mpv.setProperty('demuxer-max-back-bytes', '16MiB');
+        // Bigger demuxer cache so high-bitrate (HQ/4K) VOD has enough
+        // read-ahead to ride out network dips without rebuffering.
+        await mpv.setProperty('demuxer-max-bytes', '64MiB');
+        await mpv.setProperty('demuxer-max-back-bytes', '32MiB');
       }
 
       // Disable subtitles by default only when we have no remembered choice.

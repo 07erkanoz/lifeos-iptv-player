@@ -21,6 +21,23 @@ class MpvConfig {
     // ── Common: drop late frames ──
     await mpv.setProperty('framedrop', 'vo');
     await mpv.setProperty('audio-buffer', '0.1');
+
+    // ── GPU-light render path (Android) ───────────────────────────────
+    // Unlike TiViMate/ExoPlayer (which render the decoder surface
+    // DIRECTLY to a SurfaceView, zero-copy), media_kit copies every
+    // frame into a Flutter GL texture and runs mpv's GPU shader chain
+    // on it. On weak phone/TV GPUs that chain is what makes HQ/4K
+    // stutter. Turn off the optional, cosmetic shader passes so each
+    // frame is a cheap blit — closes much of the gap on high-bitrate
+    // content. (No visible quality loss on real-world streams.)
+    if (Platform.isAndroid) {
+      await mpv.setProperty('deband', 'no'); // skip debanding shader
+      await mpv.setProperty('dither', 'no');
+      await mpv.setProperty('correct-downscaling', 'no');
+      await mpv.setProperty('sigmoid-upscaling', 'no');
+      await mpv.setProperty('scaler-resizes-only', 'yes');
+      await mpv.setProperty('hdr-compute-peak', 'no');
+    }
   }
 
   static Future<void> _applyAndroid(NativePlayer mpv, GpuInfo gpu) async {
