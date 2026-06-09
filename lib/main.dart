@@ -13,6 +13,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/config/router.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/system_ui.dart';
+import 'package:lifeostv/core/playback_signal.dart';
 import 'package:lifeostv/data/services/lan_sync_service.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
@@ -207,6 +208,10 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   }
 
   void _runEnrichPass() {
+    // Don't run Gemini HTTP + Drift batch writes on the main isolate
+    // while a video is playing — that's what caused the ~45 s stutter.
+    // The periodic timer keeps ticking and resumes after playback.
+    if (playbackActiveNotifier.value) return;
     if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
     if (!ref.read(settingsProvider).hasAiKey) return;
     ref.read(catalogEnrichmentRunnerProvider).runOnce();
@@ -223,6 +228,9 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   void _maybeSyncEpg() {
     Future<void>.delayed(const Duration(seconds: 12), () async {
       if (!mounted) return;
+      // EPG sync hits the network + writes a lot of program rows; skip
+      // while a video is playing so it doesn't stutter playback.
+      if (playbackActiveNotifier.value) return;
       try {
         final acc = await ref.read(currentAccountProvider.future);
         if (acc == null) return;
@@ -240,6 +248,8 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   /// continue-watching with any trusted device on the LAN. Fire-and-
   /// forget — failures are silent, the next resume retries.
   void _maybeAutoSync() {
+    // mDNS + Drift merges on the main isolate — skip during playback.
+    if (playbackActiveNotifier.value) return;
     if (!ref.read(settingsProvider).autoSyncEnabled) return;
     final svc = ref.read(lanSyncServiceProvider);
     if (!svc.hasTrustedPeers) return;

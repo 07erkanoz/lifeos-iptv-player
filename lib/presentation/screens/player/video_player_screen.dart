@@ -23,6 +23,7 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/core/system_ui.dart';
+import 'package:lifeostv/core/playback_signal.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
@@ -287,6 +288,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // to tap every few minutes just to keep watching.
     WakelockPlus.enable();
 
+    // Signal the app root to pause main-isolate background work
+    // (enrichment / embeddings / LAN sync / EPG) while we play, so
+    // their Drift batch writes don't jank the video every ~45 s.
+    playbackActiveNotifier.value = true;
+
     // Remember initial brightness so we can restore it on dispose.
     if (Platform.isAndroid || Platform.isIOS) {
       _captureInitialBrightness();
@@ -415,6 +421,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _sleepTimer?.cancel();
     _gestureHudTimer?.cancel();
     WakelockPlus.disable();
+    // Resume background work now that playback is over.
+    playbackActiveNotifier.value = false;
     if ((Platform.isAndroid || Platform.isIOS) && _initialBrightness != null) {
       // Fire and forget — don't block dispose.
       ScreenBrightness.instance.resetApplicationScreenBrightness().catchError(
@@ -826,7 +834,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _player = Player(
       configuration: PlayerConfiguration(
         vo: vo,
-        bufferSize: Platform.isLinux ? 8 * 1024 * 1024 : 32 * 1024 * 1024,
+        // 16 MB on Linux (was 8 MB — too small for high-bitrate 1080p,
+        // causing periodic rebuffer stutter); 32 MB elsewhere.
+        bufferSize: Platform.isLinux ? 16 * 1024 * 1024 : 32 * 1024 * 1024,
       ),
     );
     _controller = VideoController(
@@ -960,9 +970,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }),
     );
 
-    // Throttled position UI update (every 500ms)
+    // Throttled position UI update (every 500ms). Only repaint when
+    // the controls overlay is actually on screen — it lives inside a
+    // FadeTransition that is ALWAYS built (top bar + progress slider +
+    // ~12 buttons), so an unconditional setState here was rebuilding
+    // that whole tree twice a second even behind a 0-opacity overlay
+    // during normal viewing. Idle playback now does zero overlay
+    // rebuilds; the position re-syncs the instant controls reappear.
     _posUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (mounted && _rawPos != _pos) {
+      if (!mounted) return;
+      if (!_showControls && !_isPaused) return;
+      if (_rawPos != _pos) {
         setState(() => _pos = _rawPos);
       }
     });
@@ -1276,6 +1294,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // the timer firing and the cancel() in dispose taking effect —
       // setState on an unmounted State throws.
       if (!mounted) return;
+      // The live progress bar only shows inside the controls overlay,
+      // so don't rebuild it every second while controls are hidden.
+      if (!_showControls && !_isPaused) return;
       if (widget.programStart != null && widget.programEnd != null) {
         final total = widget.programEnd!
             .difference(widget.programStart!)
