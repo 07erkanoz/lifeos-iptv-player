@@ -38,6 +38,8 @@
   "setDefault": "Establecer como predeterminado",
   "defaultLabel": "Predeterminado",
   "categories": "Categorías",
+  "categoryVisibility": "Visibilidad de categorías",
+  "categoryVisibilityDesc": "Ocultar categorías no deseadas (Directo/Películas/Series)",
   "selectCategory": "Seleccionar categoría",
   "selectChannel": "Seleccionar canal",
   "syncing": "Sincronizando...",

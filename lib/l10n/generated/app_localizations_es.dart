@@ -125,6 +125,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get categories => 'Categorías';
 
   @override
+  String get categoryVisibility => 'Visibilidad de categorías';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'Ocultar categorías no deseadas (Directo/Películas/Series)';
+
+  @override
   String get selectCategory => 'Seleccionar categoría';
 
   @override

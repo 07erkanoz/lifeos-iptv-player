@@ -127,6 +127,8 @@ class LifeosApp extends ConsumerStatefulWidget {
 class _LifeosAppState extends ConsumerState<LifeosApp>
     with WidgetsBindingObserver {
   Timer? _enrichTimer;
+  Timer? _syncTimer;
+  bool _autoSyncInFlight = false;
 
   @override
   void initState() {
@@ -138,6 +140,16 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       _maybeAutoSync();
       _maybeEnrichCatalog();
       _maybeSyncEpg();
+    });
+    // Periodic background two-way sync while the app is open. Every
+    // pass is fire-and-forget off the UI thread (network + Drift),
+    // guarded by `_autoSyncInFlight`, and no-ops instantly when
+    // auto-sync is off or no peer is paired — so it never slows the
+    // app. 5 min is frequent enough that favourites/progress/hidden-
+    // category changes propagate without a manual restart.
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (!mounted) return;
+      _maybeAutoSync();
     });
     // Keep chipping away at the catalogue while the app is open: each
     // runOnce is bounded, so this periodic nudge continues where the
@@ -231,6 +243,11 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     if (!ref.read(settingsProvider).autoSyncEnabled) return;
     final svc = ref.read(lanSyncServiceProvider);
     if (!svc.hasTrustedPeers) return;
+    // Guard against overlapping passes — startup + resume + the
+    // periodic timer can all fire close together. A pass does mDNS
+    // discovery (~5 s) so we never want two in flight.
+    if (_autoSyncInFlight) return;
+    _autoSyncInFlight = true;
     () async {
       try {
         await svc.startAutoServer();
@@ -241,13 +258,17 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
         // settings reload picks up a Gemini key adopted from a peer.
         ref.read(settingsProvider.notifier).reload();
         ref.invalidate(activeProfileIdProvider);
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        _autoSyncInFlight = false;
+      }
     }();
   }
 
   @override
   void dispose() {
     _enrichTimer?.cancel();
+    _syncTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

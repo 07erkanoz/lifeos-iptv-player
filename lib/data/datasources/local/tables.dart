@@ -454,3 +454,39 @@ class IntroMarkers extends Table {
   @override
   Set<Column> get primaryKey => {seriesId};
 }
+
+/// Soft-delete log for LAN sync. When the user removes a favourite we
+/// don't just drop the row — we record a tombstone so the deletion
+/// can propagate to paired devices (otherwise the peer re-adds it on
+/// the next additive sync). [deletedAt] lets the receiver ignore a
+/// tombstone that's older than a re-add.
+class SyncTombstones extends Table {
+  TextColumn get entity => text()(); // 'favorite' (room for more later)
+  IntColumn get streamId => integer()();
+  TextColumn get streamType => text()();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
+  DateTimeColumn get deletedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {entity, streamId, streamType, profileId};
+}
+
+/// Source-of-truth for per-category visibility choices.
+///
+/// `categories.isHidden` is wiped on every catalogue refresh
+/// (insertOrReplace), so the user's hide choices used to vanish. This
+/// table records the explicit choice with a timestamp and is
+/// re-applied onto `categories` after each refresh AND merged across
+/// devices (last-write-wins by [updatedAt]) so hidden categories
+/// travel between paired devices.
+class CategoryPrefs extends Table {
+  TextColumn get categoryId => text()();
+  TextColumn get type => text()(); // 'movie' | 'series' | 'live'
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {categoryId, type};
+}

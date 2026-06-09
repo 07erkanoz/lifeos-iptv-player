@@ -38,6 +38,8 @@
   "setDefault": "Set Default",
   "defaultLabel": "Default",
   "categories": "Categories",
+  "categoryVisibility": "Category visibility",
+  "categoryVisibilityDesc": "Hide unwanted Live/Movie/Series categories",
   "selectCategory": "Select a Category",
   "selectChannel": "Select a Channel",
   "syncing": "Syncing...",

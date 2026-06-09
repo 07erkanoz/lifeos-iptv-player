@@ -1036,9 +1036,35 @@ class LanSyncService {
     final favs = await _db.select(_db.favorites).get();
     final prog = await _db.select(_db.playbackProgress).get();
     final enrich = await _db.select(_db.contentEnrichment).get();
+    final tombstones = await _db.select(_db.syncTombstones).get();
+    final catPrefs = await _db.select(_db.categoryPrefs).get();
     final geminiKey = SettingsRepository(_prefs).loadSettings().geminiApiKey;
     return {
       'v': _payloadVersion,
+      // Delete tombstones so a removal propagates instead of the peer
+      // re-adding the favourite on the next additive merge.
+      'tombstones': [
+        for (final t in tombstones)
+          {
+            'entity': t.entity,
+            'profileName': idToName[t.profileId] ?? '',
+            'streamId': t.streamId,
+            'streamType': t.streamType,
+            'deletedAt': t.deletedAt.millisecondsSinceEpoch,
+          }
+      ],
+      // Category-visibility prefs (hidden categories) — account-gated
+      // on the receiver since categoryId only aligns within the same
+      // provider. LWW by updatedAt.
+      'categoryPrefs': [
+        for (final c in catPrefs)
+          {
+            'categoryId': c.categoryId,
+            'type': c.type,
+            'isHidden': c.isHidden,
+            'updatedAt': c.updatedAt.millisecondsSinceEpoch,
+          }
+      ],
       // Account fingerprints so the peer only applies our enrichment
       // when it shares the same provider (streamIds line up).
       'accountKeys': (await _accountKeys()).toList(),
@@ -1087,6 +1113,59 @@ class LanSyncService {
     var favAdded = 0;
     var progAdded = 0;
 
+    // ── Tombstones first ──────────────────────────────────────────
+    // Merge incoming delete tombstones (taking the newest deletedAt
+    // per key), then drop any local favourite the tombstone outdates.
+    // Doing this BEFORE the additive favourites merge means a deletion
+    // that's newer than the peer's copy wins; a re-add that's newer
+    // than the deletion survives (handled in the favourites loop via
+    // `tombAt`).
+    final tombAt = <String, int>{}; // 'pid|type|streamId' -> deletedAt ms
+    {
+      final localTombs = await _db.select(_db.syncTombstones).get();
+      for (final t in localTombs) {
+        tombAt['${t.profileId}|${t.streamType}|${t.streamId}'] =
+            t.deletedAt.millisecondsSinceEpoch;
+      }
+      if (snap['tombstones'] is List) {
+        for (final raw in (snap['tombstones'] as List)) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, dynamic>();
+          if ((m['entity'] ?? 'favorite') != 'favorite') continue;
+          final pid = resolveProfile(m['profileName'] as String?);
+          final sid = (m['streamId'] ?? 0) as int;
+          final stype = (m['streamType'] ?? '') as String;
+          final ts = (m['deletedAt'] ?? 0) as int;
+          final key = '$pid|$stype|$sid';
+          if ((tombAt[key] ?? 0) >= ts) continue; // local tombstone newer
+          tombAt[key] = ts;
+          await _db.into(_db.syncTombstones).insertOnConflictUpdate(
+                SyncTombstonesCompanion.insert(
+                  entity: 'favorite',
+                  streamId: sid,
+                  streamType: stype,
+                  profileId: Value(pid),
+                  deletedAt:
+                      Value(DateTime.fromMillisecondsSinceEpoch(ts)),
+                ),
+              );
+        }
+      }
+      // Delete local favourites older than their tombstone.
+      final localFavs = await _db.select(_db.favorites).get();
+      for (final f in localFavs) {
+        final key = '${f.profileId}|${f.streamType}|${f.streamId}';
+        final dAt = tombAt[key];
+        if (dAt != null && f.addedAt.millisecondsSinceEpoch <= dAt) {
+          await (_db.delete(_db.favorites)
+                ..where((t) => t.streamId.equals(f.streamId))
+                ..where((t) => t.streamType.equals(f.streamType))
+                ..where((t) => t.profileId.equals(f.profileId)))
+              .go();
+        }
+      }
+    }
+
     if (snap['favorites'] is List) {
       final existing = await _db.select(_db.favorites).get();
       final have = <String>{
@@ -1099,6 +1178,11 @@ class LanSyncService {
           final pid = resolveProfile(m['profileName'] as String?);
           final key = '$pid|${m['streamType']}|${m['streamId']}';
           if (have.contains(key)) continue;
+          final addedAt = (m['addedAt'] ?? 0) as int;
+          // Skip the re-add when a tombstone is as-new-or-newer than
+          // this add (the deletion wins).
+          final dAt = tombAt[key];
+          if (dAt != null && dAt >= addedAt) continue;
           batch.insert(
             _db.favorites,
             FavoritesCompanion.insert(
@@ -1106,8 +1190,7 @@ class LanSyncService {
               streamType: (m['streamType'] ?? '') as String,
               name: (m['name'] ?? '') as String,
               thumbnail: Value(m['thumbnail'] as String?),
-              addedAt: Value(DateTime.fromMillisecondsSinceEpoch(
-                  (m['addedAt'] ?? 0) as int)),
+              addedAt: Value(DateTime.fromMillisecondsSinceEpoch(addedAt)),
               profileId: Value(pid),
             ),
             mode: InsertMode.insertOrIgnore,
@@ -1166,6 +1249,48 @@ class LanSyncService {
             await _applyEnrichmentRows(snap['enrichment'] as List);
       }
     }
+    // Category-visibility prefs — LWW by updatedAt, then apply onto
+    // the live categories table. Account-gated (categoryId aligns only
+    // within the same provider) like enrichment.
+    var catApplied = 0;
+    if (snap['categoryPrefs'] is List) {
+      final srcKeys = (snap['accountKeys'] is List)
+          ? (snap['accountKeys'] as List).whereType<String>().toSet()
+          : <String>{};
+      final mine = await _accountKeys();
+      if (srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty) {
+        final localPrefs = await _db.select(_db.categoryPrefs).get();
+        final localAt = <String, int>{
+          for (final p in localPrefs)
+            '${p.categoryId}|${p.type}': p.updatedAt.millisecondsSinceEpoch
+        };
+        for (final raw in (snap['categoryPrefs'] as List)) {
+          if (raw is! Map) continue;
+          final m = raw.cast<String, dynamic>();
+          final cid = (m['categoryId'] ?? '') as String;
+          final type = (m['type'] ?? '') as String;
+          if (cid.isEmpty || type.isEmpty) continue;
+          final ts = (m['updatedAt'] ?? 0) as int;
+          final hidden = (m['isHidden'] ?? false) as bool;
+          if ((localAt['$cid|$type'] ?? 0) >= ts) continue; // local newer
+          await _db.into(_db.categoryPrefs).insertOnConflictUpdate(
+                CategoryPrefsCompanion.insert(
+                  categoryId: cid,
+                  type: type,
+                  isHidden: Value(hidden),
+                  updatedAt:
+                      Value(DateTime.fromMillisecondsSinceEpoch(ts)),
+                ),
+              );
+          await (_db.update(_db.categories)
+                ..where((t) => t.id.equals(cid))
+                ..where((t) => t.type.equals(type)))
+              .write(CategoriesCompanion(isHidden: Value(hidden)));
+          catApplied++;
+        }
+      }
+    }
+
     // Gemini key — adopt only when we don't already have one, so a
     // device without AI configured inherits it from a paired device.
     final incomingKey = snap['geminiApiKey'] as String?;
@@ -1179,7 +1304,7 @@ class LanSyncService {
     }
     if (kDebugMode) {
       debugPrint('[LanSync] merged: favAdded=$favAdded progAdded=$progAdded '
-          'enrichAdded=$enrichAdded');
+          'enrichAdded=$enrichAdded catApplied=$catApplied');
     }
   }
 

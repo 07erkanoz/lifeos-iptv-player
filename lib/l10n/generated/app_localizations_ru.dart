@@ -126,6 +126,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categories => 'Категории';
 
   @override
+  String get categoryVisibility => 'Видимость категорий';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'Скрыть ненужные категории (ТВ/Фильмы/Сериалы)';
+
+  @override
   String get selectCategory => 'Выберите категорию';
 
   @override

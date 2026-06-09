@@ -125,6 +125,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categories => 'Categories';
 
   @override
+  String get categoryVisibility => 'Category visibility';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'Hide unwanted Live/Movie/Series categories';
+
+  @override
   String get selectCategory => 'Select a Category';
 
   @override

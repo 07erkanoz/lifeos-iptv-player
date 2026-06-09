@@ -34,9 +34,19 @@ class FavoritesRepository {
         profileId: Value(_pid),
       ),
     );
+    // A re-add cancels any pending delete tombstone so it doesn't
+    // resurrect-then-delete on the next sync.
+    await (_db.delete(_db.syncTombstones)
+          ..where((t) =>
+              t.entity.equals('favorite') &
+              t.streamId.equals(streamId) &
+              t.streamType.equals(type) &
+              t.profileId.equals(_pid)))
+        .go();
   }
 
-  /// Remove from favorites
+  /// Remove from favorites. Records a tombstone so the deletion
+  /// propagates to paired devices instead of the peer re-adding it.
   Future<void> removeFavorite(int streamId, String type) async {
     await (_db.delete(_db.favorites)
       ..where((tbl) =>
@@ -44,6 +54,15 @@ class FavoritesRepository {
           tbl.streamType.equals(type) &
           tbl.profileId.equals(_pid))
     ).go();
+    await _db.into(_db.syncTombstones).insertOnConflictUpdate(
+      SyncTombstonesCompanion.insert(
+        entity: 'favorite',
+        streamId: streamId,
+        streamType: type,
+        profileId: Value(_pid),
+        deletedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Toggle favorite state

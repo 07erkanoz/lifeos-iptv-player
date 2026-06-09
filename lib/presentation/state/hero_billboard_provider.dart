@@ -181,10 +181,21 @@ final heroBillboardProvider =
   // Unix epoch, so we can't push the order into SQL — sort in Dart
   // after a bounded fetch). Filter for items that have a backdrop or
   // at least a poster so the hero panel doesn't render broken.
-  final allVod = await (db.select(db.channels)
-        ..where((t) => t.type.equals('movie') | t.type.equals('series'))
+  // Join categories + filter isHidden so a category the user hid in
+  // account settings never leaks into the hero billboard.
+  final allVodRows = await (db.select(db.channels).join([
+    innerJoin(
+      db.categories,
+      db.categories.id.equalsExp(db.channels.categoryId) &
+          db.categories.type.equalsExp(db.channels.type),
+    ),
+  ])
+        ..where((db.channels.type.equals('movie') |
+                db.channels.type.equals('series')) &
+            db.categories.isHidden.equals(false))
         ..limit(2000))
       .get();
+  final allVod = allVodRows.map((r) => r.readTable(db.channels)).toList();
   int parseAdded(Channel c) =>
       int.tryParse(c.added?.trim() ?? '') ?? 0;
   final sortedByAdded = allVod.toList()

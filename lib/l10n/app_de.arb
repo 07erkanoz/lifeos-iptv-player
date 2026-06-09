@@ -38,6 +38,8 @@
   "setDefault": "Als Standard festlegen",
   "defaultLabel": "Standard",
   "categories": "Kategorien",
+  "categoryVisibility": "Kategorie-Sichtbarkeit",
+  "categoryVisibilityDesc": "Unerwünschte Live/Film/Serie-Kategorien ausblenden",
   "selectCategory": "Kategorie auswählen",
   "selectChannel": "Kanal auswählen",
   "syncing": "Synchronisiere...",

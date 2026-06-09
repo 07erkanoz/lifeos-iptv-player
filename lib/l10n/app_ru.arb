@@ -38,6 +38,8 @@
   "setDefault": "Установить по умолчанию",
   "defaultLabel": "По умолчанию",
   "categories": "Категории",
+  "categoryVisibility": "Видимость категорий",
+  "categoryVisibilityDesc": "Скрыть ненужные категории (ТВ/Фильмы/Сериалы)",
   "selectCategory": "Выберите категорию",
   "selectChannel": "Выберите канал",
   "syncing": "Синхронизация...",

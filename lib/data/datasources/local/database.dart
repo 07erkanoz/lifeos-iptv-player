@@ -6,12 +6,12 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache, ContentEnrichment, ContentEmbeddings])
+@DriftDatabase(tables: [Accounts, Profiles, Categories, Channels, Programs, PlaybackProgress, Favorites, Watchlist, SeriesTracking, IntroMarkers, PlotAiCache, PersonalizedPicksCache, AiCallLogs, AiFeedback, SearchHistory, AiSimilarCache, ContentEnrichment, ContentEmbeddings, SyncTombstones, CategoryPrefs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -151,6 +151,37 @@ class AppDatabase extends _$AppDatabase {
              updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
              PRIMARY KEY (stream_id, type)
            )
+         ''');
+       }
+       if (from < 22) {
+         // Delete-propagation tombstones + category-visibility prefs
+         // for LAN sync. Both additive, IF NOT EXISTS for half-applied
+         // safety.
+         await customStatement('''
+           CREATE TABLE IF NOT EXISTS sync_tombstones (
+             entity TEXT NOT NULL,
+             stream_id INTEGER NOT NULL,
+             stream_type TEXT NOT NULL,
+             profile_id INTEGER NOT NULL DEFAULT 1,
+             deleted_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+             PRIMARY KEY (entity, stream_id, stream_type, profile_id)
+           )
+         ''');
+         await customStatement('''
+           CREATE TABLE IF NOT EXISTS category_prefs (
+             category_id TEXT NOT NULL,
+             type TEXT NOT NULL,
+             is_hidden INTEGER NOT NULL DEFAULT 0,
+             updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+             PRIMARY KEY (category_id, type)
+           )
+         ''');
+         // Backfill prefs from any categories the user already hid, so
+         // existing choices survive the first catalogue refresh.
+         await customStatement('''
+           INSERT OR IGNORE INTO category_prefs (category_id, type, is_hidden, updated_at)
+           SELECT id, type, is_hidden, (strftime('%s','now'))
+           FROM categories WHERE is_hidden = 1
          ''');
        }
     },

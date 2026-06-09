@@ -338,6 +338,18 @@ abstract class AppLocalizations {
   /// **'Kategoriler'**
   String get categories;
 
+  /// No description provided for @categoryVisibility.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kategori görünürlüğü'**
+  String get categoryVisibility;
+
+  /// No description provided for @categoryVisibilityDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'İstenmeyen Canlı/Film/Dizi kategorilerini gizle'**
+  String get categoryVisibilityDesc;
+
   /// No description provided for @selectCategory.
   ///
   /// In tr, this message translates to:

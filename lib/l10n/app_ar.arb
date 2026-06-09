@@ -38,6 +38,8 @@
   "setDefault": "تعيين كافتراضي",
   "defaultLabel": "الافتراضي",
   "categories": "الفئات",
+  "categoryVisibility": "ظهور الفئات",
+  "categoryVisibilityDesc": "إخفاء فئات البث/الأفلام/المسلسلات غير المرغوبة",
   "selectCategory": "اختر فئة",
   "selectChannel": "اختر قناة",
   "syncing": "جارٍ المزامنة...",

@@ -126,6 +126,13 @@ class AppLocalizationsTr extends AppLocalizations {
   String get categories => 'Kategoriler';
 
   @override
+  String get categoryVisibility => 'Kategori görünürlüğü';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'İstenmeyen Canlı/Film/Dizi kategorilerini gizle';
+
+  @override
   String get selectCategory => 'Bir Kategori Seçin';
 
   @override

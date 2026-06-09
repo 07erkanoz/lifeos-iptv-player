@@ -125,6 +125,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get categories => 'الفئات';
 
   @override
+  String get categoryVisibility => 'ظهور الفئات';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'إخفاء فئات البث/الأفلام/المسلسلات غير المرغوبة';
+
+  @override
   String get selectCategory => 'اختر فئة';
 
   @override

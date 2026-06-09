@@ -38,11 +38,42 @@ class ContentRepository {
     return (_db.select(_db.categories)..where((tbl) => tbl.type.equals(type))).watch();
   }
 
-  /// Toggle category visibility
+  /// Toggle category visibility. Writes both the live `categories`
+  /// flag (for immediate UI) AND a timestamped `category_prefs` row —
+  /// the durable source of truth that survives catalogue refreshes
+  /// (which insertOrReplace the categories table and would otherwise
+  /// wipe the flag) and is synced across paired devices (LWW).
   Future<void> toggleCategoryHidden(String categoryId, String type, bool hidden) async {
     await (_db.update(_db.categories)
       ..where((tbl) => tbl.id.equals(categoryId) & tbl.type.equals(type))
     ).write(CategoriesCompanion(isHidden: Value(hidden)));
+    await _db.into(_db.categoryPrefs).insertOnConflictUpdate(
+      CategoryPrefsCompanion.insert(
+        categoryId: categoryId,
+        type: type,
+        isHidden: Value(hidden),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Re-apply saved category-visibility prefs onto the `categories`
+  /// table. Called after a catalogue refresh (which resets isHidden to
+  /// the default) and after a LAN sync adopts a peer's prefs, so the
+  /// user's hide choices always stick. No-op when no prefs exist.
+  Future<void> reapplyCategoryPrefs() async {
+    final prefs = await _db.select(_db.categoryPrefs).get();
+    if (prefs.isEmpty) return;
+    await _db.batch((batch) {
+      for (final p in prefs) {
+        batch.update(
+          _db.categories,
+          CategoriesCompanion(isHidden: Value(p.isHidden)),
+          where: (tbl) =>
+              tbl.id.equals(p.categoryId) & tbl.type.equals(p.type),
+        );
+      }
+    });
   }
 
   Stream<List<Channel>> watchChannels(String categoryId, {String? type}) {
@@ -174,7 +205,9 @@ class ContentRepository {
       ),
     ])
           ..where(_db.playbackProgress.position.isBiggerThanValue(0) &
-              _db.playbackProgress.profileId.equals(_pid))
+              _db.playbackProgress.profileId.equals(_pid) &
+              (_db.categories.isHidden.equals(false) |
+                  _db.categories.id.isNull()))
           ..orderBy([
             OrderingTerm(
                 expression: _db.playbackProgress.updatedAt,
@@ -220,7 +253,9 @@ class ContentRepository {
             _db.categories.type.equalsExp(_db.channels.type),
       ),
     ])
-          ..where(_db.favorites.profileId.equals(_pid))
+          ..where(_db.favorites.profileId.equals(_pid) &
+              (_db.categories.isHidden.equals(false) |
+                  _db.categories.id.isNull()))
           ..orderBy([
             OrderingTerm(
                 expression: _db.favorites.addedAt,
@@ -722,6 +757,9 @@ class ContentRepository {
     final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
     if (account != null) {
       await _syncService.syncAll(account);
+      // syncAll insertOrReplaces categories (resetting isHidden to the
+      // default), so re-apply the user's saved visibility prefs.
+      await reapplyCategoryPrefs();
     }
   }
 
@@ -750,8 +788,16 @@ class ContentRepository {
         _db.channels.streamId.equalsExp(_db.programs.channelId) &
             _db.channels.type.equals('live'),
       ),
+      // Respect hidden categories — a hidden live category shouldn't
+      // leak into the dashboard "on now" rail.
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
     ])
-          ..where(_db.programs.start.isSmallerOrEqualValue(now) &
+          ..where(_db.categories.isHidden.equals(false) &
+              _db.programs.start.isSmallerOrEqualValue(now) &
               _db.programs.stop.isBiggerThanValue(now))
           ..orderBy([
             OrderingTerm(
@@ -1120,8 +1166,14 @@ class ContentRepository {
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
         _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
     ])
       ..where(_db.channels.type.equals(type))
+      ..where(_db.categories.isHidden.equals(false))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
       ..where(_db.playbackProgress.profileId.equals(pid))
@@ -1143,8 +1195,14 @@ class ContentRepository {
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
         _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
+      innerJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.channels.categoryId) &
+            _db.categories.type.equalsExp(_db.channels.type),
+      ),
     ])
       ..where(_db.channels.type.isIn(['movie', 'series']))
+      ..where(_db.categories.isHidden.equals(false))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
       ..where(_db.playbackProgress.profileId.equals(pid))

@@ -126,6 +126,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get categories => 'Catégories';
 
   @override
+  String get categoryVisibility => 'Visibilité des catégories';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'Masquer les catégories indésirables (Direct/Films/Séries)';
+
+  @override
   String get selectCategory => 'Sélectionner une catégorie';
 
   @override

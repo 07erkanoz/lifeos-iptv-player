@@ -38,6 +38,8 @@
   "setDefault": "Wekî standard bike",
   "defaultLabel": "Standard",
   "categories": "Kategorî",
+  "categoryVisibility": "Xuyaniya kategoriyan",
+  "categoryVisibilityDesc": "Kategoriyên nexwestî yên Zindî/Fîlm/Rêze veşêre",
   "selectCategory": "Kategorîyekê hilbijêre",
   "selectChannel": "Kanalekê hilbijêre",
   "syncing": "Tê hevdem kirin...",

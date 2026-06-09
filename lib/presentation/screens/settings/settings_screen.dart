@@ -1040,9 +1040,23 @@ class _ContentSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accountAsync = ref.watch(currentAccountProvider);
+    final account = accountAsync.value;
     return ListView(padding: const EdgeInsets.all(24), children: [
       Text(l10n.categories, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
       const SizedBox(height: 24),
+      // Per-category visibility lives in the account editor; surface a
+      // direct entry point here so the two stop feeling disconnected.
+      ListTile(
+        leading: Icon(Icons.visibility_off_outlined, color: AppColors.primary),
+        title: Text(l10n.categoryVisibility, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontWeight: FontWeight.w600)),
+        subtitle: Text(l10n.categoryVisibilityDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        trailing: Icon(Icons.chevron_right, color: AppColors.textSecondaryDark),
+        onTap: account == null ? null : () => context.push('/account/edit', extra: account),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      ),
+      const SizedBox(height: 12),
       SwitchListTile(
         secondary: Icon(Icons.shield_outlined, color: AppColors.primary),
         title: Text(l10n.live, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),

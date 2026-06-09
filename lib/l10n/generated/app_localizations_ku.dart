@@ -125,6 +125,13 @@ class AppLocalizationsKu extends AppLocalizations {
   String get categories => 'Kategorî';
 
   @override
+  String get categoryVisibility => 'Xuyaniya kategoriyan';
+
+  @override
+  String get categoryVisibilityDesc =>
+      'Kategoriyên nexwestî yên Zindî/Fîlm/Rêze veşêre';
+
+  @override
   String get selectCategory => 'Kategorîyekê hilbijêre';
 
   @override

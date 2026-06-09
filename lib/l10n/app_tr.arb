@@ -38,6 +38,8 @@
   "setDefault": "Varsayılan Yap",
   "defaultLabel": "Varsayılan",
   "categories": "Kategoriler",
+  "categoryVisibility": "Kategori görünürlüğü",
+  "categoryVisibilityDesc": "İstenmeyen Canlı/Film/Dizi kategorilerini gizle",
   "selectCategory": "Bir Kategori Seçin",
   "selectChannel": "Bir Kanal Seçin",
   "syncing": "Senkronize ediliyor...",
