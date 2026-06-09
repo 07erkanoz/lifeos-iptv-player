@@ -841,8 +841,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     );
     _controller = VideoController(
       _player,
-      configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
+      // Honour the "Donanım hızlandırma" setting (was hardcoded true).
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: settings.hardwareAcceleration,
       ),
     );
 
@@ -851,6 +852,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       final mpv = _player.platform! as NativePlayer;
       final gpu = await GpuDetector.detect();
       await MpvConfig.applyOptimal(mpv, gpu);
+
+      // Wire the "Donanım hızlandırma" setting to mpv's decoder.
+      // ON (default): keep the vendor-detected hardware decoder
+      // (mediacodec / vaapi / nvdec / d3d11va) with mpv's own safe
+      // fallback. OFF: force pure software decoding — the escape hatch
+      // for problematic IPTV streams that green-screen / won't play on
+      // hardware (costs CPU/battery but plays almost anything).
+      if (!settings.hardwareAcceleration) {
+        await mpv.setProperty('hwdec', 'no');
+      }
 
       if (widget.type == VideoType.live) {
         // Live TV: aggressive low-latency
