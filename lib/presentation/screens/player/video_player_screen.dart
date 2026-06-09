@@ -156,6 +156,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Timer? _saveProgressTimer;
   Timer? _posUpdateTimer; // Throttled UI updates for position
 
+  // -- D-pad accumulated seek ----------------------------------------------
+  // TV remote seeking: each left/right press shifts a PREVIEW position
+  // instantly (progress bar only) and we commit ONE real player.seek()
+  // ~400ms after the last press. Without this, every press is a real
+  // seek → demuxer flush + keyframe re-decode (a 1-2s stall on HQ/IPTV),
+  // so a few quick taps stutter and overshoot. null = no active session.
+  Duration? _seekPreview;
+  Timer? _seekCommitTimer;
+
   // -- Position / Duration --------------------------------------------------
   Duration _pos = Duration.zero;
   Duration _dur = Duration.zero;
@@ -411,6 +420,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _pipEventSub = null;
     _introMarkerSub?.cancel();
     _posUpdateTimer?.cancel();
+    _seekCommitTimer?.cancel();
     _channelInfoTimer?.cancel();
     // Player teardown already happened at the top of dispose().
     _hideTimer?.cancel();
@@ -1018,6 +1028,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // rebuilds; the position re-syncs the instant controls reappear.
     _posUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
+      // Don't clobber an in-progress D-pad seek preview with the real
+      // (not-yet-sought) position.
+      if (_seekPreview != null) return;
       if (!_showControls && !_isPaused) return;
       if (_rawPos != _pos) {
         setState(() => _pos = _rawPos);
@@ -1569,6 +1582,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// Handle key events at the top level (video area).
   /// When controls are showing AND focused, let D-pad navigate between buttons.
   /// When controls are hidden or video area is focused, handle seek/volume.
+  /// D-pad seek: shift a preview position by [seconds] instantly and
+  /// schedule a single real seek once the user stops pressing. Repeated
+  /// taps accumulate against the preview, not against repeated flushes.
+  void _nudgeSeek(int seconds) {
+    final base = _seekPreview ?? _rawPos;
+    var target = base + Duration(seconds: seconds);
+    if (target < Duration.zero) target = Duration.zero;
+    if (_dur > Duration.zero && target > _dur) target = _dur;
+    setState(() {
+      _seekPreview = target;
+      _pos = target; // live progress-bar + time-label preview
+    });
+    _showControlsBriefly();
+    _seekCommitTimer?.cancel();
+    _seekCommitTimer = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final t = _seekPreview;
+      _seekPreview = null;
+      if (t != null) _player.seek(t);
+    });
+  }
+
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final k = event.logicalKey;
@@ -1620,11 +1655,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // Select/enter when controls hidden → show controls
+    // Select/enter when controls hidden → play/pause directly (TV: OK
+    // button is the natural pause toggle) AND reveal controls so the
+    // user can navigate from the now-focused play button.
     if ((k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) &&
         !_showControls) {
+      _player.playOrPause();
       _showControlsBriefly();
-      // Move focus to play/pause button
       _playPauseFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
@@ -1637,17 +1674,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Arrow keys when controls are NOT focused → seek/volume
     if (k == LogicalKeyboardKey.arrowLeft) {
-      final target = _pos - const Duration(seconds: 10);
-      setState(() => _pos = target); // Immediate UI feedback
-      _player.seek(target);
-      _showControlsBriefly();
+      _nudgeSeek(-10);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight) {
-      final target = _pos + const Duration(seconds: 10);
-      setState(() => _pos = target); // Immediate UI feedback
-      _player.seek(target);
-      _showControlsBriefly();
+      _nudgeSeek(10);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowUp) {
