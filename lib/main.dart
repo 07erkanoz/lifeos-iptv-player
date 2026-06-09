@@ -167,6 +167,10 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   /// via Gemini so search/similar/dashboard rails work on sparse
   /// IPTV metadata. Gated on the setting + a Gemini key.
   void _maybeEnrichCatalog() {
+    // TV-lite: no background AI catalogue work on Android TV — the
+    // enrichment/embedding Drift batch writes on the main isolate were
+    // a primary cause of the unusable grid/dashboard performance.
+    if (PlatformHelper.isTV) return;
     if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
     if (!ref.read(settingsProvider).hasAiKey) return;
     // Small delay so first-frame work (playlist load, dashboard rails)
@@ -208,6 +212,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   }
 
   void _runEnrichPass() {
+    if (PlatformHelper.isTV) return; // TV-lite: no AI catalogue work
     // Don't run Gemini HTTP + Drift batch writes on the main isolate
     // while a video is playing — that's what caused the ~45 s stutter.
     // The periodic timer keeps ticking and resumes after playback.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
@@ -3071,6 +3072,12 @@ enum PlotEnrichMode { translate, summarize, fillIn, detailedInfo }
 /// `ref.watch` (not `read`) so the service is re-built when the user
 /// pastes/clears their key in Settings.
 final geminiServiceProvider = Provider<GeminiService?>((ref) {
+  // TV-lite: disable ALL AI on Android TV. The background catalogue
+  // enrichment + embedding runners (which hammer the main-isolate DB),
+  // the AI dashboard rails, the assistant chat and semantic search all
+  // gate on this provider — returning null here turns the whole AI
+  // subsystem off so weak TV hardware isn't dragged down by it.
+  if (PlatformHelper.isTV) return null;
   final settings = ref.watch(settingsProvider);
   if (!settings.hasAiKey) return null;
   return GeminiService(settings.geminiApiKey!.trim());

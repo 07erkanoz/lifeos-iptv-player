@@ -35,6 +35,7 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lifeostv/utils/responsive.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -321,7 +322,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // it disabled because the chat has nothing meaningful to do
     // without a key, and a disabled button is a worse signal than no
     // button at all.
-    final hasAiKey = ref.watch(settingsProvider).hasAiKey;
+    // TV-lite: no AI assistant on Android TV.
+    final hasAiKey = ref.watch(settingsProvider).hasAiKey &&
+        !PlatformHelper.isTV;
 
     return Scaffold(
       floatingActionButton: hasAiKey

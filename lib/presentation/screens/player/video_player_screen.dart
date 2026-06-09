@@ -24,6 +24,7 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/core/playback_signal.dart';
 import 'package:lifeostv/core/perf/frosted.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
@@ -841,9 +842,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     );
     _controller = VideoController(
       _player,
-      // Honour the "Donanım hızlandırma" setting (was hardcoded true).
+      // Honour the "Donanım hızlandırma" setting — except on Android
+      // TV, where software decoding is unusably slow, so we always
+      // force hardware there regardless of the toggle.
       configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: settings.hardwareAcceleration,
+        enableHardwareAcceleration:
+            PlatformHelper.isTV ? true : settings.hardwareAcceleration,
       ),
     );
 
@@ -859,7 +863,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // fallback. OFF: force pure software decoding — the escape hatch
       // for problematic IPTV streams that green-screen / won't play on
       // hardware (costs CPU/battery but plays almost anything).
-      if (!settings.hardwareAcceleration) {
+      // Force software only when the user disabled HW AND we're not on
+      // a TV (TV software decode is unusably slow — keep hw there).
+      if (!settings.hardwareAcceleration && !PlatformHelper.isTV) {
         await mpv.setProperty('hwdec', 'no');
       }
 

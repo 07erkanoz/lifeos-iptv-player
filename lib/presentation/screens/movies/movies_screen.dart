@@ -1205,6 +1205,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           // it off keeps the detail panel static and stops the
           // background YouTube extraction from running.
           if (!isMobilePlatform &&
+              !PlatformHelper.isTV &&
               ref.watch(settingsProvider).showTrailer)
             Positioned(
               top: 88,

@@ -2266,6 +2266,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           //
           // Also gated on the user's `showTrailer` setting.
           if (!isMobilePlatform &&
+              !PlatformHelper.isTV &&
               ref.watch(settingsProvider).showTrailer)
             Positioned(
               top: 88,
