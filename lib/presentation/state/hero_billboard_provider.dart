@@ -192,7 +192,10 @@ final heroBillboardProvider =
   ])
         ..where((db.channels.type.equals('movie') |
                 db.channels.type.equals('series')) &
-            db.categories.isHidden.equals(false))
+            db.categories.isHidden.equals(false) &
+            (ref.read(settingsProvider).autoHideAdult
+                ? _heroNotAdult(db.categories)
+                : const Constant(true)))
         ..limit(2000))
       .get();
   final allVod = allVodRows.map((r) => r.readTable(db.channels)).toList();
@@ -347,4 +350,18 @@ String _bucketOfDay(DateTime now) {
   if (h >= 11 && h < 17) return 'öğle';
   if (h >= 17 && h < 22) return 'akşam';
   return 'gece';
+}
+
+/// TRUE for non-adult categories — mirrors ContentRepository's adult
+/// filter so the hero billboard honours the "18+/XXX gizle" setting.
+Expression<bool> _heroNotAdult($CategoriesTable c) {
+  const patterns = [
+    'xxx', 'adult', 'erotic', 'erotik', 'porn', '+18', '18+',
+    'dorcel', 'brazzers', 'hardcore', 'yetişkin', 'yetiskin',
+  ];
+  Expression<bool> e = const Constant(true);
+  for (final p in patterns) {
+    e = e & c.name.lower().like('%$p%').not();
+  }
+  return e;
 }

@@ -746,6 +746,12 @@ final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
 
 /// Combined continue watching provider: movies + series with unfinished progress, sorted by updatedAt
 final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) async* {
+  // Respect the user's "Continue watching" toggle — when off, the rail
+  // shows nothing (the .when below renders empty → no rail).
+  if (!ref.watch(settingsProvider).continueWatchingEnabled) {
+    yield const <Channel>[];
+    return;
+  }
   // Base stream — last-watched-first, the deterministic answer.
   final baseStream =
       ref.watch(contentRepositoryProvider).watchAllContinueWatching();

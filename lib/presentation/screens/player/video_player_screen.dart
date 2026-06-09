@@ -861,9 +861,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await mpv.setProperty('demuxer-max-back-bytes', '4MiB');
         await mpv.setProperty('demuxer-readahead-secs', '2');
       } else {
-        // VOD
+        // VOD — honour the user's "Tampon süresi" (buffer duration)
+        // setting. Clamped to a sane range so a bad value can't wedge
+        // playback. Higher = smoother on flaky connections, more RAM.
+        final bufSecs = settings.bufferDuration.clamp(5, 120);
         await mpv.setProperty('cache', 'yes');
-        await mpv.setProperty('cache-secs', '15');
+        await mpv.setProperty('cache-secs', '$bufSecs');
+        await mpv.setProperty('demuxer-readahead-secs', '$bufSecs');
         await mpv.setProperty('demuxer-max-bytes', '32MiB');
         await mpv.setProperty('demuxer-max-back-bytes', '16MiB');
       }
@@ -922,6 +926,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _rawPos = p;
         if (widget.type == VideoType.series &&
             widget.onNextEpisode != null &&
+            ref.read(settingsProvider).autoNextEpisode &&
             _dur.inSeconds > 0) {
           final remaining = _dur.inSeconds - p.inSeconds;
           if (remaining <= 45 &&

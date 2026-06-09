@@ -7,6 +7,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/utils/search_normalizer.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,19 +18,46 @@ class ContentRepository {
   final AppDatabase _db;
   final SyncService _syncService;
   final int Function() _getActiveProfileId;
+  final bool Function() _autoHideAdult;
 
   /// Minimum interval between full EPG syncs (server-friendly)
   static const _epgSyncInterval = Duration(hours: 2);
   static const _epgSyncKey = 'last_epg_sync_timestamp';
 
-  ContentRepository(this._db, this._syncService, this._getActiveProfileId);
+  ContentRepository(
+    this._db,
+    this._syncService,
+    this._getActiveProfileId, {
+    bool Function()? autoHideAdult,
+  }) : _autoHideAdult = (autoHideAdult ?? (() => false));
 
   int get _pid => _getActiveProfileId();
+
+  /// Adult category-name patterns (matched case-insensitively). When
+  /// the "18+/XXX gizle" setting is on, categories whose name contains
+  /// any of these are filtered out of browsing surfaces.
+  static const _adultPatterns = [
+    'xxx', 'adult', 'erotic', 'erotik', 'porn', '+18', '18+',
+    'dorcel', 'brazzers', 'hardcore', 'yetişkin', 'yetiskin',
+  ];
+
+  /// SQL predicate on the [Categories] table that is TRUE for non-adult
+  /// rows. A no-op (always TRUE) when the user hasn't enabled the adult
+  /// filter, so callers can apply it unconditionally.
+  Expression<bool> _notAdultCategory($CategoriesTable c) {
+    if (!_autoHideAdult()) return const Constant(true);
+    Expression<bool> expr = const Constant(true);
+    for (final p in _adultPatterns) {
+      expr = expr & c.name.lower().like('%$p%').not();
+    }
+    return expr;
+  }
 
   Stream<List<Category>> watchCategories(String type) {
     return (_db.select(_db.categories)
       ..where((tbl) => tbl.type.equals(type))
       ..where((tbl) => tbl.isHidden.equals(false))
+      ..where((tbl) => _notAdultCategory(tbl))
     ).watch();
   }
 
@@ -97,7 +125,7 @@ class ContentRepository {
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
       ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)]);
     return query
         .watch()
@@ -113,7 +141,7 @@ class ContentRepository {
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
       ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)])
       ..limit(limit);
     return query.watch().map((rows) =>
@@ -139,7 +167,7 @@ class ContentRepository {
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
-    ])..where(_db.categories.isHidden.equals(false))).get();
+    ])..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))).get();
     // Preload enrichment once so genre-less items can still match a
     // genre query ("korku") and the returned channel carries the
     // inferred genre.
@@ -443,7 +471,7 @@ class ContentRepository {
       ),
     ])
           ..addColumns([countExpr])
-          ..where(_db.categories.isHidden.equals(false))
+          ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
           ..groupBy([_db.categories.id, _db.categories.type])
           ..orderBy([
             OrderingTerm(expression: countExpr, mode: OrderingMode.desc),
@@ -492,7 +520,7 @@ class ContentRepository {
     ])
           ..where(_db.channels.type.equals('movie') |
               _db.channels.type.equals('series'))
-          ..where(_db.categories.isHidden.equals(false))
+          ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
           ..where(_db.channels.cast.like(pattern) |
               _db.channels.director.like(pattern))
           ..limit(limit))
@@ -520,7 +548,7 @@ class ContentRepository {
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
       ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
     ).get();
 
     // Build (channel, haystack) tuples once so the fuzzy pass below
@@ -657,7 +685,7 @@ class ContentRepository {
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
       ),
-    ])..where(_db.categories.isHidden.equals(false));
+    ])..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories));
 
     if (intent.contentType != null) {
       query.where(_db.channels.type.equals(intent.contentType!));
@@ -797,6 +825,7 @@ class ContentRepository {
       ),
     ])
           ..where(_db.categories.isHidden.equals(false) &
+              _notAdultCategory(_db.categories) &
               _db.programs.start.isSmallerOrEqualValue(now) &
               _db.programs.stop.isBiggerThanValue(now))
           ..orderBy([
@@ -830,7 +859,7 @@ class ContentRepository {
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
       ..where(_db.channels.type.equals('live'))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
     ).get();
     final out = <Channel>[];
     for (final r in rows) {
@@ -1052,7 +1081,7 @@ class ContentRepository {
         ),
       ])
             ..where(_db.channels.type.equals(type))
-            ..where(_db.categories.isHidden.equals(false))
+            ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
             ..orderBy([
               // Highest-rated first; tie-break on most recently added
               // (the `added` column is a timestamp string from the
@@ -1173,7 +1202,7 @@ class ContentRepository {
       ),
     ])
       ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
       ..where(_db.playbackProgress.profileId.equals(pid))
@@ -1202,7 +1231,7 @@ class ContentRepository {
       ),
     ])
       ..where(_db.channels.type.isIn(['movie', 'series']))
-      ..where(_db.categories.isHidden.equals(false))
+      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..where(_db.playbackProgress.isFinished.equals(false))
       ..where(_db.playbackProgress.position.isBiggerThanValue(0))
       ..where(_db.playbackProgress.profileId.equals(pid))
@@ -1270,5 +1299,6 @@ ContentRepository contentRepository(Ref ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(syncServiceProvider),
     () => ref.read(activeProfileIdProvider).value ?? 1,
+    autoHideAdult: () => ref.read(settingsProvider).autoHideAdult,
   );
 }
