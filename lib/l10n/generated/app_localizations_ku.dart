@@ -458,6 +458,42 @@ class AppLocalizationsKu extends AppLocalizations {
   String get retry => 'Dîsa biceribîne';
 
   @override
+  String get autoNextEpisodeDesc => 'Beşa pêş bixweber lê bide';
+
+  @override
+  String get catchupUnavailable =>
+      'Catch-up ji bo vî cureyê hesabê nayê bikaranîn';
+
+  @override
+  String timeshiftReplaying(String title) {
+    return '$title — ji nû ve tê lîstin';
+  }
+
+  @override
+  String get catchupOpenFailed =>
+      'Stream-a catch-up venebû — dibe ku server pencereyê sînor bike';
+
+  @override
+  String get dlnaConnectFailed =>
+      'Negihîşt TV. Pê ewle be ku li ser heman tora Wi-Fi ye û vekirî ye.';
+
+  @override
+  String get connectionTimedOut => 'Demê girêdanê qediya';
+
+  @override
+  String get streamLoadFailed =>
+      'Stream barnekir. Ji kerema xwe dîsa biceribîne.';
+
+  @override
+  String get upNextLabel => 'Ya pêş: ';
+
+  @override
+  String get aiCallHistory => 'Dîroka bangên AI';
+
+  @override
+  String get recentCalls => 'BANGÊN DAWÎ';
+
+  @override
   String get save => 'Tomar bike';
 
   @override

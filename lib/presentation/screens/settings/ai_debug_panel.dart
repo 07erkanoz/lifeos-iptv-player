@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 /// Settings → Debug → "AI Çağrı Geçmişi".
 ///
@@ -26,12 +27,13 @@ class AiDebugPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     final instrumentation = ref.watch(aiInstrumentationProvider);
     return Scaffold(
       backgroundColor:
           isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
       appBar: AppBar(
-        title: const Text('AI Çağrı Geçmişi'),
+        title: Text(l10n.aiCallHistory),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -43,7 +45,7 @@ class AiDebugPanel extends ConsumerWidget {
           _SummarySection(instrumentation: instrumentation, isDark: isDark),
           const SizedBox(height: 20),
           Text(
-            'SON ÇAĞRILAR',
+            l10n.recentCalls,
             style: TextStyle(
               color: AppColors.textTertiary(context),
               fontSize: 11,

@@ -458,6 +458,41 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get autoNextEpisodeDesc => 'تشغيل الحلقة التالية تلقائيًا';
+
+  @override
+  String get catchupUnavailable =>
+      'إعادة المشاهدة غير متاحة لهذا النوع من الحسابات';
+
+  @override
+  String timeshiftReplaying(String title) {
+    return '$title — إعادة التشغيل';
+  }
+
+  @override
+  String get catchupOpenFailed =>
+      'تعذّر فتح بث إعادة المشاهدة — قد يحدّ الخادم من النافذة الزمنية';
+
+  @override
+  String get dlnaConnectFailed =>
+      'تعذّر الوصول إلى التلفزيون. تأكّد من أنه على نفس شبكة Wi-Fi وقيد التشغيل.';
+
+  @override
+  String get connectionTimedOut => 'انتهت مهلة الاتصال';
+
+  @override
+  String get streamLoadFailed => 'تعذّر تحميل البث. حاول مرة أخرى.';
+
+  @override
+  String get upNextLabel => 'التالي: ';
+
+  @override
+  String get aiCallHistory => 'سجل استدعاءات الذكاء الاصطناعي';
+
+  @override
+  String get recentCalls => 'الاستدعاءات الأخيرة';
+
+  @override
   String get save => 'حفظ';
 
   @override

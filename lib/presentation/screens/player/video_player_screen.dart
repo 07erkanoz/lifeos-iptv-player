@@ -1710,8 +1710,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // M3U accounts don't expose timeshift; surface a brief notice.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Catch-up bu hesap türünde kullanılamıyor')),
+        SnackBar(
+            content: Text(
+                AppLocalizations.of(context)!.catchupUnavailable)),
       );
       return;
     }
@@ -1732,7 +1733,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${program.title} — yeniden oynatılıyor'),
+            content: Text(AppLocalizations.of(context)!
+                .timeshiftReplaying(program.title)),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1741,9 +1743,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       debugPrint('[timeshift] open failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Catch-up stream açılamadı — sunucu pencereyi sınırlamış olabilir')),
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context)!.catchupOpenFailed)),
         );
       }
     }
@@ -2697,10 +2699,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await DlnaService.instance.disconnect();
         messenger.showSnackBar(
           SnackBar(
-            content: const Text(
-              'TV ile iletişim kurulamadı. Aynı Wi-Fi ağında olduğundan '
-              've TV\'nin açık olduğundan emin ol.',
-            ),
+            content: Text(l10n.dlnaConnectFailed),
             backgroundColor: Colors.red.shade800,
             duration: const Duration(seconds: 5),
           ),
@@ -2968,18 +2967,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               size: 48,
                             ),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Bağlantı zaman aşımına uğradı',
-                              style: TextStyle(
+                            Text(
+                              AppLocalizations.of(context)!.connectionTimedOut,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Stream yüklenemedi. Tekrar deneyin.',
-                              style: TextStyle(
+                            Text(
+                              AppLocalizations.of(context)!.streamLoadFailed,
+                              style: const TextStyle(
                                 color: Colors.white54,
                                 fontSize: 13,
                               ),
@@ -4125,9 +4124,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              const Text(
-                                'Sıradaki: ',
-                                style: TextStyle(
+                              Text(
+                                AppLocalizations.of(context)!.upNextLabel,
+                                style: const TextStyle(
                                   color: Colors.white30,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,

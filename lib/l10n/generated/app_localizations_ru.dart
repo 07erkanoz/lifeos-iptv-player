@@ -459,6 +459,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get retry => 'Повторить';
 
   @override
+  String get autoNextEpisodeDesc => 'Автовоспроизведение следующего эпизода';
+
+  @override
+  String get catchupUnavailable =>
+      'Catch-up недоступен для этого типа аккаунта';
+
+  @override
+  String timeshiftReplaying(String title) {
+    return '$title — повтор';
+  }
+
+  @override
+  String get catchupOpenFailed =>
+      'Не удалось открыть catch-up — сервер может ограничивать окно';
+
+  @override
+  String get dlnaConnectFailed =>
+      'Не удалось подключиться к ТВ. Убедитесь, что он в той же сети Wi-Fi и включён.';
+
+  @override
+  String get connectionTimedOut => 'Время ожидания соединения истекло';
+
+  @override
+  String get streamLoadFailed =>
+      'Не удалось загрузить поток. Попробуйте снова.';
+
+  @override
+  String get upNextLabel => 'Далее: ';
+
+  @override
+  String get aiCallHistory => 'История вызовов ИИ';
+
+  @override
+  String get recentCalls => 'ПОСЛЕДНИЕ ВЫЗОВЫ';
+
+  @override
   String get save => 'Сохранить';
 
   @override

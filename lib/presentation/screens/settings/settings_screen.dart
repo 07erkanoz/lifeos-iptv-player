@@ -853,7 +853,7 @@ class _PlayerSection extends ConsumerWidget {
       const SizedBox(height: 12),
       SwitchListTile(
         title: Text(l10n.nextEpisode, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.continueWatching, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        subtitle: Text(l10n.autoNextEpisodeDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
         value: settings.autoNextEpisode,
         onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(autoNextEpisode: val)),
         activeThumbColor: AppColors.primary,

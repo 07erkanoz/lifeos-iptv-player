@@ -459,6 +459,41 @@ class AppLocalizationsTr extends AppLocalizations {
   String get retry => 'Tekrar Dene';
 
   @override
+  String get autoNextEpisodeDesc =>
+      'Bölüm bitince sonraki bölümü otomatik oynat';
+
+  @override
+  String get catchupUnavailable => 'Catch-up bu hesap türünde kullanılamıyor';
+
+  @override
+  String timeshiftReplaying(String title) {
+    return '$title — yeniden oynatılıyor';
+  }
+
+  @override
+  String get catchupOpenFailed =>
+      'Catch-up stream açılamadı — sunucu pencereyi sınırlamış olabilir';
+
+  @override
+  String get dlnaConnectFailed =>
+      'TV ile iletişim kurulamadı. Aynı Wi-Fi ağında olduğundan ve TV\'nin açık olduğundan emin ol.';
+
+  @override
+  String get connectionTimedOut => 'Bağlantı zaman aşımına uğradı';
+
+  @override
+  String get streamLoadFailed => 'Stream yüklenemedi. Tekrar deneyin.';
+
+  @override
+  String get upNextLabel => 'Sıradaki: ';
+
+  @override
+  String get aiCallHistory => 'AI Çağrı Geçmişi';
+
+  @override
+  String get recentCalls => 'SON ÇAĞRILAR';
+
+  @override
   String get save => 'Kaydet';
 
   @override

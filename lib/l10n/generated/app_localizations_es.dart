@@ -458,6 +458,43 @@ class AppLocalizationsEs extends AppLocalizations {
   String get retry => 'Reintentar';
 
   @override
+  String get autoNextEpisodeDesc =>
+      'Reproducir el siguiente episodio automáticamente';
+
+  @override
+  String get catchupUnavailable =>
+      'Catch-up no está disponible para este tipo de cuenta';
+
+  @override
+  String timeshiftReplaying(String title) {
+    return '$title — reproduciendo de nuevo';
+  }
+
+  @override
+  String get catchupOpenFailed =>
+      'No se pudo abrir el catch-up — el servidor puede limitar la ventana';
+
+  @override
+  String get dlnaConnectFailed =>
+      'No se pudo conectar con la TV. Asegúrate de que esté en la misma red Wi-Fi y encendida.';
+
+  @override
+  String get connectionTimedOut => 'Se agotó el tiempo de conexión';
+
+  @override
+  String get streamLoadFailed =>
+      'No se pudo cargar el stream. Inténtalo de nuevo.';
+
+  @override
+  String get upNextLabel => 'A continuación: ';
+
+  @override
+  String get aiCallHistory => 'Historial de llamadas de IA';
+
+  @override
+  String get recentCalls => 'LLAMADAS RECIENTES';
+
+  @override
   String get save => 'Guardar';
 
   @override

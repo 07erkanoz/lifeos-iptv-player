@@ -974,6 +974,66 @@ abstract class AppLocalizations {
   /// **'Tekrar Dene'**
   String get retry;
 
+  /// No description provided for @autoNextEpisodeDesc.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bölüm bitince sonraki bölümü otomatik oynat'**
+  String get autoNextEpisodeDesc;
+
+  /// No description provided for @catchupUnavailable.
+  ///
+  /// In tr, this message translates to:
+  /// **'Catch-up bu hesap türünde kullanılamıyor'**
+  String get catchupUnavailable;
+
+  /// No description provided for @timeshiftReplaying.
+  ///
+  /// In tr, this message translates to:
+  /// **'{title} — yeniden oynatılıyor'**
+  String timeshiftReplaying(String title);
+
+  /// No description provided for @catchupOpenFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Catch-up stream açılamadı — sunucu pencereyi sınırlamış olabilir'**
+  String get catchupOpenFailed;
+
+  /// No description provided for @dlnaConnectFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'TV ile iletişim kurulamadı. Aynı Wi-Fi ağında olduğundan ve TV\'nin açık olduğundan emin ol.'**
+  String get dlnaConnectFailed;
+
+  /// No description provided for @connectionTimedOut.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bağlantı zaman aşımına uğradı'**
+  String get connectionTimedOut;
+
+  /// No description provided for @streamLoadFailed.
+  ///
+  /// In tr, this message translates to:
+  /// **'Stream yüklenemedi. Tekrar deneyin.'**
+  String get streamLoadFailed;
+
+  /// No description provided for @upNextLabel.
+  ///
+  /// In tr, this message translates to:
+  /// **'Sıradaki: '**
+  String get upNextLabel;
+
+  /// No description provided for @aiCallHistory.
+  ///
+  /// In tr, this message translates to:
+  /// **'AI Çağrı Geçmişi'**
+  String get aiCallHistory;
+
+  /// No description provided for @recentCalls.
+  ///
+  /// In tr, this message translates to:
+  /// **'SON ÇAĞRILAR'**
+  String get recentCalls;
+
   /// No description provided for @save.
   ///
   /// In tr, this message translates to:
