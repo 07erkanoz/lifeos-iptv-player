@@ -9,6 +9,7 @@ import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/utils/search_normalizer.dart';
+import 'package:lifeostv/utils/stream_debounce.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -53,12 +54,17 @@ class ContentRepository {
     return expr;
   }
 
+  /// Coalesce window for catalogue-driven watch streams — a refresh
+  /// writes channels/categories in many batches; without this each
+  /// batch re-fires the stream (re-transfer + rebuild).
+  static const _coalesce = Duration(milliseconds: 300);
+
   Stream<List<Category>> watchCategories(String type) {
     return (_db.select(_db.categories)
       ..where((tbl) => tbl.type.equals(type))
       ..where((tbl) => tbl.isHidden.equals(false))
       ..where((tbl) => _notAdultCategory(tbl))
-    ).watch();
+    ).watch().coalesce(_coalesce);
   }
 
   /// All categories including hidden ones (for editing)
@@ -113,7 +119,7 @@ class ContentRepository {
     // Overlay AI enrichment so empty-genre items show their inferred
     // genre/year in the grid, the genre filter, AND the detail page
     // (which receives the channel object from the grid tap).
-    return query.watch().asyncMap(_mergeEnrichment);
+    return query.watch().coalesce(_coalesce).asyncMap(_mergeEnrichment);
   }
 
   /// All channels of a given type (no limit — for "Tüm" grid + search)
@@ -129,6 +135,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)]);
     return query
         .watch()
+        .coalesce(_coalesce)
         .map((rows) => rows.map((row) => row.readTable(_db.channels)).toList())
         .asyncMap(_mergeEnrichment);
   }
@@ -144,7 +151,7 @@ class ContentRepository {
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)])
       ..limit(limit);
-    return query.watch().map((rows) =>
+    return query.watch().coalesce(_coalesce).map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
@@ -1126,11 +1133,27 @@ class ContentRepository {
     return [for (final c in channels) _applyEnrichment(c, map)];
   }
 
-  /// Full enrichment table as a `"streamId|type"` → row map. The table
-  /// only holds enriched items, so it's bounded and cheap to read.
+  Map<String, ContentEnrichmentData>? _enrichMapCache;
+  DateTime? _enrichMapAt;
+
+  /// Full enrichment table as a `"streamId|type"` → row map, cached for
+  /// a short TTL. A grid emission can call this repeatedly; reloading
+  /// the whole table + rebuilding the map each time was wasted main-
+  /// isolate work. 20s staleness just delays a freshly-inferred genre
+  /// overlay by at most that long — imperceptible.
   Future<Map<String, ContentEnrichmentData>> _loadEnrichmentMap() async {
+    final cached = _enrichMapCache;
+    final at = _enrichMapAt;
+    if (cached != null &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(seconds: 20)) {
+      return cached;
+    }
     final rows = await _db.select(_db.contentEnrichment).get();
-    return {for (final r in rows) '${r.streamId}|${r.type}': r};
+    final map = {for (final r in rows) '${r.streamId}|${r.type}': r};
+    _enrichMapCache = map;
+    _enrichMapAt = DateTime.now();
+    return map;
   }
 
   /// Overlay enrichment onto a single channel when its provider
@@ -1209,7 +1232,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(50);
 
-    return query.watch().map((rows) =>
+    return query.watch().coalesce(_coalesce).map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
@@ -1238,7 +1261,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(20);
 
-    return query.watch().map((rows) =>
+    return query.watch().coalesce(_coalesce).map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
