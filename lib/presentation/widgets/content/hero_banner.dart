@@ -817,6 +817,9 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
         alignment: const Alignment(0, -0.3),
         width: double.infinity,
         height: double.infinity,
+        // Cap decode — provider backdrops can be 1920px+/multi-MB;
+        // 1280 covers the hero at 2x DPI and keeps rotation smooth.
+        memCacheWidth: 1280,
         errorWidget: (_, _, _) => _buildPosterBackground(channel),
       );
     }

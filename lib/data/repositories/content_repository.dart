@@ -104,16 +104,49 @@ class ContentRepository {
     });
   }
 
+  /// Numeric view of the TEXT `added` column (unix-epoch string from
+  /// the provider). Plain `ORDER BY added` sorts lexically ("999" >
+  /// "1000") — newest-first was wrong AND unindexable. This matches
+  /// the expression index idx_channels_type_added.
+  Expression<int> get _addedNum =>
+      const CustomExpression<int>('CAST(channels.added AS INTEGER)');
+
+  /// Apply enrichment from a LEFT JOINed row — no full-table map load,
+  /// no whole-list copy; only rows that actually need the overlay
+  /// allocate a copyWith.
+  Channel _overlayEnrichmentRow(Channel ch, ContentEnrichmentData? e) {
+    if (e == null) return ch;
+    if (ch.genre != null && ch.genre!.isNotEmpty) return ch;
+    if (e.genres == null || e.genres!.isEmpty) return ch;
+    return ch.copyWith(
+      genre: Value(e.genres),
+      year: Value((ch.year != null && ch.year!.isNotEmpty)
+          ? ch.year
+          : e.year?.toString()),
+    );
+  }
+
   Stream<List<Channel>> watchChannels(String categoryId, {String? type}) {
-    final query = _db.select(_db.channels)
-      ..where((tbl) => tbl.categoryId.equals(categoryId));
+    // Enrichment overlay happens in SQL (LEFT JOIN) instead of loading
+    // the whole content_enrichment table into Dart per emission.
+    final query = _db.select(_db.channels).join([
+      leftOuterJoin(
+        _db.contentEnrichment,
+        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+            _db.contentEnrichment.type.equalsExp(_db.channels.type),
+      ),
+    ])
+      ..where(_db.channels.categoryId.equals(categoryId));
     if (type != null) {
-      query.where((tbl) => tbl.type.equals(type));
+      query.where(_db.channels.type.equals(type));
     }
-    // Overlay AI enrichment so empty-genre items show their inferred
-    // genre/year in the grid, the genre filter, AND the detail page
-    // (which receives the channel object from the grid tap).
-    return query.watch().asyncMap(_mergeEnrichment);
+    return query.watch().map((rows) => [
+          for (final row in rows)
+            _overlayEnrichmentRow(
+              row.readTable(_db.channels),
+              row.readTableOrNull(_db.contentEnrichment),
+            ),
+        ]);
   }
 
   /// All channels of a given type (no limit — for "Tüm" grid + search)
@@ -123,15 +156,22 @@ class ContentRepository {
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
+      leftOuterJoin(
+        _db.contentEnrichment,
+        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+            _db.contentEnrichment.type.equalsExp(_db.channels.type),
+      ),
     ])
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)]);
-    return query
-        .watch()
-        
-        .map((rows) => rows.map((row) => row.readTable(_db.channels)).toList())
-        .asyncMap(_mergeEnrichment);
+      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)]);
+    return query.watch().map((rows) => [
+          for (final row in rows)
+            _overlayEnrichmentRow(
+              row.readTable(_db.channels),
+              row.readTableOrNull(_db.contentEnrichment),
+            ),
+        ]);
   }
 
   /// Recent channels filtered by hidden categories.
@@ -143,7 +183,7 @@ class ContentRepository {
     ])
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)])
+      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)])
       ..limit(limit);
     return query.watch().map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),

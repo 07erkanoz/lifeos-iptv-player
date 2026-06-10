@@ -42,6 +42,28 @@ class PosterCard extends StatefulWidget {
 }
 
 class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateMixin {
+  // Shared across all cards — see boxShadow note in build().
+  static final List<BoxShadow> _activeShadows = [
+    BoxShadow(
+      color: AppColors.primary.withValues(alpha: 0.18),
+      blurRadius: 18,
+      spreadRadius: 1,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.32),
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ];
+  static final List<BoxShadow> _idleShadows = [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.24),
+      blurRadius: 8,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
   // Desktop: subtle Netflix lift (1.08x). TV: bigger pop (1.12x) so
   // the active card reads from a couch's distance — pulled from
   // PlatformHelper.focusedScale.
@@ -199,27 +221,9 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
           color: isActive ? AppColors.primary : AppColors.borderDark,
           width: 1.5,
         ),
-        boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.32),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.24),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        // Static shadow lists — a grid has dozens of cards; allocating
+        // fresh BoxShadows every build/focus tick adds up.
+        boxShadow: isActive ? _activeShadows : _idleShadows,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),

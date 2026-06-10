@@ -214,6 +214,19 @@ class AppDatabase extends _$AppDatabase {
         "is_kids, created_at) VALUES (1, 'Varsayılan', 'default', "
         "0, ${DateTime.now().millisecondsSinceEpoch ~/ 1000})",
       );
+
+      // ── Hot-query indexes ─────────────────────────────────────────
+      // Drift creates no secondary indexes by default, so every grid
+      // load was a full channels-table scan (~15k rows). IF NOT EXISTS
+      // → idempotent, no schema-version bump needed. Numeric expression
+      // index on `added` (a TEXT unix-epoch) backs the newest-first
+      // sorts.
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_channels_type_cat ON channels (type, category_id)');
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_channels_type_added ON channels (type, CAST(added AS INTEGER) DESC)');
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_categories_type_hidden ON categories (type, is_hidden)');
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_progress_profile_type ON playback_progress (profile_id, type, is_finished)');
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_favorites_profile_type ON favorites (profile_id, stream_type)');
+      await customStatement('CREATE INDEX IF NOT EXISTS idx_programs_channel_start ON programs (channel_id, start)');
     },
   );
 
