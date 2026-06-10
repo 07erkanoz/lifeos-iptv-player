@@ -21,8 +21,6 @@ import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/content_embeddings_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
-import 'package:lifeostv/data/repositories/profile_repository.dart'
-    show activeProfileIdProvider;
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
@@ -130,6 +128,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   Timer? _enrichTimer;
   Timer? _syncTimer;
   bool _autoSyncInFlight = false;
+  bool _autoSyncNudgedOnce = false;
 
   @override
   void initState() {
@@ -268,11 +267,18 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
         await svc.startAutoServer();
         await svc.runAutoSyncPass();
         if (!mounted) return;
-        // Drift favourites/progress are stream-backed, but settings /
-        // account providers aren't — nudge the ones that aren't. The
-        // settings reload picks up a Gemini key adopted from a peer.
-        ref.read(settingsProvider.notifier).reload();
-        ref.invalidate(activeProfileIdProvider);
+        // Favourites / progress / categories are Drift-stream-backed,
+        // so they refresh themselves after the merge — DON'T invalidate
+        // activeProfileIdProvider here: that rebuilds contentRepository
+        // and forces EVERY grid/dashboard stream to re-query on every
+        // resume + 5-min tick (the "reloads from scratch every time"
+        // regression). Nudge settings only ONCE per session, purely so
+        // a Gemini key adopted from a peer turns AI on without a manual
+        // restart.
+        if (!_autoSyncNudgedOnce) {
+          _autoSyncNudgedOnce = true;
+          ref.read(settingsProvider.notifier).reload();
+        }
       } catch (_) {
       } finally {
         _autoSyncInFlight = false;

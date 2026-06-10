@@ -9,7 +9,6 @@ import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/utils/search_normalizer.dart';
-import 'package:lifeostv/utils/stream_debounce.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,17 +53,12 @@ class ContentRepository {
     return expr;
   }
 
-  /// Coalesce window for catalogue-driven watch streams — a refresh
-  /// writes channels/categories in many batches; without this each
-  /// batch re-fires the stream (re-transfer + rebuild).
-  static const _coalesce = Duration(milliseconds: 300);
-
   Stream<List<Category>> watchCategories(String type) {
     return (_db.select(_db.categories)
       ..where((tbl) => tbl.type.equals(type))
       ..where((tbl) => tbl.isHidden.equals(false))
       ..where((tbl) => _notAdultCategory(tbl))
-    ).watch().coalesce(_coalesce);
+    ).watch();
   }
 
   /// All categories including hidden ones (for editing)
@@ -119,7 +113,7 @@ class ContentRepository {
     // Overlay AI enrichment so empty-genre items show their inferred
     // genre/year in the grid, the genre filter, AND the detail page
     // (which receives the channel object from the grid tap).
-    return query.watch().coalesce(_coalesce).asyncMap(_mergeEnrichment);
+    return query.watch().asyncMap(_mergeEnrichment);
   }
 
   /// All channels of a given type (no limit — for "Tüm" grid + search)
@@ -135,7 +129,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)]);
     return query
         .watch()
-        .coalesce(_coalesce)
+        
         .map((rows) => rows.map((row) => row.readTable(_db.channels)).toList())
         .asyncMap(_mergeEnrichment);
   }
@@ -151,7 +145,7 @@ class ContentRepository {
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..orderBy([OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc)])
       ..limit(limit);
-    return query.watch().coalesce(_coalesce).map((rows) =>
+    return query.watch().map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
@@ -1232,7 +1226,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(50);
 
-    return query.watch().coalesce(_coalesce).map((rows) =>
+    return query.watch().map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
@@ -1261,7 +1255,7 @@ class ContentRepository {
       ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
       ..limit(20);
 
-    return query.watch().coalesce(_coalesce).map((rows) =>
+    return query.watch().map((rows) =>
       rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
