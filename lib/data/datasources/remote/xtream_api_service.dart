@@ -308,6 +308,11 @@ XtreamApiService xtreamApiService(Ref ref) {
     headers: {'User-Agent': 'LifeOsTV/1.0'},
   ));
 
+  // Decode every response (get_vod_streams / get_series can be MANY MB
+  // / thousands of items) in a background isolate instead of jsonDecode
+  // on the UI thread. Keeps the app fluid during a full catalogue sync.
+  dio.transformer = BackgroundTransformer();
+
   dio.interceptors.add(InterceptorsWrapper(
     onError: (error, handler) async {
       if (error.type == DioExceptionType.connectionTimeout ||
