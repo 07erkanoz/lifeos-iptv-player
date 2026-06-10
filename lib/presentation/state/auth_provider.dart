@@ -1,5 +1,6 @@
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/data/services/sync_metadata.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
@@ -39,6 +40,9 @@ final initialSyncProvider = FutureProvider<void>((ref) async {
     final meta = SyncMetadata(prefs);
     final syncService = ref.read(syncServiceProvider);
     await syncService.runTieredSync(account, meta);
+    // A Tier-3 full refresh insertOrReplaces categories (resetting the
+    // isHidden flag), so re-apply the user's saved visibility choices.
+    await ref.read(contentRepositoryProvider).reapplyCategoryPrefs();
   } catch (_) {
     // On error, attempt full sync as fallback
     try {

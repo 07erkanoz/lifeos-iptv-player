@@ -5,11 +5,14 @@ class TierTtl {
   /// Tier 1: Category list refresh (30 minutes)
   static const tier1 = Duration(minutes: 30);
 
-  /// Tier 2: Channel count delta check (2 hours)
+  /// Tier 2: NEW-items delta sync (2 hours). Cheap now — only writes
+  /// ids we don't already have, so it can run often without thrashing.
   static const tier2 = Duration(hours: 2);
 
-  /// Tier 3: Full content refresh (6 hours)
-  static const tier3 = Duration(hours: 6);
+  /// Tier 3: Full content refresh — rewrites every row (catches in-place
+  /// edits) so it's the expensive one. Once a day is plenty for IPTV
+  /// catalogues; the 2h delta keeps new titles flowing in between.
+  static const tier3 = Duration(hours: 24);
 
   /// Tier 4: Watched series episode check (1 hour)
   static const tier4 = Duration(hours: 1);

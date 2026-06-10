@@ -204,12 +204,36 @@ class SyncService {
     await _saveCategories(seriesCats, 'series');
   }
 
-  Future<void> _syncStreams(String url, String username, String password, String action, String type) async {
+  /// Sync the full stream list for [type].
+  ///
+  /// The Xtream API always returns the WHOLE catalogue (no "since"
+  /// param), so the download + parse is unavoidable. But re-writing
+  /// every row (insertOrReplace) is what fires the `channels` watch
+  /// streams over and over and makes the UI thrash during a sync.
+  ///
+  /// [deltaOnly] = true (the frequent path): only INSERT stream ids we
+  /// don't already have, skip the rest → on a routine sync with no new
+  /// titles this writes ZERO rows, so grids/dashboard aren't disturbed.
+  /// [deltaOnly] = false (rare full refresh): insertOrReplace all, to
+  /// pick up in-place edits (renames, recategorisation, new metadata).
+  /// Both paths still prune removed ids.
+  Future<void> _syncStreams(String url, String username, String password, String action, String type,
+      {bool deltaOnly = false}) async {
     try {
       final streams = await _api.getStreams(url, username, password, action);
       if (streams.isEmpty) return;
 
       final keepIds = <int>{};
+
+      // Delta path: which ids already exist (skip re-writing them).
+      Set<int> existing = const {};
+      if (deltaOnly) {
+        final rows = await (_db.selectOnly(_db.channels)
+              ..addColumns([_db.channels.streamId])
+              ..where(_db.channels.type.equals(type)))
+            .get();
+        existing = {for (final r in rows) r.read(_db.channels.streamId)!};
+      }
 
       for (var i = 0; i < streams.length; i += 500) {
         final chunk = streams.skip(i).take(500).toList();
@@ -220,6 +244,8 @@ class SyncService {
             final sid = int.tryParse(streamId.toString()) ?? 0;
             if (sid == 0) continue;
             keepIds.add(sid);
+            // Delta: already have it → don't rewrite (no watch churn).
+            if (deltaOnly && existing.contains(sid)) continue;
 
             batch.insert(
               _db.channels,
@@ -945,12 +971,14 @@ class SyncService {
         await meta.incrementApiCalls(3);
       }
 
-      // Tier 2 (2h) — Channel count delta (re-sync only changed categories)
+      // Tier 2 (2h) — DELTA: fetch the full list (API limitation) but
+      // only write NEW stream ids; existing rows are left untouched so
+      // the grids/dashboard aren't thrashed. This is the "only pull
+      // what's new" path — cheap, runs often.
       if (meta.isTierDue(2)) {
-        // For now, just re-sync all streams (could be optimized with delta in future)
-        await _syncStreams(url, username, password, 'get_live_streams', 'live');
-        await _syncStreams(url, username, password, 'get_vod_streams', 'movie');
-        await _syncStreams(url, username, password, 'get_series', 'series');
+        await _syncStreams(url, username, password, 'get_live_streams', 'live', deltaOnly: true);
+        await _syncStreams(url, username, password, 'get_vod_streams', 'movie', deltaOnly: true);
+        await _syncStreams(url, username, password, 'get_series', 'series', deltaOnly: true);
         await meta.markTierSynced(2);
         await meta.incrementApiCalls(3);
       }
