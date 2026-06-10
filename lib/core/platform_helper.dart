@@ -52,9 +52,11 @@ class PlatformHelper {
       if (screenWidth > 900) return 5;
       return 4;
     }
-    // Mobile
+    // Mobile — phones get 3 columns so posters aren't huge (only ~4
+    // fit a screen at 2 cols). Large phones / small tablets get 4;
+    // only very narrow devices fall back to 2.
     if (screenWidth > 600) return 4;
-    if (screenWidth > 400) return 3;
+    if (screenWidth >= 340) return 3;
     return 2;
   }
 
