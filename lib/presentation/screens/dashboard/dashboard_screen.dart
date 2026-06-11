@@ -779,15 +779,28 @@ final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
 final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) async* {
   // Respect the user's "Continue watching" toggle — when off, the rail
   // shows nothing (the .when below renders empty → no rail).
-  if (!ref.watch(settingsProvider).continueWatchingEnabled) {
+  //
+  // select() so ONLY this flag rebuilds the provider. Watching the whole
+  // settingsProvider meant ANY settings write (video fit toggle in the
+  // player, HW-accel switch, the auto-sync settings nudge…) restarted
+  // the provider while the old `await for` generator was still running —
+  // its next ref.read then threw "Cannot use the Ref after it has been
+  // disposed", killing the stream and blanking the rail.
+  if (!ref.watch(
+      settingsProvider.select((s) => s.continueWatchingEnabled))) {
     yield const <Channel>[];
     return;
   }
+  // Disposal guard for the long-lived generator below: bail out instead
+  // of touching a dead ref when the provider is rebuilt mid-loop.
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
   // Base stream — last-watched-first, the deterministic answer.
   final baseStream =
       ref.watch(contentRepositoryProvider).watchAllContinueWatching();
 
   await for (final base in baseStream) {
+    if (disposed) return;
     // Skip the AI step when there's nothing to rerank (cold list,
     // single item, or AI disabled). Yield the base list unchanged so
     // the user still sees their history immediately.
@@ -811,6 +824,7 @@ final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) as
 
     try {
       final taste = await ref.read(tasteProfileProvider.future);
+      if (disposed) return;
       if (taste.isCold) continue; // not enough signal to rerank
 
       // Build the compact item list the prompt expects. progressRatio
@@ -853,6 +867,7 @@ final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) as
         timeOfDay: _bucketOfDay(now),
         targetLanguage: lang,
       );
+      if (disposed) return;
 
       if (order == null || order.isEmpty) continue;
 
