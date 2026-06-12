@@ -7,8 +7,6 @@ import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
-import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
-import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -775,126 +773,24 @@ final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
   return ref.watch(contentRepositoryProvider).watchRecentChannels(type);
 });
 
-/// Combined continue watching provider: movies + series with unfinished progress, sorted by updatedAt
-final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) async* {
-  // Respect the user's "Continue watching" toggle — when off, the rail
-  // shows nothing (the .when below renders empty → no rail).
-  //
-  // select() so ONLY this flag rebuilds the provider. Watching the whole
-  // settingsProvider meant ANY settings write (video fit toggle in the
-  // player, HW-accel switch, the auto-sync settings nudge…) restarted
-  // the provider while the old `await for` generator was still running —
-  // its next ref.read then threw "Cannot use the Ref after it has been
-  // disposed", killing the stream and blanking the rail.
+/// Continue watching: movies + series with unfinished progress, newest
+/// first. A PURE pass-through of the Drift stream so it updates the
+/// instant a progress row is written/synced.
+///
+/// (Previously this piped every emission through a Gemini "rerank" call
+/// with an `await for` loop. That blocked the loop on each network
+/// round-trip — so a slow/failing rerank froze the rail and new watches
+/// never appeared — and any settings write could dispose the generator
+/// mid-await and kill it. Most-recent-first is the expected order
+/// anyway, so the AI reorder is dropped for reliability.)
+final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) {
+  // select() so only THIS flag rebuilds the provider, not every setting.
   if (!ref.watch(
       settingsProvider.select((s) => s.continueWatchingEnabled))) {
-    yield const <Channel>[];
-    return;
+    return Stream.value(const <Channel>[]);
   }
-  // Disposal guard for the long-lived generator below: bail out instead
-  // of touching a dead ref when the provider is rebuilt mid-loop.
-  var disposed = false;
-  ref.onDispose(() => disposed = true);
-  // Base stream — last-watched-first, the deterministic answer.
-  final baseStream =
-      ref.watch(contentRepositoryProvider).watchAllContinueWatching();
-
-  await for (final base in baseStream) {
-    if (disposed) return;
-    // Skip the AI step when there's nothing to rerank (cold list,
-    // single item, or AI disabled). Yield the base list unchanged so
-    // the user still sees their history immediately.
-    //
-    // Two gates here so we never accidentally call Gemini when the
-    // user has opted out of AI: `hasAiKey` from settings AND
-    // `geminiServiceProvider` returning a non-null instance. The
-    // provider already checks the key, but reading hasAiKey first
-    // lets us skip even the service lookup on the cold path.
-    final hasAiKey = ref.read(settingsProvider).hasAiKey;
-    final gemini = ref.read(geminiServiceProvider);
-    if (!hasAiKey || gemini == null || base.length < 3) {
-      yield base;
-      continue;
-    }
-
-    // Optimistic emit — show the raw list while the rerank is
-    // pending. Without this the rail flashes blank for the 1-2 s
-    // it takes Gemini to reorder.
-    yield base;
-
-    try {
-      final taste = await ref.read(tasteProfileProvider.future);
-      if (disposed) return;
-      if (taste.isCold) continue; // not enough signal to rerank
-
-      // Build the compact item list the prompt expects. progressRatio
-      // gives the AI a "how close to finishing" signal; days since
-      // last watch lets it deprioritise stale items.
-      final now = DateTime.now();
-      final db = ref.read(appDatabaseProvider);
-      final progressRows = await (db.select(db.playbackProgress)
-            ..where((t) =>
-                t.streamId.isIn(base.map((c) => c.streamId).toList())))
-          .get();
-      final progressByKey = {
-        for (final p in progressRows) '${p.streamId}|${p.type}': p,
-      };
-      final items = base.map((c) {
-        final p = progressByKey['${c.streamId}|${c.type}'];
-        final ratio = (p == null || p.duration <= 0)
-            ? 0.0
-            : (p.position / p.duration).clamp(0.0, 1.0);
-        final days = p == null
-            ? 0
-            : now.difference(p.updatedAt).inDays;
-        return {
-          'streamId': c.streamId,
-          'title': c.name,
-          'type': c.type,
-          if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-          'progressRatio': double.parse(ratio.toStringAsFixed(2)),
-          'daysSinceLastWatch': days,
-        };
-      }).toList();
-
-      final lang = ref.read(settingsProvider).language.name == 'system'
-          ? 'tr'
-          : ref.read(settingsProvider).language.name;
-
-      final order = await gemini.rerankContinueWatching(
-        items: items,
-        tasteProfile: taste.toPromptJson(),
-        timeOfDay: _bucketOfDay(now),
-        targetLanguage: lang,
-      );
-      if (disposed) return;
-
-      if (order == null || order.isEmpty) continue;
-
-      // Reorder by the AI's ranking. We've already validated the id
-      // set inside the Gemini method so this is just a sort.
-      final byId = {for (final c in base) c.streamId: c};
-      final ranked = order
-          .map((id) => byId[id])
-          .whereType<Channel>()
-          .toList();
-      if (ranked.length == base.length) {
-        yield ranked;
-      }
-    } catch (e) {
-      debugPrint('[continueWatching] rerank skipped: $e');
-      // Already yielded the base list above — nothing else to do.
-    }
-  }
+  return ref.watch(contentRepositoryProvider).watchAllContinueWatching();
 });
-
-String _bucketOfDay(DateTime now) {
-  final h = now.hour;
-  if (h >= 5 && h < 11) return 'sabah';
-  if (h >= 11 && h < 17) return 'öğle';
-  if (h >= 17 && h < 22) return 'akşam';
-  return 'gece';
-}
 
 /// Combined watchlist provider: movies + series the user saved for later,
 /// joined with the channel rows so PosterCard can render them. Mirrors the
