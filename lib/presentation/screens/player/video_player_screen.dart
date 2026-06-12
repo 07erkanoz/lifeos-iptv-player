@@ -154,6 +154,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Timer? _hideTimer;
   Timer? _progressTimer;
   Timer? _saveProgressTimer;
+  // Ensures we persist progress (episode AND parent-series row) a few
+  // seconds into playback, instead of waiting for the 20s timer / a
+  // clean dispose. Without this an interrupted watch never lands in
+  // "Continue watching" — the cause of episodes not showing there.
+  bool _savedInitialProgress = false;
   Timer? _posUpdateTimer; // Throttled UI updates for position
 
   // -- D-pad accumulated seek ----------------------------------------------
@@ -968,6 +973,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _subs.add(
       _player.stream.position.listen((p) {
         _rawPos = p;
+        // Land in "Continue watching" early: once we're a few seconds in
+        // with a known duration, persist once (saves both the episode
+        // and, for series, the parent-series row the dashboard joins on).
+        if (!_savedInitialProgress &&
+            _dur.inSeconds >= 10 &&
+            p.inSeconds >= 3) {
+          _savedInitialProgress = true;
+          _saveProgress();
+        }
         if (widget.type == VideoType.series &&
             widget.onNextEpisode != null &&
             ref.read(settingsProvider).autoNextEpisode &&
@@ -1300,6 +1314,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   Future<void> _saveProgress() async {
     if (_dur.inSeconds < 10) return;
+    // Use _rawPos (always current) not _pos (throttled, only refreshed
+    // while controls are visible) so an early/auto save records a real
+    // position > 0 — otherwise the row is filtered out of the rail.
+    final posMs = _rawPos.inMilliseconds;
+    if (posMs <= 0) return;
     try {
       final sid = int.tryParse(
         widget.streamUrl.split('/').last.split('.').first,
@@ -1310,7 +1329,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await repo.saveProgress(
           sid,
           widget.type.name,
-          _pos.inMilliseconds,
+          posMs,
           _dur.inMilliseconds,
         );
         // For series: also save progress for the parent series channel
@@ -1321,7 +1340,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           await repo.saveProgress(
             widget.parentStreamId!,
             widget.type.name,
-            _pos.inMilliseconds,
+            posMs,
             _dur.inMilliseconds,
           );
         }
