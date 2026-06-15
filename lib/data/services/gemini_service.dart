@@ -31,12 +31,30 @@ class GeminiService {
   final String _apiKey;
   final Dio _dio;
 
+  // Session caches — an identical search/suggest within one app run
+  // shouldn't re-hit the API (the user backspacing and retyping the
+  // same query, or re-running a search, was paying full price every
+  // time). Bounded so they can't grow without limit.
+  static const int _aiCacheMax = 128;
+  final Map<String, List<({int streamId, String reason})>> _curateCache = {};
+  final Map<String, List<String>> _suggestCache = {};
+
   GeminiService(this._apiKey)
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 15),
           validateStatus: (_) => true, // we surface non-200 ourselves
         ));
+
+  /// Insert into a bounded session cache, evicting the oldest entry
+  /// once it's full (insertion order — good enough, this isn't a hot
+  /// path and entries are cheap to recompute on a miss).
+  void _putAiCache<V>(Map<String, V> cache, String key, V value) {
+    if (cache.length >= _aiCacheMax && !cache.containsKey(key)) {
+      cache.remove(cache.keys.first);
+    }
+    cache[key] = value;
+  }
 
   /// Parse a natural-language query like "kısa süreli polis filmi"
   /// into a [SearchIntent] using Gemini structured output.
@@ -1178,6 +1196,14 @@ Return strict JSON matching the response schema.
       return null;
     }
 
+    // Same query + same candidate-pool size → identical curation.
+    // (Sample length shifts whenever the library changes, so a new
+    // sync naturally invalidates the key.)
+    final cacheKey =
+        '$targetLanguage|${query.trim().toLowerCase()}|${librarySample.length}';
+    final cached = _curateCache[cacheKey];
+    if (cached != null) return cached;
+
     final systemPrompt = '''
 You are a film and TV curator with deep knowledge of titles across
 languages and decades. The user types a query (any language, often
@@ -1308,6 +1334,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
           picks.add((streamId: sid, reason: reason));
         }
       }
+      _putAiCache(_curateCache, cacheKey, picks);
       return picks;
     } catch (e) {
       debugPrint('[Gemini] curateLibraryByQuery failed: $e');
@@ -1773,6 +1800,13 @@ Style rules:
   }) async {
     if (_apiKey.isEmpty || partialQuery.trim().length < 2) return null;
 
+    // Suggestions depend only on the typed text + language, so cache
+    // them — backspacing/retyping the same prefix is free after the
+    // first call.
+    final cacheKey = '$targetLanguage|${partialQuery.trim().toLowerCase()}';
+    final cached = _suggestCache[cacheKey];
+    if (cached != null) return cached;
+
     final systemPrompt = '''
 You are the auto-suggest brain for a streaming app's search box.
 The user is mid-typing. Generate 3-5 short refinement suggestions
@@ -1855,7 +1889,9 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
         out.add(str);
         if (out.length >= 5) break;
       }
-      return out.isEmpty ? null : out;
+      if (out.isEmpty) return null;
+      _putAiCache(_suggestCache, cacheKey, out);
+      return out;
     } catch (e) {
       debugPrint('[Gemini] suggestSearchRefinements failed: $e');
       return null;

@@ -156,7 +156,12 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     // last left off until everything is tagged (it no-ops when the
     // setting is off, there's no key, a run is in flight, or the
     // queue is empty).
-    _enrichTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+    //
+    // 180 s (was 45 s): total token spend is unchanged — the runner
+    // processes every pending item regardless of cadence — but a calmer
+    // re-kick keeps background Gemini/Drift work from competing with
+    // active browsing and cuts redundant wake-ups once the queue drains.
+    _enrichTimer = Timer.periodic(const Duration(seconds: 180), (_) {
       if (!mounted) return;
       _runEnrichPass();
     });
