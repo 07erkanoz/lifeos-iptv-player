@@ -56,7 +56,7 @@ class GeminiService {
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
+        '$_endpoint/${AiModelPolicy.parser}:generateContent',
         queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
@@ -76,6 +76,7 @@ class GeminiService {
             'responseSchema': _responseSchema,
             'temperature': 0.0, // deterministic for the same query
             'maxOutputTokens': 256,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -793,6 +794,7 @@ need to express low confidence, do it inline with phrasing like
             // response is more annoying than a truncated one.
             'maxOutputTokens':
                 mode == PlotEnrichMode.detailedInfo ? 4096 : 500,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -909,6 +911,7 @@ recap it without inventing details, reply with the single word
           'generationConfig': {
             'temperature': 0.5,
             'maxOutputTokens': 900,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1061,6 +1064,7 @@ Return strict JSON matching the response schema.
             'responseSchema': _similarResponseSchema,
             'temperature': 0.6,
             'maxOutputTokens': 2048,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1248,6 +1252,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
             'responseSchema': _curateResponseSchema,
             'temperature': 0.3,
             'maxOutputTokens': 2048,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1466,6 +1471,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
             // further from its previous best response.
             'temperature': varietySeed > 0 ? 0.95 : 0.6,
             'maxOutputTokens': 2048,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1626,6 +1632,7 @@ Return strict JSON:
             },
             'temperature': 0.6,
             'maxOutputTokens': 1024,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1730,6 +1737,7 @@ Style rules:
           'generationConfig': {
             'temperature': 0.4,
             'maxOutputTokens': 512,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1789,7 +1797,7 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
+        '$_endpoint/${AiModelPolicy.parser}:generateContent',
         queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
@@ -1818,6 +1826,7 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
             },
             'temperature': 0.7,
             'maxOutputTokens': 256,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1954,6 +1963,7 @@ Output strict JSON:
             },
             'temperature': 0.3, // deterministic-ish — this is a sort
             'maxOutputTokens': 512,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2131,6 +2141,7 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
             },
             'temperature': 0.7,
             'maxOutputTokens': 1024,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2262,6 +2273,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
             'responseSchema': _curateResponseSchema,
             'temperature': 0.8, // mood needs a bit of spice
             'maxOutputTokens': 1536,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2354,7 +2366,7 @@ emojis, no preamble, no quotes.
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
+        '$_endpoint/${AiModelPolicy.greeting}:generateContent',
         queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
@@ -2371,14 +2383,13 @@ emojis, no preamble, no quotes.
           ],
           'generationConfig': {
             'temperature': 0.7,
-            // Gemini 2.5-flash spends tokens on internal reasoning
-            // ("thinking") before emitting the actual response.
-            // With 500 the user-visible text was still being cut
-            // off mid-sentence ("Gibi kaldığ") because the model
-            // burned most of the budget reasoning. 1500 gives a
-            // generous ceiling so even chatty thinking + a 2-sentence
-            // greeting in any of the 8 languages lands intact.
+            // "thinking" disabled below — a 1-2 sentence greeting needs
+            // no internal reasoning, and it used to burn most of the
+            // token budget (clipping Turkish mid-word, "Gibi kaldığ").
+            // 1500 stays a generous ceiling for the visible text across
+            // all 8 languages (Turkish BPE runs ~2 tokens/syllable).
             'maxOutputTokens': 1500,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2463,7 +2474,7 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
 
     try {
       final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
+        '$_endpoint/${AiModelPolicy.episodeSummary}:generateContent',
         queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
@@ -2484,6 +2495,7 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
             // ~50 tokens/episode + JSON overhead. 1500 tokens is
             // enough for a 25-episode season — uncommon but possible.
             'maxOutputTokens': 1500,
+            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
