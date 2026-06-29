@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark launch background so the native pre-Flutter frame matches the
+         branded splash (no white flash on cold start). -->
+    <color name="launch_bg">#161C2C</color>
+</resources>

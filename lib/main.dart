@@ -20,6 +20,7 @@ import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/content_embeddings_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/widgets/branding/brand_splash.dart';
 import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
@@ -361,6 +362,9 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
             children: [
               child ?? const SizedBox.shrink(),
               if (pipUsesWindowMode && pipActive) const PipOverlay(),
+              // Branded cold-start splash (all platforms). Keyed so its
+              // State survives builder rebuilds and plays exactly once.
+              const BrandSplash(key: ValueKey('brand-splash')),
             ],
           ),
         );
