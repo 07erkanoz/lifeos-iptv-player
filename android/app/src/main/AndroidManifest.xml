@@ -38,6 +38,10 @@
     <!-- Local reminder notifications (agent setReminder tool). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Keep the screen awake during video playback (TV + mobile). The
+         wakelock_plus plugin merges this in too, but declaring it here is
+         explicit and survives any plugin/merge change. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Voice chat with AI assistant (mobile only).
          Runtime-requested before the user's first mic tap; the
          speech_to_text plugin also needs the queries block at the
