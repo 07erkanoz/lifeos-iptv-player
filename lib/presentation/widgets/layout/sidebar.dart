@@ -31,6 +31,11 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
   Timer? _collapseTimer;
 
   final List<FocusNode> _itemFocusNodes = [];
+  // Observe-only node wrapping the whole sidebar subtree. FocusNode.hasFocus
+  // is true when the node OR any descendant is focused, so this also covers
+  // the Search and Profile buttons (separate Focus widgets) — fixing the
+  // case where focusing those made the sidebar think it was unfocused.
+  final FocusNode _sidebarScopeNode = FocusNode(debugLabel: 'sidebarScope');
 
   /// Stable closure registered with [TvFocusRegistry]. Captured once so
   /// register/unregister identity matches across the widget lifetime even
@@ -64,10 +69,10 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
     for (int i = 0; i < 5; i++) {
-      final node = FocusNode();
-      node.addListener(_onAnyItemFocusChanged);
-      _itemFocusNodes.add(node);
+      _itemFocusNodes.add(FocusNode());
     }
+    // One listener on the scope node covers items + Search + Profile.
+    _sidebarScopeNode.addListener(_onAnyItemFocusChanged);
     // Hand the focus registry a stable handle that re-focuses whichever
     // menu item is currently selected. Used by detail/back flows that
     // want to bounce focus back to the sidebar without knowing its
@@ -99,15 +104,18 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     _expandTimer?.cancel();
     _collapseTimer?.cancel();
     _animController.dispose();
+    _sidebarScopeNode.removeListener(_onAnyItemFocusChanged);
+    _sidebarScopeNode.dispose();
     for (final node in _itemFocusNodes) {
-      node.removeListener(_onAnyItemFocusChanged);
       node.dispose();
     }
     super.dispose();
   }
 
-  /// Whether sidebar currently has focus (computed from item focus nodes)
-  bool get hasFocus => _itemFocusNodes.any((n) => n.hasFocus);
+  /// Whether the sidebar (any part of it — menu items, Search or Profile)
+  /// currently holds focus. Reads the wrapping scope node so it stays
+  /// correct regardless of which sub-control is focused.
+  bool get hasFocus => _sidebarScopeNode.hasFocus;
 
   /// Whether sidebar should be expanded (has focus OR mouse is inside)
   bool get _shouldBeExpanded => hasFocus || _isMouseInside;
@@ -208,7 +216,15 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     final l10n = AppLocalizations.of(context)!;
     final menuItems = _getMenuItems(l10n);
 
-    return FocusTraversalGroup(
+    return Focus(
+      // Observe-only wrapper over the whole sidebar subtree so focus on
+      // Search/Profile (separate Focus widgets) — not just the 5 menu
+      // items — counts as "sidebar has focus" for expand-state and the
+      // registry Back/focus probe.
+      focusNode: _sidebarScopeNode,
+      canRequestFocus: false,
+      skipTraversal: true,
+      child: FocusTraversalGroup(
       child: MouseRegion(
         // On TV the sidebar expands via focus (see _onAnyItemFocusChanged);
         // mouse hover is a desktop-only duplicate path.
@@ -277,6 +293,7 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
             );
           },
         ),
+      ),
       ),
     );
   }
