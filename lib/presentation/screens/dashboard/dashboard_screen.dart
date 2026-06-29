@@ -162,8 +162,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
-      // initialSyncProvider is throttled - only syncs if 6+ hours passed
-      await ref.read(initialSyncProvider.future);
+      // initialSyncProvider is throttled - only syncs if 6+ hours passed.
+      // Bound the indicator's lifetime: the sync keeps running in the
+      // background, but the spinner must never outlive a sane window —
+      // if the future is slow or never settles, hide it anyway.
+      await ref
+          .read(initialSyncProvider.future)
+          .timeout(const Duration(seconds: 90));
     } catch (_) {}
     if (mounted) setState(() => _isSyncing = false);
   }

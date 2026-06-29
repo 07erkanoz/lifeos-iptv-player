@@ -8,6 +8,18 @@
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
+    <!-- Android TV: RECORD_AUDIO implies android.hardware.microphone as
+         "required", which would hide the app from mic-less TV boxes on
+         the Play Store. Voice chat is an optional mobile-only extra. -->
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    <!-- Android TV: the Wi-Fi permissions imply android.hardware.wifi as
+         "required", excluding Ethernet-only TV devices. Declare it
+         optional — discovery degrades gracefully without Wi-Fi. -->
+    <uses-feature
+        android:name="android.hardware.wifi"
+        android:required="false" />
 
     <!-- Internet permission for IPTV streaming -->
     <uses-permission android:name="android.permission.INTERNET" />

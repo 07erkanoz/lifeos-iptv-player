@@ -32,7 +32,12 @@ final currentAccountProvider = FutureProvider<Account?>((ref) async {
 /// Tier 1 (30m): categories, Tier 2 (2h): channel delta,
 /// Tier 3 (6h): full refresh, Tier 4 (1h): watched series
 final initialSyncProvider = FutureProvider<void>((ref) async {
-  final account = await ref.watch(currentAccountProvider.future);
+  // ref.read (NOT watch): a sync is a one-shot side effect, not a
+  // reactive value. Watching currentAccountProvider here meant any
+  // rebuild of it (or settingsProvider underneath it) could restart
+  // this provider mid-flight, so the future the dashboard awaits never
+  // settled — the "İçerik senkronize ediliyor…" spinner spun forever.
+  final account = await ref.read(currentAccountProvider.future);
   if (account == null) return;
 
   try {

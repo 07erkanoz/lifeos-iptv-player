@@ -128,14 +128,20 @@ class TvPosterGridController {
 
   // ── Focus API ───────────────────────────────────────────────────────
 
-  /// Focus the first poster. Returns false only if the grid is empty.
-  /// Synchronous for mounted items; async-retried for unmounted ones.
+  /// Focus the first poster. Returns true only when focus actually
+  /// moved (or was synchronously requested); false when there is
+  /// nothing to focus right now.
+  ///
+  /// An empty grid is usually data-not-loaded-yet (slow TV / async
+  /// category switch), so we still remember the intent and let
+  /// attach()/registerItem() deliver focus once items arrive — but we
+  /// report false so the caller knows focus did NOT land yet and can
+  /// keep the sidebar selection instead of releasing it into the void
+  /// (the bug on a genuinely empty / no-results category).
   bool focusFirst() {
-    // Grid data not loaded yet (slow TV / async category switch) — defer
-    // and let attach()/registerItem() deliver focus once items arrive.
     if (_streamIds.isEmpty) {
       _pendingFocusFirst = true;
-      return true;
+      return false;
     }
     return focusIndex(0);
   }
@@ -145,10 +151,10 @@ class TvPosterGridController {
   /// when closing a detail view: caller doesn't need to remember which
   /// streamId was focused, the controller tracks it.
   bool focusCurrentOrFirst() {
-    // Nothing loaded yet → defer (see [focusFirst]).
+    // Nothing loaded yet → defer, but report false (see [focusFirst]).
     if (_streamIds.isEmpty) {
       _pendingFocusFirst = true;
-      return true;
+      return false;
     }
     if (_lastFocusedStreamId >= 0 &&
         _streamIds.contains(_lastFocusedStreamId)) {
