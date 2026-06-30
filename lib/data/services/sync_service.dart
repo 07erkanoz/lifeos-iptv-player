@@ -588,17 +588,19 @@ class SyncService {
     final streamIds = liveChannels.map((c) => c.streamId).toList();
     await syncEpgBatch(account, streamIds);
 
-    // XMLTV fallback: check for channels still without EPG data
+    // XMLTV fallback: check how many channels still lack EPG. One
+    // aggregate COUNT(DISTINCT channelId) instead of a per-channel SELECT
+    // loop — the old loop fired thousands of sequential queries on the UI
+    // isolate right after sync, a major first-launch slowdown on TV.
     final now = DateTime.now();
-    int channelsWithoutEpg = 0;
-    for (final ch in liveChannels) {
-      final hasPrograms = await (_db.select(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(ch.streamId))
-        ..where((tbl) => tbl.stop.isBiggerThanValue(now))
-        ..limit(1)
-      ).get();
-      if (hasPrograms.isEmpty) channelsWithoutEpg++;
-    }
+    final withEpgExpr = _db.programs.channelId.count(distinct: true);
+    final withEpgRow = await (_db.selectOnly(_db.programs)
+          ..addColumns([withEpgExpr])
+          ..where(_db.programs.stop.isBiggerThanValue(now)))
+        .getSingle();
+    final channelsWithEpg = withEpgRow.read(withEpgExpr) ?? 0;
+    final channelsWithoutEpg =
+        (liveChannels.length - channelsWithEpg).clamp(0, liveChannels.length);
 
     // If >50% channels lack EPG, try XMLTV fallback
     if (channelsWithoutEpg > liveChannels.length * 0.5) {

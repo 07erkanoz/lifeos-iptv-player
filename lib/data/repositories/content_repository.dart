@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 // re-exports its own `Category` annotation which collides with our
 // generated drift `Category` row class.
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
@@ -618,7 +619,10 @@ class ContentRepository {
       ..orderBy([
         OrderingTerm(expression: _db.channels.rating, mode: OrderingMode.desc),
       ])
-      ..limit(_kSearchScanCap)
+      // Scan far fewer rows on TV: the per-keystroke haystack + fuzzy pass
+      // runs on the main isolate, so a smaller slice keeps a weak TV CPU
+      // from freezing while typing.
+      ..limit(PlatformHelper.isTV ? 2000 : _kSearchScanCap)
     ).get();
 
     // Build (channel, haystack) tuples once so the fuzzy pass below

@@ -422,6 +422,12 @@ abstract class AppLocalizations {
   /// **'Daha Fazla Bilgi'**
   String get moreInfo;
 
+  /// No description provided for @showMoreEpisodes.
+  ///
+  /// In tr, this message translates to:
+  /// **'Daha fazla bölüm'**
+  String get showMoreEpisodes;
+
   /// No description provided for @recentlyAdded.
   ///
   /// In tr, this message translates to:

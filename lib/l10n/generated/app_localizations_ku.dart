@@ -168,6 +168,9 @@ class AppLocalizationsKu extends AppLocalizations {
   String get moreInfo => 'Bêtir agahî';
 
   @override
+  String get showMoreEpisodes => 'Bêtir beş nîşan bide';
+
+  @override
   String get recentlyAdded => 'Nû hatine zêdekirin';
 
   @override

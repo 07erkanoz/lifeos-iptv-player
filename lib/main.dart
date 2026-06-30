@@ -248,7 +248,12 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   /// first opening Live TV and scrolling the guide. Internally
   /// throttled to once per 2h, so calling it every launch is cheap.
   void _maybeSyncEpg() {
-    Future<void>.delayed(const Duration(seconds: 12), () async {
+    // Defer much longer on Android TV: the full EPG pipeline (XMLTV
+    // download + parse + program writes) is heavy and must NOT compete
+    // with the user's first-launch browsing on a weak TV CPU. Live TV
+    // still gets EPG lazily per-channel when the user opens it.
+    final delay = Duration(seconds: PlatformHelper.isTV ? 90 : 12);
+    Future<void>.delayed(delay, () async {
       if (!mounted) return;
       // EPG sync hits the network + writes a lot of program rows; skip
       // while a video is playing so it doesn't stutter playback.

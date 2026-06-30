@@ -18,6 +18,7 @@ import 'package:lifeostv/data/repositories/search_history_repository.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
@@ -214,10 +215,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // has *something* to look at even if the AI tier never
       // returns.
       final repo = ref.read(contentRepositoryProvider);
+      // Fewer results per type on TV — fewer cards to lay out / decode and
+      // a smaller main-isolate filter pass on weak hardware.
+      final perType = PlatformHelper.isTV ? 24 : 60;
       final plain = await Future.wait([
-        repo.searchChannelsByType(trimmed, 'movie', limit: 60),
-        repo.searchChannelsByType(trimmed, 'series', limit: 60),
-        repo.searchChannelsByType(trimmed, 'live', limit: 60),
+        repo.searchChannelsByType(trimmed, 'movie', limit: perType),
+        repo.searchChannelsByType(trimmed, 'series', limit: perType),
+        repo.searchChannelsByType(trimmed, 'live', limit: perType),
       ]);
       if (!mounted || requestId != _searchRequestId) return;
       final gemini = ref.read(geminiServiceProvider);
@@ -573,53 +577,56 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultGrid(List<Channel> channels) {
-    final isMobile = isMobilePlatform;
+  /// Header + a LAZY [SliverGrid] for one result section. Returns no
+  /// slivers for an empty list. Using slivers (instead of the old
+  /// shrinkWrap GridViews inside a ListView) means only the on-screen
+  /// cards build/decode — a large result set no longer materialises every
+  /// card at once, which was the freeze / OOM-on-results on weak TVs.
+  List<Widget> _buildResultSlivers(
+      IconData icon, String label, Color color, List<Channel> channels, bool isMobile) {
+    if (channels.isEmpty) return const [];
     final maxCross = isMobile ? 140.0 : 180.0;
-    // Whether this section is the first non-empty results group —
-    // only its top row gets the arrow-up → text bridge and the
-    // stable _firstResultFocus node for the text→grid bridge.
+    // Whether this section is the first non-empty results group — only its
+    // top row gets the arrow-up → text bridge and the stable
+    // _firstResultFocus node for the text→grid bridge.
     final isFirst = _isFirstSection(channels);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Match the column count GridView will compute for
-        // SliverGridDelegateWithMaxCrossAxisExtent so we can mark
-        // exactly the top-row indices.
-        final cols = (constraints.maxWidth / maxCross).floor().clamp(1, 50);
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+    final pad = isMobile ? 12.0 : 20.0;
+    final cols =
+        ((MediaQuery.of(context).size.width - pad * 2) / maxCross).floor().clamp(1, 50);
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(pad, 0, pad, 10),
+          child: _buildSectionHeader(icon, label, color, channels.length),
+        ),
+      ),
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(pad, 0, pad, 24),
+        sliver: SliverGrid(
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: maxCross,
             childAspectRatio: isMobile ? 0.60 : 0.65,
             crossAxisSpacing: isMobile ? 8 : 12,
             mainAxisSpacing: isMobile ? 8 : 12,
           ),
-          itemCount: channels.length,
-          itemBuilder: (context, index) {
-            final ch = channels[index];
-            return _SearchResultCard(
-              channel: ch,
-              onTap: () => _onResultTap(ch),
-              // First section + index 0 → owns the stable focus node
-              // for text→grid arrow-down bridge.
-              focusNode:
-                  (isFirst && index == 0) ? _firstResultFocus : null,
-              // First section + top row → arrow-up goes to search
-              // input. Subsequent sections' top rows let default
-              // directional traversal find the previous section's
-              // bottom row.
-              onTopEdge: (isFirst && index < cols)
-                  ? () => _textFocus.requestFocus()
-                  : null,
-              // Tier-3 curator picked this card — show the AI's
-              // explanation under the poster.
-              aiReason: _curatorReasons[ch.streamId],
-            );
-          },
-        );
-      },
-    );
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final ch = channels[index];
+              return _SearchResultCard(
+                channel: ch,
+                onTap: () => _onResultTap(ch),
+                focusNode: (isFirst && index == 0) ? _firstResultFocus : null,
+                onTopEdge: (isFirst && index < cols)
+                    ? () => _textFocus.requestFocus()
+                    : null,
+                aiReason: _curatorReasons[ch.streamId],
+              );
+            },
+            childCount: channels.length,
+          ),
+        ),
+      ),
+    ];
   }
 
   void _playLive(Channel channel) {
@@ -830,9 +837,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         : Focus(
                             focusNode: _gridFocus,
                             skipTraversal: true,
-                            child: ListView(
-                              padding: EdgeInsets.all(isMobile ? 12 : 20),
-                              children: [
+                            child: CustomScrollView(
+                              slivers: [
+                                SliverPadding(
+                                  padding: EdgeInsets.all(isMobile ? 12 : 20),
+                                  sliver: SliverList(
+                                    delegate: SliverChildListDelegate([
                                 // "AI yorumladı: …" chip row, only shown
                                 // when the active query was routed
                                 // through Gemini AND it produced at
@@ -910,26 +920,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     ]),
                                   ),
-                                // Movies section
-                                if (_movieResults.isNotEmpty) ...[
-                                  _buildSectionHeader(Icons.movie_outlined, l10n.movie, AppColors.primary, _movieResults.length),
-                                  const SizedBox(height: 10),
-                                  _buildResultGrid(_movieResults),
-                                  const SizedBox(height: 24),
-                                ],
-                                // Series section
-                                if (_seriesResults.isNotEmpty) ...[
-                                  _buildSectionHeader(Icons.tv_outlined, l10n.seriesLabel, AppColors.accent, _seriesResults.length),
-                                  const SizedBox(height: 10),
-                                  _buildResultGrid(_seriesResults),
-                                  const SizedBox(height: 24),
-                                ],
-                                // Live TV section
-                                if (_liveResults.isNotEmpty) ...[
-                                  _buildSectionHeader(Icons.live_tv_outlined, l10n.liveTV, Colors.red, _liveResults.length),
-                                  const SizedBox(height: 10),
-                                  _buildResultGrid(_liveResults),
-                                ],
+                                    ]),
+                                  ),
+                                ),
+                                // Lazy sliver grids — only on-screen cards
+                                // build/decode, so a large result set no
+                                // longer materialises every card at once
+                                // (the freeze / OOM-on-results on weak TVs).
+                                ..._buildResultSlivers(Icons.movie_outlined, l10n.movie, AppColors.primary, _movieResults, isMobile),
+                                ..._buildResultSlivers(Icons.tv_outlined, l10n.seriesLabel, AppColors.accent, _seriesResults, isMobile),
+                                ..._buildResultSlivers(Icons.live_tv_outlined, l10n.liveTV, Colors.red, _liveResults, isMobile),
+                                const SliverToBoxAdapter(child: SizedBox(height: 24)),
                               ],
                             ),
                           ),
@@ -1008,10 +1009,16 @@ class _SearchResultCardState extends State<_SearchResultCard> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: _isFocused ? 1.05 : 1.0,
-            duration: const Duration(milliseconds: 150),
+            // No scale pop / animation on TV — instant focus, far less
+            // work per D-pad move on weak GPUs (the focus border suffices).
+            scale: PlatformHelper.isTV ? 1.0 : (_isFocused ? 1.05 : 1.0),
+            duration: PlatformHelper.isTV
+                ? Duration.zero
+                : const Duration(milliseconds: 150),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: PlatformHelper.isTV
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
               decoration: BoxDecoration(
                 color: AppColors.surfaceDark,
                 borderRadius: BorderRadius.circular(10),

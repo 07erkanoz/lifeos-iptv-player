@@ -33,6 +33,20 @@ class PlatformHelper {
   /// Whether to use D-pad/remote focus navigation
   static bool get useDpadNavigation => isTV;
 
+  /// On Android TV, collapse focus/transition animations to nothing. The
+  /// 10-foot UI must stay snappy on weak TV GPUs — the focus ring/border is
+  /// the affordance, motion isn't worth the per-frame cost. Use [focusAnim]
+  /// for the common 150 ms focus tween, or [anim] to scale any duration.
+  static bool get noAnimations => isTV;
+
+  /// 150 ms focus tween off-TV, instant on TV. Drop-in for the many
+  /// `AnimatedContainer(duration: 150ms)` focus borders across the app.
+  static Duration get focusAnim =>
+      isTV ? Duration.zero : const Duration(milliseconds: 150);
+
+  /// Scale any animation duration: zero on TV, [d] elsewhere.
+  static Duration anim(Duration d) => isTV ? Duration.zero : d;
+
   /// Whether to show mouse-hover effects
   static bool get useHoverEffects => isDesktop;
 

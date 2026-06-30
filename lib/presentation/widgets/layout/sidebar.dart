@@ -63,7 +63,10 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      // Snap the sidebar width on TV (zero duration) — it expands/collapses
+      // on every focus enter/leave, and a per-frame width relayout of the
+      // whole shell on each D-pad nav is a needless cost on weak TV GPUs.
+      duration: PlatformHelper.anim(const Duration(milliseconds: 200)),
     );
     _widthAnimation = Tween<double>(begin: _collapsedWidth, end: _expandedWidth).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
@@ -422,7 +425,7 @@ class _SidebarItemState extends State<_SidebarItem> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlatformHelper.focusAnim,
             curve: Curves.easeOut,
             margin: const EdgeInsets.symmetric(vertical: 2),
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
@@ -526,7 +529,7 @@ class _SidebarProfileButtonState
         onTap: _open,
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: PlatformHelper.anim(const Duration(milliseconds: 120)),
           padding: EdgeInsets.symmetric(
               horizontal: widget.isExpanded ? 10 : 0,
               vertical: 8),

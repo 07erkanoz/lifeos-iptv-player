@@ -168,6 +168,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moreInfo => 'More Info';
 
   @override
+  String get showMoreEpisodes => 'Show more episodes';
+
+  @override
   String get recentlyAdded => 'Recently Added';
 
   @override

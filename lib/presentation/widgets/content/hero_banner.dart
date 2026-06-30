@@ -501,11 +501,11 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
             // ── Background Image ──
             // ── Background Image — same approach as movies/series hero ──
             AnimatedSwitcher(
-            // A full-bleed 800ms crossfade composites two large backdrops
-            // every rotation — a recurring hitch on weak TV GPUs. Use a
-            // short, cheap fade on TV.
+            // A full-bleed crossfade composites two large backdrops every
+            // rotation — a recurring hitch on weak TV GPUs. Instant swap on
+            // TV (no crossfade), normal fade elsewhere.
             duration: PlatformHelper.isTV
-                ? const Duration(milliseconds: 200)
+                ? Duration.zero
                 : const Duration(milliseconds: 800),
             child: _buildHeroImage(channel, backdropUrl, hasBackdrop),
           ),
@@ -776,7 +776,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
                       return GestureDetector(
                         onTap: () => _goToIndex(index),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
+                          duration: PlatformHelper.anim(const Duration(milliseconds: 300)),
                           width: isActive ? 28 : 8,
                           height: 3,
                           margin: const EdgeInsets.only(right: 5),
@@ -1034,10 +1034,10 @@ class _HeroButtonState extends State<_HeroButton> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: _isFocused ? 1.05 : 1.0,
-            duration: const Duration(milliseconds: 150),
+            scale: PlatformHelper.isTV ? 1.0 : (_isFocused ? 1.05 : 1.0),
+            duration: PlatformHelper.focusAnim,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: PlatformHelper.focusAnim,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
               decoration: BoxDecoration(
                 color: widget.isPrimary

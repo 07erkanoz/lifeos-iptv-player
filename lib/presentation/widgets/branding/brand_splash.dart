@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 
 /// One-shot branded splash, shown over the whole app on cold start.
 ///
@@ -32,11 +33,15 @@ class _BrandSplashState extends State<BrandSplash> {
   @override
   void initState() {
     super.initState();
-    // Hold ~1.4s after first frame, fade out, then drop entirely.
-    _holdTimer = Timer(const Duration(milliseconds: 1400), () {
+    // Hold ~1.4s after first frame, fade out, then drop entirely. Much
+    // shorter on Android TV — the OS already showed its own banner splash,
+    // and the user wants the app interactive ASAP on a weak box.
+    final hold = PlatformHelper.isTV ? 500 : 1400;
+    final remove = PlatformHelper.isTV ? 700 : 1900;
+    _holdTimer = Timer(Duration(milliseconds: hold), () {
       if (mounted) setState(() => _visible = false);
     });
-    _removeTimer = Timer(const Duration(milliseconds: 1900), () {
+    _removeTimer = Timer(Duration(milliseconds: remove), () {
       if (mounted) setState(() => _gone = true);
     });
   }
@@ -55,7 +60,7 @@ class _BrandSplashState extends State<BrandSplash> {
       ignoring: !_visible,
       child: AnimatedOpacity(
         opacity: _visible ? 1 : 0,
-        duration: _fade,
+        duration: PlatformHelper.anim(_fade),
         curve: Curves.easeOut,
         child: const _BrandSplashContent(),
       ),
@@ -79,7 +84,9 @@ class _BrandSplashContentState extends State<_BrandSplashContent>
 
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 700),
+    // Snap instantly on TV (no fade/scale intro) — keeps the structure but
+    // removes the cold-start animation work on weak hardware.
+    duration: PlatformHelper.anim(const Duration(milliseconds: 700)),
   )..forward();
   late final Animation<double> _fade =
       CurvedAnimation(parent: _c, curve: Curves.easeOut);

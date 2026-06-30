@@ -70,6 +70,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   bool _loadingDetail = false;
   int _activeSeason = 1;
 
+  /// How many episodes of the active season are rendered at once. The
+  /// episode list lives in a (non-lazy) SingleChildScrollView, so a season
+  /// with 50-200+ episodes would otherwise build every image-bearing card
+  /// at once → OOM crash on weak Android TV boxes. We render a window and
+  /// grow it on demand; reset whenever the season/detail changes.
+  static const _kEpisodeWindow = 30;
+  int _episodeLimit = _kEpisodeWindow;
+
+  // Memoised "similar" rail — see movies_screen for the rationale. The
+  // detail rebuilds repeatedly and the candidate list grows, so scoring is
+  // done once per opened title over a bounded set (ANR/jank fix on TV).
+  int? _similarCacheKey;
+  List<Channel> _similarCache = const [];
+
   // Continue watching for series. Semantics:
   //  * `_lastEpisodeProgress` is the row we surfaced (latest by updatedAt).
   //  * `_lastEpisodeId` / `_lastEpisodeExt` / `_lastEpisodeLabel` describe
@@ -351,6 +365,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _loadingDetail = false;
         _seriesInfo = cachedInfo;
         _activeSeason = 1;
+        _episodeLimit = _kEpisodeWindow;
         _lastEpisodeProgress = null;
         _lastEpisodeId = null;
         _lastEpisodeExt = null;
@@ -826,6 +841,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   void _closeDetail() {
+    _similarCacheKey = null;
+    _similarCache = const [];
     setState(() {
       _detailChannel = null;
       _seriesInfo = null;
@@ -1697,9 +1714,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final similarSeries = embSimilar.isNotEmpty
         ? embSimilar
         : allSeriesAsync.when(
-            data: (all) => _selectSimilarContent(
-              current: ch,
-              all: all,
+            data: (all) => _memoSimilarSeries(
+              ch,
+              all,
               genreText:
                   genre.toString().isNotEmpty ? genre.toString() : ch.genre,
               baseDirector: director.toString().isNotEmpty
@@ -1711,7 +1728,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   plot.toString().isNotEmpty ? plot.toString() : ch.plot,
               personalizationSeed: [...favoriteSeries, ...historySeries],
             ),
-            loading: () => const <Channel>[],
+            loading: () => _similarCacheKey == ch.streamId
+                ? _similarCache
+                : const <Channel>[],
             error: (_, _) => const <Channel>[],
           );
 
@@ -1725,7 +1744,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 ? CachedNetworkImage(
                     imageUrl: backdrop.toString(),
                     fit: BoxFit.cover,
-                    memCacheWidth: 1280,
+                    memCacheWidth: PlatformHelper.isTV ? 720 : 1280,
                     alignment: Alignment.topCenter,
                     errorWidget: (_, _, _) =>
                         const ColoredBox(color: Colors.black),
@@ -1818,13 +1837,15 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       return Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 40,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
+                          boxShadow: PlatformHelper.isTV
+                              ? const <BoxShadow>[]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    blurRadius: 40,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
@@ -2287,7 +2308,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                 label: '${l10n.season} $num',
                                 isActive: isActive,
                                 onTap: () {
-                                  setState(() => _activeSeason = num);
+                                  setState(() {
+                                    _activeSeason = num;
+                                    _episodeLimit = _kEpisodeWindow;
+                                  });
                                   // Lazy-fetch AI summaries for this
                                   // season's empty-plot episodes. The
                                   // method is idempotent per (series,
@@ -2312,7 +2336,25 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ...activeEpisodes.map((ep) => _buildEpisodeItem(ep, l10n)),
+                    // Render a bounded window of episodes — building every
+                    // image-bearing card of a 50-200+ episode season at
+                    // once (this is a non-lazy SingleChildScrollView) OOM-
+                    // crashed weak Android TV boxes. "Show more" grows it.
+                    ...activeEpisodes
+                        .take(_episodeLimit)
+                        .map((ep) => _buildEpisodeItem(ep, l10n)),
+                    if (activeEpisodes.length > _episodeLimit)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: _FocusableActionButton(
+                          icon: Icons.expand_more,
+                          label:
+                              '${l10n.showMoreEpisodes} (+${activeEpisodes.length - _episodeLimit})',
+                          isPrimary: false,
+                          onTap: () => setState(
+                              () => _episodeLimit += _kEpisodeWindow),
+                        ),
+                      ),
                   ],
                   const SizedBox(height: 36),
                   AiSimilarSection(
@@ -2568,6 +2610,35 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
 
     return null;
+  }
+
+  /// Memoised wrapper around [_selectSimilarContent] — see movies_screen.
+  List<Channel> _memoSimilarSeries(
+    Channel current,
+    List<Channel> all, {
+    String? genreText,
+    String? baseDirector,
+    String? baseCast,
+    String? basePlot,
+    List<Channel> personalizationSeed = const [],
+  }) {
+    if (_similarCacheKey == current.streamId && _similarCache.isNotEmpty) {
+      return _similarCache;
+    }
+    final cap = PlatformHelper.isTV ? 400 : 1200;
+    final candidates = all.length > cap ? all.sublist(0, cap) : all;
+    final result = _selectSimilarContent(
+      current: current,
+      all: candidates,
+      genreText: genreText,
+      baseDirector: baseDirector,
+      baseCast: baseCast,
+      basePlot: basePlot,
+      personalizationSeed: personalizationSeed,
+    );
+    _similarCacheKey = current.streamId;
+    _similarCache = result;
+    return result;
   }
 
   List<Channel> _selectSimilarContent({
@@ -4006,7 +4077,8 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                   color: active ? AppColors.primary : Colors.transparent,
                   width: active ? PlatformHelper.focusRingWidth : 0,
                 ),
-                boxShadow: active
+                // No blurred glow on TV — border alone marks focus.
+                boxShadow: (active && !PlatformHelper.isTV)
                     ? [
                         BoxShadow(
                           color: AppColors.primary.withValues(
@@ -4014,7 +4086,7 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                           blurRadius: PlatformHelper.focusRingGlowBlur,
                         ),
                       ]
-                    : [],
+                    : const <BoxShadow>[],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),

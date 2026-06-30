@@ -169,6 +169,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get moreInfo => 'Daha Fazla Bilgi';
 
   @override
+  String get showMoreEpisodes => 'Daha fazla bölüm';
+
+  @override
   String get recentlyAdded => 'Son Eklenenler';
 
   @override

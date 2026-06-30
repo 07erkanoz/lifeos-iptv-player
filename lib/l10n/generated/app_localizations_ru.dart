@@ -169,6 +169,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get moreInfo => 'Подробнее';
 
   @override
+  String get showMoreEpisodes => 'Показать больше серий';
+
+  @override
   String get recentlyAdded => 'Недавно добавленные';
 
   @override

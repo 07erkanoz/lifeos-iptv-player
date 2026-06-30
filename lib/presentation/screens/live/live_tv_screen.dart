@@ -1765,7 +1765,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlatformHelper.focusAnim,
             padding: widget.padding,
             decoration: BoxDecoration(
               color: isActive
@@ -1856,7 +1856,7 @@ class _CategoryItemState extends State<_CategoryItem> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlatformHelper.focusAnim,
             padding: EdgeInsets.symmetric(
               vertical: 8,
               horizontal: widget.collapsed ? 6 : 10,
@@ -2009,7 +2009,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
     return GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
+        duration: PlatformHelper.anim(const Duration(milliseconds: 120)),
         height: _kChannelRowHeight,
         transform: Matrix4.identity()..scale(isFocused ? 1.02 : 1.0),
         transformAlignment: Alignment.centerLeft,
@@ -2671,7 +2671,7 @@ class _ProgramBlockState extends State<_ProgramBlock> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+            duration: PlatformHelper.anim(const Duration(milliseconds: 120)),
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(4),

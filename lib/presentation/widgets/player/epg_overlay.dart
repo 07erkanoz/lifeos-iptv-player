@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/perf/frosted.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
@@ -61,7 +62,8 @@ class _EpgOverlayState extends State<EpgOverlay>
     super.initState();
     _slideAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      // Instant on TV — no slide composite over the live video surface.
+      duration: PlatformHelper.anim(const Duration(milliseconds: 250)),
     );
     _slideOffset = Tween<Offset>(
       begin: const Offset(0, 1), // Slide from bottom

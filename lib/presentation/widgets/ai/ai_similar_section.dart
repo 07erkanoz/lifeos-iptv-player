@@ -11,6 +11,7 @@ import 'package:lifeostv/data/models/similar_group.dart';
 import 'package:lifeostv/data/repositories/ai_similar_cache_repository.dart';
 import 'package:lifeostv/data/repositories/content_enrichment_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/data/services/semantic_search_service.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -645,9 +646,10 @@ class _SimilarCardState extends State<_SimilarCard> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlatformHelper.focusAnim,
             width: 130,
-            transform: isActive
+            // No scale transform on TV — the focus border marks selection.
+            transform: (isActive && !PlatformHelper.isTV)
                 ? (Matrix4.identity()..scaleByDouble(1.04, 1.04, 1.04, 1.0))
                 : Matrix4.identity(),
             transformAlignment: Alignment.center,

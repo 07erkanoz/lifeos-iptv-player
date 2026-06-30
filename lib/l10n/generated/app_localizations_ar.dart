@@ -168,6 +168,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get moreInfo => 'المزيد';
 
   @override
+  String get showMoreEpisodes => 'عرض المزيد من الحلقات';
+
+  @override
   String get recentlyAdded => 'مضاف حديثاً';
 
   @override

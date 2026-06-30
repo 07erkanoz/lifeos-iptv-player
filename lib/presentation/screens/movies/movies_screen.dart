@@ -66,6 +66,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Map<String, dynamic>? _vodInfo;
   bool _loadingDetail = false;
 
+  // Memoised "similar" rail. _selectSimilarContent is an O(N) main-isolate
+  // token-scoring pass; the detail view rebuilds many times (it watches ~6
+  // streams) and the candidate list grows as the grid pages in, so without
+  // a memo it re-scored thousands of items per frame → ANR/jank on weak TV.
+  // Computed once per opened title (keyed by streamId), over a bounded set.
+  int? _similarCacheKey;
+  List<Channel> _similarCache = const [];
+
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
   // Node attached to the SELECTED category item — entering the sidebar
@@ -544,6 +552,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _closeDetail() {
+    _similarCacheKey = null;
+    _similarCache = const [];
     setState(() { _detailChannel = null; _vodInfo = null; });
     // Pop the overlay focus target so subsequent sidebar/back jumps go
     // back to the grid rather than a disposed detail button.
@@ -973,9 +983,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final similarMovies = embSimilar.isNotEmpty
         ? embSimilar
         : allMoviesAsync.when(
-            data: (all) => _selectSimilarContent(
-              current: ch,
-              all: all,
+            data: (all) => _memoSimilarMovies(
+              ch,
+              all,
               genreText:
                   genre.toString().isNotEmpty ? genre.toString() : ch.genre,
               baseDirector: director.toString().isNotEmpty
@@ -987,7 +997,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                   plot.toString().isNotEmpty ? plot.toString() : ch.plot,
               personalizationSeed: [...favoriteMovies, ...historyMovies],
             ),
-            loading: () => const <Channel>[],
+            loading: () => _similarCacheKey == ch.streamId
+                ? _similarCache
+                : const <Channel>[],
             error: (_, _) => const <Channel>[],
           );
 
@@ -1001,7 +1013,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 ? CachedNetworkImage(
                     imageUrl: backdrop.toString(),
                     fit: BoxFit.cover,
-                    memCacheWidth: 1280,
+                    memCacheWidth: PlatformHelper.isTV ? 720 : 1280,
                     alignment: Alignment.topCenter,
                     errorWidget: (_, _, _) =>
                         const ColoredBox(color: Colors.black),
@@ -1056,7 +1068,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 40, offset: const Offset(0, 12))],
+                    boxShadow: PlatformHelper.isTV ? const <BoxShadow>[] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 40, offset: const Offset(0, 12))],
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -1650,6 +1662,40 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
 
     return null;
+  }
+
+  /// Memoised wrapper around [_selectSimilarContent]: computes once per
+  /// opened title and over a bounded candidate set, so the detail view's
+  /// repeated rebuilds don't re-run an O(N) main-isolate scoring pass on a
+  /// list that grows into the thousands (the ANR/jank on weak TVs).
+  List<Channel> _memoSimilarMovies(
+    Channel current,
+    List<Channel> all, {
+    String? genreText,
+    String? baseDirector,
+    String? baseCast,
+    String? basePlot,
+    List<Channel> personalizationSeed = const [],
+  }) {
+    if (_similarCacheKey == current.streamId && _similarCache.isNotEmpty) {
+      return _similarCache;
+    }
+    // Bound the candidate set — far cheaper to score, and the rail only
+    // needs ~12 picks. Tighter cap on TV where the CPU is weakest.
+    final cap = PlatformHelper.isTV ? 400 : 1200;
+    final candidates = all.length > cap ? all.sublist(0, cap) : all;
+    final result = _selectSimilarContent(
+      current: current,
+      all: candidates,
+      genreText: genreText,
+      baseDirector: baseDirector,
+      baseCast: baseCast,
+      basePlot: basePlot,
+      personalizationSeed: personalizationSeed,
+    );
+    _similarCacheKey = current.streamId;
+    _similarCache = result;
+    return result;
   }
 
   List<Channel> _selectSimilarContent({
@@ -2471,14 +2517,16 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
               border: Border.all(
                   color: active ? AppColors.primary : Colors.transparent,
                   width: active ? PlatformHelper.focusRingWidth : 0),
-              boxShadow: active
+              // No blurred glow on TV — the focus border alone marks the
+              // tile; a 24px Gaussian glow per D-pad move is wasted GPU work.
+              boxShadow: (active && !PlatformHelper.isTV)
                   ? [
                       BoxShadow(
                           color: AppColors.primary.withValues(
                               alpha: PlatformHelper.focusRingGlowAlpha),
                           blurRadius: PlatformHelper.focusRingGlowBlur)
                     ]
-                  : [],
+                  : const <BoxShadow>[],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(7),

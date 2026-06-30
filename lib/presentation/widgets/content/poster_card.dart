@@ -216,7 +216,11 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final isActive = _isFocused || _isHovered;
     final card = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      // Instant on TV — the border switch shouldn't tween on every D-pad
+      // move (the focus ring is the affordance, not motion).
+      duration: PlatformHelper.isTV
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       width: widget.width,
       height: widget.height,
@@ -226,14 +230,12 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
           color: isActive ? AppColors.primary : AppColors.borderDark,
           width: 1.5,
         ),
-        // Static shadow lists — a grid has dozens of cards; allocating
-        // fresh BoxShadows every build/focus tick adds up. On Android TV,
-        // skip the idle drop-shadow entirely: a carousel/grid of blurred
-        // idle shadows is a real per-frame compositing cost on weak TV
-        // GPUs, and the always-present border already marks each tile.
-        boxShadow: isActive
-            ? _activeShadows
-            : (PlatformHelper.isTV ? const <BoxShadow>[] : _idleShadows),
+        // On Android TV draw NO drop-shadow at all (idle or active): a
+        // grid of blurred shadows is a real per-frame compositing cost on
+        // weak TV GPUs, and the border already marks the focused tile.
+        boxShadow: PlatformHelper.isTV
+            ? const <BoxShadow>[]
+            : (isActive ? _activeShadows : _idleShadows),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),

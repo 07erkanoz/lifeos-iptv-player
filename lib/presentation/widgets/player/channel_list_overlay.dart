@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lifeostv/core/perf/frosted.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -49,7 +50,8 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     super.initState();
     _slideAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      // Instant on TV — no slide composite over the live video surface.
+      duration: PlatformHelper.anim(const Duration(milliseconds: 250)),
     );
     _slideOffset = Tween<Offset>(
       begin: const Offset(1, 0),

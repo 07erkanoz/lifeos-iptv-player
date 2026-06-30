@@ -337,7 +337,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _controlsAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      // Snap controls in/out on TV — no fade composite over the video.
+      duration: PlatformHelper.anim(const Duration(milliseconds: 250)),
     );
     _controlsFade = CurvedAnimation(
       parent: _controlsAnim,
