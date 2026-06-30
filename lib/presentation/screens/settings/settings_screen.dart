@@ -316,6 +316,19 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
             widget.onTap();
             return KeyEventResult.handled;
           }
+          // D-pad Right → select this section and hand focus to the content
+          // pane, so crossing nav → content is deterministic instead of
+          // relying on Flutter's geometry traversal (which on TV often
+          // appeared to "do nothing" from the settings nav).
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            widget.onTap();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              FocusManager.instance.primaryFocus
+                  ?.focusInDirection(TraversalDirection.right);
+            });
+            return KeyEventResult.handled;
+          }
           return KeyEventResult.ignored;
         },
         child: GestureDetector(

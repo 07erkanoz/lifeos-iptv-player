@@ -45,7 +45,7 @@ class _DlnaPickerEntry extends _PickerEntry {
 /// Combined cast button. Tap → opens a picker that lists every Chromecast
 /// AND every DLNA / UPnP MediaRenderer on the LAN. Glows when either
 /// transport is currently connected.
-class CastButton extends StatelessWidget {
+class CastButton extends StatefulWidget {
   /// Called when EITHER transport starts playing remotely (local player
   /// should pause).
   final VoidCallback? onCastStarted;
@@ -58,6 +58,47 @@ class CastButton extends StatelessWidget {
     this.onCastStarted,
     this.onCastStopped,
   });
+
+  @override
+  State<CastButton> createState() => _CastButtonState();
+}
+
+class _CastButtonState extends State<CastButton> {
+  /// Last surfaced cast load-error, so the SnackBar fires once per failure.
+  String? _shownError;
+
+  @override
+  void initState() {
+    super.initState();
+    CastService.instance.stateNotifier.addListener(_onCastStateChanged);
+  }
+
+  @override
+  void dispose() {
+    CastService.instance.stateNotifier.removeListener(_onCastStateChanged);
+    super.dispose();
+  }
+
+  /// Surface a one-time message when the Chromecast receiver rejects the
+  /// media (unsupported container/codec — e.g. a raw .mkv or AC-3 audio
+  /// the Default Media Receiver can't decode). Otherwise the cast just
+  /// shows silent/blank video with no explanation.
+  void _onCastStateChanged() {
+    final err = CastService.instance.state.loadError;
+    if (err == null) {
+      _shownError = null;
+      return;
+    }
+    if (err == _shownError || !mounted) return;
+    _shownError = err;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.castUnsupportedMedia),
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +160,7 @@ class CastButton extends StatelessWidget {
           final ok = await CastService.instance.connectToDevice(device);
           messenger.hideCurrentSnackBar();
           if (ok) {
-            onCastStarted?.call();
+            widget.onCastStarted?.call();
             messenger.showSnackBar(
               SnackBar(
                 content: Text(l10n.castConnectedTo(device.name)),
@@ -153,7 +194,7 @@ class CastButton extends StatelessWidget {
           // The player's _onCastStarted drives the DLNA LOAD and shows
           // its own success / failure feedback (it knows whether the
           // TV actually started playing).
-          onCastStarted?.call();
+          widget.onCastStarted?.call();
         },
       ),
     );
@@ -204,7 +245,7 @@ class CastButton extends StatelessWidget {
                     } else {
                       await DlnaService.instance.disconnect();
                     }
-                    onCastStopped?.call();
+                    widget.onCastStopped?.call();
                   },
                   icon: const Icon(Icons.close),
                   label: Text(l10n.castDisconnect),

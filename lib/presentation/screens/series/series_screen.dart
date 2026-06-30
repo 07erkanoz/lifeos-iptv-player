@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -125,10 +126,17 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   late final VoidFocusCallback _branchPrimaryCb;
   VoidFocusCallback? _detailOverlayCb;
 
+  /// Debounce for focus-driven category-panel collapse (TV). See
+  /// [_onCategoryScopeFocusChange].
+  Timer? _categoryCollapseTimer;
+
   @override
   void initState() {
     super.initState();
     _branchPrimaryCb = _focusGrid;
+    // Collapse the category panel when D-pad focus leaves it (TV), the
+    // same focus-driven way the main sidebar collapses.
+    _categorySidebarScope.addListener(_onCategoryScopeFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _registerBackHandler();
@@ -136,6 +144,22 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             TvBranchIndex.series,
             _branchPrimaryCb,
           );
+    });
+  }
+
+  /// Auto-collapse the category panel ~300ms after D-pad focus leaves it
+  /// — mirrors the main sidebar's collapse-on-blur. Android TV only.
+  void _onCategoryScopeFocusChange() {
+    if (!PlatformHelper.isTV) return;
+    if (_categorySidebarScope.hasFocus) return;
+    if (_categoriesCollapsed) return;
+    if (_detailChannel != null) return;
+    _categoryCollapseTimer?.cancel();
+    _categoryCollapseTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_categorySidebarScope.hasFocus) return;
+      if (_categoriesCollapsed || _detailChannel != null) return;
+      setState(() => _categoriesCollapsed = true);
     });
   }
 
@@ -147,6 +171,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     if (overlay != null) {
       ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
     }
+    _categoryCollapseTimer?.cancel();
+    _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
     _categorySidebarScope.dispose();
     _selectedCatFocusNode.dispose();
     _favCatFocusNode.dispose();
@@ -1355,6 +1381,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               CachedNetworkImage(
                 imageUrl: imgUrl,
                 fit: BoxFit.cover,
+                memCacheWidth: 960,
                 alignment: const Alignment(0, -0.3),
                 errorWidget: (_, _, _) =>
                     Container(color: AppColors.surface(context)),
@@ -1592,6 +1619,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     width: 100,
                     height: 150,
                     fit: BoxFit.cover,
+                    memCacheWidth: 300,
                     errorWidget: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
@@ -1697,6 +1725,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 ? CachedNetworkImage(
                     imageUrl: backdrop.toString(),
                     fit: BoxFit.cover,
+                    memCacheWidth: 1280,
                     alignment: Alignment.topCenter,
                     errorWidget: (_, _, _) =>
                         const ColoredBox(color: Colors.black),
@@ -1805,6 +1834,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   width: w,
                                   height: h,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: 360,
                                   errorWidget: (_, _, _) => Container(
                                     width: w,
                                     height: h,
@@ -2789,6 +2819,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         imageUrl: channel.streamIcon!,
                         fit: BoxFit.cover,
                         width: double.infinity,
+                        memCacheWidth: 360,
                         errorWidget: (_, _, _) =>
                             Container(color: AppColors.surface(context)),
                       )
@@ -2895,6 +2926,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                             ? CachedNetworkImage(
                                 imageUrl: widget.thumbnail,
                                 fit: BoxFit.cover,
+                                memCacheWidth: 360,
                                 errorWidget: (_, _, _) => const Center(
                                   child: Icon(
                                     Icons.play_circle_outline,
@@ -3900,7 +3932,11 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 180),
+      // Snap the focus scale instantly on Android TV (no per-D-pad-move
+      // re-composite tween); animated on desktop where the GPU can spare it.
+      duration: PlatformHelper.isTV
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
     );
     _scale = Tween(
       begin: 1.0,

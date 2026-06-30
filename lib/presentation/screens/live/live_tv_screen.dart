@@ -22,6 +22,7 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'dart:async';
 
@@ -190,6 +191,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
     _branchPrimaryCb = _focusChannelList;
 
+    // Collapse the category panel when D-pad focus leaves it (TV) —
+    // mirrors the main sidebar's collapse-on-blur.
+    _categorySidebarScope.addListener(_onCategoryScopeFocusChange);
+
     // Auto-scroll to current time after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -201,6 +206,23 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             TvBranchIndex.liveTv,
             _branchPrimaryCb,
           );
+    });
+  }
+
+  /// Debounce for focus-driven category-panel collapse (TV).
+  Timer? _categoryCollapseTimer;
+
+  /// Auto-collapse the category panel ~300ms after D-pad focus leaves it
+  /// (TV only) — mirrors the main sidebar. Desktop keeps it open.
+  void _onCategoryScopeFocusChange() {
+    if (!PlatformHelper.isTV) return;
+    if (_categorySidebarScope.hasFocus) return;
+    if (_categoriesCollapsed) return;
+    _categoryCollapseTimer?.cancel();
+    _categoryCollapseTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_categorySidebarScope.hasFocus || _categoriesCollapsed) return;
+      setState(() => _categoriesCollapsed = true);
     });
   }
 
@@ -216,6 +238,16 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     } else {
       _channelListFocusNode.requestFocus();
     }
+  }
+
+  /// Channel list → EPG bridge. D-pad Right on a channel enters the
+  /// program timeline for that channel's row. Without this, Right was a
+  /// dead no-op (TvIndexedList swallows the key) and the EPG — though
+  /// focusable — had no forward entry path from the remote, which also
+  /// left the epgFocused→channel-list Back branch unreachable.
+  void _focusEpg() {
+    if (!mounted) return;
+    if (!_epgFocusScope.hasFocus) _epgFocusScope.requestFocus();
   }
 
   /// EPG → channel list bridge. Called from a _ProgramBlock's
@@ -302,6 +334,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     _epgVerticalScrollController.dispose();
     _epgHorizontalScrollController.dispose();
     _channelListFocusNode.dispose();
+    _categoryCollapseTimer?.cancel();
+    _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
     _categorySidebarScope.dispose();
     _epgFocusScope.dispose();
     super.dispose();
@@ -351,14 +385,22 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     }
   }
 
-  /// Select category (sidebar stays open, user closes via toggle button).
-  /// Persists the choice to SharedPreferences so the next Live TV
-  /// open lands on the same category instead of resetting to
-  /// Favorites every time.
+  /// Select category. On Android TV the panel collapses on select and
+  /// hands focus to the channel list — matching Movies/Series (commit
+  /// 0fe40c2) so the category sidebar closes like the main one instead of
+  /// staying open. On desktop it stays open (its mouse-driven design).
+  /// Persists the choice to SharedPreferences so the next Live TV open
+  /// lands on the same category instead of resetting to Favorites.
   void _selectCategory(String categoryId) {
     setState(() {
       _selectedCategoryId = categoryId;
+      if (PlatformHelper.isTV) _categoriesCollapsed = true;
     });
+    if (PlatformHelper.isTV) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusChannelList();
+      });
+    }
     // Fire-and-forget write — failure is a soft regression (next
     // launch defaults to Favorites again), not worth blocking the UI.
     SharedPreferences.getInstance().then((prefs) {
@@ -1101,15 +1143,13 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   /// Move focus to channel list (D-pad right from category sidebar)
   void _focusContent() {
+    // Route through the controller's deterministic index-focus (with its
+    // deferred-focus + scroll-into-view handling) instead of focusing the
+    // bare wrapper node and hoping directional traversal lands a channel.
+    // On a slow async load the controller now arms a pending intent and
+    // fulfils it when rows mount, so D-pad Right no longer strands focus.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _channelListFocusNode.requestFocus();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          FocusManager.instance.primaryFocus?.focusInDirection(
-            TraversalDirection.down,
-          );
-        });
-      }
+      if (mounted) _focusChannelList();
     });
   }
 
@@ -1367,6 +1407,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                         itemExtent: _kChannelRowHeight,
                         onActivate: _playChannel,
                         onLeftEdge: _openCategorySidebar,
+                        onRightEdge: _focusEpg,
                         itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
                           channel: ch,
                           onTap: () => _playChannel(ch),
@@ -1480,6 +1521,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                           itemExtent: _kChannelRowHeight,
                           onActivate: _playChannel,
                           onLeftEdge: _openCategorySidebar,
+                          onRightEdge: _focusEpg,
                           itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
                             channel: ch,
                             onTap: () => _playChannel(ch),
@@ -1636,6 +1678,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                       itemExtent: _kChannelRowHeight,
                       onActivate: _playChannel,
                       onLeftEdge: _openCategorySidebar,
+                      onRightEdge: _focusEpg,
                       itemBuilder: (ctx, ch, isFocused) => _ChannelListItem(
                         channel: ch,
                         onTap: () => _playChannel(ch),
@@ -1996,6 +2039,7 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
                       ? CachedNetworkImage(
                           imageUrl: widget.channel.streamIcon!,
                           fit: BoxFit.cover,
+                          memCacheWidth: 96,
                           errorWidget: (_, _, _) => _channelPlaceholder(),
                         )
                       : _channelPlaceholder(),
@@ -2855,6 +2899,7 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
                     ? CachedNetworkImage(
                         imageUrl: widget.channel.streamIcon!,
                         fit: BoxFit.contain,
+                        memCacheWidth: 132,
                         errorWidget: (_, _, _) => Container(
                           color: AppColors.surfaceElevatedDark,
                           child: const Icon(

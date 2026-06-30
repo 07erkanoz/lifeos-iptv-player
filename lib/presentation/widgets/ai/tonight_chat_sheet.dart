@@ -1262,6 +1262,7 @@ class _RecCard extends ConsumerWidget {
                   width: 56,
                   height: 84,
                   fit: BoxFit.cover,
+                  memCacheWidth: 168,
                   errorWidget: (_, _, _) => Container(
                     width: 56,
                     height: 84,

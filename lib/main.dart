@@ -54,7 +54,9 @@ void main() async {
   MediaKit.ensureInitialized();
 
   // Cap Flutter's global image cache so poster/logo/thumbnail accumulation
-  // between episodes can't spiral into OOM on Android.
+  // between episodes can't spiral into OOM. The TV-specific (smaller) budget
+  // is applied below, once TV detection has run — weak Android TV boxes have
+  // a far tighter app heap than phones/desktops.
   PaintingBinding.instance.imageCache
     ..maximumSize = 150
     ..maximumSizeBytes = 60 * 1024 * 1024;
@@ -85,6 +87,16 @@ void main() async {
   // Detect if running on Android TV
   final isTV = await _detectAndroidTV();
   PlatformHelper.setTVDevice(isTV);
+
+  // Tighten the global image cache on Android TV. Combined with the
+  // per-image memCacheWidth decode caps, this keeps the decoded-bitmap
+  // working set well inside the limited TV app heap (grids of posters +
+  // player/EPG logos previously accumulated full-res bitmaps → OOM).
+  if (isTV) {
+    PaintingBinding.instance.imageCache
+      ..maximumSize = 100
+      ..maximumSizeBytes = 40 * 1024 * 1024;
+  }
 
   // Pre-cache GPU info so player init is instant
   GpuDetector.detect();

@@ -50,6 +50,12 @@ class _EpgOverlayState extends State<EpgOverlay>
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
 
+  /// D-pad highlighted program row. Drives keyboard/remote navigation of
+  /// the list (the rows are index-simulated, not individual focus nodes).
+  /// Seeded to the current programme on open.
+  int _focusedIndex = -1;
+  static const _kTileExtent = 72.0;
+
   @override
   void initState() {
     super.initState();
@@ -88,15 +94,33 @@ class _EpgOverlayState extends State<EpgOverlay>
         break;
       }
     }
+    // Seed the D-pad highlight on the current programme (or the first row
+    // if "now" isn't in the EPG window) so the remote has somewhere to go.
+    if (widget.programs.isNotEmpty) {
+      setState(() => _focusedIndex = currentIdx >= 0 ? currentIdx : 0);
+    }
     if (currentIdx > 0 && _scrollController.hasClients) {
       // Each item is ~72px height, scroll to center it
-      final offset = (currentIdx * 72.0 - 72).clamp(0.0, double.maxFinite);
+      final offset =
+          (currentIdx * _kTileExtent - _kTileExtent).clamp(0.0, double.maxFinite);
       _scrollController.animateTo(
         offset,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
     }
+  }
+
+  /// Bring the D-pad highlighted row into view as the user navigates.
+  void _scrollToIndex(int idx) {
+    if (!_scrollController.hasClients) return;
+    final target = idx * _kTileExtent - _kTileExtent;
+    final max = _scrollController.position.maxScrollExtent;
+    _scrollController.animateTo(
+      target.clamp(0.0, max),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -111,7 +135,47 @@ class _EpgOverlayState extends State<EpgOverlay>
       return KeyEventResult.handled;
     }
 
-    return KeyEventResult.ignored;
+    final count = widget.programs.length;
+    if (count == 0) return KeyEventResult.handled;
+
+    // D-pad navigation of the program list (rows are index-simulated).
+    if (k == LogicalKeyboardKey.arrowDown) {
+      if (_focusedIndex < count - 1) {
+        setState(() => _focusedIndex++);
+        _scrollToIndex(_focusedIndex);
+      }
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowUp) {
+      if (_focusedIndex > 0) {
+        setState(() => _focusedIndex--);
+        _scrollToIndex(_focusedIndex);
+      }
+      return KeyEventResult.handled;
+    }
+    // Enter/OK → start catch-up replay for the highlighted programme when
+    // it's in the timeshift window; no-op for live/future rows.
+    if (k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) {
+      if (_focusedIndex >= 0 && _focusedIndex < count) {
+        _activateProgram(widget.programs[_focusedIndex]);
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Swallow remaining keys so they can't leak to the player behind us.
+    return KeyEventResult.handled;
+  }
+
+  /// True when [program] is in the past and inside the catch-up window.
+  bool _isCatchUpAble(Program program, DateTime now) =>
+      program.stop.isBefore(now) &&
+      widget.onCatchUp != null &&
+      now.difference(program.stop) <= widget.catchUpWindow;
+
+  void _activateProgram(Program program) {
+    if (_isCatchUpAble(program, DateTime.now())) {
+      widget.onCatchUp!.call(program);
+    }
   }
 
   void _close() {
@@ -195,6 +259,7 @@ class _EpgOverlayState extends State<EpgOverlay>
                                         widget.programs[i],
                                         now,
                                         isCompact,
+                                        i == _focusedIndex,
                                       ),
                                     ),
                             ),
@@ -226,6 +291,7 @@ class _EpgOverlayState extends State<EpgOverlay>
                 width: 36,
                 height: 36,
                 fit: BoxFit.cover,
+                memCacheWidth: 108,
                 errorWidget: (_, _, _) => Container(
                   width: 36,
                   height: 36,
@@ -279,7 +345,8 @@ class _EpgOverlayState extends State<EpgOverlay>
     );
   }
 
-  Widget _buildProgramTile(Program program, DateTime now, bool isCompact) {
+  Widget _buildProgramTile(
+      Program program, DateTime now, bool isCompact, bool isFocused) {
     final isCurrent =
         program.start.isBefore(now) && program.stop.isAfter(now);
     final isPast = program.stop.isBefore(now);
@@ -305,16 +372,22 @@ class _EpgOverlayState extends State<EpgOverlay>
     final tile = Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
-        color: isCurrent
-            ? AppColors.primary.withValues(alpha: 0.15)
-            : Colors.transparent,
+        color: isFocused
+            ? AppColors.primary.withValues(alpha: 0.22)
+            : isCurrent
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-        border: isCurrent
-            ? Border.all(
-                color: AppColors.primary.withValues(alpha: 0.3),
-                width: 1,
-              )
-            : null,
+        // D-pad focus ring takes precedence over the "now playing" hint
+        // so the remote user can always see where they are.
+        border: isFocused
+            ? Border.all(color: AppColors.primary, width: 2.5)
+            : isCurrent
+                ? Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  )
+                : null,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

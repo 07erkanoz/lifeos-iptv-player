@@ -871,6 +871,10 @@ class AppLocalizationsKu extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'Ev naverok nehat li ser vê amûrê weşandin (dibe deng/format nayê piştgirîkirin).';
+
+  @override
   String get castFailed =>
       'Negirêda. Pê ewle be ku tu li ser heman tora Wi-Fi yî wek amûrê.';
 

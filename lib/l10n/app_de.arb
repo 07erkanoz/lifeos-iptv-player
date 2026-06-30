@@ -354,6 +354,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "Streame auf {device}",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "Dieser Inhalt konnte nicht auf dieses Gerät übertragen werden (Audio/Format evtl. nicht unterstützt).",
   "castFailed": "Verbindung fehlgeschlagen. Stelle sicher, dass du im selben WLAN bist wie das Gerät.",
   "castingBanner": "Streame auf {device}",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

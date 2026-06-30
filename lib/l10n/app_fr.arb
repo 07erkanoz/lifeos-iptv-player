@@ -354,6 +354,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "Diffusion vers {device}",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "Ce contenu n'a pas pu être diffusé sur cet appareil (audio/format peut-être non pris en charge).",
   "castFailed": "Connexion impossible. Assure-toi d'être sur le même réseau Wi-Fi que l'appareil.",
   "castingBanner": "Diffusion vers {device}",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

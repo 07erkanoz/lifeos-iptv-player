@@ -34,6 +34,9 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   final _searchFocusNode = FocusNode();
+  // Named node for the overlay's main key-handling Focus so we can pull
+  // focus back to the channel list after the user leaves the search field.
+  final _listFocusNode = FocusNode();
   late AnimationController _slideAnim;
   late Animation<Offset> _slideOffset;
 
@@ -65,6 +68,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     _searchController.dispose();
     _scrollController.dispose();
     _searchFocusNode.dispose();
+    _listFocusNode.dispose();
     super.dispose();
   }
 
@@ -139,8 +143,25 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
       return KeyEventResult.handled;
     }
 
-    // Don't capture arrows when search field is focused
-    if (_searchFocusNode.hasFocus) return KeyEventResult.ignored;
+    // Search field focused: D-pad Down drops back into the channel list;
+    // text-editing keys still pass through to the TextField. (Previously
+    // ALL keys were ignored here, so once the remote reached the search
+    // box there was no D-pad way back out — focus was trapped.)
+    if (_searchFocusNode.hasFocus) {
+      if (k == LogicalKeyboardKey.arrowDown) {
+        final filtered = _filteredChannels;
+        if (filtered.isNotEmpty) {
+          final globalIdx = widget.channels
+              .indexWhere((ch) => ch.streamId == filtered.first.streamId);
+          _searchFocusNode.unfocus();
+          _listFocusNode.requestFocus();
+          setState(() => _focusedIndex = globalIdx);
+          _scrollToItem(0);
+        }
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
 
     final filtered = _filteredChannels;
 
@@ -166,6 +187,11 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
         final globalIdx = widget.channels.indexWhere((ch) => ch.streamId == filtered[prevIdx].streamId);
         setState(() => _focusedIndex = globalIdx);
         _scrollToItem(prevIdx);
+      } else {
+        // Up from the first channel → jump to the search field instead of
+        // a dead press, so the remote can reach search (and the category
+        // tabs above it via the field's own traversal).
+        _searchFocusNode.requestFocus();
       }
       return KeyEventResult.handled;
     }
@@ -248,6 +274,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                 ),
               ),
               child: Focus(
+                focusNode: _listFocusNode,
                 autofocus: true,
                 onKeyEvent: _handleKey,
                 child: Column(
@@ -502,6 +529,7 @@ class _ChannelItemState extends State<_ChannelItem> {
                     width: 32,
                     height: 22,
                     fit: BoxFit.contain,
+                    memCacheWidth: 96,
                     errorWidget: (_, _, _) => const SizedBox(width: 32, height: 22),
                   ),
                 )

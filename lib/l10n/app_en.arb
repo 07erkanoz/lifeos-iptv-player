@@ -322,6 +322,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "Casting to {device}",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "This content couldn't be cast to this device (audio/format may be unsupported).",
   "castFailed": "Couldn't connect. Make sure you're on the same Wi-Fi network as the device.",
   "castingBanner": "Casting to {device}",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

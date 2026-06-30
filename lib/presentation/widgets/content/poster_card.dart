@@ -89,7 +89,12 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
     super.initState();
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 180),
+      // Snap the focus scale/lift instantly on Android TV — the animated
+      // re-composite on every D-pad focus move is wasted work on weak TV
+      // GPUs, and the focus ring + size pop read fine without the tween.
+      duration: PlatformHelper.isTV
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: _hoverScale).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutCubic),
@@ -222,8 +227,13 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
           width: 1.5,
         ),
         // Static shadow lists — a grid has dozens of cards; allocating
-        // fresh BoxShadows every build/focus tick adds up.
-        boxShadow: isActive ? _activeShadows : _idleShadows,
+        // fresh BoxShadows every build/focus tick adds up. On Android TV,
+        // skip the idle drop-shadow entirely: a carousel/grid of blurred
+        // idle shadows is a real per-frame compositing cost on weak TV
+        // GPUs, and the always-present border already marks each tile.
+        boxShadow: isActive
+            ? _activeShadows
+            : (PlatformHelper.isTV ? const <BoxShadow>[] : _idleShadows),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),

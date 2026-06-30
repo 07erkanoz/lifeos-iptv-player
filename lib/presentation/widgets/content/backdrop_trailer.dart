@@ -189,6 +189,7 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
             CachedNetworkImage(
               imageUrl: url,
               fit: BoxFit.cover,
+              memCacheWidth: 1280,
               alignment: Alignment.topCenter,
               errorWidget: (_, _, _) => const ColoredBox(color: Colors.black),
             )

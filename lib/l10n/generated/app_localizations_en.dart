@@ -871,6 +871,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'This content couldn\'t be cast to this device (audio/format may be unsupported).';
+
+  @override
   String get castFailed =>
       'Couldn\'t connect. Make sure you\'re on the same Wi-Fi network as the device.';
 

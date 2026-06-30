@@ -284,6 +284,7 @@ class _PickCardState extends State<_PickCard> {
                             width: 140,
                             height: 210,
                             fit: BoxFit.cover,
+                            memCacheWidth: 320,
                             errorWidget: (_, _, _) => _placeholderPoster(),
                           )
                         : _placeholderPoster(),

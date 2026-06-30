@@ -361,6 +361,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "{device} cihazına yansıtılıyor",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "Bu içerik bu cihaza yansıtılamadı (ses/format desteklenmiyor olabilir).",
   "castFailed": "Bağlanılamadı. Cihazla aynı Wi-Fi ağında olduğundan emin ol.",
   "castingBanner": "{device} cihazına yansıtılıyor",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

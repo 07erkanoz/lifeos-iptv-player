@@ -24,6 +24,11 @@ class ContentRepository {
   static const _epgSyncInterval = Duration(hours: 2);
   static const _epgSyncKey = 'last_epg_sync_timestamp';
 
+  /// Upper bound on rows materialised + filtered on the main isolate per
+  /// type during search. Caps the per-keystroke CPU cost so a huge live
+  /// catalogue can't freeze the UI; mirrors the slice [searchChannels] uses.
+  static const _kSearchScanCap = 6000;
+
   ContentRepository(
     this._db,
     this._syncService,
@@ -595,6 +600,14 @@ class ContentRepository {
   Future<List<Channel>> searchChannelsByType(String query, String type, {int limit = 100}) async {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
+    // Bound the candidate set the way [searchChannels] does: a wide,
+    // rating-ranked slice rather than the whole type. Previously this
+    // materialised EVERY non-hidden row of the type and ran the Dart
+    // haystack + (worst-case) Levenshtein fuzzy pass over all of them on
+    // the main isolate — a multi-second freeze / ANR on large live
+    // catalogues, three times per query (movie/series/live in parallel).
+    // Capping at 6000 keeps the per-keystroke work bounded regardless of
+    // catalogue size while preserving recall for any realistic library.
     final rows = await (_db.select(_db.channels).join([
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
@@ -602,6 +615,10 @@ class ContentRepository {
     ])
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
+      ..orderBy([
+        OrderingTerm(expression: _db.channels.rating, mode: OrderingMode.desc),
+      ])
+      ..limit(_kSearchScanCap)
     ).get();
 
     // Build (channel, haystack) tuples once so the fuzzy pass below

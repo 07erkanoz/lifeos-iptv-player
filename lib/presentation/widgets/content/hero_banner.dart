@@ -112,6 +112,14 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
   /// rotate out from underneath the user mid-trailer.
   bool _trailerExpanded = false;
 
+  /// Observe-only scope over the hero action buttons. While the D-pad has
+  /// focus on Play/Details/Trailer the 12s auto-rotate is paused, so the
+  /// underlying title can't silently swap out from under the user (e.g.
+  /// pressing Play and launching a different item than the one shown).
+  final FocusNode _heroActionsScope =
+      FocusNode(debugLabel: 'heroActions', skipTraversal: true, canRequestFocus: false);
+  bool _heroActionsFocused = false;
+
   bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
 
   /// Detects 10-foot-UI (Android TV, large desktop with TV-like
@@ -206,6 +214,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
   void dispose() {
     _autoSlideTimer?.cancel();
     _trailerScheduleTimer?.cancel();
+    _heroActionsScope.dispose();
     _disposeTrailerPlayer();
     super.dispose();
   }
@@ -218,7 +227,9 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
         // Don't rotate while the user is watching the expanded trailer
         // — would yank the title out from under them. The timer keeps
         // ticking but each fire is a no-op until the modal closes.
-        if (_trailerExpanded) return;
+        // Also pause while a hero action button holds D-pad focus, so the
+        // title under the user's selection can't silently change.
+        if (_trailerExpanded || _heroActionsFocused) return;
         final newIndex = (_currentIndex + 1) % widget.channels.length;
         setState(() => _currentIndex = newIndex);
         widget.onItemChanged?.call(widget.channels[newIndex]);
@@ -490,7 +501,12 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
             // ── Background Image ──
             // ── Background Image — same approach as movies/series hero ──
             AnimatedSwitcher(
-            duration: const Duration(milliseconds: 800),
+            // A full-bleed 800ms crossfade composites two large backdrops
+            // every rotation — a recurring hitch on weak TV GPUs. Use a
+            // short, cheap fade on TV.
+            duration: PlatformHelper.isTV
+                ? const Duration(milliseconds: 200)
+                : const Duration(milliseconds: 800),
             child: _buildHeroImage(channel, backdropUrl, hasBackdrop),
           ),
 
@@ -705,7 +721,12 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
                 const SizedBox(height: 14),
 
                 // Action buttons
-                Row(
+                Focus(
+                  focusNode: _heroActionsScope,
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  onFocusChange: (f) => _heroActionsFocused = f,
+                  child: Row(
                   children: [
                     _HeroButton(
                       icon: Icons.play_arrow,
@@ -743,6 +764,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
                       ),
                     ],
                   ],
+                ),
                 ),
 
                 // Page indicators
@@ -819,7 +841,8 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
         height: double.infinity,
         // Cap decode — provider backdrops can be 1920px+/multi-MB;
         // 1280 covers the hero at 2x DPI and keeps rotation smooth.
-        memCacheWidth: 1280,
+        // Decode smaller on Android TV to ease memory + crossfade cost.
+        memCacheWidth: PlatformHelper.isTV ? 960 : 1280,
         errorWidget: (_, _, _) => _buildPosterBackground(channel),
       );
     }

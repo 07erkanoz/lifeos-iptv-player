@@ -213,6 +213,7 @@ class _NowOnAirCardState extends State<_NowOnAirCard> {
                         ? CachedNetworkImage(
                             imageUrl: widget.channel.streamIcon!,
                             fit: BoxFit.contain,
+                            memCacheWidth: 168,
                             errorWidget: (_, _, _) =>
                                 _logoFallback(),
                           )

@@ -754,7 +754,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
               // Results — grouped by type
               Expanded(
-                child: _isSearching
+                // Only show the full-screen spinner when there's nothing
+                // on screen yet. While re-searching with results already
+                // visible, keep them up — otherwise every keystroke wiped
+                // the grid to a spinner (a visible flicker on TV, where
+                // D-pad keystrokes are >400ms apart).
+                child: _isSearching && !_hasResults
                     ? const Center(
                         child: SizedBox(
                           width: 24,
@@ -1026,6 +1031,7 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                         ? CachedNetworkImage(
                             imageUrl: ch.streamIcon!,
                             fit: BoxFit.cover,
+                            memCacheWidth: 320,
                             errorWidget: (_, _, _) => _placeholderIcon(),
                           )
                         : _placeholderIcon(),

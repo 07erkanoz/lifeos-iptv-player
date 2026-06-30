@@ -38,6 +38,15 @@ class TvIndexedListController {
   /// restore focus after navigation away (e.g. back from a player).
   int _lastFocusedChannelId = -1;
 
+  /// Deferred-focus intent. On a slow TV, switching category (or first
+  /// open) rebuilds the list with async data + FocusNodes landing several
+  /// frames after the 2-frame retry window. Rather than dropping focus
+  /// into the void, we remember the intent here and fulfil it from
+  /// [attach] (when the channelIds arrive) or [registerItem] (when the
+  /// target row finally mounts). Mirrors TvPosterGridController.
+  bool _pendingFocusFirst = false;
+  int _pendingFocusChannelId = -1;
+
   // ── Lifecycle: widget ↔ controller ──────────────────────────────────
 
   void attach({
@@ -50,6 +59,23 @@ class TvIndexedListController {
     _itemHeight = itemHeight;
     _paddingTop = paddingTop;
     _channelIds = channelIds;
+    // The data a deferred focus was waiting on may have just arrived.
+    if ((_pendingFocusFirst || _pendingFocusChannelId >= 0) &&
+        channelIds.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pendingFocusChannelId >= 0 &&
+            _channelIds.contains(_pendingFocusChannelId)) {
+          final id = _pendingFocusChannelId;
+          _pendingFocusChannelId = -1;
+          _pendingFocusFirst = false;
+          focusByChannelId(id);
+        } else if (_pendingFocusFirst) {
+          _pendingFocusFirst = false;
+          _pendingFocusChannelId = -1;
+          focusFirst();
+        }
+      });
+    }
   }
 
   void detach(ScrollController scrollController) {
@@ -62,6 +88,19 @@ class TvIndexedListController {
 
   void registerItem(int channelId, FocusNode node) {
     _nodes[channelId] = node;
+    // Fulfil a deferred focus the moment its target row (or, for a
+    // first-item request, the first channel) actually mounts.
+    if (!node.canRequestFocus) return;
+    if (_pendingFocusChannelId == channelId) {
+      _pendingFocusChannelId = -1;
+      _pendingFocusFirst = false;
+      node.requestFocus();
+    } else if (_pendingFocusFirst &&
+        _channelIds.isNotEmpty &&
+        channelId == _channelIds.first) {
+      _pendingFocusFirst = false;
+      node.requestFocus();
+    }
   }
 
   void unregisterItem(int channelId, FocusNode node) {
@@ -84,8 +123,16 @@ class TvIndexedListController {
 
   // ── Focus API ───────────────────────────────────────────────────────
 
+  /// Focus the first row. On an empty list (data not loaded yet) the
+  /// intent is remembered and fulfilled from [attach]/[registerItem]
+  /// once rows arrive; returns false so the caller knows focus hasn't
+  /// landed yet (and can keep the sidebar selection rather than
+  /// releasing focus into the void).
   bool focusFirst() {
-    if (_channelIds.isEmpty) return false;
+    if (_channelIds.isEmpty) {
+      _pendingFocusFirst = true;
+      return false;
+    }
     return focusIndex(0);
   }
 
@@ -96,6 +143,10 @@ class TvIndexedListController {
   }
 
   bool focusCurrentOrFirst() {
+    if (_channelIds.isEmpty) {
+      _pendingFocusFirst = true;
+      return false;
+    }
     if (_lastFocusedChannelId >= 0 &&
         _channelIds.contains(_lastFocusedChannelId)) {
       return focusByChannelId(_lastFocusedChannelId);
@@ -114,7 +165,9 @@ class TvIndexedListController {
     // Item not mounted: approximate-scroll into view, then retry on
     // the next frame. Two extra attempts beyond the immediate try
     // cover ListView's two-pass build (initial layout, then a
-    // viewport-aware repaint).
+    // viewport-aware repaint). Arm the deferred path too so a slower
+    // mount (weak TV) is still caught by registerItem().
+    _pendingFocusChannelId = channelId;
     _scrollToIndex(index);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _retryFocus(channelId, attemptsLeft: 2);
@@ -125,6 +178,7 @@ class TvIndexedListController {
   void _retryFocus(int channelId, {required int attemptsLeft}) {
     final node = _nodes[channelId];
     if (node != null && node.canRequestFocus) {
+      if (_pendingFocusChannelId == channelId) _pendingFocusChannelId = -1;
       node.requestFocus();
       return;
     }

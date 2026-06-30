@@ -354,6 +354,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "Li {device} tê weşandin",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "Ev naverok nehat li ser vê amûrê weşandin (dibe deng/format nayê piştgirîkirin).",
   "castFailed": "Negirêda. Pê ewle be ku tu li ser heman tora Wi-Fi yî wek amûrê.",
   "castingBanner": "Li {device} tê weşandin",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

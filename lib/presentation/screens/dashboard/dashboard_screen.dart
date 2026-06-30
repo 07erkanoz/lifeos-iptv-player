@@ -406,7 +406,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // AI greeting banner — renders nothing without a
                   // Gemini key (no fallback hardcoded text either,
                   // the dashboard for non-AI users looks unchanged).
-                  const DashboardGreeting(),
+                  // Skipped on Android TV: AI is disabled there (TV-lite),
+                  // and the extra rows only add focus targets + image
+                  // decodes to the most content-dense screen.
+                  if (!PlatformHelper.isTV) const DashboardGreeting(),
 
                   // Hero Banner with VOD info. Wrapped in a focus
                   // watcher: when D-pad focus enters ANY hero control
@@ -486,18 +489,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // additions matching the user's taste. Hides
                   // itself when there's no key, no recent content,
                   // or the user dismissed within the last 7 days.
-                  WeeklyDigestBanner(onTap: _openDetail),
+                  if (!PlatformHelper.isTV)
+                    WeeklyDigestBanner(onTap: _openDetail),
 
                   // "Sana Özel" — AI-curated personalised rail.
                   // Hides itself entirely when the user has no
                   // Gemini key, so the dashboard for non-AI users
                   // looks identical to before this commit.
-                  PersonalizedPicksRail(onTap: _openDetail),
+                  if (!PlatformHelper.isTV)
+                    PersonalizedPicksRail(onTap: _openDetail),
 
                   // Mood chip selector — taps spawn an ephemeral
                   // mood-based rail right below the chips. Also
                   // hides itself when no Gemini key is configured.
-                  MoodSelector(onTap: _openDetail),
+                  if (!PlatformHelper.isTV) MoodSelector(onTap: _openDetail),
 
                   // "Şu an canlıda" — EPG-driven rail of live
                   // channels currently broadcasting. Hides itself

@@ -354,6 +354,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "Трансляция на {device}",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "Не удалось транслировать этот контент на устройство (аудио/формат может не поддерживаться).",
   "castFailed": "Не удалось подключиться. Убедитесь, что вы в той же сети Wi-Fi, что и устройство.",
   "castingBanner": "Трансляция на {device}",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

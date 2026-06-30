@@ -215,6 +215,7 @@ class _DigestPosterTileState extends State<_DigestPosterTile> {
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
+                          memCacheWidth: 720,
                           errorWidget: (_, _, _) => Container(
                             color: AppColors.surfaceElevatedDark,
                             child: const Icon(Icons.movie_outlined,

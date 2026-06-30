@@ -523,6 +523,7 @@ class _PosterTileState extends State<_PosterTile> {
                 CachedNetworkImage(
                   imageUrl: widget.channel.streamIcon!,
                   fit: BoxFit.cover,
+                  memCacheWidth: 720,
                   errorWidget: (_, _, _) => Container(
                     color: AppColors.surfaceElevatedDark,
                     child: const Icon(Icons.movie_outlined,

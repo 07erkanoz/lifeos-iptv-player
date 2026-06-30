@@ -122,6 +122,7 @@ class WhyDialog extends StatelessWidget {
                             width: 56,
                             height: 84,
                             fit: BoxFit.cover,
+                            memCacheWidth: 168,
                             errorWidget: (_, __, ___) =>
                                 _placeholderPoster(),
                           )

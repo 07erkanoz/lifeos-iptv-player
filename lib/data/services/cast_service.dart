@@ -22,12 +22,20 @@ class CastState {
   final Duration position;
   final Duration duration;
 
+  /// Set when the receiver rejected the media (LOAD_FAILED) or went idle
+  /// with reason ERROR — typically an unsupported container/codec (e.g. a
+  /// raw .mkv or AC-3/E-AC-3 audio the Chromecast Default Media Receiver
+  /// can't decode), which otherwise shows as silent/blank with no signal.
+  /// Carries a non-localized error code the UI maps to a message.
+  final String? loadError;
+
   const CastState({
     this.connectionState = CastConnectionState.disconnected,
     this.device,
     this.isPlaying = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
+    this.loadError,
   });
 
   CastState copyWith({
@@ -37,6 +45,8 @@ class CastState {
     Duration? position,
     Duration? duration,
     bool clearDevice = false,
+    String? loadError,
+    bool clearLoadError = false,
   }) {
     return CastState(
       connectionState: connectionState ?? this.connectionState,
@@ -44,6 +54,7 @@ class CastState {
       isPlaying: isPlaying ?? this.isPlaying,
       position: position ?? this.position,
       duration: duration ?? this.duration,
+      loadError: clearLoadError ? null : (loadError ?? this.loadError),
     );
   }
 
@@ -273,7 +284,7 @@ class CastService {
       'autoplay': true,
     });
 
-    _updateState(state.copyWith(isPlaying: true));
+    _updateState(state.copyWith(isPlaying: true, clearLoadError: true));
   }
 
   /// Guess MIME type from URL extension/path.
@@ -357,12 +368,24 @@ class CastService {
         final media = status['media'] as Map<String, dynamic>?;
         final dur = (media?['duration'] as num?)?.toDouble() ?? 0;
 
+        // Receiver went idle because it couldn't play the media — surface
+        // it instead of leaving the user with silent/blank video.
+        final idleReason = status['idleReason'] as String?;
+        if (playerState == 'IDLE' && idleReason == 'ERROR') {
+          _updateState(state.copyWith(isPlaying: false, loadError: 'unsupported'));
+          return;
+        }
+
         _updateState(state.copyWith(
           isPlaying: playerState == 'PLAYING' || playerState == 'BUFFERING',
           position: Duration(milliseconds: (currentTime * 1000).toInt()),
           duration: Duration(milliseconds: (dur * 1000).toInt()),
+          // A real status update means the load succeeded — drop any stale error.
+          clearLoadError: true,
         ));
       }
+    } else if (type == 'LOAD_FAILED' || type == 'LOAD_CANCELLED') {
+      _updateState(state.copyWith(isPlaying: false, loadError: 'unsupported'));
     } else if (type == 'CLOSE') {
       _cleanup();
     }

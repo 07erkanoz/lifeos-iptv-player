@@ -1545,6 +1545,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       setState(() => _showControls = false);
       _pushSubtitlePadding();
       _reassertImmersive();
+      // Reclaim focus from the (now hidden) bottom bar — see _resetHideTimer.
+      if (_controlsHaveFocus) _focusNode.requestFocus();
     } else {
       _controlsAnim.forward();
       setState(() => _showControls = true);
@@ -1570,6 +1572,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         setState(() => _showControls = false);
         _pushSubtitlePadding();
         _reassertImmersive();
+        // Return focus to the video surface so it isn't stranded
+        // (invisible) on a now-hidden bottom-bar button — otherwise the
+        // next D-pad press silently seeks / switches channel behind the
+        // faded controls instead of revealing them.
+        if (_controlsHaveFocus) _focusNode.requestFocus();
       }
     });
   }
@@ -1665,6 +1672,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // Otherwise exit player.
       if (mounted) Navigator.of(context).pop();
       return KeyEventResult.handled;
+    }
+
+    // An overlay (channel list / EPG / subtitle search) owns the screen.
+    // Its own Focus handles navigation inside it; swallow the nav /
+    // activation keys here so a press the overlay declined (an edge press,
+    // or a still-unfocusable row) can't leak through to seek /
+    // channel-switch / volume / play-pause behind the open overlay.
+    // Back/Escape (above) and the C/G/F/I toggles (below) still work.
+    if (_showChannelList || _showEpgGuide || _showSubtitleSearch) {
+      if (k == LogicalKeyboardKey.arrowLeft ||
+          k == LogicalKeyboardKey.arrowRight ||
+          k == LogicalKeyboardKey.arrowUp ||
+          k == LogicalKeyboardKey.arrowDown ||
+          k == LogicalKeyboardKey.space ||
+          k == LogicalKeyboardKey.mediaPlayPause ||
+          k == LogicalKeyboardKey.select ||
+          k == LogicalKeyboardKey.enter) {
+        return KeyEventResult.handled;
+      }
     }
 
     // Play / Pause (select/enter on video area, or space)
@@ -3320,6 +3346,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   imageUrl: _currentLogo!,
                   width: 30,
                   height: 30,
+                  memCacheWidth: 96,
                   errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
@@ -3510,6 +3537,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           width: 80,
                           height: 120,
                           fit: BoxFit.cover,
+                          memCacheWidth: 240,
                           errorWidget: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
@@ -3925,10 +3953,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             inactiveTrackColor: Colors.white12,
             thumbColor: AppColors.primary,
           ),
-          child: Slider(
-            value: curVal,
-            max: maxVal,
-            onChanged: (v) => _player.seek(Duration(seconds: v.toInt())),
+          // On Android TV the Slider is excluded from D-pad traversal: a
+          // focused Slider eats Left/Right to scrub, trapping focus so the
+          // remote can't move between the bottom-bar buttons past it. TV
+          // seeking is done with the D-pad arrows on the video surface
+          // (accumulated seek), so the bar stays a pure progress indicator
+          // there while remaining interactive for mouse/touch elsewhere.
+          child: ExcludeFocus(
+            excluding: PlatformHelper.isTV,
+            child: Slider(
+              value: curVal,
+              max: maxVal,
+              onChanged: (v) => _player.seek(Duration(seconds: v.toInt())),
+            ),
           ),
         ),
       ],
@@ -4048,6 +4085,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
+                            memCacheWidth: 156,
                             errorWidget: (_, _, _) => Container(
                               width: 52,
                               height: 52,

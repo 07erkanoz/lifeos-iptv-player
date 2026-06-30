@@ -354,6 +354,7 @@
   "@castConnecting": { "placeholders": { "device": { "type": "String" } } },
   "castConnectedTo": "يتم البث إلى {device}",
   "@castConnectedTo": { "placeholders": { "device": { "type": "String" } } },
+  "castUnsupportedMedia": "تعذّر بث هذا المحتوى إلى هذا الجهاز (قد يكون الصوت/التنسيق غير مدعوم).",
   "castFailed": "تعذّر الاتصال. تأكّد من أنك على نفس شبكة Wi-Fi مثل الجهاز.",
   "castingBanner": "يتم البث إلى {device}",
   "@castingBanner": { "placeholders": { "device": { "type": "String" } } },

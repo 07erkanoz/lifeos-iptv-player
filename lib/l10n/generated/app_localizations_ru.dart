@@ -874,6 +874,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'Не удалось транслировать этот контент на устройство (аудио/формат может не поддерживаться).';
+
+  @override
   String get castFailed =>
       'Не удалось подключиться. Убедитесь, что вы в той же сети Wi-Fi, что и устройство.';
 

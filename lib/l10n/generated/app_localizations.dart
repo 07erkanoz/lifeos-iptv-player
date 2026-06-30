@@ -1736,6 +1736,12 @@ abstract class AppLocalizations {
   /// **'{device} cihazına yansıtılıyor'**
   String castConnectedTo(String device);
 
+  /// No description provided for @castUnsupportedMedia.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu içerik bu cihaza yansıtılamadı (ses/format desteklenmiyor olabilir).'**
+  String get castUnsupportedMedia;
+
   /// No description provided for @castFailed.
   ///
   /// In tr, this message translates to:

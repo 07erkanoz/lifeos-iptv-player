@@ -870,6 +870,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'تعذّر بث هذا المحتوى إلى هذا الجهاز (قد يكون الصوت/التنسيق غير مدعوم).';
+
+  @override
   String get castFailed =>
       'تعذّر الاتصال. تأكّد من أنك على نفس شبكة Wi-Fi مثل الجهاز.';
 

@@ -875,6 +875,10 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'Dieser Inhalt konnte nicht auf dieses Gerät übertragen werden (Audio/Format evtl. nicht unterstützt).';
+
+  @override
   String get castFailed =>
       'Verbindung fehlgeschlagen. Stelle sicher, dass du im selben WLAN bist wie das Gerät.';
 

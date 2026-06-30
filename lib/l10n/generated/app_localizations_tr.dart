@@ -870,6 +870,10 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get castUnsupportedMedia =>
+      'Bu içerik bu cihaza yansıtılamadı (ses/format desteklenmiyor olabilir).';
+
+  @override
   String get castFailed =>
       'Bağlanılamadı. Cihazla aynı Wi-Fi ağında olduğundan emin ol.';
 

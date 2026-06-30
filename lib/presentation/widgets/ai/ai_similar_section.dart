@@ -670,6 +670,7 @@ class _SimilarCardState extends State<_SimilarCard> {
                         width: 130,
                         height: 130,
                         fit: BoxFit.cover,
+                        memCacheWidth: 320,
                         errorWidget: (_, _, _) => _placeholderPoster(),
                       )
                     : _placeholderPoster(),

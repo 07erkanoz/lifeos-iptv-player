@@ -360,6 +360,7 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                               imageUrl: ch.streamIcon!,
                               fit: BoxFit.cover,
                               width: double.infinity,
+                              memCacheWidth: 360,
                               errorWidget: (_, _, _) => Container(
                                 color: AppColors.surfaceElevatedDark,
                                 child: const Icon(Icons.movie_outlined,
