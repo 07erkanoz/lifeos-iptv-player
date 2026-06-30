@@ -44,6 +44,11 @@ class TvPosterGrid<T> extends StatefulWidget {
   /// "hover" concept is replaced by focus on TV.
   final void Function(T item)? onFocusGained;
 
+  /// Fired when the grid builds an item near the end of [items] — the
+  /// cue for the screen to grow its page size (progressive loading), so
+  /// a huge category is never materialised all at once.
+  final VoidCallback? onNeedMore;
+
   const TvPosterGrid({
     super.key,
     required this.controller,
@@ -59,6 +64,7 @@ class TvPosterGrid<T> extends StatefulWidget {
     this.onLeftEdge,
     this.onTopEdge,
     this.onFocusGained,
+    this.onNeedMore,
   });
 
   @override
@@ -111,6 +117,15 @@ class _TvPosterGridState<T> extends State<TvPosterGrid<T>> {
           ),
           itemCount: widget.items.length,
           itemBuilder: (context, index) {
+            // Progressive loading: when the grid reaches the last few
+            // rows, ask the screen to grow the page. Deferred to after the
+            // frame so we never mutate provider state mid-build.
+            if (widget.onNeedMore != null &&
+                index >= widget.items.length - colCount * 3) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                widget.onNeedMore!();
+              });
+            }
             final item = widget.items[index];
             final streamId = widget.streamIdOf(item);
             return _TvPosterItem<T>(

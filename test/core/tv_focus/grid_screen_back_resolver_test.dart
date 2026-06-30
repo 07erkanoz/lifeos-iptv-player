@@ -83,15 +83,30 @@ void main() {
       );
     });
 
-    test('grid focused + categories collapsed → handToShell', () {
-      // No intermediate zone to bounce to — let AppShell focus the
-      // main sidebar directly.
+    test('grid focused + collapsed + panel available (TV/desktop) → '
+        'bounceToCategory (re-opens the panel as the intermediate zone)', () {
       expect(
         resolveGridScreenBackAction(
           detailOpen: false,
           mainSidebarFocused: false,
           categoriesCollapsed: true,
           categoryScopeFocused: false,
+          // categoryPanelAvailable defaults to true (TV/desktop).
+        ),
+        GridScreenBackAction.bounceToCategory,
+      );
+    });
+
+    test('grid focused + collapsed + no panel (mobile) → handToShell', () {
+      // On mobile categories are a bottom sheet, not a focusable zone, so
+      // there is no intermediate step — hand straight to the shell.
+      expect(
+        resolveGridScreenBackAction(
+          detailOpen: false,
+          mainSidebarFocused: false,
+          categoriesCollapsed: true,
+          categoryScopeFocused: false,
+          categoryPanelAvailable: false,
         ),
         GridScreenBackAction.handToShell,
       );

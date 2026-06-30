@@ -126,7 +126,8 @@ class ContentRepository {
     );
   }
 
-  Stream<List<Channel>> watchChannels(String categoryId, {String? type}) {
+  Stream<List<Channel>> watchChannels(String categoryId,
+      {String? type, int? limit}) {
     // Enrichment overlay happens in SQL (LEFT JOIN) instead of loading
     // the whole content_enrichment table into Dart per emission.
     final query = _db.select(_db.channels).join([
@@ -136,9 +137,15 @@ class ContentRepository {
             _db.contentEnrichment.type.equalsExp(_db.channels.type),
       ),
     ])
-      ..where(_db.channels.categoryId.equals(categoryId));
+      ..where(_db.channels.categoryId.equals(categoryId))
+      // Newest-first + bounded so the grid can page in a huge category
+      // instead of materialising tens of thousands of rows at once.
+      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)]);
     if (type != null) {
       query.where(_db.channels.type.equals(type));
+    }
+    if (limit != null) {
+      query.limit(limit);
     }
     return query.watch().map((rows) => [
           for (final row in rows)
@@ -149,9 +156,11 @@ class ContentRepository {
         ]);
   }
 
-  /// All channels of a given type (no limit — for "Tüm" grid + search)
+  /// All channels of a given type (for "Tüm" grid + search). [limit] bounds
+  /// the rows so the grid can page through huge catalogues instead of
+  /// loading every row at once (null = unbounded, e.g. for search).
   /// Filters out channels from hidden categories.
-  Stream<List<Channel>> watchAllChannelsByType(String type) {
+  Stream<List<Channel>> watchAllChannelsByType(String type, {int? limit}) {
     final query = _db.select(_db.channels).join([
       innerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
@@ -165,6 +174,9 @@ class ContentRepository {
       ..where(_db.channels.type.equals(type))
       ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
       ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)]);
+    if (limit != null) {
+      query.limit(limit);
+    }
     return query.watch().map((rows) => [
           for (final row in rows)
             _overlayEnrichmentRow(

@@ -72,6 +72,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   // → "no key works").
   final FocusNode _selectedCatFocusNode =
       FocusNode(debugLabel: 'MoviesSelectedCat');
+  // Node on the always-visible "Favorites" row. When the SELECTED category
+  // lives off-screen in the scrolling list its node isn't mounted, so we
+  // land focus here instead — a real, focusable item rather than the bare
+  // scope (which would orphan focus).
+  final FocusNode _favCatFocusNode =
+      FocusNode(debugLabel: 'MoviesFavCat');
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
@@ -114,6 +120,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
     _categorySidebarScope.dispose();
     _selectedCatFocusNode.dispose();
+    _favCatFocusNode.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
     super.dispose();
@@ -133,15 +140,16 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
         categoriesCollapsed: _categoriesCollapsed,
         categoryScopeFocused: _categorySidebarScope.hasFocus,
+        categoryPanelAvailable: !isMobilePlatform,
       );
       switch (action) {
         case GridScreenBackAction.closeDetail:
           _closeDetail();
           return true;
         case GridScreenBackAction.bounceToCategory:
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _focusSidebarItem();
-          });
+          // Opens the panel first if it's collapsed, then lands focus on
+          // a real category item (never the bare scope).
+          _openCategorySidebar();
           return true;
         case GridScreenBackAction.handToShell:
           return false;
@@ -319,6 +327,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   /// (the freeze bug); the grid controller's deferred-focus handles the
   /// not-yet-loaded case safely.
   void _selectCategory(String? categoryId) {
+    // Fresh page-1 cap for the new category so we never re-load the old
+    // (possibly grown) row count against a different list.
+    ref.read(_movieGridLimitProvider.notifier).reset();
     setState(() {
       _selectedCategoryId = categoryId;
       if (!isMobilePlatform) _categoriesCollapsed = true;
@@ -454,6 +465,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   void _focusSidebarItem() {
     if (_selectedCatFocusNode.canRequestFocus) {
       _selectedCatFocusNode.requestFocus();
+    } else if (_favCatFocusNode.canRequestFocus) {
+      // Selected category scrolled off-screen → land on the always-visible
+      // Favorites row so D-pad works (not the bare scope, which orphans).
+      _favCatFocusNode.requestFocus();
     } else {
       _categorySidebarScope.requestFocus();
     }
@@ -595,7 +610,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             ]),
           ),
           // ⭐ Favorites
-          _buildCatItem('⭐ ${l10n.myFavorites}', _selectedCategoryId == _kFavoritesId, () => _selectCategory(_kFavoritesId), isDark),
+          _buildCatItem('⭐ ${l10n.myFavorites}', _selectedCategoryId == _kFavoritesId, () => _selectCategory(_kFavoritesId), isDark, fallbackNode: _favCatFocusNode),
           // 📺 History
           _buildCatItem('📺 ${l10n.watchHistory}', _selectedCategoryId == _kHistoryId, () => _selectCategory(_kHistoryId), isDark),
           // All movies
@@ -618,10 +633,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     );
   }
 
-  Widget _buildCatItem(String name, bool isSelected, VoidCallback onTap, bool isDark) {
+  Widget _buildCatItem(String name, bool isSelected, VoidCallback onTap, bool isDark, {FocusNode? fallbackNode}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, focusNode: isSelected ? _selectedCatFocusNode : null, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
+      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, focusNode: isSelected ? _selectedCatFocusNode : fallbackNode, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
     );
   }
 
@@ -2067,7 +2082,12 @@ class _MovieGridView extends ConsumerWidget {
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge,
+          // Grow the page when the grid nears its end. Idempotent: bumps to
+          // raw-count + one page only while the DB returned a full page
+          // (more may exist); stops once a short page proves exhaustion.
+          onNeedMore: () =>
+              ref.read(_movieGridLimitProvider.notifier).grow(channels.length));
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -2094,7 +2114,9 @@ class _AllMoviesGridView extends ConsumerWidget {
         if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
         final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
         final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge,
+          onNeedMore: () =>
+              ref.read(_movieGridLimitProvider.notifier).grow(channels.length));
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -2246,7 +2268,8 @@ class _PosterGrid extends StatefulWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final Function(Channel)? onLongPress;
-  const _PosterGrid({required this.controller, required this.channels, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, this.onLongPress});
+  final VoidCallback? onNeedMore;
+  const _PosterGrid({required this.controller, required this.channels, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, this.onLongPress, this.onNeedMore});
 
   @override
   State<_PosterGrid> createState() => _PosterGridState();
@@ -2296,6 +2319,7 @@ class _PosterGridState extends State<_PosterGrid> {
           context.horizontalPadding, 4, context.horizontalPadding, 60),
       onActivate: (ch) => widget.onTap(ch),
       onLeftEdge: widget.onLeftEdge,
+      onNeedMore: widget.onNeedMore,
       // Mirror hover state on focus changes — drives the hero banner
       // when D-pad moves between tiles.
       onFocusGained: (ch) => widget.onHover(ch),
@@ -2425,6 +2449,10 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                   widget.channel.streamIcon != null
                       ? CachedNetworkImage(imageUrl: widget.channel.streamIcon!,
                           fit: BoxFit.cover,
+                          // Decode posters to ~tile width, not full source
+                          // resolution — a grid of full-res decodes is the
+                          // main OOM/jank source on weak Android TV GPUs.
+                          memCacheWidth: 320,
                           errorWidget: (_, _, _) =>
                               _placeholder(context, widget.channel))
                       : _placeholder(context, widget.channel),
@@ -2529,12 +2557,42 @@ final _movieCategoriesProvider = StreamProvider<List<Category>>((ref) {
   return ref.watch(contentRepositoryProvider).watchCategories('movie');
 });
 
+/// Progressive-loading page size: how many poster rows to pull initially
+/// and grow by each time the grid nears its end. Bounds memory + the
+/// per-build sort cost so a huge category never loads all at once.
+const int _kGridPageSize = 240;
+
+/// Row cap for a poster grid, grown as the user nears the end. Riverpod 3
+/// dropped `StateProvider`, so this is a tiny Notifier. [grow] is
+/// idempotent: it only advances while the DB returned a full page (more
+/// may exist) and no-ops once a short page proves the list is exhausted.
+class _GridLimitNotifier extends Notifier<int> {
+  @override
+  int build() => _kGridPageSize;
+
+  void grow(int rawCount) {
+    if (rawCount >= state) state = rawCount + _kGridPageSize;
+  }
+
+  void reset() {
+    if (state != _kGridPageSize) state = _kGridPageSize;
+  }
+}
+
+/// Row cap for the currently shown movie grid (category or "All"). Only
+/// one grid is visible at a time, so a single shared provider suffices;
+/// it's reset on every category switch so each category starts at page 1.
+final _movieGridLimitProvider =
+    NotifierProvider<_GridLimitNotifier, int>(_GridLimitNotifier.new);
+
 final _movieChannelsProvider = StreamProvider.family<List<Channel>, String>((ref, categoryId) {
-  return ref.watch(contentRepositoryProvider).watchChannels(categoryId, type: 'movie');
+  final limit = ref.watch(_movieGridLimitProvider);
+  return ref.watch(contentRepositoryProvider).watchChannels(categoryId, type: 'movie', limit: limit);
 });
 
 final _allMoviesProvider = StreamProvider<List<Channel>>((ref) {
-  return ref.watch(contentRepositoryProvider).watchAllChannelsByType('movie');
+  final limit = ref.watch(_movieGridLimitProvider);
+  return ref.watch(contentRepositoryProvider).watchAllChannelsByType('movie', limit: limit);
 });
 
 /// Embedding-based "similar movies" for a given stream id. Empty until

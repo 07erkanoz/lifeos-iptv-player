@@ -26,6 +26,10 @@ GridScreenBackAction resolveGridScreenBackAction({
   required bool mainSidebarFocused,
   required bool categoriesCollapsed,
   required bool categoryScopeFocused,
+  // True when this screen has an inline category panel that can hold focus
+  // (TV / desktop). False on mobile, where categories are a bottom sheet,
+  // so a collapsed state should just hand back to the shell.
+  bool categoryPanelAvailable = true,
 }) {
   // 1. Detail wins over everything — Esc / Back closes it.
   if (detailOpen) return GridScreenBackAction.closeDetail;
@@ -41,10 +45,13 @@ GridScreenBackAction resolveGridScreenBackAction({
   }
 
   // 4. Focus is in the grid / hero / toolbar with the category panel
-  // available → bounce one zone outward to the category panel.
+  // open → bounce one zone outward to the category panel.
   if (!categoriesCollapsed) return GridScreenBackAction.bounceToCategory;
 
-  // 5. Category panel is collapsed → there is no intermediate zone,
-  // let AppShell focus the main sidebar directly.
+  // 5. Category panel is collapsed. On TV/desktop the panel IS the
+  // intermediate zone — re-open it (the ladder is grid → category panel
+  // → main sidebar). Only when there's no such panel (mobile) do we hand
+  // straight to the shell.
+  if (categoryPanelAvailable) return GridScreenBackAction.bounceToCategory;
   return GridScreenBackAction.handToShell;
 }

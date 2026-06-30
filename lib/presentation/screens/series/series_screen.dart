@@ -107,6 +107,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   // key works").
   final FocusNode _selectedCatFocusNode =
       FocusNode(debugLabel: 'SeriesSelectedCat');
+  // Node on the always-visible "Favorites" row — focus fallback when the
+  // selected category is scrolled off-screen (its node isn't mounted), so
+  // entering the panel never lands on the bare scope.
+  final FocusNode _favCatFocusNode = FocusNode(debugLabel: 'SeriesFavCat');
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
@@ -145,6 +149,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     }
     _categorySidebarScope.dispose();
     _selectedCatFocusNode.dispose();
+    _favCatFocusNode.dispose();
     _detailBackFocusNode.dispose();
     _detailPlayFocusNode.dispose();
     super.dispose();
@@ -162,15 +167,16 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
         categoriesCollapsed: _categoriesCollapsed,
         categoryScopeFocused: _categorySidebarScope.hasFocus,
+        categoryPanelAvailable: !isMobilePlatform,
       );
       switch (action) {
         case GridScreenBackAction.closeDetail:
           _closeDetail();
           return true;
         case GridScreenBackAction.bounceToCategory:
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _focusSidebarItem();
-          });
+          // Opens the panel first if it's collapsed, then lands focus on
+          // a real category item (never the bare scope).
+          _openCategorySidebar();
           return true;
         case GridScreenBackAction.handToShell:
           return false;
@@ -820,6 +826,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// FocusScope unmounts so it can't orphan focus (the freeze bug); the
   /// grid controller's deferred-focus covers the not-yet-loaded case.
   void _selectCategory(String? categoryId) {
+    // Fresh page-1 cap for the new category (see movies_screen).
+    ref.read(_seriesGridLimitProvider.notifier).reset();
     setState(() {
       _selectedCategoryId = categoryId;
       if (!isMobilePlatform) _categoriesCollapsed = true;
@@ -1005,6 +1013,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   void _focusSidebarItem() {
     if (_selectedCatFocusNode.canRequestFocus) {
       _selectedCatFocusNode.requestFocus();
+    } else if (_favCatFocusNode.canRequestFocus) {
+      // Selected category scrolled off-screen → land on the always-visible
+      // Favorites row so D-pad works (not the bare scope, which orphans).
+      _favCatFocusNode.requestFocus();
     } else {
       _categorySidebarScope.requestFocus();
     }
@@ -1140,6 +1152,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               _selectedCategoryId == _kFavoritesId,
               () => _selectCategory(_kFavoritesId),
               isDark,
+              fallbackNode: _favCatFocusNode,
             ),
             // 📺 History
             _buildCatItem(
@@ -1198,15 +1211,16 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     String name,
     bool isSelected,
     VoidCallback onTap,
-    bool isDark,
-  ) {
+    bool isDark, {
+    FocusNode? fallbackNode,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: _FocusableCatItem(
         name: name,
         isSelected: isSelected,
         isDark: isDark,
-        focusNode: isSelected ? _selectedCatFocusNode : null,
+        focusNode: isSelected ? _selectedCatFocusNode : fallbackNode,
         onTap: onTap,
         onRightPressed: _focusGrid,
         onLeftPressed: _focusMainSidebar,
@@ -3491,6 +3505,8 @@ class _SeriesGridView extends ConsumerWidget {
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
+          onNeedMore: () =>
+              ref.read(_seriesGridLimitProvider.notifier).grow(channels.length),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -3542,6 +3558,8 @@ class _AllSeriesGridView extends ConsumerWidget {
           onHover: onHover,
           onTap: onTap,
           onLeftEdge: onLeftEdge,
+          onNeedMore: () =>
+              ref.read(_seriesGridLimitProvider.notifier).grow(channels.length),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -3777,6 +3795,7 @@ class _PosterGrid extends ConsumerStatefulWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final Function(Channel)? onLongPress;
+  final VoidCallback? onNeedMore;
   const _PosterGrid({
     required this.controller,
     required this.channels,
@@ -3784,6 +3803,7 @@ class _PosterGrid extends ConsumerStatefulWidget {
     required this.onTap,
     this.onLeftEdge,
     this.onLongPress,
+    this.onNeedMore,
   });
 
   @override
@@ -3831,6 +3851,7 @@ class _PosterGridState extends ConsumerState<_PosterGrid> {
           context.horizontalPadding, 4, context.horizontalPadding, 60),
       onActivate: (ch) => widget.onTap(ch),
       onLeftEdge: widget.onLeftEdge,
+      onNeedMore: widget.onNeedMore,
       onFocusGained: (ch) => widget.onHover(ch),
       itemBuilder: (ctx, ch, isFocused) => _PosterCardVisual(
         channel: ch,
@@ -3968,6 +3989,10 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                         ? CachedNetworkImage(
                             imageUrl: widget.channel.streamIcon!,
                             fit: BoxFit.cover,
+                            // Decode posters to ~tile width, not full source
+                            // resolution — a grid of full-res decodes is the
+                            // main OOM/jank source on weak Android TV GPUs.
+                            memCacheWidth: 320,
                             errorWidget: (_, _, _) => _ph(),
                           )
                         : _ph(),
@@ -4160,17 +4185,46 @@ final _seriesCatsProvider = StreamProvider<List<Category>>((ref) {
   return ref.watch(contentRepositoryProvider).watchCategories('series');
 });
 
+/// Progressive-loading page size for the series grids (see movies_screen
+/// for the rationale): bounds memory + per-build sort so a huge category
+/// pages in instead of loading every row at once.
+const int _kGridPageSize = 240;
+
+/// Row cap for a poster grid, grown as the user nears the end. [grow] is
+/// idempotent — only advances while the DB returned a full page.
+class _GridLimitNotifier extends Notifier<int> {
+  @override
+  int build() => _kGridPageSize;
+
+  void grow(int rawCount) {
+    if (rawCount >= state) state = rawCount + _kGridPageSize;
+  }
+
+  void reset() {
+    if (state != _kGridPageSize) state = _kGridPageSize;
+  }
+}
+
+/// Shared cap for the currently shown series grid (category or "All"),
+/// reset on every category switch.
+final _seriesGridLimitProvider =
+    NotifierProvider<_GridLimitNotifier, int>(_GridLimitNotifier.new);
+
 final _seriesChannelsProvider = StreamProvider.family<List<Channel>, String>((
   ref,
   categoryId,
 ) {
+  final limit = ref.watch(_seriesGridLimitProvider);
   return ref
       .watch(contentRepositoryProvider)
-      .watchChannels(categoryId, type: 'series');
+      .watchChannels(categoryId, type: 'series', limit: limit);
 });
 
 final _allSeriesProvider = StreamProvider<List<Channel>>((ref) {
-  return ref.watch(contentRepositoryProvider).watchAllChannelsByType('series');
+  final limit = ref.watch(_seriesGridLimitProvider);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchAllChannelsByType('series', limit: limit);
 });
 
 /// Embedding-based "similar series" — see the movies equivalent.
