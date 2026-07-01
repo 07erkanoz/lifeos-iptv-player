@@ -2688,6 +2688,11 @@ final _allMoviesProvider = StreamProvider<List<Channel>>((ref) {
 /// makes the rail genuinely per-title instead of "same top items".
 final _embeddingSimilarMoviesProvider =
     FutureProvider.family<List<Channel>, int>((ref, streamId) async {
+  // Never run the semantic (embedding) similar scan on Android TV — if a
+  // paired phone LAN-synced embeddings, this would loadAll + sort every
+  // vector on the DB isolate on each detail open. The metadata fallback
+  // (_memoSimilarMovies) covers TV cheaply.
+  if (PlatformHelper.isTV) return const [];
   final hits = await ref
       .watch(semanticSearchServiceProvider)
       .similarTo(streamId, 'movie', k: 30, restrictType: 'movie');

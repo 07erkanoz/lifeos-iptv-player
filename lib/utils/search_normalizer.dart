@@ -83,6 +83,33 @@ class SearchNormalizer {
     return s;
   }
 
+  /// Build the normalised "haystack" text for a channel — the same field
+  /// set the search matches against. Stored once (in `channels.searchText`)
+  /// so per-query search never has to re-normalise thousands of rows on the
+  /// UI isolate; also used inline as a fallback. Keep in sync with the
+  /// query side ([tokens] + [matches]).
+  static String buildHaystack({
+    required String name,
+    String? categoryName,
+    String? cast,
+    String? director,
+    String? genre,
+    String? year,
+    String? plot,
+  }) {
+    final p = plot ?? '';
+    final plotSnippet = p.length > 200 ? p.substring(0, 200) : p;
+    return normalise([
+      name,
+      categoryName ?? '',
+      cast ?? '',
+      director ?? '',
+      genre ?? '',
+      year ?? '',
+      plotSnippet,
+    ].join(' '));
+  }
+
   /// Split a normalised query into individual word tokens for AND
   /// matching. Drops sub-three-char tokens so a user typing `matt`
   /// doesn't get every haystack entry containing a stray short word.

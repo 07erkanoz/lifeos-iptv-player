@@ -69,6 +69,11 @@ class Channels extends Table {
   TextColumn get cast => text().nullable()(); // comma-separated cast
   TextColumn get streamUrl => text().nullable()(); // Direct stream URL (M3U accounts only)
   TextColumn get epgChannelId => text().nullable()(); // EPG channel ID for XMLTV matching (tvg-id from M3U, epg_channel_id from Xtream)
+  // Precomputed normalised search haystack (name + category + genre + cast +
+  // director + year + plot). Built once (migration/backfill + post-sync) so
+  // search filters in SQL via LIKE instead of re-normalising thousands of
+  // rows on the UI isolate per keystroke. Null until indexed.
+  TextColumn get searchText => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {streamId, type};

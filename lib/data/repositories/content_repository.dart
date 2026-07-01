@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:drift/drift.dart';
 // `show debugPrint` only, because `package:flutter/foundation.dart`
 // re-exports its own `Category` annotation which collides with our
@@ -253,19 +255,16 @@ class ContentRepository {
   /// IPTV plots are noisy and inflating the haystack with their full
   /// text causes spurious matches (every plot mentioning "film"
   /// matching the token "film").
-  static String _buildHaystack(Channel ch, Category? cat) {
-    final plot = ch.plot ?? '';
-    final plotSnippet = plot.length > 200 ? plot.substring(0, 200) : plot;
-    return SearchNormalizer.normalise([
-      ch.name,
-      cat?.name ?? '',
-      ch.cast ?? '',
-      ch.director ?? '',
-      ch.genre ?? '',
-      ch.year ?? '',
-      plotSnippet,
-    ].join(' '));
-  }
+  static String _buildHaystack(Channel ch, Category? cat) =>
+      SearchNormalizer.buildHaystack(
+        name: ch.name,
+        categoryName: cat?.name,
+        cast: ch.cast,
+        director: ch.director,
+        genre: ch.genre,
+        year: ch.year,
+        plot: ch.plot,
+      );
 
   /// Compact taste-signal records used by every AI recommendation
   /// provider. Joins channels with categories so the per-item map
@@ -601,36 +600,66 @@ class ContentRepository {
   Future<List<Channel>> searchChannelsByType(String query, String type, {int limit = 100}) async {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
-    // Bound the candidate set the way [searchChannels] does: a wide,
-    // rating-ranked slice rather than the whole type. Previously this
-    // materialised EVERY non-hidden row of the type and ran the Dart
-    // haystack + (worst-case) Levenshtein fuzzy pass over all of them on
-    // the main isolate — a multi-second freeze / ANR on large live
-    // catalogues, three times per query (movie/series/live in parallel).
-    // Capping at 6000 keeps the per-keystroke work bounded regardless of
-    // catalogue size while preserving recall for any realistic library.
-    final rows = await (_db.select(_db.channels).join([
+
+    // ── Fast path: filter in SQL against the precomputed searchText ──
+    // Each token must appear (AND) — mirrors SearchNormalizer.matches.
+    // This does NO per-row Dart normalisation: SQLite scans the already-
+    // normalised column natively and returns only the matched slice, so a
+    // huge catalogue no longer freezes the UI isolate on every keystroke.
+    final fastQ = _db.select(_db.channels).join([
       innerJoin(_db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-        _db.categories.type.equalsExp(_db.channels.type)),
+          _db.categories.id.equalsExp(_db.channels.categoryId) &
+              _db.categories.type.equalsExp(_db.channels.type)),
     ])
       ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
+      ..where(_db.categories.isHidden.equals(false))
+      ..where(_notAdultCategory(_db.categories))
+      ..where(_db.channels.searchText.isNotNull());
+    for (final t in tokens) {
+      final safe = t.replaceAll('%', '').replaceAll('_', '');
+      if (safe.isEmpty) continue;
+      fastQ.where(_db.channels.searchText.like('%$safe%'));
+    }
+    fastQ
       ..orderBy([
         OrderingTerm(expression: _db.channels.rating, mode: OrderingMode.desc),
       ])
-      // Scan far fewer rows on TV: the per-keystroke haystack + fuzzy pass
-      // runs on the main isolate, so a smaller slice keeps a weak TV CPU
-      // from freezing while typing.
-      ..limit(PlatformHelper.isTV ? 2000 : _kSearchScanCap)
-    ).get();
+      ..limit(limit);
+    final fastRows = await fastQ.get();
+    if (fastRows.isNotEmpty) {
+      final enrich = await _loadEnrichmentMap();
+      return fastRows
+          .map((r) => _applyEnrichment(r.readTable(_db.channels), enrich))
+          .toList();
+    }
 
-    // Build (channel, haystack) tuples once so the fuzzy pass below
-    // doesn't re-normalise. The list is bounded by the type filter
-    // and hidden-category exclusion; for the user's catalogue this
-    // is a few thousand entries at most. Enrichment is overlaid first
-    // so a genre query ("korku") matches items whose provider genre
-    // was empty, and the returned channel carries the inferred genre.
+    // Fast path found nothing: either the index isn't fully built yet
+    // (fresh install / just-updated, before refreshSearchIndex() finishes),
+    // or it's a typo that needs the fuzzy pass. Fall back to the bounded
+    // legacy scan — only paid on the miss case, never on a normal hit.
+    return _legacySearchScan(tokens, type, limit);
+  }
+
+  /// Legacy in-Dart scan — bounded, rating-ranked. Only reached when the
+  /// SQL fast path returns nothing (un-indexed rows or a typo needing
+  /// fuzzy). Tighter cap on TV so even this fallback stays responsive.
+  Future<List<Channel>> _legacySearchScan(
+      List<String> tokens, String type, int limit) async {
+    final rows = await (_db.select(_db.channels).join([
+      innerJoin(_db.categories,
+          _db.categories.id.equalsExp(_db.channels.categoryId) &
+              _db.categories.type.equalsExp(_db.channels.type)),
+    ])
+          ..where(_db.channels.type.equals(type))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories))
+          ..orderBy([
+            OrderingTerm(
+                expression: _db.channels.rating, mode: OrderingMode.desc),
+          ])
+          ..limit(PlatformHelper.isTV ? 1000 : _kSearchScanCap))
+        .get();
+
     final enrich = await _loadEnrichmentMap();
     final pairs = rows.map((row) {
       final ch = _applyEnrichment(row.readTable(_db.channels), enrich);
@@ -638,25 +667,87 @@ class ContentRepository {
       return (ch: ch, haystack: _buildHaystack(ch, cat));
     }).toList();
 
-    // Pass 1: exact substring AND match.
     final out = <Channel>[];
     for (final p in pairs) {
       if (out.length >= limit) break;
-      if (SearchNormalizer.matches(p.haystack, tokens)) {
-        out.add(p.ch);
-      }
+      if (SearchNormalizer.matches(p.haystack, tokens)) out.add(p.ch);
     }
     if (out.isNotEmpty) return out;
-
-    // Pass 2: fuzzy fallback. Only runs when the strict pass found
-    // nothing — typos shouldn't crowd out correct hits.
     for (final p in pairs) {
       if (out.length >= limit) break;
-      if (SearchNormalizer.matchesFuzzy(p.haystack, tokens)) {
-        out.add(p.ch);
-      }
+      if (SearchNormalizer.matchesFuzzy(p.haystack, tokens)) out.add(p.ch);
     }
     return out;
+  }
+
+  /// Backfill `channels.searchText` for rows that don't have it yet, so the
+  /// search fast path covers the whole catalogue. Runs the (Dart) haystack
+  /// normalisation OFF the UI isolate via [Isolate.run] in bounded chunks,
+  /// then batch-updates. Idempotent + incremental — only touches NULL rows,
+  /// so it's a no-op cheap check once the catalogue is indexed and only
+  /// processes the delta after a sync. Safe to call at startup / post-sync.
+  Future<void> refreshSearchIndex() async {
+    const chunkSize = 1500;
+    var guard = 0;
+    while (guard++ < 1000) {
+      final rows = await (_db.select(_db.channels).join([
+        leftOuterJoin(
+            _db.categories,
+            _db.categories.id.equalsExp(_db.channels.categoryId) &
+                _db.categories.type.equalsExp(_db.channels.type)),
+      ])
+            ..where(_db.channels.searchText.isNull())
+            ..limit(chunkSize))
+          .get();
+      if (rows.isEmpty) break;
+
+      // Minimal, sendable payload for the worker isolate.
+      final input = rows.map((r) {
+        final ch = r.readTable(_db.channels);
+        final cat = r.readTableOrNull(_db.categories);
+        return (
+          streamId: ch.streamId,
+          type: ch.type,
+          name: ch.name,
+          categoryName: cat?.name,
+          cast: ch.cast,
+          director: ch.director,
+          genre: ch.genre,
+          year: ch.year,
+          plot: ch.plot,
+        );
+      }).toList();
+
+      final computed = await Isolate.run(() {
+        final m = <(int, String), String>{};
+        for (final r in input) {
+          m[(r.streamId, r.type)] = SearchNormalizer.buildHaystack(
+            name: r.name,
+            categoryName: r.categoryName,
+            cast: r.cast,
+            director: r.director,
+            genre: r.genre,
+            year: r.year,
+            plot: r.plot,
+          );
+        }
+        return m;
+      });
+
+      await _db.batch((b) {
+        for (final r in input) {
+          b.update(
+            _db.channels,
+            ChannelsCompanion(
+                searchText: Value(computed[(r.streamId, r.type)] ?? '')),
+            where: (t) =>
+                t.streamId.equals(r.streamId) & t.type.equals(r.type),
+          );
+        }
+      });
+
+      if (rows.length < chunkSize) break;
+    }
   }
 
   /// Canonical English ↔ Turkish bilingual genre synonyms.

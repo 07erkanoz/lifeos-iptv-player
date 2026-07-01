@@ -590,6 +590,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// populated. Guarded by `_episodeSummaryRequestedSeasons` so the
   /// same season never gets fetched twice in one detail-page open.
   Future<void> _fetchEpisodeAiSummariesForActiveSeason() async {
+    // AI is fully disabled on TV (gemini is null); skip the whole pass —
+    // including the per-episode "missing plot" pre-check loop — so opening
+    // a season does no needless main-isolate work on a weak TV.
+    if (PlatformHelper.isTV) return;
     final ch = _detailChannel;
     if (ch == null) return;
     final season = _activeSeason;
@@ -4338,6 +4342,8 @@ final _allSeriesProvider = StreamProvider<List<Channel>>((ref) {
 /// Embedding-based "similar series" — see the movies equivalent.
 final _embeddingSimilarSeriesProvider =
     FutureProvider.family<List<Channel>, int>((ref, streamId) async {
+  // Skip the semantic (embedding) scan on Android TV — see movies.
+  if (PlatformHelper.isTV) return const [];
   final hits = await ref
       .watch(semanticSearchServiceProvider)
       .similarTo(streamId, 'series', k: 30, restrictType: 'series');

@@ -11,7 +11,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -183,6 +183,13 @@ class AppDatabase extends _$AppDatabase {
            SELECT id, type, is_hidden, (strftime('%s','now'))
            FROM categories WHERE is_hidden = 1
          ''');
+       }
+       if (from < 23) {
+         // Precomputed normalised search haystack column. Additive +
+         // nullable → safe simple addColumn (no PK change, cf. ONEMLI.md).
+         // Rows are backfilled off the UI isolate by
+         // ContentRepository.refreshSearchIndex() at startup / after sync.
+         await m.addColumn(channels, channels.searchText);
        }
     },
     beforeOpen: (details) async {

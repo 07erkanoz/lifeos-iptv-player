@@ -153,6 +153,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       _maybeAutoSync();
       _maybeEnrichCatalog();
       _maybeSyncEpg();
+      _refreshSearchIndex();
     });
     // Periodic background two-way sync while the app is open. Every
     // pass is fire-and-forget off the UI thread (network + Drift),
@@ -302,11 +303,26 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
           _autoSyncNudgedOnce = true;
           ref.read(settingsProvider.notifier).reload();
         }
+        // Index any newly-merged content for search (off-isolate, cheap
+        // when nothing new).
+        _refreshSearchIndex();
       } catch (_) {
       } finally {
         _autoSyncInFlight = false;
       }
     }();
+  }
+
+  /// Backfill the search index off the UI isolate, shortly after launch /
+  /// sync. Incremental + idempotent — a no-op once the catalogue is indexed.
+  void _refreshSearchIndex() {
+    Future<void>.delayed(const Duration(seconds: 5), () async {
+      if (!mounted) return;
+      if (playbackActiveNotifier.value) return;
+      try {
+        await ref.read(contentRepositoryProvider).refreshSearchIndex();
+      } catch (_) {}
+    });
   }
 
   @override

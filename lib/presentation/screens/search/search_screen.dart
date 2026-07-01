@@ -204,7 +204,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
     setState(() => _isSearching = true);
-    _debounce = Timer(const Duration(milliseconds: 400), () async {
+    // Longer debounce on TV: D-pad/on-screen-keyboard input is slow, so a
+    // wider window means far fewer heavy search passes while typing.
+    final debounceMs = PlatformHelper.isTV ? 800 : 400;
+    _debounce = Timer(Duration(milliseconds: debounceMs), () async {
       final trimmed = query.trim();
 
       // Phase 1 — always do the plain LIKE search first and surface

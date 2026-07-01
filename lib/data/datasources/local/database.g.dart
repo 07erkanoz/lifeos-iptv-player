@@ -1353,6 +1353,17 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _searchTextMeta = const VerificationMeta(
+    'searchText',
+  );
+  @override
+  late final GeneratedColumn<String> searchText = GeneratedColumn<String>(
+    'search_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     streamId,
@@ -1371,6 +1382,7 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     cast,
     streamUrl,
     epgChannelId,
+    searchText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1497,6 +1509,12 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         ),
       );
     }
+    if (data.containsKey('search_text')) {
+      context.handle(
+        _searchTextMeta,
+        searchText.isAcceptableOrUnknown(data['search_text']!, _searchTextMeta),
+      );
+    }
     return context;
   }
 
@@ -1570,6 +1588,10 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         DriftSqlType.string,
         data['${effectivePrefix}epg_channel_id'],
       ),
+      searchText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}search_text'],
+      ),
     );
   }
 
@@ -1596,6 +1618,7 @@ class Channel extends DataClass implements Insertable<Channel> {
   final String? cast;
   final String? streamUrl;
   final String? epgChannelId;
+  final String? searchText;
   const Channel({
     required this.streamId,
     required this.name,
@@ -1613,6 +1636,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     this.cast,
     this.streamUrl,
     this.epgChannelId,
+    this.searchText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1657,6 +1681,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     if (!nullToAbsent || epgChannelId != null) {
       map['epg_channel_id'] = Variable<String>(epgChannelId);
     }
+    if (!nullToAbsent || searchText != null) {
+      map['search_text'] = Variable<String>(searchText);
+    }
     return map;
   }
 
@@ -1696,6 +1723,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       epgChannelId: epgChannelId == null && nullToAbsent
           ? const Value.absent()
           : Value(epgChannelId),
+      searchText: searchText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(searchText),
     );
   }
 
@@ -1721,6 +1751,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       cast: serializer.fromJson<String?>(json['cast']),
       streamUrl: serializer.fromJson<String?>(json['streamUrl']),
       epgChannelId: serializer.fromJson<String?>(json['epgChannelId']),
+      searchText: serializer.fromJson<String?>(json['searchText']),
     );
   }
   @override
@@ -1743,6 +1774,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       'cast': serializer.toJson<String?>(cast),
       'streamUrl': serializer.toJson<String?>(streamUrl),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
+      'searchText': serializer.toJson<String?>(searchText),
     };
   }
 
@@ -1763,6 +1795,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     Value<String?> cast = const Value.absent(),
     Value<String?> streamUrl = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
+    Value<String?> searchText = const Value.absent(),
   }) => Channel(
     streamId: streamId ?? this.streamId,
     name: name ?? this.name,
@@ -1782,6 +1815,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     cast: cast.present ? cast.value : this.cast,
     streamUrl: streamUrl.present ? streamUrl.value : this.streamUrl,
     epgChannelId: epgChannelId.present ? epgChannelId.value : this.epgChannelId,
+    searchText: searchText.present ? searchText.value : this.searchText,
   );
   Channel copyWithCompanion(ChannelsCompanion data) {
     return Channel(
@@ -1811,6 +1845,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       epgChannelId: data.epgChannelId.present
           ? data.epgChannelId.value
           : this.epgChannelId,
+      searchText: data.searchText.present
+          ? data.searchText.value
+          : this.searchText,
     );
   }
 
@@ -1832,7 +1869,8 @@ class Channel extends DataClass implements Insertable<Channel> {
           ..write('director: $director, ')
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
-          ..write('epgChannelId: $epgChannelId')
+          ..write('epgChannelId: $epgChannelId, ')
+          ..write('searchText: $searchText')
           ..write(')'))
         .toString();
   }
@@ -1855,6 +1893,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     cast,
     streamUrl,
     epgChannelId,
+    searchText,
   );
   @override
   bool operator ==(Object other) =>
@@ -1875,7 +1914,8 @@ class Channel extends DataClass implements Insertable<Channel> {
           other.director == this.director &&
           other.cast == this.cast &&
           other.streamUrl == this.streamUrl &&
-          other.epgChannelId == this.epgChannelId);
+          other.epgChannelId == this.epgChannelId &&
+          other.searchText == this.searchText);
 }
 
 class ChannelsCompanion extends UpdateCompanion<Channel> {
@@ -1895,6 +1935,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
   final Value<String?> cast;
   final Value<String?> streamUrl;
   final Value<String?> epgChannelId;
+  final Value<String?> searchText;
   final Value<int> rowid;
   const ChannelsCompanion({
     this.streamId = const Value.absent(),
@@ -1913,6 +1954,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
+    this.searchText = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChannelsCompanion.insert({
@@ -1932,6 +1974,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
+    this.searchText = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
        name = Value(name),
@@ -1954,6 +1997,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Expression<String>? cast,
     Expression<String>? streamUrl,
     Expression<String>? epgChannelId,
+    Expression<String>? searchText,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1973,6 +2017,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       if (cast != null) 'cast': cast,
       if (streamUrl != null) 'stream_url': streamUrl,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
+      if (searchText != null) 'search_text': searchText,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1994,6 +2039,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Value<String?>? cast,
     Value<String?>? streamUrl,
     Value<String?>? epgChannelId,
+    Value<String?>? searchText,
     Value<int>? rowid,
   }) {
     return ChannelsCompanion(
@@ -2013,6 +2059,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       cast: cast ?? this.cast,
       streamUrl: streamUrl ?? this.streamUrl,
       epgChannelId: epgChannelId ?? this.epgChannelId,
+      searchText: searchText ?? this.searchText,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2068,6 +2115,9 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     if (epgChannelId.present) {
       map['epg_channel_id'] = Variable<String>(epgChannelId.value);
     }
+    if (searchText.present) {
+      map['search_text'] = Variable<String>(searchText.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2093,6 +2143,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
           ..write('epgChannelId: $epgChannelId, ')
+          ..write('searchText: $searchText, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9608,6 +9659,7 @@ typedef $$ChannelsTableCreateCompanionBuilder =
       Value<String?> cast,
       Value<String?> streamUrl,
       Value<String?> epgChannelId,
+      Value<String?> searchText,
       Value<int> rowid,
     });
 typedef $$ChannelsTableUpdateCompanionBuilder =
@@ -9628,6 +9680,7 @@ typedef $$ChannelsTableUpdateCompanionBuilder =
       Value<String?> cast,
       Value<String?> streamUrl,
       Value<String?> epgChannelId,
+      Value<String?> searchText,
       Value<int> rowid,
     });
 
@@ -9757,6 +9810,11 @@ class $$ChannelsTableFilterComposer
 
   ColumnFilters<String> get epgChannelId => $composableBuilder(
     column: $table.epgChannelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get searchText => $composableBuilder(
+    column: $table.searchText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9893,6 +9951,11 @@ class $$ChannelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get searchText => $composableBuilder(
+    column: $table.searchText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9976,6 +10039,11 @@ class $$ChannelsTableAnnotationComposer
 
   GeneratedColumn<String> get epgChannelId => $composableBuilder(
     column: $table.epgChannelId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get searchText => $composableBuilder(
+    column: $table.searchText,
     builder: (column) => column,
   );
 
@@ -10072,6 +10140,7 @@ class $$ChannelsTableTableManager
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
+                Value<String?> searchText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsCompanion(
                 streamId: streamId,
@@ -10090,6 +10159,7 @@ class $$ChannelsTableTableManager
                 cast: cast,
                 streamUrl: streamUrl,
                 epgChannelId: epgChannelId,
+                searchText: searchText,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10110,6 +10180,7 @@ class $$ChannelsTableTableManager
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
+                Value<String?> searchText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsCompanion.insert(
                 streamId: streamId,
@@ -10128,6 +10199,7 @@ class $$ChannelsTableTableManager
                 cast: cast,
                 streamUrl: streamUrl,
                 epgChannelId: epgChannelId,
+                searchText: searchText,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
