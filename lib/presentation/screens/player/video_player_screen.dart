@@ -873,12 +873,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     );
     _controller = VideoController(
       _player,
-      // Honour the "Donanım hızlandırma" setting — except on Android
-      // TV, where software decoding is unusably slow, so we always
-      // force hardware there regardless of the toggle.
+      // Honour the "Donanım hızlandırma" setting on EVERY platform,
+      // Android TV included. It defaults ON (HW), but must remain a real
+      // escape hatch on TV too: some boxes' HW decoders can't play certain
+      // streams, and forcing HW there left the toggle dead — the user
+      // couldn't fall back to software even when HW produced no video.
       configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration:
-            PlatformHelper.isTV ? true : settings.hardwareAcceleration,
+        enableHardwareAcceleration: settings.hardwareAcceleration,
       ),
     );
 
@@ -894,9 +895,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // fallback. OFF: force pure software decoding — the escape hatch
       // for problematic IPTV streams that green-screen / won't play on
       // hardware (costs CPU/battery but plays almost anything).
-      // Force software only when the user disabled HW AND we're not on
-      // a TV (TV software decode is unusably slow — keep hw there).
-      if (!settings.hardwareAcceleration && !PlatformHelper.isTV) {
+      // Force pure software decode when the user disabled HW — on TV too.
+      // SW is slow for HD, but it's the last-resort path for streams a
+      // given box's MediaCodec refuses to play; leaving it unreachable on
+      // TV meant "video oynatılamıyor" with no way out.
+      if (!settings.hardwareAcceleration) {
         await mpv.setProperty('hwdec', 'no');
       }
 

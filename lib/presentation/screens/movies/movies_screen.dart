@@ -498,13 +498,27 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   /// Focus a concrete, focusable target inside the sidebar — the
   /// selected item if live, else the scope as a fallback. Focusing the
   /// bare scope with no focusable child orphans focus → "no key works".
-  void _focusSidebarItem() {
+  void _focusSidebarItem({int attemptsLeft = 4}) {
+    if (!mounted) return;
     if (_selectedCatFocusNode.canRequestFocus) {
       _selectedCatFocusNode.requestFocus();
-    } else if (_favCatFocusNode.canRequestFocus) {
+      return;
+    }
+    if (_favCatFocusNode.canRequestFocus) {
       // Selected category scrolled off-screen → land on the always-visible
       // Favorites row so D-pad works (not the bare scope, which orphans).
       _favCatFocusNode.requestFocus();
+      return;
+    }
+    // Panel just re-expanded (it was SizedBox.shrink while collapsed), so
+    // the category item FocusNodes aren't attached yet — retry over a few
+    // frames instead of dropping onto the bare scope (which left focus
+    // nowhere: "opens but no focus / needs the down arrow"). Bare scope is
+    // only the last resort.
+    if (attemptsLeft > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusSidebarItem(attemptsLeft: attemptsLeft - 1);
+      });
     } else {
       _categorySidebarScope.requestFocus();
     }
@@ -766,7 +780,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     return GestureDetector(
       onTap: () => _openDetail(ch),
       child: Container(
-        height: isMobilePlatform ? 200 : 280,
+        height: isMobilePlatform ? 200 : (PlatformHelper.isTV ? 170 : 280),
         margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
         child: Stack(
           fit: StackFit.expand,

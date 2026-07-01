@@ -21,19 +21,15 @@ class GpuInfo {
   /// Best hwdec mode for this GPU on the current platform
   String get hwdecMode {
     if (Platform.isAndroid) {
-      // Android: MediaCodec is the universal hw decoder
-      // mediacodec-copy is safer (copies frames to CPU, avoids display issues)
-      // mediacodec is faster (zero-copy, but can fail on some devices)
-      switch (vendor) {
-        case GpuVendor.qualcomm:
-        case GpuVendor.arm:
-        case GpuVendor.imgtech:
-          return 'mediacodec';     // well-supported GPUs → zero-copy
-        case GpuVendor.samsung:
-          return 'mediacodec-copy'; // Exynos Mali can have issues with zero-copy
-        default:
-          return 'mediacodec';     // default to zero-copy, fallback handled by MPV
-      }
+      // Android: MediaCodec is the universal hw decoder. Use COPY mode on
+      // every GPU. media_kit renders each frame into a Flutter GL *texture*,
+      // but zero-copy `mediacodec` decodes straight to a Surface — the two
+      // pipelines are mismatched, which on many boxes/TVs shows as black /
+      // broken / badly-stuttering video (the "video oynatılamıyor" reports).
+      // `mediacodec-copy` decodes on the hardware then hands frames to the
+      // texture — the media_kit-correct HW path. Uniform + predictable
+      // across TV boxes.
+      return 'mediacodec-copy';
     }
     if (Platform.isLinux) {
       switch (vendor) {

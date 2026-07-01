@@ -56,9 +56,12 @@ class PlatformHelper {
   /// Grid column count based on screen type
   static int gridColumns(double screenWidth) {
     if (isTV) {
-      if (screenWidth > 1600) return 7;
-      if (screenWidth > 1200) return 6;
-      return 5;
+      // Denser grid on TV — 5 wide left posters too big and only ~1 row
+      // visible under the hero. Now at least 6 across (up to 8 on wide/4K),
+      // so more of the catalogue is on screen at once.
+      if (screenWidth > 1500) return 8;
+      if (screenWidth > 1150) return 7;
+      return 6;
     }
     if (isDesktop) {
       if (screenWidth > 1600) return 7;

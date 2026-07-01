@@ -1057,13 +1057,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// resort. Focusing the bare scope when it has no focusable child
   /// orphans focus and freezes D-pad input, which is the "no key works"
   /// bug.
-  void _focusSidebarItem() {
+  void _focusSidebarItem({int attemptsLeft = 4}) {
+    if (!mounted) return;
     if (_selectedCatFocusNode.canRequestFocus) {
       _selectedCatFocusNode.requestFocus();
-    } else if (_favCatFocusNode.canRequestFocus) {
+      return;
+    }
+    if (_favCatFocusNode.canRequestFocus) {
       // Selected category scrolled off-screen → land on the always-visible
       // Favorites row so D-pad works (not the bare scope, which orphans).
       _favCatFocusNode.requestFocus();
+      return;
+    }
+    // Panel just re-expanded — retry over a few frames until the category
+    // FocusNodes attach, instead of orphaning focus on the bare scope.
+    if (attemptsLeft > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusSidebarItem(attemptsLeft: attemptsLeft - 1);
+      });
     } else {
       _categorySidebarScope.requestFocus();
     }
@@ -1394,7 +1405,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     return GestureDetector(
       onTap: () => _openDetail(ch),
       child: SizedBox(
-        height: isMobilePlatform ? 200 : 280,
+        height: isMobilePlatform ? 200 : (PlatformHelper.isTV ? 170 : 280),
         child: Stack(
           fit: StackFit.expand,
           children: [
