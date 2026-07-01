@@ -127,12 +127,23 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
     final c = VideoPlayerController.networkUrl(
       Uri.parse(url),
       formatHint: _formatHint(url),
+      // Many Xtream/IPTV servers reject unknown clients — they whitelist
+      // player UAs (VLC/Kodi/etc.). media_kit/mpv sent its own accepted UA;
+      // ExoPlayer's default can be refused, which shows as an endless
+      // spinner (connection accepted then starved, no data). A VLC UA is the
+      // most broadly whitelisted.
+      httpHeaders: const {
+        'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20',
+      },
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
     );
     _controller = c;
     c.addListener(_onValue);
     try {
-      await c.initialize();
+      // Bound init so a stalled connection surfaces an error instead of
+      // spinning forever (also the diagnostic signal for UA/redirect/codec
+      // problems the user can report).
+      await c.initialize().timeout(const Duration(seconds: 25));
       if (!mounted || _controller != c) return;
       if (startAt != null && startAt.inSeconds > 0 && !_isLive) {
         await c.seekTo(startAt);
@@ -140,9 +151,17 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
       await c.play();
       if (mounted) setState(() => _buffering = false);
     } catch (e) {
-      if (mounted && _controller == c) {
+      // Free the stuck controller so it stops retrying in the background.
+      if (_controller == c) {
+        c.removeListener(_onValue);
+        await c.dispose();
+        _controller = null;
+      }
+      if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = e is TimeoutException
+              ? 'Bağlantı zaman aşımına uğradı — yayın açılamadı.\n$url'
+              : e.toString();
           _buffering = false;
         });
       }

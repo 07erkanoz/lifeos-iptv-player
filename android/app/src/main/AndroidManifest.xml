@@ -89,17 +89,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- Disable Impeller → fall back to the mature Skia (OpenGL)
-             renderer. Impeller is the Flutter default on Android API 29+
-             since 3.27, but on weak / older TV-box GPUs it causes jank,
-             instability and crashes (well-documented). Skia is rock-solid
-             on this hardware. App-global (single universal APK → no
-             per-device toggle); mobile stays stable on Skia too.
-             NOTE: the working flag is EnableImpeller=false — the
-             DisableImpeller flag is a no-op as of 3.27.1. -->
-        <meta-data
-            android:name="io.flutter.embedding.android.EnableImpeller"
-            android:value="false" />
+        <!-- NOTE: Impeller left at the Flutter default (ON). Disabling it
+             (EnableImpeller=false) was tried to calm general TV instability
+             but it broke video_player's texture rendering on this Flutter
+             version (ExoPlayer video stopped showing) — the Skia GL path is
+             under-maintained since Impeller became default. Keep Impeller
+             ON; stability is handled via the memory fix (skip media_kit init
+             on TV) instead. Revisit only with device logs. -->
     </application>
     <!-- Required for text processing -->
     <queries>
