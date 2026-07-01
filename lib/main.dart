@@ -51,15 +51,24 @@ Future<bool> _detectAndroidTV() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
 
-  // Cap Flutter's global image cache so poster/logo/thumbnail accumulation
-  // between episodes can't spiral into OOM. The TV-specific (smaller) budget
-  // is applied below, once TV detection has run — weak Android TV boxes have
-  // a far tighter app heap than phones/desktops.
+  // Detect Android TV FIRST so heavy, TV-inappropriate init can be skipped.
+  final isTV = await _detectAndroidTV();
+  PlatformHelper.setTVDevice(isTV);
+
+  // media_kit (libmpv + ffmpeg native libs) is only used OFF-TV — on Android
+  // TV playback goes through ExoPlayer (video_player). Skipping its init on TV
+  // avoids a large native allocation that would otherwise sit unused and add
+  // OOM pressure on low-memory TV boxes (a common Android-TV crash cause).
+  if (!isTV) {
+    MediaKit.ensureInitialized();
+  }
+
+  // Cap Flutter's global image cache. Weak Android TV boxes have a far
+  // tighter app heap than phones/desktops, so use a smaller budget there.
   PaintingBinding.instance.imageCache
-    ..maximumSize = 150
-    ..maximumSizeBytes = 60 * 1024 * 1024;
+    ..maximumSize = isTV ? 100 : 150
+    ..maximumSizeBytes = (isTV ? 40 : 60) * 1024 * 1024;
 
   // Desktop window setup (Windows/Linux/macOS)
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -83,20 +92,6 @@ void main() async {
 
   // Pre-load SharedPreferences to eliminate async waterfall
   final prefs = await SharedPreferences.getInstance();
-
-  // Detect if running on Android TV
-  final isTV = await _detectAndroidTV();
-  PlatformHelper.setTVDevice(isTV);
-
-  // Tighten the global image cache on Android TV. Combined with the
-  // per-image memCacheWidth decode caps, this keeps the decoded-bitmap
-  // working set well inside the limited TV app heap (grids of posters +
-  // player/EPG logos previously accumulated full-res bitmaps → OOM).
-  if (isTV) {
-    PaintingBinding.instance.imageCache
-      ..maximumSize = 100
-      ..maximumSizeBytes = 40 * 1024 * 1024;
-  }
 
   // Pre-cache GPU info so player init is instant
   GpuDetector.detect();
