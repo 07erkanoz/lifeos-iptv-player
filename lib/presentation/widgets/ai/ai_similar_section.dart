@@ -379,7 +379,9 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
   @override
   Widget build(BuildContext context) {
     final hasAiKey = ref.watch(settingsProvider).hasAiKey;
-    if (!hasAiKey) {
+    // On Android TV, AI is fully off (gemini is null) — always use the plain
+    // fallback rail so no ✨/AI header or auto-fetch appears here.
+    if (!hasAiKey || PlatformHelper.isTV) {
       return widget.fallbackBuilder?.call(context) ??
           const SizedBox.shrink();
     }

@@ -747,6 +747,10 @@ class ContentRepository {
       });
 
       if (rows.length < chunkSize) break;
+      // Breathe between chunks so the one-time backfill of a huge catalogue
+      // doesn't monopolise the DB isolate and stall grid/dashboard queries
+      // during the first-launch browse (the "toparlanması uzun sürüyor").
+      await Future<void>.delayed(const Duration(milliseconds: 400));
     }
   }
 

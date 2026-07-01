@@ -316,7 +316,11 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   /// Backfill the search index off the UI isolate, shortly after launch /
   /// sync. Incremental + idempotent — a no-op once the catalogue is indexed.
   void _refreshSearchIndex() {
-    Future<void>.delayed(const Duration(seconds: 5), () async {
+    // Defer well past the first-launch browse so the one-time full backfill
+    // (and its chunked DB writes) can't stall the initial grid/dashboard
+    // load on a weak TV. Search still works meanwhile via the legacy scan.
+    final delay = Duration(seconds: PlatformHelper.isTV ? 20 : 5);
+    Future<void>.delayed(delay, () async {
       if (!mounted) return;
       if (playbackActiveNotifier.value) return;
       try {

@@ -1955,7 +1955,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   Widget _buildSimilarCard(Channel channel) {
-    return GestureDetector(
+    return _FocusableSimilarCard(
       onTap: () {
         _onPosterHover(channel);
         _openDetail(channel);
@@ -1991,6 +1991,56 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Focusable "Similar" rail card ──────────────────────────────────────────
+// The similar rail was a bare GestureDetector — not focusable, so on TV the
+// detail had NO focus target below the action buttons: D-pad down did nothing
+// and the page couldn't scroll ("detay alta inmiyor"), and similar items
+// weren't selectable. This wrapper makes each card a real focus stop (select/
+// enter opens it) with a focus ring, so D-pad reaches the rail (scrolling the
+// detail on the way) and can open items.
+class _FocusableSimilarCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  const _FocusableSimilarCard({required this.child, required this.onTap});
+
+  @override
+  State<_FocusableSimilarCard> createState() => _FocusableSimilarCardState();
+}
+
+class _FocusableSimilarCardState extends State<_FocusableSimilarCard> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (_, e) {
+        if (e is KeyDownEvent &&
+            (e.logicalKey == LogicalKeyboardKey.select ||
+                e.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _focused ? AppColors.primary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          padding: const EdgeInsets.all(2),
+          child: widget.child,
         ),
       ),
     );

@@ -880,6 +880,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // couldn't fall back to software even when HW produced no video.
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: settings.hardwareAcceleration,
+        // Cap the render texture to 720p on Android TV. media_kit copies +
+        // GL-renders every frame into a Flutter texture (unlike ExoPlayer's
+        // zero-copy SurfaceView); on a weak TV GPU that per-frame cost is
+        // the stutter. A 720p texture roughly halves that work — the TV
+        // panel upscales to its native resolution. Smoothness over a little
+        // sharpness on hardware that otherwise can't keep up.
+        width: PlatformHelper.isTV ? 1280 : null,
+        height: PlatformHelper.isTV ? 720 : null,
       ),
     );
 
