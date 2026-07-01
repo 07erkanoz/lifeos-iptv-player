@@ -45,6 +45,11 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
+  # Android TV only: ExoPlayer-backed playback (efficient MediaCodec →
+  # Surface path) for smooth video on weak TV GPUs where media_kit's
+  # texture-copy render stutters. media_kit stays the player on every other
+  # platform (mobile/desktop/iOS). Selected at runtime via PlatformHelper.isTV.
+  video_player: ^2.9.2
   drift: ^2.31.0
   drift_flutter: ^0.2.8
   shared_preferences: ^2.5.4

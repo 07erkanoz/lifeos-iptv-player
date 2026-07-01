@@ -3,6 +3,8 @@ import 'package:lifeostv/presentation/widgets/layout/app_shell.dart';
 import 'package:lifeostv/presentation/screens/settings/settings_screen.dart';
 import 'package:lifeostv/presentation/screens/live/live_tv_screen.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
+import 'package:lifeostv/presentation/screens/player/tv_video_player_screen.dart';
+import 'package:lifeostv/core/platform_helper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:lifeostv/presentation/screens/auth/landing_screen.dart';
 import 'package:lifeostv/presentation/screens/auth/xtream_login_screen.dart';
@@ -79,6 +81,21 @@ GoRouter router(Ref ref) {
         path: '/player',
         builder: (context, state) {
           final extras = state.extra as Map<String, dynamic>;
+          // Android TV → ExoPlayer-backed player (smooth on weak TV GPUs).
+          // Every other platform keeps the full media_kit VideoPlayerScreen.
+          if (PlatformHelper.isTV) {
+            return TvVideoPlayerScreen(
+              streamUrl: extras['url'],
+              title: extras['title'],
+              type: extras['type'] ?? VideoType.live,
+              logo: extras['logo'],
+              currentProgramTitle: extras['programTitle'],
+              startPosition: extras['startPosition'] as Duration?,
+              parentStreamId: extras['parentStreamId'] as int?,
+              channels: extras['channels'] as List<PlayerChannel>?,
+              currentChannelIndex: extras['currentChannelIndex'] as int?,
+            );
+          }
           return VideoPlayerScreen(
             streamUrl: extras['url'],
             title: extras['title'],
