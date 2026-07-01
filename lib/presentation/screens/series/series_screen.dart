@@ -1329,10 +1329,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 // Genre filter (only renders when there are genres in DB)
                 Consumer(
                   builder: (context, ref, _) {
-                    final all = ref.watch(_allSeriesProvider).value ?? const [];
                     return GenreDropdown(
                       value: ref.watch(seriesGenreFilterProvider),
-                      genres: extractGenres(all),
+                      genres: ref.watch(_seriesGenresProvider),
                       onChanged: (g) =>
                           ref.read(seriesGenreFilterProvider.notifier).set(g),
                     );
@@ -4395,6 +4394,12 @@ final _allSeriesProvider = StreamProvider<List<Channel>>((ref) {
   return ref
       .watch(contentRepositoryProvider)
       .watchAllChannelsByType('series', limit: limit);
+});
+
+/// Genre chips derived from the loaded series list, memoized (see movies).
+final _seriesGenresProvider = Provider<List<String>>((ref) {
+  final all = ref.watch(_allSeriesProvider).value ?? const <Channel>[];
+  return extractGenres(all);
 });
 
 /// Embedding-based "similar series" — see the movies equivalent.

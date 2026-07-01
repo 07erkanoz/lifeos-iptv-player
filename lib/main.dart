@@ -93,8 +93,11 @@ void main() async {
   // Pre-load SharedPreferences to eliminate async waterfall
   final prefs = await SharedPreferences.getInstance();
 
-  // Pre-cache GPU info so player init is instant
-  GpuDetector.detect();
+  // Pre-cache GPU info so player init is instant. Skipped on Android TV:
+  // media_kit isn't initialised there (ExoPlayer handles playback), so the
+  // GPU renderer string is never read — the native EGL probe would just be
+  // wasted work in the critical first-frame window on a weak TV CPU.
+  if (!isTV) GpuDetector.detect();
 
   // On Android TV: force landscape. On mobile: allow all orientations
   if (Platform.isAndroid) {

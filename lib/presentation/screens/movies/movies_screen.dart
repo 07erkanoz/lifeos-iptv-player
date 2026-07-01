@@ -734,10 +734,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             // matching content.
             Consumer(
               builder: (context, ref, _) {
-                final all = ref.watch(_allMoviesProvider).value ?? const [];
                 return GenreDropdown(
                   value: ref.watch(movieGenreFilterProvider),
-                  genres: extractGenres(all),
+                  genres: ref.watch(_movieGenresProvider),
                   onChanged: (g) =>
                       ref.read(movieGenreFilterProvider.notifier).set(g),
                 );
@@ -2744,6 +2743,15 @@ final _movieChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
 final _allMoviesProvider = StreamProvider<List<Channel>>((ref) {
   final limit = ref.watch(_movieGridLimitProvider);
   return ref.watch(contentRepositoryProvider).watchAllChannelsByType('movie', limit: limit);
+});
+
+/// Genre chips derived from the loaded movie list. Memoized as a Provider so
+/// it recomputes only when the list actually changes (a page grow / DB emit),
+/// not on every unrelated widget rebuild (focus, hero, typing) — which used
+/// to re-scan the whole loaded set each frame and jank D-pad scrolling.
+final _movieGenresProvider = Provider<List<String>>((ref) {
+  final all = ref.watch(_allMoviesProvider).value ?? const <Channel>[];
+  return extractGenres(all);
 });
 
 /// Embedding-based "similar movies" for a given stream id. Empty until

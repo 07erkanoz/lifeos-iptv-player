@@ -3,6 +3,7 @@ package com.lifeostv.lifeostv
 import android.app.PictureInPictureParams
 import android.app.UiModeManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.wifi.WifiManager
 import android.opengl.GLES20
@@ -39,8 +40,16 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isTV" -> {
+                    // UI_MODE_TYPE_TELEVISION alone misses many boxes/sticks
+                    // (generic Android TV devices often report UI_MODE_TYPE_NORMAL).
+                    // Fall back to the leanback system feature so those are still
+                    // detected as TV — otherwise EVERY TV-lite optimization is
+                    // bypassed and the app runs the full heavy path on weak HW.
                     val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
-                    val isTV = uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+                    val isTV = uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                        packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+                        packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY) ||
+                        packageManager.hasSystemFeature("android.hardware.type.television")
                     result.success(isTV)
                 }
                 "getGpuRenderer" -> {
