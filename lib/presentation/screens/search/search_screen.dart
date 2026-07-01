@@ -186,10 +186,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onSearchChanged(String query) {
     _debounce?.cancel();
-    final requestId = ++_searchRequestId;
     // Kick the AI suggest pipeline in parallel — it has its own
     // debouncer and its own request id, so it doesn't fight the
-    // main search timeline.
+    // main search timeline. (No-op on TV — gemini is null there.)
     _scheduleSuggest(query);
     if (query.trim().isEmpty) {
       setState(() {
@@ -203,11 +202,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       });
       return;
     }
+    // On Android TV, DON'T search-as-you-type: every keystroke would
+    // rebuild the whole results screen and re-arm the query, which lags on
+    // a weak box with slow D-pad / on-screen-keyboard input. The search
+    // runs on OK (onSubmitted → _executeSearch) instead — the remote-
+    // friendly pattern. Typed text just sits in the field until committed.
+    if (PlatformHelper.isTV) return;
     setState(() => _isSearching = true);
-    // Longer debounce on TV: D-pad/on-screen-keyboard input is slow, so a
-    // wider window means far fewer heavy search passes while typing.
-    final debounceMs = PlatformHelper.isTV ? 800 : 400;
-    _debounce = Timer(Duration(milliseconds: debounceMs), () async {
+    final requestId = ++_searchRequestId;
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      _executeSearch(query, requestId);
+    });
+  }
+
+  /// Run the actual (plain + optional AI) search for [query]. Extracted so
+  /// both the live debounce (desktop/mobile) and TV's on-submit path reuse
+  /// it. [requestId] guards a stale pass from overwriting a newer one.
+  Future<void> _executeSearch(String query, int requestId) async {
+    {
       final trimmed = query.trim();
 
       // Phase 1 — always do the plain LIKE search first and surface
@@ -265,7 +277,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _curatorReasons = aiResults.curatorReasons;
         _aiRefining = false;
       });
-    });
+    }
   }
 
   /// AI-driven search.
@@ -690,6 +702,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         controller: _controller,
                         focusNode: _textFocus,
                         autofocus: true,
+                        // Show a "search" action on the (on-screen) keyboard
+                        // so the commit-to-search flow is obvious — matters
+                        // most on TV, where results only appear on submit.
+                        textInputAction: TextInputAction.search,
                         onChanged: _onSearchChanged,
                         onSubmitted: (_) async {
                           // Record the (intentional) submission in
@@ -707,6 +723,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             // row sees the new entry instantly.
                             ref.invalidate(recentSearchesProvider);
                             ref.invalidate(trendingSearchesProvider);
+                          }
+                          // On Android TV we don't search-as-you-type — OK
+                          // is the commit. Run the search now (desktop/
+                          // mobile already searched live via the debounce).
+                          if (PlatformHelper.isTV && q.isNotEmpty) {
+                            setState(() => _isSearching = true);
+                            final requestId = ++_searchRequestId;
+                            await _executeSearch(_controller.text, requestId);
                           }
                           // Move focus to the first result. Goes
                           // through the same stable focus node the
