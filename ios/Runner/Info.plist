@@ -75,11 +75,16 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LifeOs TV uses the microphone when you start voice search.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>LifeOs TV converts your voice search into a search query.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>LifeOs TV needs local network access to discover Chromecast devices on your Wi-Fi.</string>
+	<string>LifeOs TV needs local network access to discover casting devices and pair your LifeOs TV devices on your Wi-Fi.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googlecast._tcp</string>
+		<string>_lifeostv-sync._tcp</string>
 	</array>
 </dict>
 </plist>

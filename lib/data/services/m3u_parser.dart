@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'package:dio/dio.dart';
 import 'bounded_get_client.dart';
+import 'media_request.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 //  Stable channel id (M3U entries → 32-bit positive int)
@@ -61,6 +62,7 @@ class M3UEntry {
   final String? groupTitle;
   final String url;
   final Map<String, String> extras;
+  final Map<String, String> httpHeaders;
 
   const M3UEntry({
     required this.name,
@@ -72,6 +74,7 @@ class M3UEntry {
     this.groupTitle,
     required this.url,
     this.extras = const {},
+    this.httpHeaders = const {},
   });
 }
 
@@ -179,7 +182,7 @@ String classifyStreamType({
     }
   }
 
-  final lowerUrl = (Uri.tryParse(url)?.path ?? url.split('?').first)
+  final lowerUrl = (Uri.tryParse(MediaRequest.parse(url).url)?.path ?? url.split('?').first)
       .toLowerCase();
 
   // 2) URL path — Xtream API pattern (+3)
@@ -382,6 +385,7 @@ M3URawResult parseM3URaw(String content, {String? baseUrl}) {
     if (line.startsWith('#EXTINF:')) {
       final info = _parseExtInf(line);
       var groupTitle = info.groupTitle;
+      final headers = <String, String>{};
 
       // Ek # satırlarını tara
       i++;
@@ -389,6 +393,21 @@ M3URawResult parseM3URaw(String content, {String? baseUrl}) {
           lines[i].startsWith('#') &&
           !lines[i].startsWith('#EXTINF:')) {
         final extraLine = lines[i];
+        final lower = extraLine.toLowerCase();
+        if (lower.startsWith('#extvlcopt:')) {
+          final option = extraLine.substring(11);
+          final equals = option.indexOf('=');
+          if (equals > 0) {
+            final name = option.substring(0, equals).trim().toLowerCase();
+            final header = const {'http-user-agent': 'User-Agent', 'http-referrer': 'Referer', 'http-referer': 'Referer', 'http-origin': 'Origin', 'http-cookie': 'Cookie'}[name];
+            if (header != null) headers[header] = option.substring(equals + 1);
+          }
+        } else if (lower.startsWith('#kodiprop:')) {
+          final equals = extraLine.indexOf('=');
+          if (equals > 0 && const {'inputstream.adaptive.stream_headers', 'inputstream.adaptive.manifest_headers'}.contains(extraLine.substring(10, equals).toLowerCase())) {
+            try { headers.addAll(Uri.splitQueryString(extraLine.substring(equals + 1))); } on FormatException { /* malformed directive */ }
+          }
+        }
         if (extraLine.startsWith('#EXTGRP:')) {
           final grp = extraLine.substring(8).trim();
           if (grp.isNotEmpty) {
@@ -432,6 +451,7 @@ M3URawResult parseM3URaw(String content, {String? baseUrl}) {
               groupTitle: groupTitle.isNotEmpty == true ? groupTitle : null,
               url: url,
               extras: info.extras,
+              httpHeaders: MediaRequest.sanitize(headers),
             ),
           );
         }

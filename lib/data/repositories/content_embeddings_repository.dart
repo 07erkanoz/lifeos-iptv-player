@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -23,38 +24,32 @@ class ContentEmbeddingsRepository {
 
   // ── Encoding helpers ─────────────────────────────────────────────────────
 
-  static Uint8List encode(Float32List v) => v.buffer.asUint8List();
+  static Uint8List encode(Float32List v) => Uint8List.fromList(
+    v.buffer.asUint8List(v.offsetInBytes, v.lengthInBytes),
+  );
 
   static Float32List decode(Uint8List bytes) {
     // Copy into an aligned buffer — Drift may hand back a view whose
     // offset isn't 4-byte aligned, which Float32List.view rejects.
+    if (bytes.length % 4 != 0) return Float32List(0);
     final copy = Uint8List.fromList(bytes);
     return copy.buffer.asFloat32List();
   }
 
   /// L2-normalise in place and return — lets cosine == dot product.
   static Float32List normalize(List<double> raw) {
+    if (raw.isEmpty || raw.any((x) => !x.isFinite)) return Float32List(0);
     var sum = 0.0;
     for (final x in raw) {
       sum += x * x;
     }
-    final norm = sum <= 0 ? 1.0 : 1.0 / (sqrtApprox(sum));
+    if (!sum.isFinite || sum <= 0) return Float32List(0);
+    final norm = 1.0 / math.sqrt(sum);
     final out = Float32List(raw.length);
     for (var i = 0; i < raw.length; i++) {
       out[i] = raw[i] * norm;
     }
     return out;
-  }
-
-  // dart:math is unavailable in some build contexts here; a tiny
-  // Newton sqrt is plenty for normalisation.
-  static double sqrtApprox(double x) {
-    if (x <= 0) return 0;
-    var g = x;
-    for (var i = 0; i < 20; i++) {
-      g = 0.5 * (g + x / g);
-    }
-    return g;
   }
 
   // ── Writes ───────────────────────────────────────────────────────────────
@@ -63,31 +58,57 @@ class ContentEmbeddingsRepository {
     if (rows.isEmpty) return;
     await _db.accountBatch((batch) {
       for (final r in rows) {
-        batch.insert(_db.contentEmbeddings, r,
-            mode: InsertMode.insertOrReplace);
+        batch.insert(
+          _db.contentEmbeddings,
+          r,
+          mode: InsertMode.insertOrReplace,
+        );
       }
     });
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────
 
-  /// Every stored vector, decoded. Loaded on demand for a search /
-  /// similarity pass and discarded after — not held resident.
-  Future<List<EmbeddingVec>> loadAll({String? type}) async {
-    final q = _db.select(_db.contentEmbeddings);
-    if (type != null) q.where((t) => t.type.equals(type));
-    final rows = await q.get();
-    return [
-      for (final r in rows)
-        (streamId: r.streamId, type: r.type, vector: decode(r.vector))
-    ];
+  /// Bounded pages prevent decoding an entire 100k-title catalogue into RAM.
+  /// Keyset pagination remains deterministic when a background batch is added.
+  Stream<List<EmbeddingVec>> pages({String? type, int pageSize = 256}) async* {
+    int? lastId;
+    String? lastType;
+    while (true) {
+      final q = _db.select(_db.contentEmbeddings);
+      if (type != null) q.where((t) => t.type.equals(type));
+      if (lastId != null) {
+        final id = lastId;
+        final kind = lastType!;
+        q.where(
+          (t) =>
+              t.streamId.isBiggerThanValue(id) |
+              (t.streamId.equals(id) & t.type.isBiggerThanValue(kind)),
+        );
+      }
+      q.orderBy([
+        (t) => OrderingTerm(expression: t.streamId),
+        (t) => OrderingTerm(expression: t.type),
+      ]);
+      q.limit(pageSize.clamp(1, 1024));
+      final rows = await q.get();
+      if (rows.isEmpty) return;
+      yield [
+        for (final r in rows)
+          if (r.dims > 0 && r.vector.length == r.dims * 4)
+            (streamId: r.streamId, type: r.type, vector: decode(r.vector)),
+      ];
+      lastId = rows.last.streamId;
+      lastType = rows.last.type;
+    }
   }
 
   Future<Float32List?> lookup(int streamId, String type) async {
-    final row = await (_db.select(_db.contentEmbeddings)
-          ..where((t) => t.streamId.equals(streamId) & t.type.equals(type))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.contentEmbeddings)
+              ..where((t) => t.streamId.equals(streamId) & t.type.equals(type))
+              ..limit(1))
+            .getSingleOrNull();
     return row == null ? null : decode(row.vector);
   }
 
@@ -99,27 +120,34 @@ class ContentEmbeddingsRepository {
     final c = _db.channels;
     final e = _db.contentEnrichment;
     final em = _db.contentEmbeddings;
-    final rows = await (_db.select(c).join([
-      _db.accountLeftJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
-      _db.accountLeftJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
-    ])
-          ..where((c.type.equals('movie') | c.type.equals('series')) &
-              em.streamId.isNull() &
-              ((c.genre.isNotNull() & c.genre.equals('').not()) |
-                  (c.plot.isNotNull() & c.plot.equals('').not()) |
-                  e.streamId.isNotNull()))
-          ..orderBy([OrderingTerm(expression: c.added, mode: OrderingMode.desc)])
-          ..limit(limit))
-        .get();
+    final rows =
+        await (_db.select(c).join([
+                _db.accountLeftJoin(
+                  e,
+                  e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type),
+                ),
+                _db.accountLeftJoin(
+                  em,
+                  em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type),
+                ),
+              ])
+              ..where(
+                (c.type.equals('movie') | c.type.equals('series')) &
+                    em.streamId.isNull() &
+                    ((c.genre.isNotNull() & c.genre.equals('').not()) |
+                        (c.plot.isNotNull() & c.plot.equals('').not()) |
+                        e.streamId.isNotNull()),
+              )
+              ..orderBy([
+                OrderingTerm(expression: c.added, mode: OrderingMode.desc),
+              ])
+              ..limit(limit))
+            .get();
     final out = <EmbeddingInput>[];
     for (final r in rows) {
       final ch = r.readTable(c);
       final en = r.readTableOrNull(e);
-      out.add((
-        streamId: ch.streamId,
-        type: ch.type,
-        text: _buildText(ch, en),
-      ));
+      out.add((streamId: ch.streamId, type: ch.type, text: _buildText(ch, en)));
     }
     return out;
   }
@@ -129,16 +157,25 @@ class ContentEmbeddingsRepository {
     final e = _db.contentEnrichment;
     final em = _db.contentEmbeddings;
     final countExpr = c.streamId.count();
-    final q = _db.selectOnly(c).join([
-      _db.accountLeftJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
-      _db.accountLeftJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
-    ])
-      ..addColumns([countExpr])
-      ..where((c.type.equals('movie') | c.type.equals('series')) &
-          em.streamId.isNull() &
-          ((c.genre.isNotNull() & c.genre.equals('').not()) |
-              (c.plot.isNotNull() & c.plot.equals('').not()) |
-              e.streamId.isNotNull()));
+    final q =
+        _db.selectOnly(c).join([
+            _db.accountLeftJoin(
+              e,
+              e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type),
+            ),
+            _db.accountLeftJoin(
+              em,
+              em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type),
+            ),
+          ])
+          ..addColumns([countExpr])
+          ..where(
+            (c.type.equals('movie') | c.type.equals('series')) &
+                em.streamId.isNull() &
+                ((c.genre.isNotNull() & c.genre.equals('').not()) |
+                    (c.plot.isNotNull() & c.plot.equals('').not()) |
+                    e.streamId.isNotNull()),
+          );
     final row = await q.getSingle();
     return row.read(countExpr) ?? 0;
   }
@@ -151,6 +188,11 @@ class ContentEmbeddingsRepository {
   }
 
   String _buildText(Channel ch, ContentEnrichmentData? en) {
+    if (en?.confidence == null ||
+        !en!.confidence!.isFinite ||
+        en.confidence! < 0.65 ||
+        en.confidence! > 1)
+      en = null;
     final genre = (ch.genre != null && ch.genre!.isNotEmpty)
         ? ch.genre
         : en?.genres;

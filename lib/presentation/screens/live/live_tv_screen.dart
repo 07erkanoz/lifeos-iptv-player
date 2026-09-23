@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -916,6 +917,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               url: await resolver.resolve(account, ch, quality: quality),
               logo: ch.streamIcon,
               categoryId: ch.categoryId,
+              httpHeaders: MediaRequest.decode(ch.playbackHeaders),
             ),
           );
         } catch (_) {
@@ -934,6 +936,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             url: url,
             logo: channel.streamIcon,
             categoryId: channel.categoryId,
+            httpHeaders: MediaRequest.decode(channel.playbackHeaders),
           ),
         );
         currentIndex = 0;
@@ -956,6 +959,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         '/player',
         extra: {
           'url': url,
+          'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
           'streamId': channel.streamId,
           'accountId': account.id,
           'title': channel.name,

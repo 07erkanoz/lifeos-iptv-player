@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/presentation/widgets/profile/profile_pin_prompt.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -560,6 +561,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         '/player',
         extra: {
           'url': url,
+          'httpHeaders': MediaRequest.decode(ch.playbackHeaders),
           'streamId': ch.streamId,
           'accountId': ch.accountId,
           'title': ch.name,

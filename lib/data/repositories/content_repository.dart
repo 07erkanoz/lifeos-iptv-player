@@ -857,10 +857,11 @@ class ContentRepository {
   /// then batch-updates. Idempotent + incremental — only touches NULL rows,
   /// so it's a no-op cheap check once the catalogue is indexed and only
   /// processes the delta after a sync. Safe to call at startup / post-sync.
-  Future<void> refreshSearchIndex() async {
+  Future<void> refreshSearchIndex({bool Function()? shouldPause}) async {
     const chunkSize = 1500;
     var guard = 0;
     while (guard++ < 1000) {
+      if (shouldPause?.call() ?? false) return;
       final rows =
           await (_db.select(_db.channels).join([
                   _db.accountLeftJoin(
@@ -907,6 +908,7 @@ class ContentRepository {
         return m;
       });
 
+      if (shouldPause?.call() ?? false) return;
       await _db.accountBatch((b) {
         for (final r in input) {
           b.update(
@@ -1555,7 +1557,12 @@ class ContentRepository {
   Channel _applyEnrichment(Channel c, Map<String, ContentEnrichmentData> map) {
     if (c.genre != null && c.genre!.isNotEmpty) return c;
     final e = map['${c.streamId}|${c.type}'];
-    if (e == null) return c;
+    if (e == null ||
+        e.confidence == null ||
+        !e.confidence!.isFinite ||
+        e.confidence! < 0.65 ||
+        e.confidence! > 1)
+      return c;
     return c.copyWith(
       genre: Value(e.genres),
       year: Value(

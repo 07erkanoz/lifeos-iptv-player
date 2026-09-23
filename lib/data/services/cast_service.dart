@@ -59,7 +59,8 @@ class CastState {
   }
 
   bool get isConnected => connectionState == CastConnectionState.connected;
-  bool get isDisconnected => connectionState == CastConnectionState.disconnected;
+  bool get isDisconnected =>
+      connectionState == CastConnectionState.disconnected;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,8 +86,9 @@ class CastService {
   int _mediaRequestId = 1;
 
   /// Reactive state — use ValueListenableBuilder in widgets.
-  final ValueNotifier<CastState> stateNotifier =
-      ValueNotifier(const CastState());
+  final ValueNotifier<CastState> stateNotifier = ValueNotifier(
+    const CastState(),
+  );
 
   CastState get state => stateNotifier.value;
 
@@ -147,13 +149,15 @@ class CastService {
             ].whereType<String>().where((s) => s.isNotEmpty).join(' - ');
             if (name.isEmpty) name = svc.name;
 
-            results.add(CastDevice(
-              serviceName: svc.name,
-              name: name,
-              host: host,
-              port: port,
-              extras: svc.attributes,
-            ));
+            results.add(
+              CastDevice(
+                serviceName: svc.name,
+                name: name,
+                host: host,
+                port: port,
+                extras: svc.attributes,
+              ),
+            );
             break;
           default:
             break;
@@ -177,10 +181,12 @@ class CastService {
   /// ready to accept LOAD commands (waits for RECEIVER_STATUS → transportId).
   Future<bool> connectToDevice(CastDevice device) async {
     if (state.connectionState == CastConnectionState.connecting) return false;
-    _updateState(state.copyWith(
-      connectionState: CastConnectionState.connecting,
-      device: device,
-    ));
+    _updateState(
+      state.copyWith(
+        connectionState: CastConnectionState.connecting,
+        device: device,
+      ),
+    );
 
     try {
       _session = await _sessionManager.startSession(
@@ -193,9 +199,9 @@ class CastService {
 
       _stateSub = _session!.stateStream.listen((sessionState) {
         if (sessionState == CastSessionState.connected) {
-          _updateState(state.copyWith(
-            connectionState: CastConnectionState.connected,
-          ));
+          _updateState(
+            state.copyWith(connectionState: CastConnectionState.connected),
+          );
           if (!readyCompleter.isCompleted) readyCompleter.complete(true);
         } else if (sessionState == CastSessionState.closed) {
           if (!readyCompleter.isCompleted) readyCompleter.complete(false);
@@ -213,8 +219,10 @@ class CastService {
       });
 
       // Wait until receiver app reports ready or timeout after 15s
-      final ready = await readyCompleter.future
-          .timeout(const Duration(seconds: 15), onTimeout: () => false);
+      final ready = await readyCompleter.future.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => false,
+      );
 
       if (!ready) {
         _cleanup();
@@ -252,18 +260,23 @@ class CastService {
   // ── Media control ──────────────────────────────────────────────────────
 
   /// Load a media URL on the Chromecast.
+  Duration lastPosition = Duration.zero;
+  int? _mediaSessionId;
+
   void loadMedia({
     required String url,
     required String title,
     String? imageUrl,
     CastStreamType streamType = CastStreamType.live,
+    Duration startPosition = Duration.zero,
   }) {
     if (_session == null || !state.isConnected) return;
+    _mediaSessionId = null;
+    lastPosition = streamType == CastStreamType.live
+        ? Duration.zero
+        : startPosition;
 
-    final metadata = <String, dynamic>{
-      'metadataType': 0,
-      'title': title,
-    };
+    final metadata = <String, dynamic>{'metadataType': 0, 'title': title};
     if (imageUrl != null && imageUrl.isNotEmpty) {
       metadata['images'] = [
         {'url': imageUrl},
@@ -282,6 +295,9 @@ class CastService {
         'metadata': metadata,
       },
       'autoplay': true,
+      if (streamType == CastStreamType.buffered)
+        'currentTime':
+            startPosition.inMilliseconds.clamp(0, 9007199254740991) / 1000,
     });
 
     _updateState(state.copyWith(isPlaying: true, clearLoadError: true));
@@ -303,7 +319,8 @@ class CastService {
     // Xtream API: /live/ paths are typically TS/HLS streams
     if (path.contains('/live/')) return 'video/mp2t';
     // Xtream API: /movie/ and /series/ paths are typically mp4/mkv containers
-    if (path.contains('/movie/') || path.contains('/series/')) return 'video/mp4';
+    if (path.contains('/movie/') || path.contains('/series/'))
+      return 'video/mp4';
 
     // Default: assume HLS (most IPTV streams)
     return 'application/x-mpegurl';
@@ -350,6 +367,9 @@ class CastService {
   void _sendMediaCommand(Map<String, dynamic> payload) {
     if (_session == null) return;
     payload['requestId'] = _nextRequestId();
+    if (payload['type'] != 'LOAD' && _mediaSessionId != null) {
+      payload['mediaSessionId'] = _mediaSessionId;
+    }
     _session!.sendMessage(CastSession.kNamespaceMedia, payload);
   }
 
@@ -363,8 +383,14 @@ class CastService {
       if (statuses != null && statuses.isNotEmpty) {
         final status = statuses[0] as Map<String, dynamic>;
         final playerState = status['playerState'] as String?;
+        if (status['mediaSessionId'] is num) {
+          _mediaSessionId = (status['mediaSessionId'] as num).toInt();
+        }
         final currentTime = (status['currentTime'] as num?)?.toDouble() ?? 0;
 
+        if (currentTime.isFinite && currentTime >= 0) {
+          lastPosition = Duration(milliseconds: (currentTime * 1000).toInt());
+        }
         final media = status['media'] as Map<String, dynamic>?;
         final dur = (media?['duration'] as num?)?.toDouble() ?? 0;
 
@@ -372,17 +398,23 @@ class CastService {
         // it instead of leaving the user with silent/blank video.
         final idleReason = status['idleReason'] as String?;
         if (playerState == 'IDLE' && idleReason == 'ERROR') {
-          _updateState(state.copyWith(isPlaying: false, loadError: 'unsupported'));
+          _updateState(
+            state.copyWith(isPlaying: false, loadError: 'unsupported'),
+          );
           return;
         }
 
-        _updateState(state.copyWith(
-          isPlaying: playerState == 'PLAYING' || playerState == 'BUFFERING',
-          position: Duration(milliseconds: (currentTime * 1000).toInt()),
-          duration: Duration(milliseconds: (dur * 1000).toInt()),
-          // A real status update means the load succeeded — drop any stale error.
-          clearLoadError: true,
-        ));
+        _updateState(
+          state.copyWith(
+            isPlaying: playerState == 'PLAYING' || playerState == 'BUFFERING',
+            position: lastPosition,
+            duration: dur.isFinite && dur >= 0
+                ? Duration(milliseconds: (dur * 1000).toInt())
+                : Duration.zero,
+            // A real status update means the load succeeded — drop any stale error.
+            clearLoadError: true,
+          ),
+        );
       }
     } else if (type == 'LOAD_FAILED' || type == 'LOAD_CANCELLED') {
       _updateState(state.copyWith(isPlaying: false, loadError: 'unsupported'));

@@ -1,5 +1,6 @@
 import 'dart:isolate';
 import 'dart:convert';
+import 'media_request.dart';
 import '../datasources/local/database.dart';
 
 /// Keep provider/category boundaries: identical titles can be different shows,
@@ -60,6 +61,7 @@ class M3uSeries {
         'episode_num': label.number,
         'title': e.name,
         'direct_source': e.streamUrl,
+        'http_headers': MediaRequest.decode(e.playbackHeaders),
         'container_extension': e.containerExtension ?? '',
         'info': {
           'plot': e.plot ?? '',

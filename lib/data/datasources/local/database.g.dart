@@ -1402,6 +1402,17 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _playbackHeadersMeta = const VerificationMeta(
+    'playbackHeaders',
+  );
+  @override
+  late final GeneratedColumn<String> playbackHeaders = GeneratedColumn<String>(
+    'playback_headers',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _containerExtensionMeta =
       const VerificationMeta('containerExtension');
   @override
@@ -1453,6 +1464,7 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     director,
     cast,
     streamUrl,
+    playbackHeaders,
     containerExtension,
     epgChannelId,
     searchText,
@@ -1579,6 +1591,15 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         streamUrl.isAcceptableOrUnknown(data['stream_url']!, _streamUrlMeta),
       );
     }
+    if (data.containsKey('playback_headers')) {
+      context.handle(
+        _playbackHeadersMeta,
+        playbackHeaders.isAcceptableOrUnknown(
+          data['playback_headers']!,
+          _playbackHeadersMeta,
+        ),
+      );
+    }
     if (data.containsKey('container_extension')) {
       context.handle(
         _containerExtensionMeta,
@@ -1676,6 +1697,10 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         DriftSqlType.string,
         data['${effectivePrefix}stream_url'],
       ),
+      playbackHeaders: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}playback_headers'],
+      ),
       containerExtension: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}container_extension'],
@@ -1714,6 +1739,7 @@ class Channel extends DataClass implements Insertable<Channel> {
   final String? director;
   final String? cast;
   final String? streamUrl;
+  final String? playbackHeaders;
   final String? containerExtension;
   final String? epgChannelId;
   final String? searchText;
@@ -1734,6 +1760,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     this.director,
     this.cast,
     this.streamUrl,
+    this.playbackHeaders,
     this.containerExtension,
     this.epgChannelId,
     this.searchText,
@@ -1778,6 +1805,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     }
     if (!nullToAbsent || streamUrl != null) {
       map['stream_url'] = Variable<String>(streamUrl);
+    }
+    if (!nullToAbsent || playbackHeaders != null) {
+      map['playback_headers'] = Variable<String>(playbackHeaders);
     }
     if (!nullToAbsent || containerExtension != null) {
       map['container_extension'] = Variable<String>(containerExtension);
@@ -1825,6 +1855,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       streamUrl: streamUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(streamUrl),
+      playbackHeaders: playbackHeaders == null && nullToAbsent
+          ? const Value.absent()
+          : Value(playbackHeaders),
       containerExtension: containerExtension == null && nullToAbsent
           ? const Value.absent()
           : Value(containerExtension),
@@ -1859,6 +1892,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       director: serializer.fromJson<String?>(json['director']),
       cast: serializer.fromJson<String?>(json['cast']),
       streamUrl: serializer.fromJson<String?>(json['streamUrl']),
+      playbackHeaders: serializer.fromJson<String?>(json['playbackHeaders']),
       containerExtension: serializer.fromJson<String?>(
         json['containerExtension'],
       ),
@@ -1886,6 +1920,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       'director': serializer.toJson<String?>(director),
       'cast': serializer.toJson<String?>(cast),
       'streamUrl': serializer.toJson<String?>(streamUrl),
+      'playbackHeaders': serializer.toJson<String?>(playbackHeaders),
       'containerExtension': serializer.toJson<String?>(containerExtension),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
       'searchText': serializer.toJson<String?>(searchText),
@@ -1909,6 +1944,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     Value<String?> director = const Value.absent(),
     Value<String?> cast = const Value.absent(),
     Value<String?> streamUrl = const Value.absent(),
+    Value<String?> playbackHeaders = const Value.absent(),
     Value<String?> containerExtension = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
     Value<String?> searchText = const Value.absent(),
@@ -1931,6 +1967,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     director: director.present ? director.value : this.director,
     cast: cast.present ? cast.value : this.cast,
     streamUrl: streamUrl.present ? streamUrl.value : this.streamUrl,
+    playbackHeaders: playbackHeaders.present
+        ? playbackHeaders.value
+        : this.playbackHeaders,
     containerExtension: containerExtension.present
         ? containerExtension.value
         : this.containerExtension,
@@ -1963,6 +2002,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       director: data.director.present ? data.director.value : this.director,
       cast: data.cast.present ? data.cast.value : this.cast,
       streamUrl: data.streamUrl.present ? data.streamUrl.value : this.streamUrl,
+      playbackHeaders: data.playbackHeaders.present
+          ? data.playbackHeaders.value
+          : this.playbackHeaders,
       containerExtension: data.containerExtension.present
           ? data.containerExtension.value
           : this.containerExtension,
@@ -1994,6 +2036,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           ..write('director: $director, ')
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
+          ..write('playbackHeaders: $playbackHeaders, ')
           ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText')
@@ -2019,6 +2062,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     director,
     cast,
     streamUrl,
+    playbackHeaders,
     containerExtension,
     epgChannelId,
     searchText,
@@ -2043,6 +2087,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           other.director == this.director &&
           other.cast == this.cast &&
           other.streamUrl == this.streamUrl &&
+          other.playbackHeaders == this.playbackHeaders &&
           other.containerExtension == this.containerExtension &&
           other.epgChannelId == this.epgChannelId &&
           other.searchText == this.searchText);
@@ -2065,6 +2110,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
   final Value<String?> director;
   final Value<String?> cast;
   final Value<String?> streamUrl;
+  final Value<String?> playbackHeaders;
   final Value<String?> containerExtension;
   final Value<String?> epgChannelId;
   final Value<String?> searchText;
@@ -2086,6 +2132,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.director = const Value.absent(),
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
+    this.playbackHeaders = const Value.absent(),
     this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
@@ -2108,6 +2155,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.director = const Value.absent(),
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
+    this.playbackHeaders = const Value.absent(),
     this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
@@ -2133,6 +2181,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Expression<String>? director,
     Expression<String>? cast,
     Expression<String>? streamUrl,
+    Expression<String>? playbackHeaders,
     Expression<String>? containerExtension,
     Expression<String>? epgChannelId,
     Expression<String>? searchText,
@@ -2155,6 +2204,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       if (director != null) 'director': director,
       if (cast != null) 'cast': cast,
       if (streamUrl != null) 'stream_url': streamUrl,
+      if (playbackHeaders != null) 'playback_headers': playbackHeaders,
       if (containerExtension != null) 'container_extension': containerExtension,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
       if (searchText != null) 'search_text': searchText,
@@ -2179,6 +2229,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Value<String?>? director,
     Value<String?>? cast,
     Value<String?>? streamUrl,
+    Value<String?>? playbackHeaders,
     Value<String?>? containerExtension,
     Value<String?>? epgChannelId,
     Value<String?>? searchText,
@@ -2201,6 +2252,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       director: director ?? this.director,
       cast: cast ?? this.cast,
       streamUrl: streamUrl ?? this.streamUrl,
+      playbackHeaders: playbackHeaders ?? this.playbackHeaders,
       containerExtension: containerExtension ?? this.containerExtension,
       epgChannelId: epgChannelId ?? this.epgChannelId,
       searchText: searchText ?? this.searchText,
@@ -2259,6 +2311,9 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     if (streamUrl.present) {
       map['stream_url'] = Variable<String>(streamUrl.value);
     }
+    if (playbackHeaders.present) {
+      map['playback_headers'] = Variable<String>(playbackHeaders.value);
+    }
     if (containerExtension.present) {
       map['container_extension'] = Variable<String>(containerExtension.value);
     }
@@ -2293,6 +2348,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
           ..write('director: $director, ')
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
+          ..write('playbackHeaders: $playbackHeaders, ')
           ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText, ')
@@ -11244,6 +11300,7 @@ typedef $$ChannelsTableCreateCompanionBuilder =
       Value<String?> director,
       Value<String?> cast,
       Value<String?> streamUrl,
+      Value<String?> playbackHeaders,
       Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
@@ -11267,6 +11324,7 @@ typedef $$ChannelsTableUpdateCompanionBuilder =
       Value<String?> director,
       Value<String?> cast,
       Value<String?> streamUrl,
+      Value<String?> playbackHeaders,
       Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
@@ -11399,6 +11457,11 @@ class $$ChannelsTableFilterComposer
 
   ColumnFilters<String> get streamUrl => $composableBuilder(
     column: $table.streamUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playbackHeaders => $composableBuilder(
+    column: $table.playbackHeaders,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11550,6 +11613,11 @@ class $$ChannelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get playbackHeaders => $composableBuilder(
+    column: $table.playbackHeaders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get containerExtension => $composableBuilder(
     column: $table.containerExtension,
     builder: (column) => ColumnOrderings(column),
@@ -11648,6 +11716,11 @@ class $$ChannelsTableAnnotationComposer
 
   GeneratedColumn<String> get streamUrl =>
       $composableBuilder(column: $table.streamUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get playbackHeaders => $composableBuilder(
+    column: $table.playbackHeaders,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get containerExtension => $composableBuilder(
     column: $table.containerExtension,
@@ -11757,6 +11830,7 @@ class $$ChannelsTableTableManager
                 Value<String?> director = const Value.absent(),
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
+                Value<String?> playbackHeaders = const Value.absent(),
                 Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
@@ -11778,6 +11852,7 @@ class $$ChannelsTableTableManager
                 director: director,
                 cast: cast,
                 streamUrl: streamUrl,
+                playbackHeaders: playbackHeaders,
                 containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,
@@ -11801,6 +11876,7 @@ class $$ChannelsTableTableManager
                 Value<String?> director = const Value.absent(),
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
+                Value<String?> playbackHeaders = const Value.absent(),
                 Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
@@ -11822,6 +11898,7 @@ class $$ChannelsTableTableManager
                 director: director,
                 cast: cast,
                 streamUrl: streamUrl,
+                playbackHeaders: playbackHeaders,
                 containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,

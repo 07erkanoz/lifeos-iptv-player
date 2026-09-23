@@ -40,11 +40,13 @@ class GeminiService {
   final Map<String, List<String>> _suggestCache = {};
 
   GeminiService(this._apiKey)
-      : _dio = Dio(BaseOptions(
+    : _dio = Dio(
+        BaseOptions(
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 15),
           validateStatus: (_) => true, // we surface non-200 ourselves
-        ));
+        ),
+      );
 
   /// Insert into a bounded session cache, evicting the oldest entry
   /// once it's full (insertion order — good enough, this isn't a hot
@@ -101,7 +103,8 @@ class GeminiService {
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] parseSearchQuery status=${res.statusCode} body=${res.data}');
+          '[Gemini] parseSearchQuery status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
 
@@ -170,6 +173,7 @@ class GeminiService {
     List<Map<String, dynamic>> categoryOverview = const [],
     String targetLanguage = 'tr',
     Map<String, dynamic> tasteProfile = const {},
+
     /// Optional "user is currently watching X" hint. When set, the
     /// system prompt switches to spoiler-aware mode: the AI can
     /// discuss the show up to and including the given episode, but
@@ -195,13 +199,13 @@ class GeminiService {
       // unclear ("list me Korean dramas" came back with the right
       // ids buried in the message text but `recommendations: []`).
       Map<String, dynamic> compact(Channel ch) => {
-            'streamId': ch.streamId,
-            'title': ch.name,
-            'type': ch.type,
-            if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
-            if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
-            if (ch.rating != null) 'rating': ch.rating,
-          };
+        'streamId': ch.streamId,
+        'title': ch.name,
+        'type': ch.type,
+        if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
+        if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
+        if (ch.rating != null) 'rating': ch.rating,
+      };
 
       // Dedupe queryMatches against librarySample (and itself by id)
       // so the AI doesn't see the same id twice in different buckets.
@@ -243,8 +247,7 @@ class GeminiService {
         // a structural view of what exists so it can suggest browsing
         // a category by name when asked about something outside the
         // sample.
-        if (categoryOverview.isNotEmpty)
-          'categories': categoryOverview,
+        if (categoryOverview.isNotEmpty) 'categories': categoryOverview,
         // tasteProfile: aggregate weighted view. Lets the AI weigh
         // tie-breakers between equally-good candidates by reading
         // the actual category/actor/director scores instead of
@@ -304,7 +307,8 @@ class GeminiService {
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] recommendForTonight status=${res.statusCode} body=${res.data}');
+          '[Gemini] recommendForTonight status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
 
@@ -357,9 +361,9 @@ class GeminiService {
           'name': 'searchLibrary',
           'description':
               'Search the user\'s OWN library semantically. Returns matching '
-                  'titles with their streamId/type/genre so you can act on '
-                  'them. Use before recommending or playing so you reference '
-                  'real ids.',
+              'titles with their streamId/type/genre so you can act on '
+              'them. Use before recommending or playing so you reference '
+              'real ids.',
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -376,8 +380,8 @@ class GeminiService {
           'name': 'searchLiveChannels',
           'description':
               'Search LIVE TV channels by name (e.g. "CNN", "beIN Sports", '
-                  '"haber"). Returns channels with streamId/type=live so you '
-                  'can play one. Use this for live TV, not searchLibrary.',
+              '"haber"). Returns channels with streamId/type=live so you '
+              'can play one. Use this for live TV, not searchLibrary.',
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -390,8 +394,8 @@ class GeminiService {
           'name': 'getLiveNowOnAir',
           'description':
               'What is on LIVE right now: a list of channels with their '
-                  'current programme (title + start/stop). Use for "şu an ne '
-                  'var" / "canlıda ne oynuyor". Takes no arguments.',
+              'current programme (title + start/stop). Use for "şu an ne '
+              'var" / "canlıda ne oynuyor". Takes no arguments.',
           // No `parameters` — Gemini rejects an empty properties object,
           // which 400s the whole request.
         },
@@ -399,9 +403,9 @@ class GeminiService {
           'name': 'findPrograms',
           'description':
               'Search the EPG for UPCOMING programmes by title (e.g. a match, '
-                  'a show). Returns channel + programme title + startEpochMs / '
-                  'stopEpochMs. Use the startEpochMs to set a reminder, or '
-                  'playContent on the channel if it is already on.',
+              'a show). Returns channel + programme title + startEpochMs / '
+              'stopEpochMs. Use the startEpochMs to set a reminder, or '
+              'playContent on the channel if it is already on.',
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -473,7 +477,7 @@ class GeminiService {
           'name': 'setReminder',
           'description':
               'Set a reminder for a title or a live programme at a given '
-                  'time. Provide epochMs (ms since epoch) for when to fire.',
+              'time. Provide epochMs (ms since epoch) for when to fire.',
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -489,9 +493,9 @@ class GeminiService {
           'name': 'presentRecommendations',
           'description':
               'Deliver your final answer to the user: a short message, '
-                  'optional recommendation cards (streamId + one-line reason), '
-                  'and 3-4 follow-up chips. Call this when you are done — it '
-                  'ends your turn.',
+              'optional recommendation cards (streamId + one-line reason), '
+              'and 3-4 follow-up chips. Call this when you are done — it '
+              'ends your turn.',
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -527,8 +531,10 @@ class GeminiService {
     required String contextJson,
     required String targetLanguage,
     required Future<Map<String, dynamic>> Function(
-            String name, Map<String, dynamic> args)
-        onToolCall,
+      String name,
+      Map<String, dynamic> args,
+    )
+    onToolCall,
     int maxRounds = 6,
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
@@ -543,7 +549,7 @@ class GeminiService {
             {
               'text': isFirstUser
                   ? 'CONTEXT_JSON: $contextJson\n\nUSER: ${turn.text}'
-                  : turn.text
+                  : turn.text,
             },
           ],
         });
@@ -561,15 +567,14 @@ class GeminiService {
             },
             'contents': contents,
             'tools': _agentTools,
-            'generationConfig': {
-              'temperature': 0.6,
-              'maxOutputTokens': 2048,
-            },
+            'generationConfig': {'temperature': 0.6, 'maxOutputTokens': 2048},
           },
         );
         if (res.statusCode != 200) {
-          debugPrint('[Gemini] runAgent status=${res.statusCode} '
-              'body=${res.data}');
+          debugPrint(
+            '[Gemini] runAgent status=${res.statusCode} '
+            'body=${res.data}',
+          );
           return null;
         }
         final body = res.data;
@@ -632,7 +637,8 @@ class GeminiService {
     }
   }
 
-  String _buildAgentSystemPrompt(String lang) => '''
+  String _buildAgentSystemPrompt(String lang) =>
+      '''
 ${_buildTonightSystemPrompt(lang)}
 
 ── AGENT MODE ──
@@ -694,20 +700,23 @@ Rules:
     if (_apiKey.isEmpty) return null;
 
     final systemPrompt = switch (mode) {
-      PlotEnrichMode.translate => '''
+      PlotEnrichMode.translate =>
+        '''
 You translate movie/series plot summaries into the user's language
 ($targetLanguage). Keep the same level of detail. Reply with the
 translation only — no preamble, no quotes, no "Here is the
 translation:" framing. Output plain text.
 ''',
-      PlotEnrichMode.summarize => '''
+      PlotEnrichMode.summarize =>
+        '''
 You write spoiler-free summaries of movie/series plots in the user's
 language ($targetLanguage). Reduce to 2–3 sentences that establish
 the premise and tone without revealing twists, endings, or
 mid-story turns. Reply with the summary only — plain text, no
 markdown headings, no preamble.
 ''',
-      PlotEnrichMode.fillIn => '''
+      PlotEnrichMode.fillIn =>
+        '''
 The user is viewing a title whose plot field is empty or missing.
 Reply in the user's language ($targetLanguage), 2-3 sentence plot
 description, plain text, no preamble, no disclaimers.
@@ -720,7 +729,8 @@ title parsing alone often signals the premise ("Phantom Lawyer"
 supernatural element). Never reply with "UNKNOWN" or refuse to
 answer — produce something useful from whatever signal is present.
 ''',
-      PlotEnrichMode.detailedInfo => '''
+      PlotEnrichMode.detailedInfo =>
+        '''
 The user wants comprehensive information about this title, in
 their language ($targetLanguage). The plot field they currently
 see is unreliable (often machine-translated, truncated, or in
@@ -762,11 +772,9 @@ need to express low confidence, do it inline with phrasing like
     ];
 
     final userTurn = switch (mode) {
-      PlotEnrichMode.translate ||
-      PlotEnrichMode.summarize =>
+      PlotEnrichMode.translate || PlotEnrichMode.summarize =>
         '${metaLines.join("\n")}\n\nPlot:\n${originalPlot ?? ""}',
-      PlotEnrichMode.fillIn ||
-      PlotEnrichMode.detailedInfo =>
+      PlotEnrichMode.fillIn || PlotEnrichMode.detailedInfo =>
         // Send the existing plot too, even if it's poor — gives
         // the model another hook (sometimes the metadata is wrong
         // or in another language but the plot has the real
@@ -810,8 +818,7 @@ need to express low confidence, do it inline with phrasing like
             // Other modes (translate/summarize/fillIn) stay at 500
             // because they're explicitly short-form and a runaway
             // response is more annoying than a truncated one.
-            'maxOutputTokens':
-                mode == PlotEnrichMode.detailedInfo ? 4096 : 500,
+            'maxOutputTokens': mode == PlotEnrichMode.detailedInfo ? 4096 : 500,
             'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
@@ -819,7 +826,8 @@ need to express low confidence, do it inline with phrasing like
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] enrichPlot status=${res.statusCode} body=${res.data}');
+          '[Gemini] enrichPlot status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -874,7 +882,8 @@ need to express low confidence, do it inline with phrasing like
   }) async {
     if (_apiKey.isEmpty || title.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You write spoiler-free recaps of TV series for viewers who are about
 to resume after a break. Output language: $targetLanguage.
 
@@ -898,7 +907,9 @@ recap it without inventing details, reply with the single word
 ''';
 
     final userTurn = StringBuffer()
-      ..writeln('Series: $title${year != null && year.isNotEmpty ? " ($year)" : ""}');
+      ..writeln(
+        'Series: $title${year != null && year.isNotEmpty ? " ($year)" : ""}',
+      );
     if (genre != null && genre.isNotEmpty) {
       userTurn.writeln('Genre: $genre');
     }
@@ -936,7 +947,8 @@ recap it without inventing details, reply with the single word
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] recapSeriesUpTo status=${res.statusCode} body=${res.data}');
+          '[Gemini] recapSeriesUpTo status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -1013,7 +1025,8 @@ recap it without inventing details, reply with the single word
       if (currentPlot != null && currentPlot.isNotEmpty) 'plot': currentPlot,
     };
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You are a film and TV recommendation specialist with deep knowledge
 of casts, directors, themes, and cinematic style. You speak the
 user's language ($targetLanguage) fluently.
@@ -1056,7 +1069,8 @@ Rules:
 Return strict JSON matching the response schema.
 ''';
 
-    final userTurn = 'CURRENT_ITEM: ${jsonEncode(currentBlob)}\n'
+    final userTurn =
+        'CURRENT_ITEM: ${jsonEncode(currentBlob)}\n'
         'LIBRARY_SAMPLE: ${jsonEncode(librarySample)}\n'
         '${favorites.isNotEmpty ? "FAVORITES: ${jsonEncode(favorites)}\n" : ""}';
 
@@ -1089,7 +1103,8 @@ Return strict JSON matching the response schema.
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] findSimilarContent status=${res.statusCode} body=${res.data}');
+          '[Gemini] findSimilarContent status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -1198,12 +1213,16 @@ Return strict JSON matching the response schema.
 
     // Include the actual candidates and metadata. Equal-size catalogues from
     // different accounts must never share a curation result.
-    final cacheKey =
-        jsonEncode([targetLanguage, query.trim().toLowerCase(), librarySample]);
+    final cacheKey = jsonEncode([
+      targetLanguage,
+      query.trim().toLowerCase(),
+      librarySample,
+    ]);
     final cached = _curateCache[cacheKey];
     if (cached != null) return cached;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You are a film and TV curator with deep knowledge of titles across
 languages and decades. The user types a query (any language, often
 Turkish) describing what they want to watch.
@@ -1284,7 +1303,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] curateLibraryByQuery status=${res.statusCode} body=${res.data}');
+          '[Gemini] curateLibraryByQuery status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -1381,7 +1401,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You curate a personalised "For You" rail on the dashboard of an
 IPTV / streaming app. The user comes back to this rail every time
 they open the app, so the picks should feel intentional — never
@@ -1435,9 +1456,9 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     // returning the same picks the user just saw.
     final varietyHint = varietySeed > 0
         ? '\nVARIETY_SEED: $varietySeed — the user just asked for a '
-            'fresh pick, so prefer different items from your previous '
-            'response, explore adjacent genres/eras, and reshuffle the '
-            'order.'
+              'fresh pick, so prefer different items from your previous '
+              'response, explore adjacent genres/eras, and reshuffle the '
+              'order.'
         : '';
 
     // Explicit feedback signals — when the user has used the ⋯
@@ -1447,14 +1468,14 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     final moreLikeHint = moreLikeAnchors.isEmpty
         ? ''
         : '\nMORE_LIKE_THESE: ${jsonEncode(moreLikeAnchors)} — '
-            'strong positive anchors, treat closer in weight to '
-            'FAVORITES than to RECENTLY_WATCHED.';
+              'strong positive anchors, treat closer in weight to '
+              'FAVORITES than to RECENTLY_WATCHED.';
     final avoidHint = avoidTitles.isEmpty
         ? ''
         : '\nAVOID_THESE: ${jsonEncode(avoidTitles)} — the user '
-            'explicitly disliked these titles. Do NOT recommend them, '
-            'and prefer picks that DIVERGE from them on genre, tone, '
-            'or director rather than echo them.';
+              'explicitly disliked these titles. Do NOT recommend them, '
+              'and prefer picks that DIVERGE from them on genre, tone, '
+              'or director rather than echo them.';
 
     // TasteProfile aggregate — pre-computed per-category, per-actor,
     // per-director affinity scores. Lets the AI rank candidates
@@ -1463,13 +1484,14 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     final profileHint = tasteProfile.isEmpty
         ? ''
         : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
-            'aggregate weighted view of the user\'s preferences. '
-            'Higher scores = stronger affinity. Use this as the '
-            'TIE-BREAKER between equally-good library candidates. '
-            'If isColdStart=true, lean on critical acclaim rather '
-            'than these scores.';
+              'aggregate weighted view of the user\'s preferences. '
+              'Higher scores = stronger affinity. Use this as the '
+              'TIE-BREAKER between equally-good library candidates. '
+              'If isColdStart=true, lean on critical acclaim rather '
+              'than these scores.';
 
-    final userTurn = 'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
+    final userTurn =
+        'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
         'LIBRARY: ${jsonEncode(librarySample)}$profileHint$moreLikeHint$avoidHint$varietyHint';
 
@@ -1504,7 +1526,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] recommendForYou status=${res.statusCode} body=${res.data}');
+          '[Gemini] recommendForYou status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -1570,7 +1593,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
   /// at least one match. Otherwise we hide rather than show a stale
   /// "this week" widget.
   Future<({String headline, List<({int streamId, String reason})> picks})?>
-      weeklyDigest({
+  weeklyDigest({
     required List<Map<String, dynamic>> recentAdditions,
     required List<Map<String, dynamic>> favorites,
     required List<Map<String, dynamic>> recentlyWatched,
@@ -1579,7 +1602,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
   }) async {
     if (_apiKey.isEmpty || recentAdditions.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You write a one-line weekly digest headline for an IPTV / streaming
 app, then pick 3-5 items from RECENT_ADDITIONS that match the
 user's taste.
@@ -1611,11 +1635,12 @@ Return strict JSON:
     final profileHint = tasteProfile.isEmpty
         ? ''
         : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
-            'aggregate weighted view of the user\'s preferences. '
-            'Use as tie-breaker when ranking new additions. '
-            'If isColdStart=true, lean on critical acclaim instead.';
+              'aggregate weighted view of the user\'s preferences. '
+              'Use as tie-breaker when ranking new additions. '
+              'If isColdStart=true, lean on critical acclaim instead.';
 
-    final userTurn = 'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
+    final userTurn =
+        'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}$profileHint';
 
@@ -1717,7 +1742,8 @@ Return strict JSON:
   }) async {
     if (_apiKey.isEmpty || name.trim().isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You write short career summaries for actors and filmmakers in a
 streaming-app modal. Output is ONE compact paragraph in
 $targetLanguage, 2-4 sentences max.
@@ -1739,8 +1765,8 @@ Style rules:
 
     final ctxLine = appearsInTitle != null && appearsInTitle.isNotEmpty
         ? '\nCURRENT_TITLE: ${jsonEncode(appearsInTitle)} '
-            '(the user is viewing this — you may mention it but '
-            'don\'t pad with it).'
+              '(the user is viewing this — you may mention it but '
+              'don\'t pad with it).'
         : '';
 
     try {
@@ -1806,7 +1832,8 @@ Style rules:
     final cached = _suggestCache[cacheKey];
     if (cached != null) return cached;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You are the auto-suggest brain for a streaming app's search box.
 The user is mid-typing. Generate 3-5 short refinement suggestions
 that branch off their partial query into specific, browseable
@@ -1963,7 +1990,8 @@ Output strict JSON:
   {"order":[<int>,<int>,...]}.
 ''';
 
-    final userTurn = 'ITEMS: ${jsonEncode(items)}\n'
+    final userTurn =
+        'ITEMS: ${jsonEncode(items)}\n'
         'TASTE_PROFILE: ${jsonEncode(tasteProfile)}\n'
         'TIME_OF_DAY: $timeOfDay';
 
@@ -2029,12 +2057,12 @@ Output strict JSON:
       // Sanity: AI must have returned exactly the same id set.
       // If not, fall back to the original order — better safe than
       // surfacing a partial / weird rail.
-      final inputIds =
-          items.map((m) => m['streamId'] as int).toSet();
+      final inputIds = items.map((m) => m['streamId'] as int).toSet();
       if (order.toSet().difference(inputIds).isNotEmpty ||
           inputIds.difference(order.toSet()).isNotEmpty) {
         debugPrint(
-            '[Gemini] rerankContinueWatching: id set mismatch, ignoring');
+          '[Gemini] rerankContinueWatching: id set mismatch, ignoring',
+        );
         return null;
       }
       return order;
@@ -2065,7 +2093,8 @@ Output strict JSON:
     if (_apiKey.isEmpty) return null;
     if (recentAdditions.isEmpty && librarySample.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You program the hero billboard at the top of an IPTV / streaming
 app's dashboard — the very first big visual the user sees on open.
 Pick 3-5 items with a short hook tagline for each.
@@ -2115,24 +2144,25 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
     final moreLikeHint = moreLikeAnchors.isEmpty
         ? ''
         : '\nMORE_LIKE_THESE: ${jsonEncode(moreLikeAnchors)} — '
-            'titles the user explicitly marked "more like this". '
-            'Treat as the strongest positive signal you have.';
+              'titles the user explicitly marked "more like this". '
+              'Treat as the strongest positive signal you have.';
     final avoidHint = avoidTitles.isEmpty
         ? ''
         : '\nAVOID_THESE: ${jsonEncode(avoidTitles)} — disliked. '
-            'Do NOT billboard them OR neighbours that share their '
-            'core appeal (same lead, genre, tone).';
+              'Do NOT billboard them OR neighbours that share their '
+              'core appeal (same lead, genre, tone).';
 
     final profileHint = tasteProfile.isEmpty
         ? ''
         : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
-            'aggregate weighted view of the user\'s preferences. '
-            'For the hero specifically: only billboard items whose '
-            'category sits in topCategories OR whose director/cast '
-            'overlaps topDirectors/topActors, unless the catalog '
-            'has nothing in those buckets with a backdrop.';
+              'aggregate weighted view of the user\'s preferences. '
+              'For the hero specifically: only billboard items whose '
+              'category sits in topCategories OR whose director/cast '
+              'overlaps topDirectors/topActors, unless the catalog '
+              'has nothing in those buckets with a backdrop.';
 
-    final userTurn = 'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
+    final userTurn =
+        'TIME_OF_DAY: ${jsonEncode(timeOfDay)}\n'
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}\n'
         'FAVORITES: ${jsonEncode(favorites)}\n'
         'RECENT_ADDITIONS: ${jsonEncode(recentAdditions)}\n'
@@ -2180,8 +2210,7 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
           },
         },
       );
-      debugPrint(
-          '[Gemini] generateHeroBillboard status=${res.statusCode}');
+      debugPrint('[Gemini] generateHeroBillboard status=${res.statusCode}');
       if (res.statusCode != 200 || res.data == null) return null;
       final candidates = res.data!['candidates'];
       if (candidates is! List || candidates.isEmpty) return null;
@@ -2244,7 +2273,8 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
   }) async {
     if (_apiKey.isEmpty || librarySample.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You curate a *mood-of-the-moment* rail for an IPTV / streaming app.
 The user just tapped a mood chip; pick 8-10 items from LIBRARY that
 fit the mood AND respect their taste signals.
@@ -2276,9 +2306,9 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
     final profileHint = tasteProfile.isEmpty
         ? ''
         : '\nTASTE_PROFILE: ${jsonEncode(tasteProfile)} — '
-            'aggregate weighted view of the user\'s preferences. '
-            'Use as tie-breaker when multiple mood-matching candidates exist. '
-            'If isColdStart=true, lean on critical acclaim instead.';
+              'aggregate weighted view of the user\'s preferences. '
+              'Use as tie-breaker when multiple mood-matching candidates exist. '
+              'If isColdStart=true, lean on critical acclaim instead.';
 
     final userTurn =
         'MOOD: ${jsonEncode({"key": moodKey, "label": moodLabel, "vibe": moodDescription})}\n'
@@ -2313,7 +2343,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
         },
       );
       debugPrint(
-          '[Gemini] recommendForMood($moodKey) status=${res.statusCode}');
+        '[Gemini] recommendForMood($moodKey) status=${res.statusCode}',
+      );
       if (res.statusCode != 200 || res.data == null) return null;
       final candidates = res.data!['candidates'];
       if (candidates is! List || candidates.isEmpty) return null;
@@ -2354,7 +2385,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
         }
       }
       debugPrint(
-          '[Gemini] recommendForMood($moodKey): parsed ${picks.length} picks');
+        '[Gemini] recommendForMood($moodKey): parsed ${picks.length} picks',
+      );
       return picks;
     } catch (e) {
       debugPrint('[Gemini] recommendForMood failed: $e');
@@ -2379,7 +2411,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
   }) async {
     if (_apiKey.isEmpty) return null;
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You write a single 1-2 sentence greeting banner for an IPTV
 dashboard in $targetLanguage. Tone: warm, casual, brief.
 Reference the time of day and, when present, the user's resume
@@ -2478,7 +2511,8 @@ emojis, no preamble, no quotes.
     // observers and the AI sees a tidy list.
     final eps = (episodeNumbers.toSet().toList())..sort();
 
-    final systemPrompt = '''
+    final systemPrompt =
+        '''
 You write one-sentence spoiler-free episode descriptions for TV
 series. Output language: $targetLanguage.
 
@@ -2537,7 +2571,8 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
 
       if (res.statusCode != 200) {
         debugPrint(
-            '[Gemini] summarizeEpisodes status=${res.statusCode} body=${res.data}');
+          '[Gemini] summarizeEpisodes status=${res.statusCode} body=${res.data}',
+        );
         return null;
       }
       final body = res.data;
@@ -2669,7 +2704,8 @@ Examples (input → output):
   /// "Turkish-first" string, which meant non-Turkish users got
   /// Turkish replies (or confused mixed-language ones) regardless
   /// of the app's locale setting.
-  static String _buildTonightSystemPrompt(String targetLanguage) => '''
+  static String _buildTonightSystemPrompt(String targetLanguage) =>
+      '''
 You are a film-literate IPTV/streaming assistant. The user's
 preferred language is **$targetLanguage** — every `message`,
 `reason`, and `followUps` chip you emit MUST be in $targetLanguage
@@ -2912,15 +2948,16 @@ Respond with JSON only, matching the schema:
   /// themes, warnings, age, confidence; null on transport failure.
   Future<List<Map<String, dynamic>>?> enrichCatalogBatch(
     List<
-            ({
-              int streamId,
-              String type,
-              String title,
-              String? year,
-              String? cast,
-              String? director,
-            })>
-        items, {
+      ({
+        int streamId,
+        String type,
+        String title,
+        String? year,
+        String? cast,
+        String? director,
+      })
+    >
+    items, {
     String targetLanguage = 'tr',
   }) async {
     if (_apiKey.isEmpty || items.isEmpty) return null;
@@ -2935,7 +2972,7 @@ Respond with JSON only, matching the schema:
             if (it.cast != null && it.cast!.isNotEmpty) 'cast': it.cast,
             if (it.director != null && it.director!.isNotEmpty)
               'director': it.director,
-          }
+          },
       ];
 
       final res = await _dio.post<Map<String, dynamic>>(
@@ -2989,7 +3026,7 @@ Respond with JSON only, matching the schema:
       if (decoded is! Map || decoded['results'] is! List) return null;
       return [
         for (final r in (decoded['results'] as List))
-          if (r is Map) r.cast<String, dynamic>()
+          if (r is Map) r.cast<String, dynamic>(),
       ];
     } catch (e) {
       debugPrint('[Gemini] enrichCatalogBatch failed: $e');
@@ -3004,6 +3041,7 @@ Respond with JSON only, matching the schema:
   Future<List<List<double>>?> embedTexts(
     List<String> texts, {
     int dims = 768,
+    bool retrievalQuery = false,
   }) async {
     if (_apiKey.isEmpty || texts.isEmpty) return null;
     try {
@@ -3022,7 +3060,10 @@ Respond with JSON only, matching the schema:
                   ],
                 },
                 'outputDimensionality': dims,
-              }
+                'taskType': retrievalQuery
+                    ? 'RETRIEVAL_QUERY'
+                    : 'RETRIEVAL_DOCUMENT',
+              },
           ],
         },
       );
@@ -3033,11 +3074,19 @@ Respond with JSON only, matching the schema:
       final body = res.data;
       if (body is! Map<String, dynamic>) return null;
       final embs = body['embeddings'];
-      if (embs is! List) return null;
+      if (embs is! List || embs.length != texts.length) return null;
+      if (embs.any(
+        (e) =>
+            e is! Map ||
+            e['values'] is! List ||
+            (e['values'] as List).length != dims ||
+            (e['values'] as List).any((v) => v is! num || !v.isFinite),
+      ))
+        return null;
       return [
         for (final e in embs)
           if (e is Map && e['values'] is List)
-            [for (final v in (e['values'] as List)) (v as num).toDouble()]
+            [for (final v in (e['values'] as List)) (v as num).toDouble()],
       ];
     } catch (e) {
       debugPrint('[Gemini] embedTexts failed: $e');
@@ -3045,7 +3094,8 @@ Respond with JSON only, matching the schema:
     }
   }
 
-  String _buildEnrichSystemPrompt(String lang) => '''
+  String _buildEnrichSystemPrompt(String lang) =>
+      '''
 You are a film & TV metadata expert with deep knowledge of world
 cinema AND Turkish catalogues. For EACH item in ITEMS_JSON (title +
 type + optional year/cast/director) infer:

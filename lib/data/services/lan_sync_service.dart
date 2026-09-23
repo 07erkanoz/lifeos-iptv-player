@@ -1,3 +1,4 @@
+import 'lan_pairing_gate.dart';
 import 'm3u_lan_identity.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -194,16 +195,14 @@ class LanSyncService {
 
   LanSyncService(this._db, this._prefs);
 
-  static int _idCounter = 0;
-
   // ── Server state ─────────────────────────────────────────────────────────
   HttpServer? _server;
   BonsoirBroadcast? _broadcast;
-  String? _pin; // set only during manual pairing
+  final _pairing = LanPairingGate();
   bool _autoWanted = false; // keep server up for token-only auto-sync
 
   /// The PIN the receiver must enter (null when not broadcasting).
-  String? get pin => _pin;
+  String? get pin => _pairing.pin;
 
   /// True while this device is offering its data to peers.
   bool get isBroadcasting => _server != null;
@@ -261,23 +260,7 @@ class LanSyncService {
     return null;
   }
 
-  /// Cheap unique-ish hex id (no dart:math — banned in some contexts).
-  static String _randomId() {
-    final seed =
-        '${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}-$pid';
-    return _fnv1a32(seed) + _fnv1a32('$seed-salt');
-  }
-
-  static String _fnv1a32(String input) {
-    const int offset = 0x811c9dc5;
-    const int prime = 0x01000193;
-    var hash = offset;
-    for (final b in utf8.encode(input)) {
-      hash ^= b;
-      hash = (hash * prime) & 0xFFFFFFFF;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
-  }
+  static String _randomId() => LanPairingGate.newToken();
 
   static const String _kDeviceName = 'lan_sync_device_name';
 
@@ -370,17 +353,20 @@ class LanSyncService {
   /// Start the HTTP server + mDNS broadcast for MANUAL pairing.
   /// Returns the PIN to show.
   Future<String> startSending() async {
-    // 6-digit PIN derived from the microsecond clock (no dart:math).
-    final seed = DateTime.now().microsecondsSinceEpoch;
-    _pin = (seed % 900000 + 100000).toString();
-    await _ensureServerAndBroadcast();
-    return _pin!;
+    final pin = _pairing.start();
+    try {
+      await _ensureServerAndBroadcast();
+      return pin;
+    } catch (_) {
+      _pairing.stop();
+      rethrow;
+    }
   }
 
   /// Leave the manual pairing screen. Keeps the server alive in
   /// token-only auto mode when auto-sync is on, otherwise tears down.
   Future<void> stopSending() async {
-    _pin = null;
+    _pairing.stop();
     if (!_autoWanted) await _teardownServer();
   }
 
@@ -393,14 +379,14 @@ class LanSyncService {
 
   Future<void> stopAutoServer() async {
     _autoWanted = false;
-    if (_pin == null) await _teardownServer();
+    if (_pairing.pin == null) await _teardownServer();
   }
 
   /// A request is authorised if it carries the active pairing PIN OR a
   /// token belonging to an already-trusted peer.
   bool _authorised(HttpRequest req) {
     final givenPin = req.headers.value(_pinHeader);
-    if (_pin != null && givenPin == _pin) return true;
+    if (_pairing.verify(givenPin)) return true;
     final token = req.headers.value(_tokenHeader);
     if (token != null && token.isNotEmpty && _trustedByToken(token) != null) {
       return true;

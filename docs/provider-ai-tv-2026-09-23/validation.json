@@ -1,0 +1,24 @@
+{
+  "flutter_tests": 419,
+  "analyzer": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 34
+  },
+  "linux_release": "passed",
+  "android_native_tests": {
+    "tests": 60,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "responsive_series_detail": [
+    "360x780",
+    "412x850",
+    "800x900",
+    "900x500"
+  ],
+  "note": "Real Android TV/phone, Apple, Windows and receiver devices not exercised. Unsigned Apple CI was added, not locally run.",
+  "android_debug_apk": "passed",
+  "linux_isolated_startup": "passed; schema 28, 19 account tables, playback_headers present"
+}

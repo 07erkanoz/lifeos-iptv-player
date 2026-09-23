@@ -30,12 +30,19 @@ class ContentEnrichmentRepository {
   Future<Map<String, ContentEnrichmentData>> lookupMany(
     Iterable<({int streamId, String type})> keys,
   ) async {
+    final allowed = keys.map((k) => '${k.streamId}|${k.type}').toSet();
     final ids = keys.map((k) => k.streamId).toSet().toList();
-    if (ids.isEmpty) return {};
-    final rows = await (_db.select(_db.contentEnrichment)
-          ..where((t) => t.streamId.isIn(ids)))
-        .get();
-    return {for (final r in rows) '${r.streamId}|${r.type}': r};
+    final result = <String, ContentEnrichmentData>{};
+    for (var start = 0; start < ids.length; start += 500) {
+      final rows = await (_db.select(
+        _db.contentEnrichment,
+      )..where((t) => t.streamId.isIn(ids.skip(start).take(500)))).get();
+      for (final row in rows) {
+        final key = '${row.streamId}|${row.type}';
+        if (allowed.contains(key)) result[key] = row;
+      }
+    }
+    return result;
   }
 
   /// Write-through upsert for a batch of enrichment results.
@@ -43,8 +50,11 @@ class ContentEnrichmentRepository {
     if (rows.isEmpty) return;
     await _db.accountBatch((batch) {
       for (final r in rows) {
-        batch.insert(_db.contentEnrichment, r,
-            mode: InsertMode.insertOrReplace);
+        batch.insert(
+          _db.contentEnrichment,
+          r,
+          mode: InsertMode.insertOrReplace,
+        );
       }
     });
   }
@@ -54,22 +64,27 @@ class ContentEnrichmentRepository {
   /// the Xtream `added` timestamp) so freshly-added titles — the ones
   /// users actually browse — get enriched first.
   Future<List<Channel>> pendingItems({int limit = 40}) async {
-    final query = _db.select(_db.channels).join([
-      _db.accountLeftJoin(
-        _db.contentEnrichment,
-        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
-            _db.contentEnrichment.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..where((_db.channels.type.equals('movie') |
-              _db.channels.type.equals('series')) &
-          _db.contentEnrichment.streamId.isNull() &
-          (_db.channels.genre.isNull() |
-              _db.channels.genre.equals('')))
-      ..orderBy([
-        OrderingTerm(expression: _db.channels.added, mode: OrderingMode.desc),
-      ])
-      ..limit(limit);
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountLeftJoin(
+              _db.contentEnrichment,
+              _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+                  _db.contentEnrichment.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(
+            (_db.channels.type.equals('movie') |
+                    _db.channels.type.equals('series')) &
+                _db.contentEnrichment.streamId.isNull() &
+                (_db.channels.genre.isNull() | _db.channels.genre.equals('')),
+          )
+          ..orderBy([
+            OrderingTerm(
+              expression: _db.channels.added,
+              mode: OrderingMode.desc,
+            ),
+          ])
+          ..limit(limit);
     final rows = await query.get();
     return rows.map((r) => r.readTable(_db.channels)).toList();
   }
@@ -87,19 +102,21 @@ class ContentEnrichmentRepository {
   /// runner's "is there work left?" loop and a Settings progress hint.
   Future<int> pendingCount() async {
     final countExpr = _db.channels.streamId.count();
-    final query = _db.selectOnly(_db.channels).join([
-      _db.accountLeftJoin(
-        _db.contentEnrichment,
-        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
-            _db.contentEnrichment.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..addColumns([countExpr])
-      ..where((_db.channels.type.equals('movie') |
-              _db.channels.type.equals('series')) &
-          _db.contentEnrichment.streamId.isNull() &
-          (_db.channels.genre.isNull() |
-              _db.channels.genre.equals('')));
+    final query =
+        _db.selectOnly(_db.channels).join([
+            _db.accountLeftJoin(
+              _db.contentEnrichment,
+              _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+                  _db.contentEnrichment.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..addColumns([countExpr])
+          ..where(
+            (_db.channels.type.equals('movie') |
+                    _db.channels.type.equals('series')) &
+                _db.contentEnrichment.streamId.isNull() &
+                (_db.channels.genre.isNull() | _db.channels.genre.equals('')),
+          );
     final row = await query.getSingle();
     return row.read(countExpr) ?? 0;
   }

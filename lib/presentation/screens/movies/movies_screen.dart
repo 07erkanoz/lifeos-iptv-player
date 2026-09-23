@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'dart:async';
 import 'dart:math';
@@ -411,6 +412,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         '/player',
         extra: {
           'url': url,
+          'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
           'streamId': channel.streamId,
           'accountId': channel.accountId,
           'title': channel.name,
@@ -1337,6 +1339,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   // ─── Detail View ──────────────────────────────────────────────────────────
 
   Widget _buildDetailView(bool isDark, AppLocalizations l10n) {
+    final compactDetail =
+        isMobilePlatform || MediaQuery.sizeOf(context).width < 1000;
     final ch = _detailChannel!;
     final infoRaw = _vodInfo?['info'];
     final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
@@ -1514,12 +1518,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
           // Content
           Positioned(
-            left: isMobilePlatform ? 16 : 40,
-            top: isMobilePlatform ? 56 : 80,
-            right: isMobilePlatform ? 16 : 40,
+            left: compactDetail ? 16 : 40,
+            top: compactDetail ? 56 : 80,
+            right: compactDetail ? 16 : 40,
             bottom: 0,
             child: SingleChildScrollView(
-              child: isMobilePlatform
+              child: compactDetail
                   ? _buildMobileDetailContent(
                       ch,
                       l10n,
@@ -1971,7 +1975,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           // Also gated on the user's `showTrailer` setting — turning
           // it off keeps the detail panel static and stops the
           // background YouTube extraction from running.
-          if (!isMobilePlatform &&
+          if (!compactDetail &&
               !PlatformHelper.isTV &&
               ref.watch(settingsProvider).showTrailer)
             Positioned(

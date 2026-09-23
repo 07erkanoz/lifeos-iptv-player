@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,7 @@ import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
-import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 
 class ProgramGuide extends ConsumerWidget {
   final Channel channel;
@@ -166,28 +167,21 @@ class ProgramGuide extends ConsumerWidget {
   /// Build a working stream URL using the active account + user's quality
   /// preference, then push the player route. M3U accounts use the channel's
   /// direct streamUrl when present.
-  void _playChannel(BuildContext context, WidgetRef ref) {
+  Future<void> _playChannel(BuildContext context, WidgetRef ref) async {
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
     final quality = ref.read(settingsProvider).streamQuality;
 
-    final url = (account.type == 'm3u' &&
-            channel.streamUrl != null &&
-            channel.streamUrl!.isNotEmpty)
-        ? channel.streamUrl!
-        : StreamUrlBuilder.live(
-            account.url,
-            account.username ?? '',
-            account.password ?? '',
-            channel.streamId,
-            quality: quality,
-          );
+    try {
+    final url = await ref.read(playbackUrlResolverProvider).resolve(account, channel, quality: quality);
+    if (!context.mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
 
     final programs = ref.read(programsProvider(channel.streamId)).value;
     final current = (programs != null && programs.isNotEmpty) ? programs.first : null;
 
     GoRouter.of(context).push('/player', extra: {
       'url': url,
+          'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
       'streamId': channel.streamId,
         'accountId': channel.accountId,
       'title': channel.name,
@@ -197,6 +191,10 @@ class ProgramGuide extends ConsumerWidget {
       'programStart': current?.start,
       'programEnd': current?.stop,
     });
+    } catch (_) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)));
+    }
   }
 
   Future<void> _toggleFavorite(

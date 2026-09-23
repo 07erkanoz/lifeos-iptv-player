@@ -8,6 +8,8 @@
 /// - Rate limiting awareness
 library;
 
+import 'bounded_get_client.dart';
+
 import 'dart:convert';
 import 'package:dio/dio.dart';
 
@@ -154,21 +156,38 @@ class OpenSubtitlesService {
 
   final String apiKey;
   final Dio _dio;
+  final BoundedGetClient _downloads;
 
   /// In-memory search cache
-  final Map<String, ({List<ExternalSubtitle> results, DateTime ts})> _cache = {};
+  final Map<String, ({List<ExternalSubtitle> results, DateTime ts})> _cache =
+      {};
 
-  OpenSubtitlesService(this.apiKey)
-      : _dio = Dio(BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 30),
-          headers: {
-            'Api-Key': apiKey,
-            'User-Agent': 'LifeOSTV v1.0.0',
-            'Content-Type': 'application/json',
-          },
-        ));
+  OpenSubtitlesService(this.apiKey, {Dio? apiClient, Dio? downloadClient})
+    : _downloads = BoundedGetClient(
+        downloadClient ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 15),
+              ),
+            ),
+        timeout: const Duration(seconds: 20),
+        maxBytes: 2 * 1024 * 1024,
+      ),
+      _dio =
+          apiClient ??
+          Dio(
+            BaseOptions(
+              baseUrl: _baseUrl,
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 30),
+              headers: {
+                'Api-Key': apiKey,
+                'User-Agent': 'LifeOSTV v1.0.0',
+                'Content-Type': 'application/json',
+              },
+            ),
+          );
 
   /// Singleton management
   static OpenSubtitlesService? _instance;
@@ -187,7 +206,8 @@ class OpenSubtitlesService {
   /// Search for subtitles using OpenSubtitles API v1
   Future<List<ExternalSubtitle>> search(SubtitleSearchParams params) async {
     // Build cache key
-    final cacheKey = '${params.query}_${params.imdbId}_${params.languages}_'
+    final cacheKey =
+        '${params.query}_${params.imdbId}_${params.languages}_'
         '${params.seasonNumber}_${params.episodeNumber}_${params.year}_${params.type}';
 
     // Check cache
@@ -243,19 +263,22 @@ class OpenSubtitlesService {
         final file = files[0] as Map<String, dynamic>;
         final lang = attrs['language']?.toString() ?? 'en';
 
-        results.add(ExternalSubtitle(
-          id: item['id']?.toString() ?? '',
-          fileId: int.tryParse(file['file_id']?.toString() ?? '') ?? 0,
-          language: lang,
-          languageLabel: _languageLabels[lang] ?? lang,
-          release: attrs['release']?.toString(),
-          fileName: file['file_name']?.toString(),
-          downloadCount: int.tryParse(attrs['download_count']?.toString() ?? '') ?? 0,
-          aiTranslated: attrs['ai_translated'] == true,
-          hearingImpaired: attrs['hearing_impaired'] == true,
-          trusted: attrs['from_trusted'] == true,
-          rating: double.tryParse(attrs['ratings']?.toString() ?? '') ?? 0,
-        ));
+        results.add(
+          ExternalSubtitle(
+            id: item['id']?.toString() ?? '',
+            fileId: int.tryParse(file['file_id']?.toString() ?? '') ?? 0,
+            language: lang,
+            languageLabel: _languageLabels[lang] ?? lang,
+            release: attrs['release']?.toString(),
+            fileName: file['file_name']?.toString(),
+            downloadCount:
+                int.tryParse(attrs['download_count']?.toString() ?? '') ?? 0,
+            aiTranslated: attrs['ai_translated'] == true,
+            hearingImpaired: attrs['hearing_impaired'] == true,
+            trusted: attrs['from_trusted'] == true,
+            rating: double.tryParse(attrs['ratings']?.toString() ?? '') ?? 0,
+          ),
+        );
       }
 
       // Sort: trusted first, then by download count
@@ -284,22 +307,31 @@ class OpenSubtitlesService {
         data: jsonEncode({'file_id': fileId}),
       );
 
-      if (linkResponse.statusCode != 200 || linkResponse.data == null) return null;
+      if (linkResponse.statusCode != 200 || linkResponse.data == null)
+        return null;
 
       final linkData = linkResponse.data as Map<String, dynamic>;
       final downloadUrl = linkData['link']?.toString();
       final fileName = linkData['file_name']?.toString() ?? 'subtitle.srt';
-      final remaining = int.tryParse(linkData['remaining']?.toString() ?? '') ?? 0;
+      final remaining =
+          int.tryParse(linkData['remaining']?.toString() ?? '') ?? 0;
 
       if (downloadUrl == null || downloadUrl.isEmpty) return null;
+      final uri = Uri.tryParse(downloadUrl);
+      if (uri == null ||
+          !const {'http', 'https'}.contains(uri.scheme) ||
+          uri.host.isEmpty)
+        return null;
 
       // Step 2: Download the actual file
-      final fileResponse = await Dio().get<List<int>>(
+      final fileResponse = await _downloads.get<List<int>>(
         downloadUrl,
         options: Options(responseType: ResponseType.bytes),
       );
 
-      if (fileResponse.data == null) return null;
+      if (fileResponse.data == null ||
+          fileResponse.data!.length > 2 * 1024 * 1024)
+        return null;
 
       // Decode content
       String content;

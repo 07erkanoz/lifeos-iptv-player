@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,29 +21,57 @@ class SemanticSearchService {
 
   SemanticSearchService(this._repo, this._gemini);
 
-  static double _dot(Float32List a, Float32List b) {
-    final n = a.length < b.length ? a.length : b.length;
-    var s = 0.0;
-    for (var i = 0; i < n; i++) {
-      s += a[i] * b[i];
-    }
-    return s;
-  }
-
-  List<SemanticHit> _rank(
+  /// Each worker ranks a bounded page and returns only its best k results.
+  /// No model/repository/DB handle is captured by the worker closure.
+  static List<SemanticHit> rankPage(
     Float32List query,
-    List<EmbeddingVec> all, {
-    required int k,
+    List<EmbeddingVec> page,
+    int k,
     int? excludeStreamId,
     String? excludeType,
-  }) {
+  ) {
+    if (k <= 0 || query.isEmpty || query.any((x) => !x.isFinite)) return [];
     final scored = <SemanticHit>[];
-    for (final v in all) {
-      if (v.streamId == excludeStreamId && v.type == excludeType) continue;
-      scored.add((streamId: v.streamId, type: v.type, score: _dot(query, v.vector)));
+    for (final v in page) {
+      if ((v.streamId == excludeStreamId && v.type == excludeType) ||
+          v.vector.length != query.length)
+        continue;
+      var score = 0.0;
+      for (var i = 0; i < query.length; i++) {
+        score += query[i] * v.vector[i];
+      }
+      if (!score.isFinite) continue;
+      scored.add((streamId: v.streamId, type: v.type, score: score));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.length > k ? scored.sublist(0, k) : scored;
+    scored.sort(compareHits);
+    return scored.take(k).toList();
+  }
+
+  static int compareHits(SemanticHit a, SemanticHit b) {
+    final score = b.score.compareTo(a.score);
+    if (score != 0) return score;
+    final id = a.streamId.compareTo(b.streamId);
+    return id != 0 ? id : a.type.compareTo(b.type);
+  }
+
+  Future<List<SemanticHit>> _rank(
+    Float32List query, {
+    required int k,
+    String? restrictType,
+    int? excludeStreamId,
+    String? excludeType,
+  }) async {
+    if (k <= 0 || query.isEmpty) return [];
+    final limit = k.clamp(1, 1000);
+    var best = <SemanticHit>[];
+    await for (final page in _repo.pages(type: restrictType)) {
+      final hits = await Isolate.run(
+        () => rankPage(query, page, limit, excludeStreamId, excludeType),
+      );
+      best = [...best, ...hits]..sort(compareHits);
+      if (best.length > limit) best.length = limit;
+    }
+    return best;
   }
 
   /// Items most similar to a given catalogue item. Empty when the item
@@ -55,9 +84,13 @@ class SemanticSearchService {
   }) async {
     final anchor = await _repo.lookup(streamId, type);
     if (anchor == null) return const [];
-    final all = await _repo.loadAll(type: restrictType ?? type);
-    return _rank(anchor, all,
-        k: k, excludeStreamId: streamId, excludeType: type);
+    return _rank(
+      anchor,
+      restrictType: restrictType ?? type,
+      k: k,
+      excludeStreamId: streamId,
+      excludeType: type,
+    );
   }
 
   /// Free-text semantic search. Embeds [query] once, ranks locally.
@@ -69,12 +102,14 @@ class SemanticSearchService {
   }) async {
     final gemini = _gemini;
     if (gemini == null || query.trim().isEmpty) return const [];
-    final raw = await gemini.embedTexts([query], dims: 768);
+    final raw = await gemini.embedTexts(
+      [query],
+      dims: 768,
+      retrievalQuery: true,
+    );
     if (raw == null || raw.isEmpty || raw.first.isEmpty) return const [];
     final q = ContentEmbeddingsRepository.normalize(raw.first);
-    final all = await _repo.loadAll(type: restrictType);
-    if (all.isEmpty) return const [];
-    return _rank(q, all, k: k);
+    return _rank(q, restrictType: restrictType, k: k);
   }
 }
 

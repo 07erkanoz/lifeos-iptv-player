@@ -39,8 +39,7 @@ class DeviceSyncScreen extends ConsumerStatefulWidget {
 enum _Mode { chooser, sending, receiving }
 
 class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
-  late _Mode _mode =
-      widget.startInReceive ? _Mode.receiving : _Mode.chooser;
+  late _Mode _mode = widget.startInReceive ? _Mode.receiving : _Mode.chooser;
 
   // Sending
   String? _pin;
@@ -57,7 +56,14 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   SyncImportResult? _result;
   bool _remember = true; // "keep these devices in sync" on the select screen
 
-  LanSyncService get _svc => ref.read(lanSyncServiceProvider);
+  late final LanSyncService _svc;
+
+  @override
+  void initState() {
+    super.initState();
+    _svc = ref.read(lanSyncServiceProvider);
+  }
+
   bool _syncingNow = false;
 
   void _forgetPeer(TrustedPeer p) {
@@ -65,8 +71,11 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
     // No peers left → auto-sync has nothing to do; turn it off and
     // drop the background server so it doesn't keep broadcasting.
     if (!_svc.hasTrustedPeers) {
-      ref.read(settingsProvider.notifier).updateSettings(
-          ref.read(settingsProvider).copyWith(autoSyncEnabled: false));
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            ref.read(settingsProvider).copyWith(autoSyncEnabled: false),
+          );
       _svc.stopAutoServer();
     }
     setState(() {});
@@ -82,9 +91,13 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
     ref.read(settingsProvider.notifier).reload();
     ref.invalidate(activeProfileIdProvider);
     setState(() => _syncingNow = false);
-    messenger.showSnackBar(SnackBar(
-      content: Text(n > 0 ? l10n.deviceSyncResult(n) : l10n.deviceSyncResultNone),
-    ));
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          n > 0 ? l10n.deviceSyncResult(n) : l10n.deviceSyncResultNone,
+        ),
+      ),
+    );
   }
 
   @override
@@ -100,12 +113,26 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
       _mode = _Mode.sending;
       _startingServer = true;
     });
-    final pin = await _svc.startSending();
-    if (!mounted) return;
-    setState(() {
-      _pin = pin;
-      _startingServer = false;
-    });
+    try {
+      final pin = await _svc.startSending();
+      if (!mounted || _mode != _Mode.sending) {
+        await _svc.stopSending();
+        return;
+      }
+      setState(() {
+        _pin = pin;
+        _startingServer = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mode = _Mode.chooser;
+        _startingServer = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.error)),
+      );
+    }
   }
 
   Future<void> _leaveSendMode() async {
@@ -171,8 +198,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
       _error = null;
     });
     try {
-      final activeProfileId =
-          await ref.read(activeProfileIdProvider.future);
+      final activeProfileId = await ref.read(activeProfileIdProvider.future);
       final result = await _svc.pullAndApply(
         peer: peer,
         pin: _pinController.text.trim(),
@@ -191,9 +217,9 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
         if (mounted) {
           ref
               .read(settingsProvider.notifier)
-              .updateSettings(ref.read(settingsProvider).copyWith(
-                    autoSyncEnabled: true,
-                  ));
+              .updateSettings(
+                ref.read(settingsProvider).copyWith(autoSyncEnabled: true),
+              );
           await _svc.startAutoServer();
         }
       }
@@ -261,7 +287,9 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                 l10n.deviceSyncDesc,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textSecondaryDark, fontSize: 14),
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 28),
               _BigActionCard(
@@ -288,14 +316,25 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                 child: SwitchListTile(
                   value: ref.watch(settingsProvider).autoSyncEnabled,
                   activeThumbColor: AppColors.primary,
-                  title: Text(l10n.deviceSyncAuto,
-                      style: const TextStyle(color: AppColors.textDark)),
-                  subtitle: Text(l10n.deviceSyncAutoDesc,
-                      style: const TextStyle(
-                          color: AppColors.textSecondaryDark, fontSize: 12)),
+                  title: Text(
+                    l10n.deviceSyncAuto,
+                    style: const TextStyle(color: AppColors.textDark),
+                  ),
+                  subtitle: Text(
+                    l10n.deviceSyncAutoDesc,
+                    style: const TextStyle(
+                      color: AppColors.textSecondaryDark,
+                      fontSize: 12,
+                    ),
+                  ),
                   onChanged: (v) async {
-                    ref.read(settingsProvider.notifier).updateSettings(
-                        ref.read(settingsProvider).copyWith(autoSyncEnabled: v));
+                    ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          ref
+                              .read(settingsProvider)
+                              .copyWith(autoSyncEnabled: v),
+                        );
                     if (v) {
                       await _svc.startAutoServer();
                     } else {
@@ -312,7 +351,9 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                   child: Text(
                     l10n.deviceSyncPaired(_svc.trustedPeers.length),
                     style: const TextStyle(
-                        color: AppColors.textSecondaryDark, fontSize: 13),
+                      color: AppColors.textSecondaryDark,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -326,16 +367,24 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                       for (final p in _svc.trustedPeers)
                         ListTile(
                           dense: true,
-                          leading: const Icon(Icons.devices,
-                              color: AppColors.primary, size: 20),
+                          leading: const Icon(
+                            Icons.devices,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
                           title: Text(
                             p.name.isEmpty ? p.deviceId : p.name,
                             style: const TextStyle(
-                                color: AppColors.textDark, fontSize: 14),
+                              color: AppColors.textDark,
+                              fontSize: 14,
+                            ),
                           ),
                           trailing: IconButton(
-                            icon: Icon(Icons.link_off,
-                                color: Colors.red.shade400, size: 20),
+                            icon: Icon(
+                              Icons.link_off,
+                              color: Colors.red.shade400,
+                              size: 20,
+                            ),
                             tooltip: l10n.deviceSyncForget,
                             onPressed: () => _forgetPeer(p),
                           ),
@@ -353,7 +402,10 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AppColors.primary))
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
                         : const Icon(Icons.sync),
                     label: Text(l10n.deviceSyncNow),
                   ),
@@ -377,27 +429,37 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.wifi_tethering,
-                  color: AppColors.primary, size: 56),
+              const Icon(
+                Icons.wifi_tethering,
+                color: AppColors.primary,
+                size: 56,
+              ),
               const SizedBox(height: 16),
               Text(
                 l10n.deviceSyncSendReady,
                 style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700),
+                  color: AppColors.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 24),
               if (_startingServer || _pin == null)
                 const CircularProgressIndicator(color: AppColors.primary)
               else ...[
-                Text(l10n.deviceSyncPin,
-                    style: const TextStyle(
-                        color: AppColors.textSecondaryDark, fontSize: 13)),
+                Text(
+                  l10n.deviceSyncPin,
+                  style: const TextStyle(
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 13,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceElevatedDark,
                     borderRadius: BorderRadius.circular(12),
@@ -418,14 +480,13 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                   l10n.deviceSyncSendWaiting,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: AppColors.textSecondaryDark, fontSize: 13),
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 13,
+                  ),
                 ),
               ],
               const SizedBox(height: 28),
-              TextButton(
-                onPressed: _leaveSendMode,
-                child: Text(l10n.cancel),
-              ),
+              TextButton(onPressed: _leaveSendMode, child: Text(l10n.cancel)),
             ],
           ),
         ),
@@ -459,25 +520,35 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.primary),
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
                     )
                   else
-                    const Icon(Icons.devices,
-                        color: AppColors.textSecondaryDark, size: 18),
+                    const Icon(
+                      Icons.devices,
+                      color: AppColors.textSecondaryDark,
+                      size: 18,
+                    ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      done ? l10n.deviceSyncSelectDevice : l10n.deviceSyncSearching,
+                      done
+                          ? l10n.deviceSyncSelectDevice
+                          : l10n.deviceSyncSearching,
                       style: const TextStyle(
-                          color: AppColors.textDark,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
+                        color: AppColors.textDark,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   if (done)
                     IconButton(
-                      icon: const Icon(Icons.refresh,
-                          color: AppColors.textSecondaryDark),
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: AppColors.textSecondaryDark,
+                      ),
                       onPressed: () => setState(() {}),
                       tooltip: l10n.castSearchAgain,
                     ),
@@ -493,7 +564,9 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                       l10n.deviceSyncNoPeers,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          color: AppColors.textSecondaryDark, fontSize: 14),
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -510,14 +583,21 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                       color: AppColors.surfaceDark,
                       child: ListTile(
                         leading: const Icon(Icons.tv, color: AppColors.primary),
-                        title: Text(p.name,
-                            style: const TextStyle(color: AppColors.textDark)),
-                        subtitle: Text(p.host,
-                            style: const TextStyle(
-                                color: AppColors.textTertiaryDark,
-                                fontSize: 12)),
-                        trailing: const Icon(Icons.chevron_right,
-                            color: AppColors.textSecondaryDark),
+                        title: Text(
+                          p.name,
+                          style: const TextStyle(color: AppColors.textDark),
+                        ),
+                        subtitle: Text(
+                          p.host,
+                          style: const TextStyle(
+                            color: AppColors.textTertiaryDark,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textSecondaryDark,
+                        ),
                         onTap: () => setState(() => _selectedPeer = p),
                       ),
                     );
@@ -544,15 +624,18 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
               Text(
                 l10n.deviceSyncEnterPin,
                 style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700),
+                  color: AppColors.textDark,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 _selectedPeer?.name ?? '',
                 style: const TextStyle(
-                    color: AppColors.textSecondaryDark, fontSize: 13),
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -562,15 +645,18 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                 maxLength: 6,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 28,
-                    letterSpacing: 8,
-                    fontWeight: FontWeight.w700),
+                  color: AppColors.textDark,
+                  fontSize: 28,
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.w700,
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: '••••••',
                   hintStyle: const TextStyle(
-                      color: AppColors.textTertiaryDark, letterSpacing: 8),
+                    color: AppColors.textTertiaryDark,
+                    letterSpacing: 8,
+                  ),
                   filled: true,
                   fillColor: AppColors.surfaceDark,
                   border: OutlineInputBorder(
@@ -583,16 +669,18 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!,
-                    textAlign: TextAlign.center,
-                    style:
-                        TextStyle(color: Colors.red.shade400, fontSize: 13)),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red.shade400, fontSize: 13),
+                ),
               ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (_connecting || _pinController.text.trim().length < 4)
+                  onPressed:
+                      (_connecting || _pinController.text.trim().length < 4)
                       ? null
                       : _connectToPeer,
                   style: ElevatedButton.styleFrom(
@@ -605,7 +693,10 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : Text(l10n.deviceSyncConnect),
                 ),
               ),
@@ -629,13 +720,31 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
     final m = _manifest!;
     final rows = <_SyncCatRow>[
       _SyncCatRow(SyncCategory.account, l10n.deviceSyncCatAccount, m.accounts),
-      _SyncCatRow(SyncCategory.profiles, l10n.deviceSyncCatProfiles, m.profiles),
-      _SyncCatRow(SyncCategory.favorites, l10n.deviceSyncCatFavorites, m.favorites),
-      _SyncCatRow(SyncCategory.progress, l10n.deviceSyncCatProgress, m.progress),
-      _SyncCatRow(SyncCategory.enrichment, l10n.deviceSyncCatEnrichment,
-          m.enrichment),
-      _SyncCatRow(SyncCategory.settings, l10n.deviceSyncCatSettings,
-          m.hasSettings ? 1 : 0),
+      _SyncCatRow(
+        SyncCategory.profiles,
+        l10n.deviceSyncCatProfiles,
+        m.profiles,
+      ),
+      _SyncCatRow(
+        SyncCategory.favorites,
+        l10n.deviceSyncCatFavorites,
+        m.favorites,
+      ),
+      _SyncCatRow(
+        SyncCategory.progress,
+        l10n.deviceSyncCatProgress,
+        m.progress,
+      ),
+      _SyncCatRow(
+        SyncCategory.enrichment,
+        l10n.deviceSyncCatEnrichment,
+        m.enrichment,
+      ),
+      _SyncCatRow(
+        SyncCategory.settings,
+        l10n.deviceSyncCatSettings,
+        m.hasSettings ? 1 : 0,
+      ),
     ];
     return Column(
       children: [
@@ -646,9 +755,10 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
             child: Text(
               l10n.deviceSyncSelectData,
               style: const TextStyle(
-                  color: AppColors.textDark,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700),
+                color: AppColors.textDark,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -661,14 +771,19 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                   CheckboxListTile(
                     value: _selected.contains(r.cat),
                     activeColor: AppColors.primary,
-                    title: Text(r.label,
-                        style: const TextStyle(color: AppColors.textDark)),
+                    title: Text(
+                      r.label,
+                      style: const TextStyle(color: AppColors.textDark),
+                    ),
                     subtitle: r.cat == SyncCategory.settings
                         ? null
-                        : Text('${r.count}',
+                        : Text(
+                            '${r.count}',
                             style: const TextStyle(
-                                color: AppColors.textTertiaryDark,
-                                fontSize: 12)),
+                              color: AppColors.textTertiaryDark,
+                              fontSize: 12,
+                            ),
+                          ),
                     onChanged: (v) => setState(() {
                       if (v == true) {
                         _selected.add(r.cat);
@@ -683,8 +798,10 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
         CheckboxListTile(
           value: _remember,
           activeColor: AppColors.primary,
-          title: Text(l10n.deviceSyncRemember,
-              style: const TextStyle(color: AppColors.textDark, fontSize: 14)),
+          title: Text(
+            l10n.deviceSyncRemember,
+            style: const TextStyle(color: AppColors.textDark, fontSize: 14),
+          ),
           onChanged: (v) => setState(() => _remember = v ?? false),
         ),
         Padding(
@@ -692,18 +809,20 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed:
-                  (_importing || _selected.isEmpty) ? null : _runImport,
+              onPressed: (_importing || _selected.isEmpty) ? null : _runImport,
               icon: _importing
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.download_done),
-              label: Text(_importing
-                  ? l10n.deviceSyncImporting
-                  : l10n.deviceSyncStart),
+              label: Text(
+                _importing ? l10n.deviceSyncImporting : l10n.deviceSyncStart,
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -733,22 +852,28 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle,
-                  color: AppColors.primary, size: 64),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+                size: 64,
+              ),
               const SizedBox(height: 16),
               Text(
                 l10n.deviceSyncDone,
                 style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700),
+                  color: AppColors.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
                 parts.isEmpty ? '—' : parts.join(' · '),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textSecondaryDark, fontSize: 14),
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 28),
               SizedBox(
@@ -823,20 +948,29 @@ class _BigActionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            color: AppColors.textDark,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            color: AppColors.textSecondaryDark, fontSize: 13)),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondaryDark),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondaryDark,
+              ),
             ],
           ),
         ),

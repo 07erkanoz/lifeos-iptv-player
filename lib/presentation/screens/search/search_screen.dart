@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
@@ -17,7 +18,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/data/repositories/search_history_repository.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
-import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -677,26 +678,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ];
   }
 
-  void _playLive(Channel channel) {
+  Future<void> _playLive(Channel channel) async {
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
     final quality = ref.read(settingsProvider).streamQuality;
-    final url =
-        (account.type == 'm3u' &&
-            channel.streamUrl != null &&
-            channel.streamUrl!.isNotEmpty)
-        ? channel.streamUrl!
-        : StreamUrlBuilder.live(
-            account.url,
-            account.username ?? '',
-            account.password ?? '',
-            channel.streamId,
-            quality: quality,
-          );
+    try {
+    final url = await ref.read(playbackUrlResolverProvider).resolve(account, channel, quality: quality);
+    if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
+
     context.push(
       '/player',
       extra: {
         'url': url,
+          'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
         'streamId': channel.streamId,
         'accountId': channel.accountId,
         'title': channel.name,
@@ -704,6 +698,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         'logo': channel.streamIcon,
       },
     );
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)));
+    }
   }
 
   @override

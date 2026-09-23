@@ -116,28 +116,40 @@ void main() async {
 }
 
 Future<void> _startWithRecoveredBackup(
-    AppDatabase db, SharedPreferences prefs, bool isTV) async {
+  AppDatabase db,
+  SharedPreferences prefs,
+  bool isTV,
+) async {
   try {
     await BackupService(db, preferences: prefs).recoverPendingRestore();
   } catch (_) {
     // Keep all normal providers/background jobs stopped until recovery succeeds.
-    runApp(MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Builder(builder: (context) {
-        final l10n = AppLocalizations.of(context)!;
-        return Scaffold(body: Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l10n.backupFailed),
-            TextButton(
-              onPressed: () => _startWithRecoveredBackup(db, prefs, isTV),
-              child: Text(l10n.retry),
-            ),
-          ],
-        )));
-      }),
-    ));
+    runApp(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            final l10n = AppLocalizations.of(context)!;
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.backupFailed),
+                    TextButton(
+                      onPressed: () =>
+                          _startWithRecoveredBackup(db, prefs, isTV),
+                      child: Text(l10n.retry),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
     return;
   }
   runApp(
@@ -217,9 +229,10 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     // Small delay so first-frame work (playlist load, dashboard rails)
     // isn't competing with enrichment HTTP on startup.
     Future<void>.delayed(const Duration(seconds: 8), () async {
-      if (!mounted) return;
+      if (!mounted || playbackActiveNotifier.value) return;
+      if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
       await _maybeRebuildEmbeddings();
-      if (!mounted) return;
+      if (!mounted || playbackActiveNotifier.value) return;
       ref.read(catalogEnrichmentRunnerProvider).runOnce();
       ref.read(catalogEmbeddingRunnerProvider).runOnce();
     });
@@ -230,7 +243,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   /// text. v2 added plot + cast + director to the source text — the
   /// old genre-only vectors collapsed onto each other and made the
   /// "similar" rail return the same items for every title.
-  static const int _embeddingTextVersion = 2;
+  static const int _embeddingTextVersion = 3;
 
   /// One-time-per-version wipe of [ContentEmbeddings] so the runner
   /// re-embeds everything with the new text recipe. Cheap on a paid
@@ -238,21 +251,26 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   Future<void> _maybeRebuildEmbeddings() async {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
-      final applied = prefs.getInt('embeddingTextVersion') ?? 1;
+      final account = ref.read(appDatabaseProvider).accountScope;
+      final versionKey = 'embeddingTextVersion:$account';
+      final applied = prefs.getInt(versionKey) ?? 1;
       if (applied >= _embeddingTextVersion) return;
-      final cleared =
-          await ref.read(contentEmbeddingsRepositoryProvider).clearAll();
-      await prefs.setInt('embeddingTextVersion', _embeddingTextVersion);
+      final cleared = await ref
+          .read(contentEmbeddingsRepositoryProvider)
+          .clearAll();
+      await prefs.setInt(versionKey, _embeddingTextVersion);
       if (kDebugMode) {
-        debugPrint('[embed] text recipe v$_embeddingTextVersion — '
-            'cleared $cleared old vectors for rebuild');
+        debugPrint(
+          '[embed] text recipe v$_embeddingTextVersion — '
+          'cleared $cleared old vectors for rebuild',
+        );
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[embed] rebuild check failed: $e');
     }
   }
 
-  void _runEnrichPass() {
+  Future<void> _runEnrichPass() async {
     if (PlatformHelper.isTV) return; // TV-lite: no AI catalogue work
     // Don't run Gemini HTTP + Drift batch writes on the main isolate
     // while a video is playing — that's what caused the ~45 s stutter.
@@ -260,6 +278,8 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     if (playbackActiveNotifier.value) return;
     if (!ref.read(settingsProvider).catalogEnrichmentEnabled) return;
     if (!ref.read(settingsProvider).hasAiKey) return;
+    await _maybeRebuildEmbeddings();
+    if (!mounted || playbackActiveNotifier.value) return;
     ref.read(catalogEnrichmentRunnerProvider).runOnce();
     // Embeddings build on the enriched text — kick them in the same
     // pass. The runner only processes items that already have a genre
@@ -347,7 +367,11 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       if (!mounted) return;
       if (playbackActiveNotifier.value) return;
       try {
-        await ref.read(contentRepositoryProvider).refreshSearchIndex();
+        await ref
+            .read(contentRepositoryProvider)
+            .refreshSearchIndex(
+              shouldPause: () => playbackActiveNotifier.value,
+            );
       } catch (_) {}
     });
   }
@@ -446,7 +470,9 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
         Locale('ku'),
       ],
       locale: locale,
-      themeMode: themeMode == AppThemeMode.dark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: themeMode == AppThemeMode.dark
+          ? ThemeMode.dark
+          : ThemeMode.light,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
     );

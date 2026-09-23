@@ -175,6 +175,16 @@ void main() {
         FocusManager.instance.primaryFocus?.debugLabel,
         'SeriesDetailPlay',
       );
+      for (final size in [
+        const Size(360, 780),
+        const Size(412, 850),
+        const Size(800, 900),
+        const Size(900, 500),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'Detail must fit $size');
+      }
       expect(
         container
             .read(tvFocusRegistryProvider)

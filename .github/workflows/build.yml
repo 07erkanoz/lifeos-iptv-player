@@ -29,10 +29,8 @@ jobs:
         run: flutter pub get
 
       - name: flutter analyze
-        # `--no-fatal-infos --no-fatal-warnings` flips the exit code: only
-        # real `error` issues fail the build. The 130 existing info/warning
-        # items are intentionally noisy but non-blocking.
-        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+        # Historical audit probes are documentation; analyze production and tests.
+        run: flutter analyze lib test tool --no-pub --no-fatal-infos
 
       - name: flutter test
         run: flutter test --reporter=compact
@@ -176,8 +174,7 @@ jobs:
         with:
           channel: stable
 
-      - name: Setup Android signing (optional)
-        continue-on-error: true
+      - name: Setup Android signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
@@ -186,11 +183,14 @@ jobs:
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_STORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-            printf "storeFile=android/app/release.keystore\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n" \
-              "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > key.properties
+            printf "storeFile=release.keystore\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n" \
+              "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
             echo "Android release signing configured."
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "::error::Release tags require all Android signing secrets."
+            exit 1
           else
-            echo "No Android release keystore secret found; using debug signing fallback."
+            echo "Development artifact: debug signing; not a store release."
           fi
 
       - name: Build APK
@@ -208,10 +208,24 @@ jobs:
           name: android-apk
           path: "*.apk"
 
+  # Unsigned Apple builds validate platform integration without publishing.
+  build-apple:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build macOS
+        run: flutter build macos --release
+      - name: Build iOS without signing
+        run: flutter build ios --release --no-codesign
+
   # ─── Release ──────────────────────────────────────────────────
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows, build-android]
+    needs: [build-linux, build-windows, build-android, build-apple]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts

@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -704,6 +705,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _openingChannel = false;
 
   Future<void> _playChannel(Channel channel) async {
+    if (channel.type == 'series') { _openDetail(channel); return; }
     if (_openingChannel) return;
     final account = ref.read(currentAccountProvider).value;
     if (account == null) {
@@ -736,6 +738,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         '/player',
         extra: {
           'url': url,
+          'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
           'streamId': channel.streamId,
           'accountId': channel.accountId,
           'title': channel.name,

@@ -30,6 +30,8 @@ class _Wakelock extends WakelockPlusPlatformInterface {
 class _Video extends VideoPlayerPlatform {
   final events = <int, StreamController<VideoEvent>>{};
   final played = <int>[];
+  final sources = <DataSource>[];
+  final selectedTracks = <String>[];
   final paused = <int>[];
   final disposed = <int>[];
   bool initializeImmediately = true;
@@ -38,11 +40,25 @@ class _Video extends VideoPlayerPlatform {
   Future<void> init() async {}
   @override
   Future<int> createWithOptions(VideoCreationOptions options) async {
+    sources.add(options.dataSource);
     final id = events.length;
     events[id] = StreamController<VideoEvent>();
     if (initializeImmediately) initialize(id);
     return id;
   }
+
+  @override
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async => [
+    const VideoAudioTrack(id: 'en', label: null, isSelected: true, language: 'English'),
+    const VideoAudioTrack(id: 'tr', label: null, isSelected: false, language: 'Turkish'),
+  ];
+  @override
+  Future<void> selectAudioTrack(int playerId, String trackId) async {
+    selectedTracks.add(trackId);
+  }
+
+  @override
+  bool isAudioTrackSupportAvailable() => true;
 
   void initialize(int id) => events[id]!.add(
     VideoEvent(
@@ -140,6 +156,69 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
   }
+
+  testWidgets('native playback receives provider headers and clean URL', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/a.m3u8|Cookie=session%3Dx',
+        title: 'Headers',
+        streamId: 1,
+        httpHeaders: {
+          'User-Agent': 'Provider',
+          'Referer': 'https://example.invalid',
+        },
+      ),
+    );
+    expect(native.sources.single.uri, 'https://example.invalid/a.m3u8');
+    expect(native.sources.single.httpHeaders, {
+      'User-Agent': 'Provider',
+      'Referer': 'https://example.invalid',
+      'Cookie': 'session=x',
+    });
+    expect(native.sources.single.formatHint, VideoFormat.hls);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'movie D-pad reaches audio selection and restores playback focus',
+    (tester) async {
+      await mount(
+        tester,
+        player: const TvVideoPlayerScreen(
+          streamUrl: 'https://example.invalid/a.mp4',
+          title: 'Movie',
+          streamId: 2,
+          type: VideoType.movie,
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('English'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(native.selectedTracks, ['tr']);
+      expect(
+        FocusManager.instance.primaryFocus,
+        tester
+            .widget<IconButton>(
+              find.byKey(const ValueKey('episode-play-pause')),
+            )
+            .focusNode,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'live streams without duration create history under the current channel',

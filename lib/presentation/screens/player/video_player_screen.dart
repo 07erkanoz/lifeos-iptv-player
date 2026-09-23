@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
@@ -60,6 +61,7 @@ class PlayerChannel {
   final int streamId;
   final String name;
   final String url;
+  final Map<String, String> httpHeaders;
   final String? logo;
   final String? categoryId;
   final String? categoryName;
@@ -67,6 +69,7 @@ class PlayerChannel {
     required this.streamId,
     required this.name,
     required this.url,
+    this.httpHeaders = const {},
     this.logo,
     this.categoryId,
     this.categoryName,
@@ -75,6 +78,7 @@ class PlayerChannel {
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
+  final Map<String, String> httpHeaders;
   final int streamId;
   final int? accountId;
   final String title;
@@ -114,6 +118,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   const VideoPlayerScreen({
     super.key,
     required this.streamUrl,
+    this.httpHeaders = const {},
     required this.streamId,
     this.accountId,
     required this.title,
@@ -232,6 +237,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Timer? _channelInfoTimer;
 
   bool _pipTransitioning = false;
+  Map<String, String> _currentHeaders = const {};
   late String _currentUrl;
 
   // EPG data for channel info overlay
@@ -371,7 +377,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _channelIndex = widget.currentChannelIndex ?? 0;
     _currentTitle = widget.title;
     _currentLogo = widget.logo;
+    CastService.instance.stateNotifier.addListener(_onRemoteCastChanged);
     _currentUrl = widget.streamUrl;
+    _currentHeaders = widget.httpHeaders;
 
     // Start EPG subscription for live TV
     if (widget.type == VideoType.live) {
@@ -443,6 +451,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _disposing = true;
+    CastService.instance.stateNotifier.removeListener(_onRemoteCastChanged);
     ++_openGeneration;
     // Closing invalidates queued opens immediately, then releases the native
     // player after any in-flight configuration/open has completed.
@@ -941,7 +950,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _session = PlaybackSession(
       initialize: () => _configurePlayer(settings),
-      openMedia: (url) => _player.open(Media(url), play: !_backgrounded),
+      openMedia: (url) {
+        final request = MediaRequest.parse(url, headers: _currentHeaders);
+        return _player.open(
+          Media(request.url, httpHeaders: request.headers),
+          play: !_backgrounded,
+        );
+      },
       disposePlayer: _player.dispose,
     );
     _seek = PlaybackSeekController(
@@ -1544,6 +1559,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Just open new URL - player instance stays the same (no recreation)
     _currentUrl = ch.url;
+    _currentHeaders = ch.httpHeaders;
     _autoTrackApplied = false;
     unawaited(_openMedia(ch.url));
 
@@ -2797,7 +2813,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// remote receiver. We dispatch on whichever transport reports itself
   /// connected (the cast button picker only enables one at a time).
   Future<void> _onCastStarted() async {
-    _player.pause();
+    if (!CastService.instance.state.isConnected &&
+        !DlnaService.instance.state.isConnected)
+      return;
+    _casting = true;
+    _castingChromecast = CastService.instance.state.isConnected;
+    await _player.pause();
+    if (!mounted || _disposing) return;
 
     if (CastService.instance.state.isConnected) {
       final streamType = widget.type == VideoType.live
@@ -2808,6 +2830,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         title: _currentTitle,
         imageUrl: _currentLogo,
         streamType: streamType,
+        startPosition: _rawPos,
       );
     } else if (DlnaService.instance.state.isConnected) {
       // Capture ScaffoldMessenger BEFORE await so we don't have to
@@ -2866,8 +2889,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   /// Called when the remote session ends — resume local playback.
-  void _onCastStopped() {
-    _player.play();
+  bool _castingChromecast = false;
+  bool _casting = false;
+
+  void _onRemoteCastChanged() {
+    if (!_castingChromecast || !_casting || _disposing) return;
+    final state = CastService.instance.state;
+    if (state.isDisconnected || state.loadError != null) {
+      unawaited(_onCastStopped());
+    }
+  }
+
+  Future<void> _onCastStopped() async {
+    if (!_casting || _disposing) return;
+    _casting = false;
+    if (_castingChromecast && widget.type != VideoType.live) {
+      try {
+        await _player.seek(CastService.instance.lastPosition);
+      } catch (_) {}
+    }
+    _castingChromecast = false;
+    if (mounted && !_disposing) await _player.play();
   }
 
   // =========================================================================

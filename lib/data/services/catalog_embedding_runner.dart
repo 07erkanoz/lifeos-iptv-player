@@ -1,3 +1,4 @@
+import 'package:lifeostv/core/playback_signal.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +23,16 @@ class CatalogEmbeddingRunner {
   final ContentEmbeddingsRepository _repo;
   final GeminiService? _gemini;
 
-  CatalogEmbeddingRunner(this._repo, this._gemini);
+  CatalogEmbeddingRunner(
+    this._repo,
+    this._gemini, {
+    bool Function()? shouldPause,
+  }) : _shouldPause = shouldPause ?? (() => playbackActiveNotifier.value);
+
+  final bool Function() _shouldPause;
+  bool _cancelled = false;
+  bool get _stopped => _cancelled || _shouldPause();
+  void cancel() => _cancelled = true;
 
   bool _running = false;
 
@@ -30,19 +40,20 @@ class CatalogEmbeddingRunner {
   // _running clears promptly; the 45s periodic re-kick continues.
   Future<int> runOnce({int maxBatchesPerRun = 40}) async {
     final gemini = _gemini;
-    if (gemini == null || _running) return 0;
+    if (gemini == null || _running || _stopped) return 0;
     _running = true;
     var embedded = 0;
     var consecutiveFailures = 0;
     try {
       for (var i = 0; i < maxBatchesPerRun; i++) {
+        if (_stopped) break;
         final pending = await _repo.pendingItems(limit: _batchSize);
-        if (pending.isEmpty) break;
+        if (_stopped || pending.isEmpty) break;
 
-        final vectors = await gemini.embedTexts(
-          [for (final p in pending) p.text],
-          dims: _dims,
-        );
+        final vectors = await gemini.embedTexts([
+          for (final p in pending) p.text,
+        ], dims: _dims);
+        if (_stopped) break;
         if (vectors == null || vectors.isEmpty) {
           consecutiveFailures++;
           if (consecutiveFailures >= 3) break;
@@ -56,24 +67,37 @@ class CatalogEmbeddingRunner {
         final n = pending.length < vectors.length
             ? pending.length
             : vectors.length;
+        final fresh = {
+          for (final p in await _repo.pendingItems(limit: _batchSize))
+            (p.streamId, p.type): p.text,
+        };
+        if (_stopped) break;
         final companions = <ContentEmbeddingsCompanion>[];
         for (var j = 0; j < n; j++) {
+          if (fresh[(pending[j].streamId, pending[j].type)] != pending[j].text)
+            continue;
           final vec = vectors[j];
-          if (vec.isEmpty) continue;
+          if (vec.length != _dims || vec.any((v) => !v.isFinite)) continue;
           final norm = ContentEmbeddingsRepository.normalize(vec);
-          companions.add(ContentEmbeddingsCompanion.insert(
-            streamId: pending[j].streamId,
-            type: pending[j].type,
-            vector: ContentEmbeddingsRepository.encode(norm),
-            dims: norm.length,
-            updatedAt: Value(DateTime.now()),
-          ));
+          if (norm.isEmpty) continue;
+          companions.add(
+            ContentEmbeddingsCompanion.insert(
+              streamId: pending[j].streamId,
+              type: pending[j].type,
+              vector: ContentEmbeddingsRepository.encode(norm),
+              dims: norm.length,
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
         }
+        if (_stopped) break;
         await _repo.storeBatch(companions);
         embedded += companions.length;
         if (kDebugMode) {
-          debugPrint('[embed] batch ${i + 1}: +${companions.length} '
-              '(total $embedded)');
+          debugPrint(
+            '[embed] batch ${i + 1}: +${companions.length} '
+            '(total $embedded)',
+          );
         }
         await Future<void>.delayed(_betweenBatches);
       }
@@ -86,10 +110,11 @@ class CatalogEmbeddingRunner {
   }
 }
 
-final catalogEmbeddingRunnerProvider =
-    Provider<CatalogEmbeddingRunner>((ref) {
-  return CatalogEmbeddingRunner(
+final catalogEmbeddingRunnerProvider = Provider<CatalogEmbeddingRunner>((ref) {
+  final runner = CatalogEmbeddingRunner(
     ref.watch(contentEmbeddingsRepositoryProvider),
     ref.watch(geminiServiceProvider),
   );
+  ref.onDispose(runner.cancel);
+  return runner;
 });

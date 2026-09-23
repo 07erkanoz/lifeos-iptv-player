@@ -19,17 +19,26 @@ class AuthRepositoryImpl implements AuthRepository {
   /// with whatever activation is happening next so the DB never spends
   /// any time with zero (or more than one) `isActive == true` rows.
   Future<void> _deactivateAllAccounts() async {
-    await _db.update(_db.accounts).write(
-          const AccountsCompanion(isActive: Value(false)),
-        );
+    await _db
+        .update(_db.accounts)
+        .write(const AccountsCompanion(isActive: Value(false)));
   }
 
   @override
-  Future<void> loginXtream(String url, String username, String password, {String name = 'Xtream Account'}) async {
+  Future<void> loginXtream(
+    String url,
+    String username,
+    String password, {
+    String name = 'Xtream Account',
+  }) async {
     // Normalize URL before authenticating and saving
     final normalizedUrl = XtreamApiService.normalizeUrl(url);
 
-    final authData = await _apiService.authenticate(normalizedUrl, username, password);
+    final authData = await _apiService.authenticate(
+      normalizedUrl,
+      username,
+      password,
+    );
 
     // Insert the new account as the *single* active account.
     // Previously this just set `isActive: true` without touching the
@@ -38,7 +47,9 @@ class AuthRepositoryImpl implements AuthRepository {
     // wrong row depending on insertion order.
     final accountId = await _db.transaction(() async {
       await _deactivateAllAccounts();
-      return _db.into(_db.accounts).insert(
+      return _db
+          .into(_db.accounts)
+          .insert(
             AccountsCompanion.insert(
               name: name,
               type: 'xtream',
@@ -55,49 +66,46 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> loadM3U(String source, {bool isFile = false, String name = 'M3U Playlist'}) async {
-    // Parse M3U URL to extract Xtream credentials if it's an Xtream M3U link
-    final xtreamInfo = _parseXtreamFromM3U(source);
-
+  Future<void> loadM3U(
+    String source, {
+    bool isFile = false,
+    String name = 'M3U Playlist',
+  }) async {
+    final xtreamInfo = isFile ? null : _parseXtreamFromM3U(source);
+    Map<String, dynamic>? authData;
     if (xtreamInfo != null) {
-      // It's an Xtream M3U link - save as Xtream account for full API support
-      final normalizedUrl = XtreamApiService.normalizeUrl(xtreamInfo['url']!);
-
-      // Try to authenticate first (but save even if it fails)
       try {
-        await _apiService.authenticate(normalizedUrl, xtreamInfo['username']!, xtreamInfo['password']!);
-      } catch (e) {
-        // Server might be temporarily down, still save the account.
-        debugPrint('[Auth] M3U preflight auth failed (saving anyway): $e');
+        authData = await _apiService.authenticate(
+          xtreamInfo['url']!,
+          xtreamInfo['username']!,
+          xtreamInfo['password']!,
+        );
+      } catch (_) {
+        // A get.php playlist does not guarantee that the Xtream API exists.
+        // Preserve the exact source URL when capability verification fails.
       }
-
-      await _db.transaction(() async {
-        await _deactivateAllAccounts();
-        await _db.into(_db.accounts).insert(
-              AccountsCompanion.insert(
-                name: name,
-                type: 'xtream',
-                url: normalizedUrl,
-                username: Value(xtreamInfo['username']),
-                password: Value(xtreamInfo['password']),
-                isActive: Value(true),
-              ),
-            );
-      });
-    } else {
-      // Plain M3U URL - save as m3u type
-      await _db.transaction(() async {
-        await _deactivateAllAccounts();
-        await _db.into(_db.accounts).insert(
-              AccountsCompanion.insert(
-                name: name,
-                type: 'm3u',
-                url: source.trim(),
-                isActive: Value(true),
-              ),
-            );
-      });
     }
+    final verified = xtreamInfo != null && authData != null;
+    final id = await _db.transaction(() async {
+      await _deactivateAllAccounts();
+      return _db
+          .into(_db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              name: name,
+              type: verified ? 'xtream' : 'm3u',
+              url: verified ? xtreamInfo['url']! : source.trim(),
+              username: verified
+                  ? Value(xtreamInfo['username'])
+                  : const Value.absent(),
+              password: verified
+                  ? Value(xtreamInfo['password'])
+                  : const Value.absent(),
+              isActive: const Value(true),
+            ),
+          );
+    });
+    if (verified) await _saveAccountInfo(id, authData);
   }
 
   /// Parse Xtream credentials from M3U URL
@@ -111,17 +119,22 @@ class AuthRepositoryImpl implements AuthRepository {
   Map<String, String>? _parseXtreamFromM3U(String source) {
     try {
       final uri = Uri.parse(source.trim());
+      if (uri.pathSegments.isEmpty ||
+          uri.pathSegments.last.toLowerCase() != 'get.php')
+        return null;
       final username = uri.queryParameters['username'];
       final password = uri.queryParameters['password'];
 
-      if (username != null && username.isNotEmpty && password != null && password.isNotEmpty) {
+      if (username != null &&
+          username.isNotEmpty &&
+          password != null &&
+          password.isNotEmpty) {
         // Rebuild base URL (scheme://host:port)
-        final port = uri.hasPort ? ':${uri.port}' : '';
-        final baseUrl = '${uri.scheme}://${uri.host}$port';
+        final baseUrl = XtreamApiService.normalizeUrl(source);
         return {'url': baseUrl, 'username': username, 'password': password};
       }
     } catch (e) {
-      debugPrint('[Auth] _parseXtreamFromM3U failed: $e');
+      debugPrint('[Auth] Playlist address could not be parsed.');
     }
     return null;
   }
@@ -147,12 +160,15 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     final companion = AccountsCompanion(
       name: name != null ? Value(name) : const Value.absent(),
-      url: url != null ? Value(XtreamApiService.normalizeUrl(url)) : const Value.absent(),
+      url: url != null
+          ? Value(XtreamApiService.normalizeUrl(url))
+          : const Value.absent(),
       username: username != null ? Value(username) : const Value.absent(),
       password: password != null ? Value(password) : const Value.absent(),
     );
-    await (_db.update(_db.accounts)..where((tbl) => tbl.id.equals(accountId)))
-        .write(companion);
+    await (_db.update(
+      _db.accounts,
+    )..where((tbl) => tbl.id.equals(accountId))).write(companion);
   }
 
   /// Validate account connection (re-authenticate)
@@ -160,7 +176,11 @@ class AuthRepositoryImpl implements AuthRepository {
     if (account.type != 'xtream') return null;
     try {
       final url = XtreamApiService.normalizeUrl(account.url);
-      final data = await _apiService.authenticate(url, account.username!, account.password!);
+      final data = await _apiService.authenticate(
+        url,
+        account.username!,
+        account.password!,
+      );
       final info = AccountInfo.fromXtreamResponse(data);
       await _saveAccountInfo(account.id, data);
       return info;
@@ -178,11 +198,20 @@ class AuthRepositoryImpl implements AuthRepository {
         for (final table in _db.allTables) {
           final column = table.columnsByName['account_id'];
           if (column == null) continue;
-          await (_db.delete(table)..where((_) => (column as GeneratedColumn<int>).equals(accountId))).go();
+          await (_db.delete(table)..where(
+                (_) => (column as GeneratedColumn<int>).equals(accountId),
+              ))
+              .go();
         }
-        await (_db.delete(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).go();
+        await (_db.delete(
+          _db.accounts,
+        )..where((tbl) => tbl.id.equals(accountId))).go();
         if (await getCurrentAccount() == null) {
-          final next = await (_db.select(_db.accounts)..orderBy([(t) => OrderingTerm.desc(t.id)])..limit(1)).getSingleOrNull();
+          final next =
+              await (_db.select(_db.accounts)
+                    ..orderBy([(t) => OrderingTerm.desc(t.id)])
+                    ..limit(1))
+                  .getSingleOrNull();
           if (next != null) await setActiveAccount(next.id);
         }
       });
@@ -193,7 +222,9 @@ class AuthRepositoryImpl implements AuthRepository {
     // Clean up account info
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys().where((k) => k.startsWith('acct_info_${accountId}_'));
+      final keys = prefs.getKeys().where(
+        (k) => k.startsWith('acct_info_${accountId}_'),
+      );
       for (final key in keys) {
         await prefs.remove(key);
       }
@@ -216,7 +247,7 @@ class AuthRepositoryImpl implements AuthRepository {
     return await (_db.select(_db.accounts)
           ..where((tbl) => tbl.isActive.equals(true))
           ..orderBy([
-            (tbl) => OrderingTerm(expression: tbl.id, mode: OrderingMode.desc)
+            (tbl) => OrderingTerm(expression: tbl.id, mode: OrderingMode.desc),
           ])
           ..limit(1))
         .getSingleOrNull();
@@ -228,8 +259,9 @@ class AuthRepositoryImpl implements AuthRepository {
     // "two active" state. After this call the `isActive == true` rows
     // are exactly the one with id == accountId (assuming the row exists).
     await _db.transaction(() async {
-      final target = await (_db.select(_db.accounts)
-            ..where((row) => row.id.equals(accountId))).getSingleOrNull();
+      final target = await (_db.select(
+        _db.accounts,
+      )..where((row) => row.id.equals(accountId))).getSingleOrNull();
       if (target == null) throw StateError('Account does not exist');
       await _deactivateAllAccounts();
       await (_db.update(_db.accounts)..where((tbl) => tbl.id.equals(accountId)))
@@ -239,7 +271,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
   // ─── Account Info Persistence ───────────────────────────────────────────
 
-  Future<void> _saveAccountInfo(int accountId, Map<String, dynamic> authData) async {
+  Future<void> _saveAccountInfo(
+    int accountId,
+    Map<String, dynamic> authData,
+  ) async {
     try {
       final info = AccountInfo.fromXtreamResponse(authData);
       final prefs = await SharedPreferences.getInstance();
@@ -257,7 +292,14 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final map = <String, String>{};
-      for (final key in ['status', 'expiry', 'max_conn', 'active_conn', 'created', 'is_trial']) {
+      for (final key in [
+        'status',
+        'expiry',
+        'max_conn',
+        'active_conn',
+        'created',
+        'is_trial',
+      ]) {
         final val = prefs.getString('acct_info_${accountId}_$key');
         if (val != null) map[key] = val;
       }

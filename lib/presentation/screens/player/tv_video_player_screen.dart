@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
@@ -35,6 +36,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
 /// states. Channel list / EPG / subtitle / cast overlays come next.
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
+  final Map<String, String> httpHeaders;
   final int streamId;
   final int? accountId;
   final String title;
@@ -54,6 +56,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   const TvVideoPlayerScreen({
     super.key,
     required this.streamUrl,
+    this.httpHeaders = const {},
     required this.streamId,
     this.accountId,
     required this.title,
@@ -85,6 +88,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   final _focusNode = FocusNode();
 
   bool _showControls = true;
+  bool _trackDialogOpen = false;
   bool _buffering = true;
   String? _error;
 
@@ -99,6 +103,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   // Current stream for the active playback (changes on live channel switch).
   late String _url;
+  Map<String, String> _headers = const {};
   late String _title;
   String? _logo;
   late int _channelIndex;
@@ -122,6 +127,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     WidgetsBinding.instance.addObserver(this);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
+    _headers = widget.httpHeaders;
     _title = widget.title;
     _logo = widget.logo;
     _channelIndex = widget.currentChannelIndex ?? 0;
@@ -233,15 +239,16 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     }
     if (!mounted || _disposed || generation != _openGeneration) return;
     _savedInitialProgress = false;
+    final request = MediaRequest.parse(url, headers: _headers, nativeTv: true);
     final c = VideoPlayerController.networkUrl(
-      Uri.parse(url),
-      formatHint: _formatHint(url),
+      Uri.parse(request.url),
+      formatHint: _formatHint(request.url),
       // Many Xtream/IPTV servers reject unknown clients — they whitelist
       // player UAs (VLC/Kodi/etc.). media_kit/mpv sent its own accepted UA;
       // ExoPlayer's default can be refused, which shows as an endless
       // spinner (connection accepted then starved, no data). A VLC UA is the
       // most broadly whitelisted.
-      httpHeaders: const {'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20'},
+      httpHeaders: request.headers,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
     );
     _controller = c;
@@ -336,9 +343,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
-    if (_error != null) return;
+    if (_error != null || _trackDialogOpen) return;
     _hideTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) setState(() => _showControls = false);
+      if (mounted) {
+        _focusNode.requestFocus();
+        setState(() => _showControls = false);
+      }
     });
   }
 
@@ -381,6 +391,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final ch = chans[idx];
     setState(() {
       _url = ch.url;
+      _headers = ch.httpHeaders;
       _title = ch.name;
       _logo = ch.logo;
     });
@@ -432,6 +443,89 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     if (mounted && !_disposed) callback();
   }
 
+  Future<void> _chooseAudioTrack() async {
+    final controller = _controller;
+    if (_trackDialogOpen ||
+        controller == null ||
+        !controller.value.isInitialized)
+      return;
+    _trackDialogOpen = true;
+    _hideTimer?.cancel();
+    final generation = _openGeneration;
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final tracks = await controller.getAudioTracks().timeout(
+        const Duration(seconds: 5),
+      );
+      if (!mounted ||
+          generation != _openGeneration ||
+          controller != _controller)
+        return;
+      final selected = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.audioTrack),
+          content: SizedBox(
+            width: 420,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: tracks.length,
+              itemBuilder: (context, index) {
+                final track = tracks[index];
+                final label = [track.label, track.language, track.codec]
+                    .whereType<String>()
+                    .where((v) => v.trim().isNotEmpty)
+                    .join(' · ');
+                return ListTile(
+                  autofocus:
+                      track.isSelected ||
+                      (!tracks.any((t) => t.isSelected) && index == 0),
+                  selected: track.isSelected,
+                  leading: Icon(
+                    track.isSelected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text(
+                    label.isEmpty ? '${l10n.audioTrack} ${index + 1}' : label,
+                  ),
+                  onTap: () => Navigator.of(dialogContext).pop(track.id),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              autofocus: tracks.isEmpty,
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.close),
+            ),
+          ],
+        ),
+      );
+      if (selected != null &&
+          mounted &&
+          generation == _openGeneration &&
+          controller == _controller) {
+        await controller
+            .selectAudioTrack(selected)
+            .timeout(const Duration(seconds: 5));
+      }
+    } catch (_) {
+      if (mounted && generation == _openGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.audioTrack}: ${l10n.error}')),
+        );
+      }
+    } finally {
+      _trackDialogOpen = false;
+      if (mounted && generation == _openGeneration) {
+        _showControlsBriefly();
+        _episodePlayFocus.requestFocus();
+      }
+    }
+  }
+
   // ── Keys ──────────────────────────────────────────────────────────────
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -459,6 +553,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _togglePlay();
       return KeyEventResult.handled;
     }
+    if (k == LogicalKeyboardKey.contextMenu || k == LogicalKeyboardKey.info) {
+      _showControlsBriefly();
+      _episodePlayFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
     // Let focused episode buttons handle activation and directional traversal.
     if (!_focusNode.hasPrimaryFocus && _showControls && _error == null) {
       _resetHideTimer();
@@ -484,9 +583,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(-1);
       } else {
         _showControlsBriefly();
-        if (widget.onNextEpisode != null || widget.onPrevEpisode != null) {
-          _episodePlayFocus.requestFocus();
-        }
+        _episodePlayFocus.requestFocus();
       }
       return KeyEventResult.handled;
     }
@@ -495,9 +592,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(1);
       } else {
         _showControlsBriefly();
-        if (widget.onNextEpisode != null || widget.onPrevEpisode != null) {
-          _episodePlayFocus.requestFocus();
-        }
+        _episodePlayFocus.requestFocus();
       }
       return KeyEventResult.handled;
     }
@@ -622,7 +717,15 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             // Top: back + logo + title
             Row(
               children: [
-                const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
                 const SizedBox(width: 14),
                 if (_logo != null && _logo!.isNotEmpty) ...[
                   ClipRRect(
@@ -722,6 +825,13 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   ),
               ],
             ),
+            const SizedBox(height: 8),
+            IconButton(
+              key: const ValueKey('tv-audio-tracks'),
+              tooltip: AppLocalizations.of(context)!.audioTrack,
+              onPressed: v?.isInitialized == true ? _chooseAudioTrack : null,
+              icon: const Icon(Icons.audiotrack, color: Colors.white),
+            ),
             const Spacer(),
             // Bottom: progress (VOD) or hint (live)
             if (!_isLive && dur.inSeconds > 0) ...[
@@ -773,7 +883,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ),
             ] else if (_isLive)
               const Text(
-                'OK: oynat/duraklat   ▲▼: kanal değiştir',
+                'OK: oynat/duraklat   ▲▼: kanal değiştir   Menü: kontroller',
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
           ],

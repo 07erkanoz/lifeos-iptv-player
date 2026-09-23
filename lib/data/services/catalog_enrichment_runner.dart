@@ -1,3 +1,4 @@
+import 'package:lifeostv/core/playback_signal.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,7 +40,17 @@ class CatalogEnrichmentRunner {
   final GeminiService? _gemini;
   final String _targetLanguage;
 
-  CatalogEnrichmentRunner(this._repo, this._gemini, this._targetLanguage);
+  CatalogEnrichmentRunner(
+    this._repo,
+    this._gemini,
+    this._targetLanguage, {
+    bool Function()? shouldPause,
+  }) : _shouldPause = shouldPause ?? (() => playbackActiveNotifier.value);
+
+  final bool Function() _shouldPause;
+  bool _cancelled = false;
+  bool get _stopped => _cancelled || _shouldPause();
+  void cancel() => _cancelled = true;
 
   bool _running = false;
 
@@ -52,14 +63,15 @@ class CatalogEnrichmentRunner {
   // effectively continuous across runs.
   Future<int> runOnce({int maxBatchesPerRun = 40}) async {
     final gemini = _gemini;
-    if (gemini == null || _running) return 0;
+    if (gemini == null || _running || _stopped) return 0;
     _running = true;
     var enriched = 0;
     var consecutiveFailures = 0;
     try {
       for (var i = 0; i < maxBatchesPerRun; i++) {
+        if (_stopped) break;
         final pending = await _repo.pendingItems(limit: _batchSize);
-        if (pending.isEmpty) break; // everything enriched — done
+        if (_stopped || pending.isEmpty) break; // everything enriched — done
 
         final input = [
           for (final c in pending)
@@ -70,18 +82,23 @@ class CatalogEnrichmentRunner {
               year: c.year,
               cast: c.cast,
               director: c.director,
-            )
+            ),
         ];
-        final results =
-            await gemini.enrichCatalogBatch(input, targetLanguage: _targetLanguage);
+        final results = await gemini.enrichCatalogBatch(
+          input,
+          targetLanguage: _targetLanguage,
+        );
+        if (_stopped) break;
         if (results == null || results.isEmpty) {
           // Transient failure (rate-limit / one-off bad response).
           // Don't kill the whole run on the first hit — back off and
           // retry the same items a couple of times before giving up.
           consecutiveFailures++;
           if (kDebugMode) {
-            debugPrint('[enrich] batch ${i + 1} empty/failed '
-                '(fail $consecutiveFailures)');
+            debugPrint(
+              '[enrich] batch ${i + 1} empty/failed '
+              '(fail $consecutiveFailures)',
+            );
           }
           if (consecutiveFailures >= 3) break;
           await Future<void>.delayed(_afterFailure);
@@ -91,28 +108,46 @@ class CatalogEnrichmentRunner {
 
         // Only persist ids we actually asked about (guard against any
         // hallucinated rows), and only when the model echoed a usable id.
-        final asked = {for (final c in pending) c.streamId};
-        final typeOf = {for (final c in pending) c.streamId: c.type};
-        final returned = <int>{};
+        final asked = {for (final c in pending) (c.streamId, c.type)};
+        final returned = <(int, String)>{};
         final companions = <ContentEnrichmentCompanion>[];
         for (final r in results) {
-          final sid = (r['streamId'] as num?)?.toInt();
-          final type = r['type'] as String?;
-          if (sid == null || type == null || !asked.contains(sid)) continue;
-          returned.add(sid);
-          companions.add(ContentEnrichmentCompanion(
-            streamId: Value(sid),
-            type: Value(type),
-            genres: Value(_clean(r['genres'])),
-            year: Value((r['year'] as num?)?.toInt()),
-            moodTags: Value(_clean(r['mood'])),
-            themes: Value(_clean(r['themes'])),
-            contentWarnings: Value(_clean(r['warnings'])),
-            ageRating: Value(_clean(r['age'])),
-            confidence: Value((r['confidence'] as num?)?.toDouble()),
-            source: const Value('text'),
-            updatedAt: Value(DateTime.now()),
-          ));
+          final rawId = r['streamId'];
+          final sid = rawId is num && rawId.isFinite ? rawId.toInt() : null;
+          final type = r['type'];
+          final confidence = r['confidence'];
+          if (sid == null ||
+              type is! String ||
+              !asked.contains((sid, type)) ||
+              returned.contains((sid, type)) ||
+              confidence is! num ||
+              !confidence.isFinite ||
+              confidence < 0.65 ||
+              confidence > 1)
+            continue;
+          returned.add((sid, type));
+          companions.add(
+            ContentEnrichmentCompanion(
+              streamId: Value(sid),
+              type: Value(type),
+              genres: Value(_clean(r['genres'])),
+              year: Value(
+                r['year'] is num &&
+                        (r['year'] as num).isFinite &&
+                        (r['year'] as num) >= 1800 &&
+                        (r['year'] as num) <= DateTime.now().year + 5
+                    ? (r['year'] as num).toInt()
+                    : null,
+              ),
+              moodTags: Value(_clean(r['mood'])),
+              themes: Value(_clean(r['themes'])),
+              contentWarnings: Value(_clean(r['warnings'])),
+              ageRating: Value(_clean(r['age'])),
+              confidence: Value(confidence.toDouble()),
+              source: const Value('text'),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
         }
         // Tombstone the items the model OMITTED from a successful batch.
         // Without this they stay at the front of the newest-first queue
@@ -120,20 +155,25 @@ class CatalogEnrichmentRunner {
         // "stuck" at a number. A placeholder row (null genres) removes
         // them from `pendingItems` so the queue always moves forward.
         for (final c in pending) {
-          if (returned.contains(c.streamId)) continue;
-          companions.add(ContentEnrichmentCompanion(
-            streamId: Value(c.streamId),
-            type: Value(typeOf[c.streamId] ?? c.type),
-            source: const Value('text'),
-            confidence: const Value(0),
-            updatedAt: Value(DateTime.now()),
-          ));
+          if (returned.contains((c.streamId, c.type))) continue;
+          companions.add(
+            ContentEnrichmentCompanion(
+              streamId: Value(c.streamId),
+              type: Value(c.type),
+              source: const Value('text'),
+              confidence: const Value(0),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
         }
+        if (_stopped) break;
         await _repo.storeBatch(companions);
         enriched += returned.length;
         if (kDebugMode) {
-          debugPrint('[enrich] batch ${i + 1}: +${returned.length} '
-              '(${companions.length - returned.length} skipped) total $enriched');
+          debugPrint(
+            '[enrich] batch ${i + 1}: +${returned.length} '
+            '(${companions.length - returned.length} skipped) total $enriched',
+          );
         }
         await Future<void>.delayed(_betweenBatches);
       }
@@ -152,12 +192,15 @@ class CatalogEnrichmentRunner {
   }
 }
 
-final catalogEnrichmentRunnerProvider =
-    Provider<CatalogEnrichmentRunner>((ref) {
+final catalogEnrichmentRunnerProvider = Provider<CatalogEnrichmentRunner>((
+  ref,
+) {
   final lang = ref.read(settingsProvider).language.name;
-  return CatalogEnrichmentRunner(
+  final runner = CatalogEnrichmentRunner(
     ref.watch(contentEnrichmentRepositoryProvider),
     ref.watch(geminiServiceProvider),
     lang == 'system' ? 'tr' : lang,
   );
+  ref.onDispose(runner.cancel);
+  return runner;
 });

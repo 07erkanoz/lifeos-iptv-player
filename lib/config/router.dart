@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/presentation/widgets/layout/app_shell.dart';
@@ -87,6 +88,7 @@ GoRouter router(Ref ref) {
           if (PlatformHelper.isTV) {
             return TvVideoPlayerScreen(
               streamUrl: extras['url'],
+              httpHeaders: MediaRequest.sanitize(extras['httpHeaders']),
               streamId: extras['streamId'] as int,
               accountId: extras['accountId'] as int?,
               title: extras['title'],
@@ -106,6 +108,7 @@ GoRouter router(Ref ref) {
           }
           return VideoPlayerScreen(
             streamUrl: extras['url'],
+              httpHeaders: MediaRequest.sanitize(extras['httpHeaders']),
             streamId: extras['streamId'] as int,
             accountId: extras['accountId'] as int?,
             title: extras['title'],

@@ -109,7 +109,7 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
       super(executor);
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration =>
@@ -305,6 +305,16 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
           }
         },
         beforeOpen: (details) async {
+          // Nullable, additive metadata; no primary key changes. Probe also
+          // recovers off-fork builds with an already advanced user_version.
+          final channelColumns = await customSelect(
+            'PRAGMA table_info(channels)',
+          ).get();
+          if (!channelColumns.any(
+            (row) => row.data['name'] == 'playback_headers',
+          )) {
+            await Migrator(this).addColumn(channels, channels.playbackHeaders);
+          }
           // Additive table; idempotent for partially applied upgrades too.
           await Migrator(this).createTable(m3uIdentities);
 
@@ -332,6 +342,40 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
           // copy-drop-rename. Probe PRAGMA table_info first so we only
           // pay the cost on devices that genuinely have the wrong PK.
           await _migrateAccountScope(Migrator(this));
+
+          // Derived search/vector data must not outlive its source metadata.
+          // Runs after account migrations so every predicate includes account_id.
+          await customStatement(
+            '''CREATE TRIGGER IF NOT EXISTS channels_ai_invalidate
+            AFTER UPDATE OF name, genre, year, plot, cast, director ON channels
+            WHEN OLD.name IS NOT NEW.name OR OLD.genre IS NOT NEW.genre
+              OR OLD.year IS NOT NEW.year OR OLD.plot IS NOT NEW.plot
+              OR OLD.cast IS NOT NEW.cast OR OLD.director IS NOT NEW.director
+            BEGIN
+              DELETE FROM content_embeddings WHERE account_id = NEW.account_id
+                AND stream_id = NEW.stream_id AND type = NEW.type;
+              UPDATE channels SET search_text = NULL WHERE account_id = NEW.account_id
+                AND stream_id = NEW.stream_id AND type = NEW.type;
+            END''',
+          );
+          await customStatement(
+            '''CREATE TRIGGER IF NOT EXISTS enrichment_ai_invalidate
+            AFTER INSERT ON content_enrichment
+            BEGIN
+              DELETE FROM content_embeddings WHERE account_id = NEW.account_id
+                AND stream_id = NEW.stream_id AND type = NEW.type;
+            END''',
+          );
+          await customStatement(
+            '''CREATE TRIGGER IF NOT EXISTS channels_ai_cleanup
+            AFTER DELETE ON channels
+            BEGIN
+              DELETE FROM content_embeddings WHERE account_id = OLD.account_id
+                AND stream_id = OLD.stream_id AND type = OLD.type;
+              DELETE FROM content_enrichment WHERE account_id = OLD.account_id
+                AND stream_id = OLD.stream_id AND type = OLD.type;
+            END''',
+          );
 
           // Belt-and-braces seed: if the user nuked their DB or this is
           // a fresh install on v18+, ensure profile 1 exists before any

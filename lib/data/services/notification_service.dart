@@ -27,18 +27,25 @@ class NotificationService {
   }
 
   Future<bool> requestPermission() async {
-    await _ensureInit();
     try {
+      await _ensureInit();
       if (Platform.isAndroid) {
-        final a = _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+        final a = _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
         return (await a?.requestNotificationsPermission()) ?? true;
       }
       if (Platform.isIOS) {
-        final i = _plugin.resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
+        final i = _plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
         return (await i?.requestPermissions(
-                alert: true, badge: true, sound: true)) ??
+              alert: true,
+              badge: true,
+              sound: true,
+            )) ??
             false;
       }
     } catch (_) {}
@@ -54,11 +61,12 @@ class NotificationService {
     required int whenEpochMs,
   }) async {
     if (!(Platform.isAndroid || Platform.isIOS)) return false;
-    await _ensureInit();
+    if (!await requestPermission()) return false;
     final when = tz.TZDateTime.from(
-        DateTime.fromMillisecondsSinceEpoch(whenEpochMs), tz.UTC);
+      DateTime.fromMillisecondsSinceEpoch(whenEpochMs),
+      tz.UTC,
+    );
     if (!when.isAfter(tz.TZDateTime.now(tz.UTC))) return false;
-    await requestPermission();
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         'reminders',
@@ -88,5 +96,6 @@ class NotificationService {
   }
 }
 
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) => NotificationService());
+final notificationServiceProvider = Provider<NotificationService>(
+  (ref) => NotificationService(),
+);

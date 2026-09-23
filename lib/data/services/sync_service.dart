@@ -560,6 +560,7 @@ class SyncService {
               categoryId: entry.groupTitle ?? 'Diğer',
               streamIcon: Value(entry.tvgLogo),
               streamUrl: Value(entry.url),
+              playbackHeaders: Value(entry.httpHeaders.isEmpty ? null : jsonEncode(entry.httpHeaders)),
               epgChannelId: Value(entry.tvgId),
             );
             batch.insert(_db.channels, row, onConflict: DoUpdate((_) => row));

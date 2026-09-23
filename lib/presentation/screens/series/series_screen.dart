@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/services/series_episode.dart';
 import 'package:lifeostv/presentation/state/m3u_series_provider.dart';
 import 'dart:async';
@@ -813,6 +814,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       '/player',
       extra: {
         'url': seriesEpisodeUrl(acc, allEpisodes[currentIdx]),
+        'httpHeaders': MediaRequest.sanitize(
+          allEpisodes[currentIdx]['http_headers'],
+        ),
         'streamId': epId,
         'accountId': acc.id,
         'title': fullTitle,
@@ -1691,6 +1695,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   // ─── Detail View ──────────────────────────────────────────────────────────
 
   Widget _buildDetailView(bool isDark, AppLocalizations l10n) {
+    final compactDetail =
+        isMobilePlatform || MediaQuery.sizeOf(context).width < 1000;
     final ch = _detailChannel!;
     final infoRaw = _seriesInfo?['info'];
     final info = _asStringKeyMap(infoRaw);
@@ -1863,9 +1869,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
           // Content
           Positioned(
-            left: isMobilePlatform ? 16 : 40,
-            top: isMobilePlatform ? 56 : 80,
-            right: isMobilePlatform ? 16 : 40,
+            left: compactDetail ? 16 : 40,
+            top: compactDetail ? 56 : 80,
+            right: compactDetail ? 16 : 40,
             bottom: 0,
             child: SingleChildScrollView(
               child: Column(
@@ -2062,7 +2068,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         : '${l10n.play} $_lastEpisodeLabel',
                                     isPrimary: true,
                                     focusNode: _detailPlayFocusNode,
-                                    maxWidth: isMobilePlatform ? 200 : null,
+                                    maxWidth: compactDetail ? 200 : null,
                                     onTap: () => _playEpisode(
                                       _lastEpisodeId!,
                                       _lastEpisodeExt ?? 'mp4',
@@ -2107,7 +2113,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   // Desktop/TV keeps the existing
                                   // `_openTrailer` (external) so this
                                   // change is mobile-only.
-                                  onTap: () => isMobilePlatform
+                                  onTap: () => compactDetail
                                       ? showExpandedTrailer(
                                           context,
                                           directTrailerRef: ch.youtubeTrailer,
@@ -2292,7 +2298,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         );
                       }
 
-                      if (isMobilePlatform) {
+                      if (compactDetail) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2405,7 +2411,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           // İzle" action button below opens the same dialog on mobile.
           //
           // Also gated on the user's `showTrailer` setting.
-          if (!isMobilePlatform &&
+          if (!compactDetail &&
               !PlatformHelper.isTV &&
               ref.watch(settingsProvider).showTrailer)
             Positioned(
