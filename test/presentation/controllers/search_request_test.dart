@@ -27,6 +27,7 @@ class _DelayedSearch extends ContentRepository {
     String query,
     String type, {
     int limit = 100,
+    bool Function()? shouldCancel,
   }) => (requests[type] = Completer<List<Channel>>()).future;
 }
 

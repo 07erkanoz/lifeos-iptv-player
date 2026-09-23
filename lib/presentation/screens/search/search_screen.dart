@@ -238,9 +238,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // a smaller main-isolate filter pass on weak hardware.
       final perType = PlatformHelper.isTV ? 24 : 60;
       final plain = await Future.wait([
-        repo.searchChannelsByType(trimmed, 'movie', limit: perType),
-        repo.searchChannelsByType(trimmed, 'series', limit: perType),
-        repo.searchChannelsByType(trimmed, 'live', limit: perType),
+        repo.searchChannelsByType(
+          trimmed,
+          'movie',
+          limit: perType,
+          shouldCancel: () => !mounted || requestId != _searchRequestId,
+        ),
+        repo.searchChannelsByType(
+          trimmed,
+          'series',
+          limit: perType,
+          shouldCancel: () => !mounted || requestId != _searchRequestId,
+        ),
+        repo.searchChannelsByType(
+          trimmed,
+          'live',
+          limit: perType,
+          shouldCancel: () => !mounted || requestId != _searchRequestId,
+        ),
       ]);
       if (!mounted || requestId != _searchRequestId) return;
       final gemini = ref.read(geminiServiceProvider);
@@ -683,24 +698,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (account == null) return;
     final quality = ref.read(settingsProvider).streamQuality;
     try {
-    final url = await ref.read(playbackUrlResolverProvider).resolve(account, channel, quality: quality);
-    if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
+      final url = await ref
+          .read(playbackUrlResolverProvider)
+          .resolve(account, channel, quality: quality);
+      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id)
+        return;
 
-    context.push(
-      '/player',
-      extra: {
-        'url': url,
+      context.push(
+        '/player',
+        extra: {
+          'url': url,
           'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
-        'streamId': channel.streamId,
-        'accountId': channel.accountId,
-        'title': channel.name,
-        'type': VideoType.live,
-        'logo': channel.streamIcon,
-      },
-    );
+          'streamId': channel.streamId,
+          'accountId': channel.accountId,
+          'title': channel.name,
+          'type': VideoType.live,
+          'logo': channel.streamIcon,
+        },
+      );
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.streamLoadFailed),
+          ),
+        );
     }
   }
 

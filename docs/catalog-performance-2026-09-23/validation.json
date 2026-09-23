@@ -1,0 +1,12 @@
+{
+  "flutter_tests": 433,
+  "analyzer": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 48
+  },
+  "linux_release": "passed",
+  "android_debug_apk": "passed",
+  "large_series_focus": "200 episodes; D-pad entered episode 46 with fewer than 25 mounted episode cards; player back restored detail play focus",
+  "physical_devices": "not exercised"
+}

@@ -76,14 +76,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   Account? _detailAccount;
   int _activeSeason = 1;
 
-  /// How many episodes of the active season are rendered at once. The
-  /// episode list lives in a (non-lazy) SingleChildScrollView, so a season
-  /// with 50-200+ episodes would otherwise build every image-bearing card
-  /// at once → OOM crash on weak Android TV boxes. We render a window and
-  /// grow it on demand; reset whenever the season/detail changes.
-  static const _kEpisodeWindow = 30;
-  int _episodeLimit = _kEpisodeWindow;
-
   // Memoised "similar" rail — see movies_screen for the rationale. The
   // detail rebuilds repeatedly and the candidate list grows, so scoring is
   // done once per opened title over a bounded set (ANR/jank fix on TV).
@@ -374,7 +366,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _loadingDetail = true;
       _seriesInfo = null;
       _activeSeason = 1;
-      _episodeLimit = _kEpisodeWindow;
       _lastEpisodeProgress = null;
       _lastEpisodeId = null;
       _lastEpisodeExt = null;
@@ -1873,529 +1864,549 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             top: compactDetail ? 56 : 80,
             right: compactDetail ? 16 : 40,
             bottom: 0,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // On narrow/portrait screens stack poster on top of info.
-                  // On wider screens keep the side-by-side layout.
-                  Builder(
-                    builder: (context) {
-                      Widget buildPoster(double w, double h) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: PlatformHelper.isTV
-                                ? const <BoxShadow>[]
-                                : [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      blurRadius: 40,
-                                      offset: const Offset(0, 12),
-                                    ),
-                                  ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: ch.streamIcon != null
-                                ? CachedNetworkImage(
-                                    imageUrl: ch.streamIcon!,
-                                    width: w,
-                                    height: h,
-                                    fit: BoxFit.cover,
-                                    memCacheWidth: 360,
-                                    errorWidget: (_, _, _) => Container(
-                                      width: w,
-                                      height: h,
-                                      color: AppColors.surface(context),
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.tv,
-                                          color: AppColors.textTertiary(
-                                            context,
+            child: CustomScrollView(
+              key: ValueKey('series-detail-${ch.streamId}'),
+              cacheExtent: 500,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // On narrow/portrait screens stack poster on top of info.
+                      // On wider screens keep the side-by-side layout.
+                      Builder(
+                        builder: (context) {
+                          Widget buildPoster(double w, double h) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: PlatformHelper.isTV
+                                    ? const <BoxShadow>[]
+                                    : [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
                                           ),
-                                          size: 48,
+                                          blurRadius: 40,
+                                          offset: const Offset(0, 12),
+                                        ),
+                                      ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: ch.streamIcon != null
+                                    ? CachedNetworkImage(
+                                        imageUrl: ch.streamIcon!,
+                                        width: w,
+                                        height: h,
+                                        fit: BoxFit.cover,
+                                        memCacheWidth: 360,
+                                        errorWidget: (_, _, _) => Container(
+                                          width: w,
+                                          height: h,
+                                          color: AppColors.surface(context),
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.tv,
+                                              color: AppColors.textTertiary(
+                                                context,
+                                              ),
+                                              size: 48,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: w,
+                                        height: h,
+                                        color: AppColors.surface(context),
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.tv,
+                                            color: AppColors.textTertiary(
+                                              context,
+                                            ),
+                                            size: 48,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  )
-                                : Container(
-                                    width: w,
-                                    height: h,
-                                    color: AppColors.surface(context),
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.tv,
-                                        color: AppColors.textTertiary(context),
-                                        size: 48,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        );
-                      }
+                              ),
+                            );
+                          }
 
-                      Widget buildInfoBody() {
-                        if (_loadingDetail) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 60),
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 20),
-                            // Badges row (pill shaped)
-                            Row(
+                          Widget buildInfoBody() {
+                            if (_loadingDetail) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 60),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.purple.shade700,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.tv,
-                                        color: Colors.white,
-                                        size: 12,
+                                const SizedBox(height: 20),
+                                // Badges row (pill shaped)
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 5,
                                       ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        l10n.seriesLabel,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                          letterSpacing: 0.3,
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.shade700,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.tv,
+                                            color: Colors.white,
+                                            size: 12,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            l10n.seriesLabel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (rating.toString().isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
                                         ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.gold.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.star,
+                                              color: AppColors.gold,
+                                              size: 12,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              rating.toString(),
+                                              style: const TextStyle(
+                                                color: AppColors.gold,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                // Title
+                                Text(
+                                  title.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 30,
+                                    letterSpacing: -0.5,
+                                    height: 1.15,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 8,
                                       ),
                                     ],
                                   ),
                                 ),
-                                if (rating.toString().isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.gold.withValues(
-                                        alpha: 0.15,
+                                const SizedBox(height: 10),
+                                // Meta row with dot separators
+                                _buildMetaRow(
+                                  genre.toString(),
+                                  seasonNums.isNotEmpty
+                                      ? l10n.seasonCount(seasonNums.length)
+                                      : '',
+                                ),
+                                const SizedBox(height: 20),
+                                // Action buttons (D-pad focusable)
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (_lastEpisodeProgress != null &&
+                                        _lastEpisodeId != null)
+                                      _FocusableActionButton(
+                                        icon: Icons.play_arrow,
+                                        // Two phrasings:
+                                        //  * `_lastEpisodeResumeFromMs > 0`
+                                        //    means mid-episode resume —
+                                        //    show "Devam Et 48:57 S1E5"
+                                        //  * otherwise the previous episode
+                                        //    is finished and the button
+                                        //    advances to the next one —
+                                        //    show "Sonraki Bölüm S1E10".
+                                        label: _lastEpisodeResumeFromMs > 0
+                                            ? '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeResumeFromMs)))} $_lastEpisodeLabel'
+                                            // Finished previous episode → button advances to the next.
+                                            // Reuse existing localised "Play" verb + the SxxExx label
+                                            // (e.g. "İzle S1E10") instead of inventing a new key.
+                                            : '${l10n.play} $_lastEpisodeLabel',
+                                        isPrimary: true,
+                                        focusNode: _detailPlayFocusNode,
+                                        maxWidth: compactDetail ? 200 : null,
+                                        onTap: () => _playEpisode(
+                                          _lastEpisodeId!,
+                                          _lastEpisodeExt ?? 'mp4',
+                                          startPosition:
+                                              _lastEpisodeResumeFromMs > 0
+                                              ? Duration(
+                                                  milliseconds:
+                                                      _lastEpisodeResumeFromMs,
+                                                )
+                                              : null,
+                                        ),
+                                      )
+                                    else if (activeEpisodes.isNotEmpty)
+                                      _FocusableActionButton(
+                                        icon: Icons.play_arrow,
+                                        label: l10n.play,
+                                        isPrimary: true,
+                                        focusNode: _detailPlayFocusNode,
+                                        onTap: () {
+                                          final ep = activeEpisodes.first;
+                                          final epId = ep['id'] is int
+                                              ? ep['id'] as int
+                                              : int.parse(ep['id'].toString());
+                                          final ext =
+                                              ep['container_extension']
+                                                  ?.toString() ??
+                                              'mp4';
+                                          _playEpisode(epId, ext);
+                                        },
                                       ),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.star,
-                                          color: AppColors.gold,
-                                          size: 12,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          rating.toString(),
-                                          style: const TextStyle(
-                                            color: AppColors.gold,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            // Title
-                            Text(
-                              title.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 30,
-                                letterSpacing: -0.5,
-                                height: 1.15,
-                                shadows: [
-                                  Shadow(color: Colors.black, blurRadius: 8),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            // Meta row with dot separators
-                            _buildMetaRow(
-                              genre.toString(),
-                              seasonNums.isNotEmpty
-                                  ? l10n.seasonCount(seasonNums.length)
-                                  : '',
-                            ),
-                            const SizedBox(height: 20),
-                            // Action buttons (D-pad focusable)
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 8,
-                              children: [
-                                if (_lastEpisodeProgress != null &&
-                                    _lastEpisodeId != null)
-                                  _FocusableActionButton(
-                                    icon: Icons.play_arrow,
-                                    // Two phrasings:
-                                    //  * `_lastEpisodeResumeFromMs > 0`
-                                    //    means mid-episode resume —
-                                    //    show "Devam Et 48:57 S1E5"
-                                    //  * otherwise the previous episode
-                                    //    is finished and the button
-                                    //    advances to the next one —
-                                    //    show "Sonraki Bölüm S1E10".
-                                    label: _lastEpisodeResumeFromMs > 0
-                                        ? '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeResumeFromMs)))} $_lastEpisodeLabel'
-                                        // Finished previous episode → button advances to the next.
-                                        // Reuse existing localised "Play" verb + the SxxExx label
-                                        // (e.g. "İzle S1E10") instead of inventing a new key.
-                                        : '${l10n.play} $_lastEpisodeLabel',
-                                    isPrimary: true,
-                                    focusNode: _detailPlayFocusNode,
-                                    maxWidth: compactDetail ? 200 : null,
-                                    onTap: () => _playEpisode(
-                                      _lastEpisodeId!,
-                                      _lastEpisodeExt ?? 'mp4',
-                                      startPosition:
-                                          _lastEpisodeResumeFromMs > 0
-                                          ? Duration(
-                                              milliseconds:
-                                                  _lastEpisodeResumeFromMs,
+                                    _FocusableActionButton(
+                                      icon: Icons.play_circle_outline,
+                                      label: l10n.watchTrailer,
+                                      isPrimary: false,
+                                      backgroundColor: Colors.red.shade900
+                                          .withValues(alpha: 0.3),
+                                      // Mobile: skip the external launch
+                                      // and open the in-app fullscreen
+                                      // trailer dialog — the floating PiP
+                                      // is hidden on mobile so this is
+                                      // the only path to the trailer.
+                                      // Desktop/TV keeps the existing
+                                      // `_openTrailer` (external) so this
+                                      // change is mobile-only.
+                                      onTap: () => compactDetail
+                                          ? showExpandedTrailer(
+                                              context,
+                                              directTrailerRef:
+                                                  ch.youtubeTrailer,
+                                              searchTitle: ch.name,
+                                              searchYear: ch.year,
+                                              channelType: ch.type,
                                             )
-                                          : null,
+                                          : _openTrailer(trailerUrl),
                                     ),
-                                  )
-                                else if (activeEpisodes.isNotEmpty)
-                                  _FocusableActionButton(
-                                    icon: Icons.play_arrow,
-                                    label: l10n.play,
-                                    isPrimary: true,
-                                    focusNode: _detailPlayFocusNode,
-                                    onTap: () {
-                                      final ep = activeEpisodes.first;
-                                      final epId = ep['id'] is int
-                                          ? ep['id'] as int
-                                          : int.parse(ep['id'].toString());
-                                      final ext =
-                                          ep['container_extension']
-                                              ?.toString() ??
-                                          'mp4';
-                                      _playEpisode(epId, ext);
+                                    _FocusableActionButton(
+                                      icon: Icons.open_in_new,
+                                      label: 'IMDB',
+                                      isPrimary: false,
+                                      onTap: () =>
+                                          _openImdb(title.toString(), ''),
+                                    ),
+                                  ],
+                                ),
+                                // Inline AI series recap — only renders
+                                // when an AI key is set AND the user has
+                                // a "next episode" target from
+                                // continue-watching state. Sits between
+                                // the action buttons and the plot so
+                                // it's discoverable without screaming.
+                                if (_lastEpisodeProgress != null &&
+                                    _lastEpisodeLabel.isNotEmpty) ...[
+                                  // Auto-expand the recap when the
+                                  // user has been away from this
+                                  // series for a week or more — the
+                                  // "Episode summary auto-pause"
+                                  // surface from Sprint 1c. The
+                                  // user sees a refreshed catch-up
+                                  // automatically rather than
+                                  // having to hunt for the link.
+                                  Builder(
+                                    builder: (_) {
+                                      final daysAway = DateTime.now()
+                                          .difference(
+                                            _lastEpisodeProgress!.updatedAt,
+                                          )
+                                          .inDays;
+                                      final isStale = daysAway >= 7;
+                                      return SeriesRecapInline(
+                                        series: ch,
+                                        nextEpisodeLabel: _lastEpisodeLabel,
+                                        autoExpand: isStale,
+                                        autoExpandHint: isStale
+                                            ? 'Son izlemenden $daysAway gün geçti — kaldığın yeri hatırlatayım.'
+                                            : null,
+                                      );
                                     },
                                   ),
-                                _FocusableActionButton(
-                                  icon: Icons.play_circle_outline,
-                                  label: l10n.watchTrailer,
-                                  isPrimary: false,
-                                  backgroundColor: Colors.red.shade900
-                                      .withValues(alpha: 0.3),
-                                  // Mobile: skip the external launch
-                                  // and open the in-app fullscreen
-                                  // trailer dialog — the floating PiP
-                                  // is hidden on mobile so this is
-                                  // the only path to the trailer.
-                                  // Desktop/TV keeps the existing
-                                  // `_openTrailer` (external) so this
-                                  // change is mobile-only.
-                                  onTap: () => compactDetail
-                                      ? showExpandedTrailer(
-                                          context,
-                                          directTrailerRef: ch.youtubeTrailer,
-                                          searchTitle: ch.name,
-                                          searchYear: ch.year,
-                                          channelType: ch.type,
-                                        )
-                                      : _openTrailer(trailerUrl),
+                                ],
+                                const SizedBox(height: 24),
+                                // Plot (max-width constrained for readability).
+                                // AI-aware wrapper — pixel-identical to
+                                // a plain Text when no Gemini key is
+                                // configured, but gains inline
+                                // translate / spoiler-free-summary /
+                                // fill-in links when the user opts in.
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  child: PlotEnrichedView(
+                                    channel: ch,
+                                    plotText: plot.toString(),
+                                    textStyle: TextStyle(
+                                      color: AppColors.textSecondary(context),
+                                      fontSize: 14,
+                                      height: 1.6,
+                                    ),
+                                  ),
                                 ),
-                                _FocusableActionButton(
-                                  icon: Icons.open_in_new,
-                                  label: 'IMDB',
-                                  isPrimary: false,
-                                  onTap: () => _openImdb(title.toString(), ''),
+                                const SizedBox(height: 20),
+                                // Credits (label-value pairs)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (director.toString().isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              SizedBox(
+                                                width: 80,
+                                                child: Text(
+                                                  l10n.director,
+                                                  style: const TextStyle(
+                                                    color: AppColors
+                                                        .textTertiaryDark,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  director.toString(),
+                                                  style: const TextStyle(
+                                                    color: AppColors
+                                                        .textSecondaryDark,
+                                                    fontSize: 13,
+                                                    height: 1.4,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (cast.toString().isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              SizedBox(
+                                                width: 80,
+                                                child: Text(
+                                                  l10n.cast,
+                                                  style: const TextStyle(
+                                                    color: AppColors
+                                                        .textTertiaryDark,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: CastChipRow(
+                                                  raw: cast.toString(),
+                                                  currentTitle: ch.name,
+                                                  onChannelTap: (c) {
+                                                    setState(
+                                                      () => _hoveredChannel = c,
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (genre.toString().isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              SizedBox(
+                                                width: 80,
+                                                child: Text(
+                                                  l10n.genre,
+                                                  style: const TextStyle(
+                                                    color: AppColors
+                                                        .textTertiaryDark,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Text(
+                                                  genre.toString(),
+                                                  style: const TextStyle(
+                                                    color: AppColors
+                                                        .textSecondaryDark,
+                                                    fontSize: 13,
+                                                    height: 1.4,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ),
-                            // Inline AI series recap — only renders
-                            // when an AI key is set AND the user has
-                            // a "next episode" target from
-                            // continue-watching state. Sits between
-                            // the action buttons and the plot so
-                            // it's discoverable without screaming.
-                            if (_lastEpisodeProgress != null &&
-                                _lastEpisodeLabel.isNotEmpty) ...[
-                              // Auto-expand the recap when the
-                              // user has been away from this
-                              // series for a week or more — the
-                              // "Episode summary auto-pause"
-                              // surface from Sprint 1c. The
-                              // user sees a refreshed catch-up
-                              // automatically rather than
-                              // having to hunt for the link.
-                              Builder(
-                                builder: (_) {
-                                  final daysAway = DateTime.now()
-                                      .difference(
-                                        _lastEpisodeProgress!.updatedAt,
-                                      )
-                                      .inDays;
-                                  final isStale = daysAway >= 7;
-                                  return SeriesRecapInline(
-                                    series: ch,
-                                    nextEpisodeLabel: _lastEpisodeLabel,
-                                    autoExpand: isStale,
-                                    autoExpandHint: isStale
-                                        ? 'Son izlemenden $daysAway gün geçti — kaldığın yeri hatırlatayım.'
-                                        : null,
-                                  );
-                                },
-                              ),
+                            );
+                          }
+
+                          if (compactDetail) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
+                                Center(child: buildPoster(140, 210)),
+                                const SizedBox(height: 12),
+                                buildInfoBody(),
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              buildPoster(180, 270),
+                              const SizedBox(width: 32),
+                              Expanded(child: buildInfoBody()),
                             ],
-                            const SizedBox(height: 24),
-                            // Plot (max-width constrained for readability).
-                            // AI-aware wrapper — pixel-identical to
-                            // a plain Text when no Gemini key is
-                            // configured, but gains inline
-                            // translate / spoiler-free-summary /
-                            // fill-in links when the user opts in.
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 600),
-                              child: PlotEnrichedView(
-                                channel: ch,
-                                plotText: plot.toString(),
-                                textStyle: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 14,
-                                  height: 1.6,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            // Credits (label-value pairs)
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 600),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (director.toString().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          SizedBox(
-                                            width: 80,
-                                            child: Text(
-                                              l10n.director,
-                                              style: const TextStyle(
-                                                color:
-                                                    AppColors.textTertiaryDark,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              director.toString(),
-                                              style: const TextStyle(
-                                                color:
-                                                    AppColors.textSecondaryDark,
-                                                fontSize: 13,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  if (cast.toString().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          SizedBox(
-                                            width: 80,
-                                            child: Text(
-                                              l10n.cast,
-                                              style: const TextStyle(
-                                                color:
-                                                    AppColors.textTertiaryDark,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: CastChipRow(
-                                              raw: cast.toString(),
-                                              currentTitle: ch.name,
-                                              onChannelTap: (c) {
-                                                setState(
-                                                  () => _hoveredChannel = c,
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  if (genre.toString().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          SizedBox(
-                                            width: 80,
-                                            child: Text(
-                                              l10n.genre,
-                                              style: const TextStyle(
-                                                color:
-                                                    AppColors.textTertiaryDark,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              genre.toString(),
-                                              style: const TextStyle(
-                                                color:
-                                                    AppColors.textSecondaryDark,
-                                                fontSize: 13,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      if (compactDetail) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 8),
-                            Center(child: buildPoster(140, 210)),
-                            const SizedBox(height: 12),
-                            buildInfoBody(),
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          buildPoster(180, 270),
-                          const SizedBox(width: 32),
-                          Expanded(child: buildInfoBody()),
-                        ],
-                      );
-                    },
-                  ),
-
-                  // Season tabs + Episode list (shown for both mobile & desktop)
-                  if (seasonNums.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: seasonNums.map((s) {
-                              final num = int.tryParse(s) ?? 0;
-                              final isActive = num == _activeSeason;
-                              return _FocusableSeasonTab(
-                                label: '${l10n.season} $num',
-                                isActive: isActive,
-                                onTap: () {
-                                  setState(() {
-                                    _activeSeason = num;
-                                    _episodeLimit = _kEpisodeWindow;
-                                  });
-                                  // Lazy-fetch AI summaries for this
-                                  // season's empty-plot episodes. The
-                                  // method is idempotent per (series,
-                                  // season) so retapping the same tab is
-                                  // free.
-                                  _fetchEpisodeAiSummariesForActiveSeason();
-                                },
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        // ── Season-level "mark as watched" toggle ──
-                        // One tap marks every episode in the active
-                        // season as finished. Useful when the user
-                        // watched a season on another device / before
-                        // the catalog was synced and wants the rail
-                        // to advance past those titles.
-                        _SeasonMarkWatchedButton(
-                          episodes: activeEpisodes,
-                          season: _activeSeason,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Render a bounded window of episodes — building every
-                    // image-bearing card of a 50-200+ episode season at
-                    // once (this is a non-lazy SingleChildScrollView) OOM-
-                    // crashed weak Android TV boxes. "Show more" grows it.
-                    ...activeEpisodes
-                        .take(_episodeLimit)
-                        .map((ep) => _buildEpisodeItem(ep, l10n)),
-                    if (activeEpisodes.length > _episodeLimit)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: _FocusableActionButton(
-                          icon: Icons.expand_more,
-                          label:
-                              '${l10n.showMoreEpisodes} (+${activeEpisodes.length - _episodeLimit})',
-                          isPrimary: false,
-                          onTap: () =>
-                              setState(() => _episodeLimit += _kEpisodeWindow),
-                        ),
+                          );
+                        },
                       ),
-                  ],
-                  const SizedBox(height: 36),
-                  AiSimilarSection(
-                    current: ch,
-                    onTap: (target) => _openDetail(target),
-                    fallbackBuilder: (_) => similarSeries.isNotEmpty
-                        ? _buildSimilarSection(similarSeries)
-                        : const SizedBox.shrink(),
+
+                      // Season tabs + Episode list (shown for both mobile & desktop)
+                      if (seasonNums.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: seasonNums.map((s) {
+                                  final num = int.tryParse(s) ?? 0;
+                                  final isActive = num == _activeSeason;
+                                  return _FocusableSeasonTab(
+                                    label: '${l10n.season} $num',
+                                    isActive: isActive,
+                                    onTap: () {
+                                      setState(() {
+                                        _activeSeason = num;
+                                      });
+                                      // Lazy-fetch AI summaries for this
+                                      // season's empty-plot episodes. The
+                                      // method is idempotent per (series,
+                                      // season) so retapping the same tab is
+                                      // free.
+                                      _fetchEpisodeAiSummariesForActiveSeason();
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            // ── Season-level "mark as watched" toggle ──
+                            // One tap marks every episode in the active
+                            // season as finished. Useful when the user
+                            // watched a season on another device / before
+                            // the catalog was synced and wants the rail
+                            // to advance past those titles.
+                            _SeasonMarkWatchedButton(
+                              episodes: activeEpisodes,
+                              season: _activeSeason,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 60),
-                ],
-              ),
+                ),
+                if (seasonNums.isNotEmpty)
+                  SliverList.builder(
+                    key: ValueKey('episodes-${ch.streamId}-$_activeSeason'),
+                    itemCount: activeEpisodes.length,
+                    itemBuilder: (context, index) =>
+                        _buildEpisodeItem(activeEpisodes[index], l10n),
+                  ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 36),
+                      AiSimilarSection(
+                        current: ch,
+                        onTap: (target) => _openDetail(target),
+                        fallbackBuilder: (_) => similarSeries.isNotEmpty
+                            ? _buildSimilarSection(similarSeries)
+                            : const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -2986,7 +2997,16 @@ class _EpisodeCardState extends State<_EpisodeCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Focus(
-        onFocusChange: (f) => setState(() => _isFocused = f),
+        onFocusChange: (f) {
+          setState(() => _isFocused = f);
+          if (f) {
+            Scrollable.ensureVisible(
+              context,
+              duration: const Duration(milliseconds: 100),
+              alignment: 0.5,
+            );
+          }
+        },
         onKeyEvent: (_, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||

@@ -1,0 +1,201 @@
+import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/data/repositories/player_repository.dart';
+import 'package:lifeostv/data/services/gemini_service.dart';
+import 'package:lifeostv/data/services/m3u_series_catalog.dart';
+import 'package:lifeostv/data/services/sync_service.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
+import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/presentation/state/m3u_series_provider.dart';
+import 'package:lifeostv/presentation/screens/series/series_screen.dart';
+
+class _Settings extends SettingsNotifier {
+  @override
+  AppSettings build() => const AppSettings(showTrailer: false);
+}
+
+void main() {
+  testWidgets(
+    'large season is lazy and remote navigation crosses the first build window',
+    (tester) async {
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+      SharedPreferences.setMockInitialValues({});
+      late SharedPreferences prefs;
+      late AppDatabase root, db;
+      late Account account;
+      late Channel selected;
+      late M3uSeriesCatalog catalog;
+      await tester.runAsync(() async {
+        prefs = await SharedPreferences.getInstance();
+        root = AppDatabase.forTesting(NativeDatabase.memory());
+        await root
+            .into(root.accounts)
+            .insert(
+              AccountsCompanion.insert(
+                id: const Value(1),
+                name: 'M3U',
+                type: 'm3u',
+                url: 'https://example.invalid/list',
+                isActive: const Value(true),
+              ),
+            );
+        db = root.forAccount(1);
+        account = await root.select(root.accounts).getSingle();
+        await db
+            .into(db.categories)
+            .insert(
+              CategoriesCompanion.insert(
+                id: 'shows',
+                name: 'Shows',
+                type: 'series',
+              ),
+            );
+        for (final (id, name) in [
+          for (var i = 1; i <= 200; i++)
+            (2000 + i, 'Long S01E${i.toString().padLeft(3, '0')}'),
+        ]) {
+          await db
+              .into(db.channels)
+              .insert(
+                ChannelsCompanion.insert(
+                  streamId: id,
+                  name: name,
+                  type: 'series',
+                  categoryId: 'shows',
+                  streamUrl: Value(
+                    'https://example.invalid/$id.mp4?token=exact',
+                  ),
+                ),
+              );
+        }
+        final rows = await db.select(db.channels).get();
+        selected = rows.first;
+        catalog = buildM3uSeriesCatalog(rows);
+        await PlayerRepository(
+          db,
+          () => 1,
+        ).saveEpisodeProgress(2001, 30000, 100000);
+      });
+      addTearDown(() async {
+        await root.close();
+      });
+      final service = SyncService(db, XtreamApiService(Dio()));
+      late ProviderContainer container;
+      await tester.runAsync(() async {
+        container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            m3uSeriesCatalogProvider.overrideWith((_) => Stream.value(catalog)),
+            rootDatabaseProvider.overrideWithValue(root),
+            appDatabaseProvider.overrideWithValue(db),
+            currentAccountProvider.overrideWith((_) async => account),
+            settingsProvider.overrideWith(_Settings.new),
+            geminiServiceProvider.overrideWithValue(null),
+            syncServiceProvider.overrideWithValue(service),
+            contentRepositoryProvider.overrideWithValue(
+              ContentRepository(db, service, () => 1),
+            ),
+            playerRepositoryProvider.overrideWithValue(
+              PlayerRepository(db, () => 1),
+            ),
+          ],
+        );
+      });
+      Map<String, dynamic>? playback;
+      final router = GoRouter(
+        initialLocation: '/series',
+        routes: [
+          GoRoute(path: '/series', builder: (_, _) => const SeriesScreen()),
+          GoRoute(
+            path: '/player',
+            builder: (_, state) {
+              playback = Map<String, dynamic>.from(state.extra as Map);
+              return const Scaffold(body: Text('Player destination'));
+            },
+          ),
+        ],
+      );
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      container.read(pendingDetailChannelProvider.notifier).set(selected);
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.takeException(), isNull);
+      Finder cards() => find.byWidgetPredicate(
+        (w) => w.runtimeType.toString() == '_EpisodeCard',
+      );
+      expect(cards().evaluate().length, lessThan(20));
+      expect(find.text('Long S01E200'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Long S01E001'),
+        350,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      final card = find
+          .ancestor(of: find.text('Long S01E001'), matching: cards())
+          .first;
+      // Obtain the actual Focus state node even when the widget owns it.
+      Focus.of(
+        tester.element(
+          find.descendant(of: card, matching: find.byType(MouseRegion)).first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 45; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
+      expect(cards().evaluate().length, lessThan(25));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(playback?['streamId'], 2046);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'SeriesDetailPlay',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      router.dispose();
+
+      container.dispose();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.binding.setSurfaceSize(null);
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
+    },
+  );
+}

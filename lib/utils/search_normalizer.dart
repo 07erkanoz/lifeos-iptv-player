@@ -23,9 +23,8 @@
 /// We deliberately keep this in Dart rather than push to SQL — SQLite
 /// `LOWER()` is ASCII-only and writing a `REPLACE(REPLACE(REPLACE(…))
 /// `chain` per query string would be both unreadable and unindexable.
-/// The repository call sites pull a bounded slice (5–10 k rows) and
-/// filter in Dart, which on the user's 30 k-row catalogue still
-/// completes in <50 ms.
+/// Repository searches use precomputed text and bounded worker pages across
+/// the full visible catalogue.
 class SearchNormalizer {
   const SearchNormalizer._();
 
@@ -99,28 +98,24 @@ class SearchNormalizer {
   }) {
     final p = plot ?? '';
     final plotSnippet = p.length > 200 ? p.substring(0, 200) : p;
-    return normalise([
-      name,
-      categoryName ?? '',
-      cast ?? '',
-      director ?? '',
-      genre ?? '',
-      year ?? '',
-      plotSnippet,
-    ].join(' '));
+    return normalise(
+      [
+        name,
+        categoryName ?? '',
+        cast ?? '',
+        director ?? '',
+        genre ?? '',
+        year ?? '',
+        plotSnippet,
+      ].join(' '),
+    );
   }
 
-  /// Split a normalised query into individual word tokens for AND
-  /// matching. Drops sub-three-char tokens so a user typing `matt`
-  /// doesn't get every haystack entry containing a stray short word.
-  /// Single-token queries (e.g. just `interstellar`) are preserved
-  /// regardless of length.
+  /// Preserve short words and numbers: "Up", "It", "24", "a b" and
+  /// "Toy Story 2" are meaningful titles, not stop words to discard.
   static List<String> tokens(String query) {
     final n = normalise(query);
-    if (n.isEmpty) return const [];
-    final parts = n.split(' ').where((w) => w.isNotEmpty).toList();
-    if (parts.length <= 1) return parts;
-    return parts.where((w) => w.length >= 3).toList();
+    return n.isEmpty ? const [] : n.split(' ').toSet().toList();
   }
 
   /// True when every [queryTokens] entry appears as a substring of
@@ -197,9 +192,7 @@ class SearchNormalizer {
         final del = prev[j] + 1;
         final ins = curr[j - 1] + 1;
         final sub = prev[j - 1] + cost;
-        curr[j] = del < ins
-            ? (del < sub ? del : sub)
-            : (ins < sub ? ins : sub);
+        curr[j] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
       }
       // Swap rows for next iteration.
       final tmp = prev;

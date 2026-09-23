@@ -1,4 +1,3 @@
-import 'dart:isolate';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drift/drift.dart';
@@ -6,7 +5,7 @@ import 'package:drift/drift.dart';
 // re-exports its own `Category` annotation which collides with our
 // generated drift `Category` row class.
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:lifeostv/core/platform_helper.dart';
+import 'package:lifeostv/data/services/catalog_search_ranker.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart';
@@ -27,11 +26,6 @@ class ContentRepository {
   /// Minimum interval between full EPG syncs (server-friendly)
   static const _epgSyncInterval = Duration(hours: 2);
   String get _epgSyncKey => 'last_epg_sync_timestamp_${_db.accountScope ?? 0}';
-
-  /// Upper bound on rows materialised + filtered on the main isolate per
-  /// type during search. Caps the per-keystroke CPU cost so a huge live
-  /// catalogue can't freeze the UI; mirrors the slice [searchChannels] uses.
-  static const _kSearchScanCap = 6000;
 
   ContentRepository(
     this._db,
@@ -738,122 +732,121 @@ class ContentRepository {
     String query,
     String type, {
     int limit = 100,
+    bool Function()? shouldCancel,
   }) async {
     final tokens = SearchNormalizer.tokens(query);
-    if (tokens.isEmpty) return const [];
-
-    // ── Fast path: filter in SQL against the precomputed searchText ──
-    // Each token must appear (AND) — mirrors SearchNormalizer.matches.
-    // This does NO per-row Dart normalisation: SQLite scans the already-
-    // normalised column natively and returns only the matched slice, so a
-    // huge catalogue no longer freezes the UI isolate on every keystroke.
-    final fastQ =
-        _db.select(_db.channels).join([
-            _db.accountInnerJoin(
-              _db.categories,
-              _db.categories.id.equalsExp(_db.channels.categoryId) &
-                  _db.categories.type.equalsExp(_db.channels.type),
-            ),
-          ])
-          ..where(_db.channels.type.equals(type))
-          ..where(_db.categories.isHidden.equals(false))
-          ..where(_notAdultCategory(_db.categories))
-          ..where(_db.channels.searchText.isNotNull());
-    for (final t in tokens) {
-      final safe = t.replaceAll('%', '').replaceAll('_', '');
-      if (safe.isEmpty) continue;
-      fastQ.where(_db.channels.searchText.like('%$safe%'));
+    if (tokens.isEmpty || limit <= 0 || (shouldCancel?.call() ?? false)) {
+      return const [];
     }
-    fastQ
-      ..orderBy([
-        OrderingTerm(expression: _db.channels.rating, mode: OrderingMode.desc),
-      ])
-      ..limit(limit);
-    final fastRows = await fastQ.get();
-    if (fastRows.isNotEmpty) {
-      final enrich = await _loadEnrichmentMap();
-      final matches = fastRows
-          .map((r) => _applyEnrichment(r.readTable(_db.channels), enrich))
-          .toList();
-      // A partial index must not hide newly synced or updated rows just
-      // because one older indexed title already matched.
-      if (matches.length < limit) {
-        matches.addAll(
-          await _legacySearchScan(
-            tokens,
-            type,
-            limit - matches.length,
-            unindexedOnly: true,
-          ),
-        );
-      }
-      return matches;
-    }
-
-    // Fast path found nothing: either the index isn't fully built yet
-    // (fresh install / just-updated, before refreshSearchIndex() finishes),
-    // or it's a typo that needs the fuzzy pass. Fall back to the bounded
-    // legacy scan — only paid on the miss case, never on a normal hit.
-    return _legacySearchScan(tokens, type, limit);
+    final normalized = SearchNormalizer.normalise(query);
+    final exact = await _searchPages(
+      tokens,
+      normalized,
+      type,
+      limit,
+      fuzzy: false,
+      shouldCancel: shouldCancel,
+    );
+    if (exact.isNotEmpty || (shouldCancel?.call() ?? false)) return exact;
+    return _searchPages(
+      tokens,
+      normalized,
+      type,
+      limit,
+      fuzzy: true,
+      shouldCancel: shouldCancel,
+    );
   }
 
-  /// Legacy in-Dart scan — bounded, rating-ranked. Only reached when the
-  /// SQL fast path returns nothing (un-indexed rows or a typo needing
-  /// fuzzy). Tighter cap on TV so even this fallback stays responsive.
-  Future<List<Channel>> _legacySearchScan(
+  /// Keyset pagination covers the entire visible catalogue with bounded memory.
+  /// SQLite filters indexed exact matches; only missing index rows and fuzzy
+  /// searches need worker-side normalisation. Cancel between each DB/worker job.
+  Future<List<Channel>> _searchPages(
     List<String> tokens,
+    String query,
     String type,
     int limit, {
-    bool unindexedOnly = false,
+    required bool fuzzy,
+    bool Function()? shouldCancel,
   }) async {
-    final rows =
-        await (_db.select(_db.channels).join([
-                _db.accountInnerJoin(
-                  _db.categories,
-                  _db.categories.id.equalsExp(_db.channels.categoryId) &
-                      _db.categories.type.equalsExp(_db.channels.type),
-                ),
-              ])
-              ..where(_db.channels.type.equals(type))
-              ..where(
-                unindexedOnly
-                    ? _db.channels.searchText.isNull()
-                    : const Constant(true),
-              )
-              ..where(_db.categories.isHidden.equals(false))
-              ..where(_notAdultCategory(_db.categories))
-              ..orderBy([
-                OrderingTerm(
-                  expression: _db.channels.rating,
-                  mode: OrderingMode.desc,
-                ),
-              ])
-              ..limit(PlatformHelper.isTV ? 1000 : _kSearchScanCap))
-            .get();
-
-    final enrich = await _loadEnrichmentMap();
-    final pairs = rows.map((row) {
-      final ch = _applyEnrichment(row.readTable(_db.channels), enrich);
-      final cat = row.readTable(_db.categories);
-      return (ch: ch, haystack: _buildHaystack(ch, cat));
-    }).toList();
-
-    final out = <Channel>[];
-    for (final p in pairs) {
-      if (out.length >= limit) break;
-      if (SearchNormalizer.matches(p.haystack, tokens)) out.add(p.ch);
+    const pageSize = 256;
+    final best = <SearchMatch>[];
+    (int, int)? cursor;
+    while (!(shouldCancel?.call() ?? false)) {
+      final q =
+          _db.select(_db.channels).join([
+              _db.accountInnerJoin(
+                _db.categories,
+                _db.categories.id.equalsExp(_db.channels.categoryId) &
+                    _db.categories.type.equalsExp(_db.channels.type),
+              ),
+            ])
+            ..where(_db.channels.type.equals(type))
+            ..where(_db.categories.isHidden.equals(false))
+            ..where(_notAdultCategory(_db.categories));
+      if (!fuzzy) {
+        Expression<bool> matched = const Constant(true);
+        for (final token in tokens) {
+          // Literal substring semantics: '%' and '_' are not SQL wildcards.
+          matched =
+              matched &
+              FunctionCallExpression<int>('instr', [
+                _db.channels.searchText,
+                Variable<String>(token),
+              ]).isBiggerThanValue(0);
+        }
+        q.where(_db.channels.searchText.isNull() | matched);
+      }
+      if (cursor != null) {
+        q.where(
+          _db.channels.accountId.isBiggerThanValue(cursor.$1) |
+              (_db.channels.accountId.equals(cursor.$1) &
+                  _db.channels.streamId.isBiggerThanValue(cursor.$2)),
+        );
+      }
+      q
+        ..orderBy([
+          OrderingTerm.asc(_db.channels.accountId),
+          OrderingTerm.asc(_db.channels.streamId),
+        ])
+        ..limit(pageSize);
+      final rows = await q.get();
+      if (rows.isEmpty || (shouldCancel?.call() ?? false)) break;
+      final channels = rows.map((r) => r.readTable(_db.channels)).toList();
+      final enrichRows =
+          await (_db.select(_db.contentEnrichment)..where(
+                (t) =>
+                    t.type.equals(type) &
+                    t.streamId.isIn(channels.map((c) => c.streamId)),
+              ))
+              .get();
+      final enrich = {
+        for (final r in enrichRows) '${r.accountId}|${r.streamId}|${r.type}': r,
+      };
+      if (shouldCancel?.call() ?? false) return const [];
+      final input = <SearchCandidate>[
+        for (var i = 0; i < rows.length; i++)
+          (
+            channel: _applyEnrichment(channels[i], enrich),
+            category: rows[i].readTable(_db.categories).name,
+          ),
+      ];
+      final hits = await rankSearchPage(input, tokens, query, fuzzy: fuzzy);
+      if (shouldCancel?.call() ?? false) return const [];
+      best.addAll(hits);
+      best.sort(compareSearchMatches);
+      if (best.length > limit) best.removeRange(limit, best.length);
+      final last = channels.last;
+      cursor = (last.accountId, last.streamId);
+      if (rows.length < pageSize) break;
     }
-    if (out.isNotEmpty || unindexedOnly) return out;
-    for (final p in pairs) {
-      if (out.length >= limit) break;
-      if (SearchNormalizer.matchesFuzzy(p.haystack, tokens)) out.add(p.ch);
-    }
-    return out;
+    if (shouldCancel?.call() ?? false) return const [];
+    return best.map((hit) => hit.channel).toList();
   }
 
   /// Backfill `channels.searchText` for rows that don't have it yet, so the
   /// search fast path covers the whole catalogue. Runs the (Dart) haystack
-  /// normalisation OFF the UI isolate via [Isolate.run] in bounded chunks,
+  /// normalisation OFF the UI isolate via a worker isolate in bounded chunks,
   /// then batch-updates. Idempotent + incremental — only touches NULL rows,
   /// so it's a no-op cheap check once the catalogue is indexed and only
   /// processes the delta after a sync. Safe to call at startup / post-sync.
@@ -875,48 +868,34 @@ class ContentRepository {
               .get();
       if (rows.isEmpty) break;
 
-      // Minimal, sendable payload for the worker isolate.
-      final input = rows.map((r) {
-        final ch = r.readTable(_db.channels);
-        final cat = r.readTableOrNull(_db.categories);
-        return (
-          streamId: ch.streamId,
-          type: ch.type,
-          name: ch.name,
-          categoryName: cat?.name,
-          cast: ch.cast,
-          director: ch.director,
-          genre: ch.genre,
-          year: ch.year,
-          plot: ch.plot,
-        );
-      }).toList();
-
-      final computed = await Isolate.run(() {
-        final m = <(int, String), String>{};
-        for (final r in input) {
-          m[(r.streamId, r.type)] = SearchNormalizer.buildHaystack(
-            name: r.name,
-            categoryName: r.categoryName,
-            cast: r.cast,
-            director: r.director,
-            genre: r.genre,
-            year: r.year,
-            plot: r.plot,
-          );
-        }
-        return m;
-      });
-
+      final input = <SearchCandidate>[
+        for (final row in rows)
+          (
+            channel: row.readTable(_db.channels),
+            category: row.readTableOrNull(_db.categories)?.name ?? '',
+          ),
+      ];
+      final computed = await buildSearchIndexPage(input);
       if (shouldPause?.call() ?? false) return;
+      Expression<bool> same(Expression<String> field, String? value) =>
+          value == null ? field.isNull() : field.equals(value);
       await _db.accountBatch((b) {
-        for (final r in input) {
+        for (var i = 0; i < input.length; i++) {
+          final ch = input[i].channel;
           b.update(
             _db.channels,
-            ChannelsCompanion(
-              searchText: Value(computed[(r.streamId, r.type)] ?? ''),
-            ),
-            where: (t) => t.streamId.equals(r.streamId) & t.type.equals(r.type),
+            ChannelsCompanion(searchText: Value(computed[i])),
+            where: (t) =>
+                t.accountId.equals(ch.accountId) &
+                t.streamId.equals(ch.streamId) &
+                t.type.equals(ch.type) &
+                t.searchText.isNull() &
+                t.name.equals(ch.name) &
+                same(t.cast, ch.cast) &
+                same(t.director, ch.director) &
+                same(t.genre, ch.genre) &
+                same(t.year, ch.year) &
+                same(t.plot, ch.plot),
           );
         }
       });
@@ -1545,7 +1524,9 @@ class ContentRepository {
       return cached;
     }
     final rows = await _db.select(_db.contentEnrichment).get();
-    final map = {for (final r in rows) '${r.streamId}|${r.type}': r};
+    final map = {
+      for (final r in rows) '${r.accountId}|${r.streamId}|${r.type}': r,
+    };
     _enrichMapCache = map;
     _enrichMapAt = DateTime.now();
     return map;
@@ -1556,7 +1537,7 @@ class ContentRepository {
   /// cheap to call in a tight loop (search) or a list comprehension.
   Channel _applyEnrichment(Channel c, Map<String, ContentEnrichmentData> map) {
     if (c.genre != null && c.genre!.isNotEmpty) return c;
-    final e = map['${c.streamId}|${c.type}'];
+    final e = map['${c.accountId}|${c.streamId}|${c.type}'];
     if (e == null ||
         e.confidence == null ||
         !e.confidence!.isFinite ||

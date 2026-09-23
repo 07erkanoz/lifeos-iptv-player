@@ -20,7 +20,7 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 1. **Android TV özellik eşliği:** Cast ve catch-up. Kanal/EPG, kalite ve native altyazı kodu [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı; fiziksel TV kabulü açık.
 2. **LAN aktarımı:** doğrulanmış şifreleme, sır paylaşımını açık seçime bağlama ve tüm profil eşleme uç durumları. Rastgele token/PIN süre sınırı uygulandı; HTTP güvenliği kapanmadı.
 3. **Platform özellikleri:** iOS gerçek PiP; masaüstünde planlı bildirim; fiziksel cihazdaki teslim/tıklama akışı.
-4. **Büyük katalog UI:** gerçek lazy bölüm listesi; tam katalog arama sıralaması; ekran dışı abonelik/animasyon maliyetinin geniş ölçümü; XMLTV streaming parser ve çalışan işçiyi anında iptal.
+4. **Büyük katalog UI:** ekran dışı abonelik/animasyon maliyetinin geniş ölçümü; XMLTV streaming parser ve çalışan işçiyi anında iptal. Lazy bölüm listesi ve tam katalog arama sıralaması [katalog paketinde](KATALOG_PERFORMANSI_2026-09-23.md) uygulandı.
 5. **Cast/DLNA:** DLNA seek/geri dönüş konumu, receiver kabulü ve tek bağlantılı sağlayıcı davranışı. Chromecast konum ve mediaSessionId yolu uygulandı, alıcı cihaz kabulü açık.
 6. **AI kalite ölçümü:** Türkçe sorgu veri seti, öneri doğruluğu/maliyet/gecikme, metadata yenilenirken eşzamanlı embedding yazımı için daha güçlü kaynak sürümlemesi.
 7. **Eski şema teknik borcu:** tüm eski/sapmış sürümlere geçiş öncesi yedek ve daha geniş fixture matrisi.
@@ -32,4 +32,4 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 - Windows, macOS, iPhone: kurulum/açılış, tam ekran/dönüş, izinler, ses/video, bildirim ve ağ kesintisi.
 - Gerçek Xtream/M3U hesapları, Cast/DLNA alıcısı ve LAN eş cihazlarıyla kabul.
 
-Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](tv-controls-2026-09-23/validation.json) tutulur.
+Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](catalog-performance-2026-09-23/validation.json) tutulur.
