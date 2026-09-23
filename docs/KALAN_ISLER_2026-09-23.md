@@ -17,7 +17,7 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 
 ## Henüz tamamlanmayan uygulama işleri
 
-1. **Android TV özellik eşliği:** Cast ve catch-up. Kanal/EPG, kalite ve native altyazı kodu [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı; fiziksel TV kabulü açık.
+1. **Android TV özellik eşliği:** Cast arayüzü ve M3U catch-up şablonları. Xtream geçmiş EPG/canlıya dönüş [catch-up paketinde](TV_CATCHUP_2026-09-23.md), kanal/EPG, kalite ve native altyazı [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı; fiziksel TV kabulü açık.
 2. **LAN aktarımı:** doğrulanmış şifreli eşleme/taşıma ve gerçek eş cihaz kabulü. Sır paylaşımı açık seçime bağlandı, profil birleştirme hatası ve gövde sınırları [son pakette](SENKRON_MEDYA_SON_PAKET_2026-09-23.md) düzeltildi. HTTP hâlâ şifreli değildir.
 3. **Platform özellikleri:** iOS gerçek PiP; masaüstünde planlı bildirim; fiziksel cihazdaki teslim/tıklama akışı.
 4. **Büyük katalog UI:** ekran dışı abonelik/animasyon maliyetinin geniş ölçümü ve XMLTV ağdan veritabanına uçtan uca streaming. XML olay ayrıştırması ve işçi iptali son pakette uygulandı. Lazy bölüm listesi ve tam katalog arama sıralaması [katalog paketinde](KATALOG_PERFORMANSI_2026-09-23.md) uygulandı.
@@ -32,4 +32,4 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 - Windows, macOS, iPhone: kurulum/açılış, tam ekran/dönüş, izinler, ses/video, bildirim ve ağ kesintisi.
 - Gerçek Xtream/M3U hesapları, Cast/DLNA alıcısı ve LAN eş cihazlarıyla kabul.
 
-Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](sync-media-2026-09-23/validation.json) tutulur.
+Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](tv-catchup-2026-09-23/validation.json) tutulur.

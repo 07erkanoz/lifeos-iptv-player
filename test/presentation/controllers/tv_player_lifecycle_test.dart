@@ -1,3 +1,6 @@
+import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
+import 'package:lifeostv/data/services/epg_request_gate.dart';
+import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
@@ -18,6 +21,15 @@ import 'package:lifeostv/presentation/screens/player/tv_video_player_screen.dart
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 import 'package:wakelock_plus_platform_interface/wakelock_plus_platform_interface.dart';
+
+class _CachedEpgOnly extends EpgRequestGate {
+  @override
+  Future<void> request(
+    int accountId,
+    int channelId,
+    Future<bool> Function() load,
+  ) async {}
+}
 
 class _Settings extends SettingsNotifier {
   @override
@@ -127,6 +139,7 @@ void main() {
   late WakelockPlusPlatformInterface wakelock;
   late List<MethodCall> configurations;
   setUp(() async {
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -145,6 +158,7 @@ void main() {
   });
   tearDown(() async {
     await db.close();
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
     VideoPlayerPlatform.instance = original;
     WakelockPlusPlatformInterface.instance = wakelock;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -161,6 +175,7 @@ void main() {
           settingsProvider.overrideWith(_Settings.new),
           rootDatabaseProvider.overrideWithValue(db),
           appDatabaseProvider.overrideWithValue(db),
+          epgRequestGateProvider.overrideWithValue(_CachedEpgOnly()),
         ],
         child: MaterialApp(
           locale: const Locale('en'),
@@ -353,6 +368,146 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     },
   );
+
+  testWidgets(
+    'TV catch-up replays a past programme and returns to the original live URL',
+    (tester) async {
+      await tester.runAsync(() async {
+        await db
+            .into(db.accounts)
+            .insert(
+              AccountsCompanion.insert(
+                id: const Value(1),
+                name: 'Provider',
+                type: 'xtream',
+                url: 'https://example.invalid/panel',
+                username: const Value('user'),
+                password: const Value('pass'),
+              ),
+            );
+        final scope = db.forAccount(1);
+        await scope
+            .into(scope.programs)
+            .insert(
+              ProgramsCompanion.insert(
+                channelId: 1,
+                title: 'Replay programme',
+                start: DateTime.now().subtract(const Duration(hours: 2)),
+                stop: DateTime.now().subtract(const Duration(hours: 1)),
+              ),
+            );
+      });
+      await mount(
+        tester,
+        player: const TvVideoPlayerScreen(
+          streamUrl: 'https://example.invalid/original.ts',
+          streamId: 1,
+          accountId: 1,
+          title: 'Channel',
+          httpHeaders: {'Referer': 'https://example.invalid'},
+        ),
+      );
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('tv-program-guide')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final guide = tester.widget<EpgOverlay>(find.byType(EpgOverlay));
+      expect(guide.programs.single.title, 'Replay programme');
+      expect(guide.onCatchUp, isNotNull);
+      await tester.runAsync(() => guide.onCatchUp!(guide.programs.single));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        native.sources.last.uri,
+        contains('/panel/timeshift/user/pass/60/'),
+      );
+      expect(
+        native.sources.last.httpHeaders['Referer'],
+        'https://example.invalid',
+      );
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.text('LIVE'), findsNothing);
+      expect(find.byKey(const ValueKey('tv-return-live')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('tv-return-live')));
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(native.sources.last.uri, 'https://example.invalid/original.ts');
+      expect(find.byKey(const ValueKey('tv-return-live')), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      await tester.runAsync(() => guide.onCatchUp!(guide.programs.single));
+      await tester.pump();
+      native.events[native.events.keys.last]!.addError(
+        PlatformException(
+          code: 'archive_unavailable',
+          message: 'Archive unavailable',
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('tv-error-return-live')),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(native.sources.last.uri, 'https://example.invalid/original.ts');
+      expect(find.byKey(const ValueKey('tv-error-return-live')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets('omitted channel index resolves the requested channel identity', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/second.ts',
+        streamId: 2,
+        title: 'Second',
+        channels: [
+          PlayerChannel(
+            streamId: 1,
+            name: 'First',
+            url: 'https://example.invalid/first.ts',
+          ),
+          PlayerChannel(
+            streamId: 2,
+            name: 'Second',
+            url: 'https://example.invalid/second.ts',
+          ),
+        ],
+      ),
+    );
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+    final history = await db.select(db.playbackProgress).get();
+    expect(history.single.streamId, 2);
+    await tester.tap(find.byKey(const ValueKey('tv-channel-list')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final panel = tester.widget<ChannelListOverlay>(
+      find.byType(ChannelListOverlay),
+    );
+    expect(panel.currentChannelIndex, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 
   testWidgets('native playback receives provider headers and clean URL', (
     tester,

@@ -1,3 +1,4 @@
+import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/data/services/subtitle_track_matcher.dart';
 import 'package:lifeostv/presentation/controllers/tv_subtitle_controller.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
@@ -94,6 +95,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   late final PlayerRepository _progressRepository;
   bool _switchingEpisode = false;
   final _episodePlayFocus = FocusNode();
+  final _retryFocus = FocusNode(debugLabel: 'TvRetry');
   VideoPlayerController? _controller;
   TvSubtitleController? _subtitles;
   bool _subtitleVisible = false;
@@ -116,6 +118,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   String? get _programTitle {
+    if (_timeshift) return null;
     final now = DateTime.now();
     for (final program in _programs) {
       if (!program.start.isAfter(now) && program.stop.isAfter(now))
@@ -147,7 +150,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   String? _logo;
   late int _channelIndex;
 
+  bool _timeshift = false;
+  String? _replayTitle;
+  bool _catchupAvailable = false;
+  late final Future<Account?> _sessionAccount;
   bool get _isLive => widget.type == VideoType.live;
+  bool get _canSeek => !_isLive || _timeshift;
 
   @override
   void initState() {
@@ -166,13 +174,39 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _sessionDb = widget.accountId == null
         ? ref.read(appDatabaseProvider)
         : ref.read(rootDatabaseProvider).forAccount(widget.accountId!);
+    final sessionAccountId = widget.accountId ?? _sessionDb.accountScope;
+    _sessionAccount = !_isLive || sessionAccountId == null
+        ? Future.value(null)
+        : (_sessionDb.select(
+            _sessionDb.accounts,
+          )..where((a) => a.id.equals(sessionAccountId))).getSingleOrNull();
+    _sessionAccount.then((account) {
+      if (mounted &&
+          !_disposed &&
+          account?.type == 'xtream' &&
+          account?.username != null &&
+          account?.password != null) {
+        setState(() => _catchupAvailable = true);
+      }
+    }, onError: (Object _) {});
     WidgetsBinding.instance.addObserver(this);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
     _headers = widget.httpHeaders;
     _title = widget.title;
     _logo = widget.logo;
-    _channelIndex = widget.currentChannelIndex ?? 0;
+    final channels = widget.channels;
+    final requestedIndex = widget.currentChannelIndex;
+    final matchingIndex =
+        channels?.indexWhere((c) => c.streamId == widget.streamId) ?? -1;
+    _channelIndex =
+        requestedIndex != null &&
+            requestedIndex >= 0 &&
+            requestedIndex < (channels?.length ?? 0)
+        ? requestedIndex
+        : matchingIndex >= 0
+        ? matchingIndex
+        : 0;
     if (_isLive) {
       _watchEpg();
       _epgClock = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -224,6 +258,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     if (retiring != null) unawaited(_retireController(retiring));
     _focusNode.dispose();
     _episodePlayFocus.dispose();
+    _retryFocus.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -277,6 +312,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _buffering = false;
       _showControls = true;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_disposed && _error != null) _retryFocus.requestFocus();
+    });
     final c = _controller;
     if (c != null) unawaited(_command(c, c.pause));
   }
@@ -315,7 +353,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     }
 
     try {
-      await TvPlaybackConfig.apply(ref.read(settingsProvider), live: _isLive);
+      await TvPlaybackConfig.apply(
+        ref.read(settingsProvider),
+        live: _isLive && !_timeshift,
+      );
     } catch (_) {
       if (generation == _openGeneration) _fail();
       return;
@@ -368,7 +409,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
           resume = Duration(milliseconds: saved.position);
         }
       }
-      if (resume != null && resume > Duration.zero && !_isLive) {
+      if (resume != null && resume > Duration.zero && _canSeek) {
         await _command(
           c,
           () =>
@@ -471,7 +512,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   void _seekBy(int seconds) {
     final c = _controller;
-    if (c == null || !c.value.isInitialized || _isLive) return;
+    if (c == null || !c.value.isInitialized || !_canSeek) return;
     _seek.nudge(Duration(seconds: seconds));
     _showControlsBriefly();
   }
@@ -485,6 +526,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _channelIndex = idx;
     final ch = chans[idx];
     setState(() {
+      _timeshift = false;
+      _replayTitle = null;
       _url = ch.url;
       _headers = ch.httpHeaders;
       _title = ch.name;
@@ -549,7 +592,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ..where(
                 (p) =>
                     p.channelId.equals(id) &
-                    p.stop.isBiggerThanValue(DateTime.now()),
+                    p.stop.isBiggerThanValue(
+                      DateTime.now().subtract(const Duration(days: 5)),
+                    ),
               )
               ..orderBy([(p) => OrderingTerm(expression: p.start)]))
             .watch()
@@ -558,6 +603,58 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               _programs = programs;
               if (_showControls || _panel == _TvPanel.epg) setState(() {});
             }, onError: (Object _) {});
+  }
+
+  Future<void> _startTimeshift(Program program) async {
+    final now = DateTime.now();
+    if (!_isLive ||
+        program.channelId != _activeChannelId ||
+        !program.stop.isBefore(now) ||
+        now.difference(program.stop) > const Duration(days: 5))
+      return;
+    final channelId = _activeChannelId;
+    final generation = _openGeneration;
+    final account = await _sessionAccount;
+    if (!mounted ||
+        _disposed ||
+        generation != _openGeneration ||
+        channelId != _activeChannelId)
+      return;
+    if (account?.type != 'xtream' ||
+        account?.username == null ||
+        account?.password == null)
+      return;
+    final url = StreamUrlBuilder.timeshift(
+      account!.url,
+      account.username!,
+      account.password!,
+      channelId,
+      start: program.start,
+      duration: program.stop.difference(program.start),
+    );
+    _closePanel();
+    setState(() {
+      _timeshift = true;
+      _replayTitle = program.title;
+      _url = url;
+    });
+    await _open(url);
+  }
+
+  void _returnToLive() {
+    if (!_timeshift) return;
+    final channels = widget.channels;
+    if (channels != null && channels.isNotEmpty) {
+      _channelStep(0);
+      return;
+    }
+    setState(() {
+      _timeshift = false;
+      _replayTitle = null;
+      _url = widget.streamUrl;
+    });
+    _open(_url);
+    _showControlsBriefly();
   }
 
   void _openPanel(_TvPanel panel) {
@@ -745,7 +842,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       expectedGeneration++;
       await _open(
         _url,
-        startAt: _isLive ? null : position,
+        startAt: _canSeek ? position : null,
         autoplay: wasPlaying,
       );
     } finally {
@@ -892,7 +989,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       return KeyEventResult.handled;
     }
     // Let focused episode buttons handle activation and directional traversal.
-    if (!_focusNode.hasPrimaryFocus && _showControls && _error == null) {
+    if (!_focusNode.hasPrimaryFocus && (_showControls || _error != null)) {
       _resetHideTimer();
       return KeyEventResult.ignored;
     }
@@ -904,7 +1001,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowLeft) {
-      if (_isLive) {
+      if (_isLive && !_timeshift) {
         _openPanel(_TvPanel.channels);
       } else {
         _seekBy(-10);
@@ -912,7 +1009,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight) {
-      if (_isLive) {
+      if (_isLive && !_timeshift) {
         _openPanel(_TvPanel.epg);
       } else {
         _seekBy(10);
@@ -1057,10 +1154,18 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
+                            focusNode: _retryFocus,
                             onPressed: _togglePlay,
                             icon: const Icon(Icons.refresh),
                             label: Text(AppLocalizations.of(context)!.retry),
                           ),
+                          if (_timeshift)
+                            TextButton.icon(
+                              key: const ValueKey('tv-error-return-live'),
+                              onPressed: _returnToLive,
+                              icon: const Icon(Icons.live_tv),
+                              label: Text(AppLocalizations.of(context)!.liveTV),
+                            ),
                         ],
                       ),
                     ),
@@ -1084,17 +1189,19 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                           c.categoryId!: c.categoryName!,
                     },
                     onChannelSelected: (index) {
-                      if (index != _channelIndex)
+                      if (_timeshift && index == _channelIndex) {
+                        _returnToLive();
+                      } else if (index != _channelIndex) {
                         _channelStep(index - _channelIndex);
+                      }
                       _closePanel();
                     },
                     onClose: _closePanel,
                   ),
                 if (_panel == _TvPanel.epg)
                   EpgOverlay(
-                    programs: _programs
-                        .where((p) => p.stop.isAfter(DateTime.now()))
-                        .toList(),
+                    programs: _programs,
+                    onCatchUp: _catchupAvailable ? _startTimeshift : null,
                     channelName: _title,
                     channelLogo: _logo,
                     onClose: _closePanel,
@@ -1160,7 +1267,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _title,
+                        _replayTitle ?? _title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1182,7 +1289,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                     ],
                   ),
                 ),
-                if (_isLive)
+                if (_isLive && !_timeshift)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -1249,6 +1356,13 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                     onPressed: () => _openPanel(_TvPanel.channels),
                     icon: const Icon(Icons.list, color: Colors.white),
                   ),
+                if (_timeshift)
+                  IconButton(
+                    key: const ValueKey('tv-return-live'),
+                    tooltip: AppLocalizations.of(context)!.liveTV,
+                    onPressed: _returnToLive,
+                    icon: const Icon(Icons.live_tv, color: Colors.white),
+                  ),
                 IconButton(
                   key: const ValueKey('tv-audio-tracks'),
                   tooltip: AppLocalizations.of(context)!.audioTrack,
@@ -1281,7 +1395,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             ),
             const Spacer(),
             // Bottom: progress (VOD) or hint (live)
-            if (!_isLive && dur.inSeconds > 0) ...[
+            if (_canSeek && dur.inSeconds > 0) ...[
               Row(
                 children: [
                   Text(
