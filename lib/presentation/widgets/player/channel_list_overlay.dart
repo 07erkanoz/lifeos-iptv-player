@@ -44,6 +44,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
   String? _selectedCategoryId; // null = All
   String _searchQuery = '';
   int _focusedIndex = -1;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -61,7 +62,12 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
 
     // Set initial focus to current channel
     _focusedIndex = widget.currentChannelIndex;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFocused());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _listFocusNode.requestFocus();
+        _scrollToFocused();
+      }
+    });
   }
 
   @override
@@ -106,7 +112,9 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
 
     // Find index of current channel in filtered list
     final currentCh = widget.channels[_focusedIndex];
-    final filteredIdx = filtered.indexWhere((ch) => ch.streamId == currentCh.streamId);
+    final filteredIdx = filtered.indexWhere(
+      (ch) => ch.streamId == currentCh.streamId,
+    );
     if (filteredIdx < 0) return;
 
     final targetOffset = filteredIdx * 56.0; // approximate item height
@@ -120,7 +128,7 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
   void _selectCategory(String? id) {
     setState(() {
       _selectedCategoryId = id;
-      _focusedIndex = widget.currentChannelIndex;
+      _ensureVisibleSelection();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFocused());
   }
@@ -128,19 +136,57 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
   void _onSearch(String query) {
     setState(() {
       _searchQuery = query;
+      _ensureVisibleSelection();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToFocused();
     });
   }
 
+  void _ensureVisibleSelection() {
+    final filtered = _filteredChannels;
+    if (_focusedIndex >= 0 &&
+        _focusedIndex < widget.channels.length &&
+        filtered.any(
+          (c) => c.streamId == widget.channels[_focusedIndex].streamId,
+        ))
+      return;
+    _focusedIndex = filtered.isEmpty
+        ? -1
+        : widget.channels.indexWhere(
+            (c) => c.streamId == filtered.first.streamId,
+          );
+  }
+
+  @override
+  void didUpdateWidget(ChannelListOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _ensureVisibleSelection();
+  }
+
   void _close() async {
+    if (_closing) return;
+    _closing = true;
     await _slideAnim.reverse();
-    widget.onClose();
+    if (mounted) widget.onClose();
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
     final k = event.logicalKey;
+    if (event is KeyRepeatEvent &&
+        !{
+          LogicalKeyboardKey.arrowDown,
+          LogicalKeyboardKey.arrowUp,
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+        }.contains(k))
+      return KeyEventResult.handled;
 
-    if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) {
+    if (k == LogicalKeyboardKey.escape ||
+        k == LogicalKeyboardKey.goBack ||
+        k == LogicalKeyboardKey.browserBack) {
       _close();
       return KeyEventResult.handled;
     }
@@ -153,8 +199,9 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
       if (k == LogicalKeyboardKey.arrowDown) {
         final filtered = _filteredChannels;
         if (filtered.isNotEmpty) {
-          final globalIdx = widget.channels
-              .indexWhere((ch) => ch.streamId == filtered.first.streamId);
+          final globalIdx = widget.channels.indexWhere(
+            (ch) => ch.streamId == filtered.first.streamId,
+          );
           _searchFocusNode.unfocus();
           _listFocusNode.requestFocus();
           setState(() => _focusedIndex = globalIdx);
@@ -168,12 +215,17 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     final filtered = _filteredChannels;
 
     if (k == LogicalKeyboardKey.arrowDown) {
-      final currentInFiltered = _focusedIndex >= 0 && _focusedIndex < widget.channels.length
-          ? filtered.indexWhere((ch) => ch.streamId == widget.channels[_focusedIndex].streamId)
+      final currentInFiltered =
+          _focusedIndex >= 0 && _focusedIndex < widget.channels.length
+          ? filtered.indexWhere(
+              (ch) => ch.streamId == widget.channels[_focusedIndex].streamId,
+            )
           : -1;
       final nextIdx = currentInFiltered + 1;
       if (nextIdx < filtered.length) {
-        final globalIdx = widget.channels.indexWhere((ch) => ch.streamId == filtered[nextIdx].streamId);
+        final globalIdx = widget.channels.indexWhere(
+          (ch) => ch.streamId == filtered[nextIdx].streamId,
+        );
         setState(() => _focusedIndex = globalIdx);
         _scrollToItem(nextIdx);
       }
@@ -181,12 +233,17 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     }
 
     if (k == LogicalKeyboardKey.arrowUp) {
-      final currentInFiltered = _focusedIndex >= 0 && _focusedIndex < widget.channels.length
-          ? filtered.indexWhere((ch) => ch.streamId == widget.channels[_focusedIndex].streamId)
+      final currentInFiltered =
+          _focusedIndex >= 0 && _focusedIndex < widget.channels.length
+          ? filtered.indexWhere(
+              (ch) => ch.streamId == widget.channels[_focusedIndex].streamId,
+            )
           : 0;
       final prevIdx = currentInFiltered - 1;
       if (prevIdx >= 0) {
-        final globalIdx = widget.channels.indexWhere((ch) => ch.streamId == filtered[prevIdx].streamId);
+        final globalIdx = widget.channels.indexWhere(
+          (ch) => ch.streamId == filtered[prevIdx].streamId,
+        );
         setState(() => _focusedIndex = globalIdx);
         _scrollToItem(prevIdx);
       } else {
@@ -233,7 +290,11 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
     }
 
     if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.select) {
-      if (_focusedIndex >= 0 && _focusedIndex < widget.channels.length) {
+      if (_focusedIndex >= 0 &&
+          _focusedIndex < widget.channels.length &&
+          filtered.any(
+            (c) => c.streamId == widget.channels[_focusedIndex].streamId,
+          )) {
         widget.onChannelSelected(_focusedIndex);
       }
       return KeyEventResult.handled;
@@ -286,7 +347,11 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                       padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
                       child: Row(
                         children: [
-                          const Icon(Icons.live_tv, color: AppColors.primary, size: 20),
+                          const Icon(
+                            Icons.live_tv,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -299,10 +364,17 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white54,
+                              size: 20,
+                            ),
                             onPressed: _close,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
                           ),
                         ],
                       ),
@@ -310,19 +382,35 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
 
                     // Search
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       child: TextField(
                         controller: _searchController,
                         focusNode: _searchFocusNode,
                         onChanged: _onSearch,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: l10n.searchChannelsHint,
-                          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                          prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.35), size: 18),
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.white.withValues(alpha: 0.35),
+                            size: 18,
+                          ),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: Icon(Icons.clear, color: Colors.white.withValues(alpha: 0.35), size: 16),
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: Colors.white.withValues(alpha: 0.35),
+                                    size: 16,
+                                  ),
                                   onPressed: () {
                                     _searchController.clear();
                                     _onSearch('');
@@ -335,7 +423,10 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           isDense: true,
                         ),
                       ),
@@ -347,18 +438,23 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                         height: 38,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           children: [
                             _CategoryTab(
                               label: l10n.all,
                               isActive: _selectedCategoryId == null,
                               onTap: () => _selectCategory(null),
                             ),
-                            ..._categories.map((cat) => _CategoryTab(
-                              label: cat.value,
-                              isActive: _selectedCategoryId == cat.key,
-                              onTap: () => _selectCategory(cat.key),
-                            )),
+                            ..._categories.map(
+                              (cat) => _CategoryTab(
+                                label: cat.value,
+                                isActive: _selectedCategoryId == cat.key,
+                                onTap: () => _selectCategory(cat.key),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -371,18 +467,26 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                           ? Center(
                               child: Text(
                                 l10n.noChannels,
-                                style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.35),
+                                  fontSize: 13,
+                                ),
                               ),
                             )
                           : ListView.builder(
                               controller: _scrollController,
                               itemCount: filtered.length,
                               itemExtent: 56,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               itemBuilder: (context, index) {
                                 final ch = filtered[index];
-                                final globalIdx = widget.channels.indexWhere((c) => c.streamId == ch.streamId);
-                                final isActive = globalIdx == widget.currentChannelIndex;
+                                final globalIdx = widget.channels.indexWhere(
+                                  (c) => c.streamId == ch.streamId,
+                                );
+                                final isActive =
+                                    globalIdx == widget.currentChannelIndex;
                                 final isFocused = globalIdx == _focusedIndex;
 
                                 return _ChannelItem(
@@ -390,8 +494,10 @@ class _ChannelListOverlayState extends State<ChannelListOverlay>
                                   index: index + 1,
                                   isActive: isActive,
                                   isFocused: isFocused,
-                                  onTap: () => widget.onChannelSelected(globalIdx),
-                                  onHover: () => setState(() => _focusedIndex = globalIdx),
+                                  onTap: () =>
+                                      widget.onChannelSelected(globalIdx),
+                                  onHover: () =>
+                                      setState(() => _focusedIndex = globalIdx),
                                 );
                               },
                             ),
@@ -431,13 +537,17 @@ class _CategoryTab extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
-            color: isActive ? Colors.red.shade700 : Colors.white.withValues(alpha: 0.06),
+            color: isActive
+                ? Colors.red.shade700
+                : Colors.white.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.6),
+              color: isActive
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.6),
               fontSize: 12,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -496,14 +606,14 @@ class _ChannelItemState extends State<_ChannelItem> {
             color: widget.isActive
                 ? Colors.red.withValues(alpha: 0.15)
                 : isHighlight
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : Colors.transparent,
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: widget.isFocused && !widget.isActive
                 ? Border.all(color: Colors.white.withValues(alpha: 0.15))
                 : widget.isActive && widget.isFocused
-                    ? Border.all(color: Colors.red.withValues(alpha: 0.4))
-                    : null,
+                ? Border.all(color: Colors.red.withValues(alpha: 0.4))
+                : null,
           ),
           child: Row(
             children: [
@@ -523,7 +633,8 @@ class _ChannelItemState extends State<_ChannelItem> {
               const SizedBox(width: 10),
 
               // Logo
-              if (widget.channel.logo != null && widget.channel.logo!.isNotEmpty)
+              if (widget.channel.logo != null &&
+                  widget.channel.logo!.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: CachedNetworkImage(
@@ -532,7 +643,8 @@ class _ChannelItemState extends State<_ChannelItem> {
                     height: 22,
                     fit: BoxFit.contain,
                     memCacheWidth: 96,
-                    errorWidget: (_, _, _) => const SizedBox(width: 32, height: 22),
+                    errorWidget: (_, _, _) =>
+                        const SizedBox(width: 32, height: 22),
                   ),
                 )
               else
@@ -544,9 +656,13 @@ class _ChannelItemState extends State<_ChannelItem> {
                 child: Text(
                   widget.channel.name,
                   style: TextStyle(
-                    color: widget.isActive ? Colors.white : Colors.white.withValues(alpha: 0.75),
+                    color: widget.isActive
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.75),
                     fontSize: 13,
-                    fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: widget.isActive
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

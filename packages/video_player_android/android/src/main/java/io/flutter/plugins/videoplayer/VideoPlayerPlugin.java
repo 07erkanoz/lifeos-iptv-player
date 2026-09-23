@@ -39,11 +39,32 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
     playbackConfigChannel = new MethodChannel(binding.getBinaryMessenger(), "com.lifeostv.lifeostv/playback_config");
     playbackConfigChannel.setMethodCallHandler((call, result) -> {
-      if ("configure".equals(call.method) && call.arguments instanceof Map) {
-        playbackConfig.update((Map<?, ?>) call.arguments);
-        result.success(null);
-      } else {
-        result.notImplemented();
+      try {
+        Map<?, ?> args = call.arguments instanceof Map ? (Map<?, ?>) call.arguments : java.util.Collections.emptyMap();
+        switch (call.method) {
+          case "configure":
+            playbackConfig.update(args);
+            result.success(null);
+            break;
+          case "resolveSubtitlePlayer":
+            result.success(LifeOsSubtitles.resolve(videoPlayers, String.valueOf(args.get("uri"))));
+            break;
+          case "getSubtitleTracks":
+          case "selectSubtitleTrack":
+            if (!(args.get("playerId") instanceof Number)) throw new IllegalArgumentException("Missing session");
+            var player = getPlayer(((Number) args.get("playerId")).longValue()).getExoPlayer();
+            if ("getSubtitleTracks".equals(call.method)) {
+              result.success(LifeOsSubtitles.tracks(player));
+            } else {
+              LifeOsSubtitles.select(player, args);
+              result.success(null);
+            }
+            break;
+          default: result.notImplemented();
+        }
+      } catch (RuntimeException error) {
+        // Native exception messages may contain provider URLs; keep errors generic.
+        result.error("subtitle_session", "Subtitle session unavailable", null);
       }
     });
     final FlutterInjector injector = FlutterInjector.instance();
@@ -55,6 +76,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             injector.flutterLoader()::getLookupKeyForAsset,
             binding.getTextureRegistry());
     flutterState.startListening(this, binding.getBinaryMessenger());
+
+    binding.getPlatformViewRegistry().registerViewFactory(
+        "com.lifeostv.lifeostv/subtitles", new LifeOsSubtitles.Factory(videoPlayers));
 
     binding
         .getPlatformViewRegistry()

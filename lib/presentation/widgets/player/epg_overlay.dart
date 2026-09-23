@@ -55,6 +55,7 @@ class _EpgOverlayState extends State<EpgOverlay>
   /// the list (the rows are index-simulated, not individual focus nodes).
   /// Seeded to the current programme on open.
   int _focusedIndex = -1;
+  bool _closing = false;
   static const _kTileExtent = 72.0;
 
   @override
@@ -72,10 +73,24 @@ class _EpgOverlayState extends State<EpgOverlay>
     _slideAnim.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _focusNode.requestFocus();
       // Scroll to the current program
       _scrollToCurrentProgram();
     });
+  }
+
+  @override
+  void didUpdateWidget(EpgOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldId =
+        _focusedIndex >= 0 && _focusedIndex < oldWidget.programs.length
+        ? oldWidget.programs[_focusedIndex].id
+        : null;
+    final retained = widget.programs.indexWhere((p) => p.id == oldId);
+    _focusedIndex = retained >= 0
+        ? retained
+        : (widget.programs.isEmpty ? -1 : 0);
   }
 
   @override
@@ -103,8 +118,10 @@ class _EpgOverlayState extends State<EpgOverlay>
     }
     if (currentIdx > 0 && _scrollController.hasClients) {
       // Each item is ~72px height, scroll to center it
-      final offset =
-          (currentIdx * _kTileExtent - _kTileExtent).clamp(0.0, double.maxFinite);
+      final offset = (currentIdx * _kTileExtent - _kTileExtent).clamp(
+        0.0,
+        double.maxFinite,
+      );
       _scrollController.animateTo(
         offset,
         duration: const Duration(milliseconds: 300),
@@ -126,12 +143,18 @@ class _EpgOverlayState extends State<EpgOverlay>
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
     final k = event.logicalKey;
+    if (event is KeyRepeatEvent &&
+        k != LogicalKeyboardKey.arrowDown &&
+        k != LogicalKeyboardKey.arrowUp)
+      return KeyEventResult.handled;
 
     // Close on Escape, Back, or G key
     if (k == LogicalKeyboardKey.escape ||
         k == LogicalKeyboardKey.goBack ||
+        k == LogicalKeyboardKey.browserBack ||
         k == LogicalKeyboardKey.keyG) {
       _close();
       return KeyEventResult.handled;
@@ -181,6 +204,8 @@ class _EpgOverlayState extends State<EpgOverlay>
   }
 
   void _close() {
+    if (_closing) return;
+    _closing = true;
     _slideAnim.reverse().then((_) {
       if (mounted) widget.onClose();
     });
@@ -235,16 +260,15 @@ class _EpgOverlayState extends State<EpgOverlay>
                           children: [
                             // Header
                             _buildHeader(context),
-                            const Divider(
-                              color: Colors.white10,
-                              height: 1,
-                            ),
+                            const Divider(color: Colors.white10, height: 1),
                             // Program list
                             Expanded(
                               child: widget.programs.isEmpty
                                   ? Center(
                                       child: Text(
-                                        AppLocalizations.of(context)!.noProgramInfo,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.noProgramInfo,
                                         style: const TextStyle(
                                           color: Colors.white30,
                                           fontSize: 14,
@@ -301,11 +325,7 @@ class _EpgOverlayState extends State<EpgOverlay>
                     color: AppColors.surfaceElevatedDark,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.tv,
-                    color: Colors.white24,
-                    size: 18,
-                  ),
+                  child: const Icon(Icons.tv, color: Colors.white24, size: 18),
                 ),
               ),
             ),
@@ -348,9 +368,12 @@ class _EpgOverlayState extends State<EpgOverlay>
   }
 
   Widget _buildProgramTile(
-      Program program, DateTime now, bool isCompact, bool isFocused) {
-    final isCurrent =
-        program.start.isBefore(now) && program.stop.isAfter(now);
+    Program program,
+    DateTime now,
+    bool isCompact,
+    bool isFocused,
+  ) {
+    final isCurrent = program.start.isBefore(now) && program.stop.isAfter(now);
     final isPast = program.stop.isBefore(now);
     final startStr = DateFormat('HH:mm').format(program.start);
     final stopStr = DateFormat('HH:mm').format(program.stop);
@@ -367,7 +390,8 @@ class _EpgOverlayState extends State<EpgOverlay>
     // Catch-up gate: past + within timeshift window + caller supplied
     // a handler. Tiles outside the window stay non-tappable (the
     // server would 404 anyway).
-    final isCatchUpAble = isPast &&
+    final isCatchUpAble =
+        isPast &&
         widget.onCatchUp != null &&
         now.difference(program.stop) <= widget.catchUpWindow;
 
@@ -377,19 +401,19 @@ class _EpgOverlayState extends State<EpgOverlay>
         color: isFocused
             ? AppColors.primary.withValues(alpha: 0.22)
             : isCurrent
-                ? AppColors.primary.withValues(alpha: 0.15)
-                : Colors.transparent,
+            ? AppColors.primary.withValues(alpha: 0.15)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         // D-pad focus ring takes precedence over the "now playing" hint
         // so the remote user can always see where they are.
         border: isFocused
             ? Border.all(color: AppColors.primary, width: 2.5)
             : isCurrent
-                ? Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    width: 1,
-                  )
-                : null,
+            ? Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                width: 1,
+              )
+            : null,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -407,11 +431,10 @@ class _EpgOverlayState extends State<EpgOverlay>
                       color: isCurrent
                           ? AppColors.primary
                           : isPast
-                              ? Colors.white24
-                              : Colors.white54,
+                          ? Colors.white24
+                          : Colors.white54,
                       fontSize: 12,
-                      fontWeight:
-                          isCurrent ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -422,8 +445,7 @@ class _EpgOverlayState extends State<EpgOverlay>
                     style: TextStyle(
                       color: isPast ? Colors.white30 : Colors.white,
                       fontSize: 14,
-                      fontWeight:
-                          isCurrent ? FontWeight.w700 : FontWeight.w400,
+                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -518,8 +540,7 @@ class _EpgOverlayState extends State<EpgOverlay>
                 child: LinearProgressIndicator(
                   value: progress,
                   backgroundColor: Colors.white12,
-                  valueColor:
-                      const AlwaysStoppedAnimation(AppColors.primary),
+                  valueColor: const AlwaysStoppedAnimation(AppColors.primary),
                   minHeight: 3,
                 ),
               ),

@@ -17,14 +17,20 @@ public final class LifeOsPlaybackConfig {
   private boolean live = false;
   private int bufferSeconds = 30;
   private int maxVideoBitrate = Integer.MAX_VALUE;
+  private String audioLanguage;
+  private String subtitleLanguage;
+  private int maxVideoHeight = Integer.MAX_VALUE;
 
   public void update(Map<?, ?> args) {
     hardwareAcceleration = !Boolean.FALSE.equals(args.get("hardwareAcceleration"));
     live = Boolean.TRUE.equals(args.get("live"));
     Object seconds = args.get("bufferSeconds");
     bufferSeconds = Math.max(5, Math.min(120, seconds instanceof Number ? ((Number) seconds).intValue() : 30));
+    audioLanguage = args.get("audioLanguage") instanceof String ? (String) args.get("audioLanguage") : null;
+    subtitleLanguage = args.get("subtitleLanguage") instanceof String ? (String) args.get("subtitleLanguage") : null;
     Object quality = args.get("quality");
     maxVideoBitrate = "low".equals(quality) ? 1000000 : "medium".equals(quality) ? 3000000 : Integer.MAX_VALUE;
+    maxVideoHeight = "low".equals(quality) ? 480 : "medium".equals(quality) ? 720 : "high".equals(quality) ? 1080 : Integer.MAX_VALUE;
   }
 
   public ExoPlayer.Builder configure(Context context, DefaultTrackSelector selector) {
@@ -50,7 +56,9 @@ public final class LifeOsPlaybackConfig {
         .setPrioritizeTimeOverSizeThresholds(false)
         .setBackBuffer(live ? 0 : 10000, true)
         .build();
-    selector.setParameters(selector.buildUponParameters().setMaxVideoBitrate(maxVideoBitrate));
+    selector.setParameters(selector.buildUponParameters().setMaxVideoBitrate(maxVideoBitrate).setMaxVideoSize(Integer.MAX_VALUE, maxVideoHeight)
+        .setPreferredAudioLanguage(audioLanguage).setPreferredTextLanguage(subtitleLanguage)
+        .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, subtitleLanguage == null));
     return new ExoPlayer.Builder(context, renderers).setTrackSelector(selector).setLoadControl(load);
   }
 }

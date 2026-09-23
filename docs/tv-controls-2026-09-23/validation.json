@@ -1,0 +1,18 @@
+{
+  "flutter_tests": 425,
+  "analyzer": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 46
+  },
+  "android_native_tests": {
+    "tests": 65,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "linux_release": "passed",
+  "android_debug_apk": "passed",
+  "github_workflow": "Build & Release disabled_manually; no Apple or Windows CI run",
+  "device_acceptance": "Android TV/phone, native subtitle rendering, real codec/HDR, Cast receivers, Windows/macOS/iOS not exercised"
+}

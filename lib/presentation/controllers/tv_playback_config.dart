@@ -11,5 +11,9 @@ class TvPlaybackConfig {
         'bufferSeconds': settings.bufferDuration.clamp(5, 120),
         'live': live,
         'quality': settings.streamQuality.name,
+        if (settings.lastPlayerAudioLanguage?.isNotEmpty == true)
+          'audioLanguage': settings.lastPlayerAudioLanguage,
+        if (settings.lastPlayerSubtitleLanguage?.isNotEmpty == true)
+          'subtitleLanguage': settings.lastPlayerSubtitleLanguage,
       });
 }

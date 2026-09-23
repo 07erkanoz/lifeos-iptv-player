@@ -20,7 +20,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
-import 'package:lifeostv/data/services/epg_request_gate.dart';
+import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/core/platform_helper.dart';
@@ -79,10 +79,6 @@ final _continueWatchingLiveProvider = StreamProvider<List<Channel>>((ref) {
 final _epgClockProvider = StreamProvider.autoDispose<DateTime>((ref) async* {
   yield DateTime.now();
   yield* Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
-});
-final _epgGateProvider = Provider((ref) {
-  ref.watch(appDatabaseProvider);
-  return EpgRequestGate();
 });
 
 final _channelProgramsProvider = StreamProvider.autoDispose
@@ -2437,7 +2433,7 @@ class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
     final repo = ref.read(contentRepositoryProvider).forAccount(account.id);
     unawaited(
       ref
-          .read(_epgGateProvider)
+          .read(epgRequestGateProvider)
           .request(
             account.id,
             channel.streamId,
@@ -2864,7 +2860,7 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
     final repo = ref.read(contentRepositoryProvider).forAccount(account.id);
     unawaited(
       ref
-          .read(_epgGateProvider)
+          .read(epgRequestGateProvider)
           .request(
             account.id,
             channel.streamId,

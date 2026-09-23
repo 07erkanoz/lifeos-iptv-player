@@ -1,3 +1,12 @@
+import 'package:lifeostv/data/services/subtitle_track_matcher.dart';
+import 'package:lifeostv/presentation/controllers/tv_subtitle_controller.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
+import 'package:drift/drift.dart'
+    show OrderingTerm, ComparableExpr, BooleanExpressionOperators;
+import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
+import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
+import 'package:lifeostv/data/repositories/content_repository.dart';
+import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
@@ -31,9 +40,8 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
 /// screen is routed ONLY when `Android && PlatformHelper.isTV`; every other
 /// platform keeps the full media_kit [VideoPlayerScreen] untouched.
 ///
-/// Milestone 1: core playback + D-pad controls (OK = play/pause, ←/→ seek on
-/// VOD, ↑/↓ channel switch on live), resume-position save, buffering/error
-/// states. Channel list / EPG / subtitle / cast overlays come next.
+/// D-pad controls, live channel/EPG panels, audio/subtitle and quality
+/// selection share this route. Cast integration remains separate work.
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final Map<String, String> httpHeaders;
@@ -79,16 +87,45 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
       _TvVideoPlayerScreenState();
 }
 
+enum _TvPanel { channels, epg }
+
 class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     with WidgetsBindingObserver {
   late final PlayerRepository _progressRepository;
   bool _switchingEpisode = false;
   final _episodePlayFocus = FocusNode();
   VideoPlayerController? _controller;
+  TvSubtitleController? _subtitles;
+  bool _subtitleVisible = false;
   final _focusNode = FocusNode();
 
   bool _showControls = true;
-  bool _trackDialogOpen = false;
+  bool _modalOpen = false;
+  _TvPanel? _panel;
+  late final AppDatabase _sessionDb;
+  StreamSubscription<List<Program>>? _epgSubscription;
+  List<Program> _programs = [];
+  Timer? _epgClock;
+  int get _activeChannelId {
+    final channels = widget.channels;
+    return channels != null &&
+            _channelIndex >= 0 &&
+            _channelIndex < channels.length
+        ? channels[_channelIndex].streamId
+        : widget.streamId;
+  }
+
+  String? get _programTitle {
+    final now = DateTime.now();
+    for (final program in _programs) {
+      if (!program.start.isAfter(now) && program.stop.isAfter(now))
+        return program.title;
+    }
+    return _activeChannelId == widget.streamId
+        ? widget.currentProgramTitle
+        : null;
+  }
+
   bool _buffering = true;
   String? _error;
 
@@ -98,6 +135,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   int _openGeneration = 0;
   bool _disposed = false;
   bool _backgrounded = false;
+  bool _resumeAfterBackground = false;
+  final _controllerWork = Expando<Future<void>>();
   Timer? _bufferingTimeout;
   bool _savedInitialProgress = false;
 
@@ -124,6 +163,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             () => profileId,
           );
 
+    _sessionDb = widget.accountId == null
+        ? ref.read(appDatabaseProvider)
+        : ref.read(rootDatabaseProvider).forAccount(widget.accountId!);
     WidgetsBinding.instance.addObserver(this);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
@@ -131,12 +173,20 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _title = widget.title;
     _logo = widget.logo;
     _channelIndex = widget.currentChannelIndex ?? 0;
+    if (_isLive) {
+      _watchEpg();
+      _epgClock = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted && (_showControls || _panel == _TvPanel.epg))
+          setState(() {});
+      });
+    }
     _seek = PlaybackSeekController(
       position: () => _controller?.value.position ?? Duration.zero,
       duration: () => _controller?.value.duration ?? Duration.zero,
       seek: (target) async {
         final c = _controller;
-        if (c != null && c.value.isInitialized) await c.seekTo(target);
+        if (c != null && c.value.isInitialized)
+          await _command(c, () => c.seekTo(target));
       },
       onPreview: (_) {
         if (mounted) setState(() {});
@@ -166,26 +216,52 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _saveProgress();
     _seek.dispose();
     _hideTimer?.cancel();
+    _epgClock?.cancel();
+    _epgSubscription?.cancel();
     _saveTimer?.cancel();
     _controller?.removeListener(_onValue);
-    _controller?.dispose();
+    final retiring = _controller;
+    if (retiring != null) unawaited(_retireController(retiring));
     _focusNode.dispose();
     _episodePlayFocus.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
 
+  Future<void> _command(VideoPlayerController c, Future<void> Function() run) {
+    final next = (_controllerWork[c] ?? Future<void>.value()).then((_) async {
+      if (!_disposed && identical(_controller, c)) await run();
+    });
+    final safe = next.catchError((Object _) {
+      if (mounted && identical(_controller, c) && _error == null) _fail();
+    });
+    _controllerWork[c] = safe;
+    return safe;
+  }
+
+  Future<void> _retireController(VideoPlayerController c) async {
+    await (_controllerWork[c] ?? Future<void>.value());
+    await c.dispose().catchError((Object _) {});
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _backgrounded = false;
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
+    final c = _controller;
+    if (state == AppLifecycleState.resumed) {
+      _backgrounded = false;
+      final resume = _resumeAfterBackground;
+      _resumeAfterBackground = false;
+      if (resume && c != null && c.value.isInitialized && _error == null) {
+        unawaited(_command(c, c.play));
+      }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      if (!_backgrounded) _resumeAfterBackground = c?.value.isPlaying ?? false;
       _backgrounded = true;
       _bufferingTimeout?.cancel();
       _bufferingTimeout = null;
-      unawaited(
-        _controller?.pause().catchError((Object _) {}) ?? Future.value(),
-      );
+      if (c != null) unawaited(_command(c, c.pause));
       _saveProgress();
     }
   }
@@ -201,7 +277,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _buffering = false;
       _showControls = true;
     });
-    unawaited(_controller?.pause().catchError((Object _) {}) ?? Future.value());
+    final c = _controller;
+    if (c != null) unawaited(_command(c, c.pause));
   }
 
   VideoFormat? _formatHint(String url) {
@@ -211,7 +288,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     return null; // ExoPlayer auto-detects TS / MP4 / MKV containers.
   }
 
-  Future<void> _open(String url, {Duration? startAt}) async {
+  Future<void> _open(
+    String url, {
+    Duration? startAt,
+    bool autoplay = true,
+  }) async {
     if (_disposed) return;
     final generation = ++_openGeneration;
     _seek.cancel();
@@ -220,8 +301,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     // Tear down any previous controller (channel switch / retry).
     final old = _controller;
     _controller = null;
+    _subtitles = null;
+    _subtitleVisible = false;
     old?.removeListener(_onValue);
-    await old?.dispose().catchError((Object _) {});
+    if (old != null) await _retireController(old);
     if (!mounted || _disposed || generation != _openGeneration) return;
 
     if (mounted) {
@@ -249,7 +332,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       // spinner (connection accepted then starved, no data). A VLC UA is the
       // most broadly whitelisted.
       httpHeaders: request.headers,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+      // The route owns lifecycle and serializes commands with disposal. The
+      // plugin observer would otherwise issue an untracked resume/play.
+      videoPlayerOptions: VideoPlayerOptions(
+        mixWithOthers: false,
+        allowBackgroundPlayback: true,
+      ),
     );
     _controller = c;
     c.addListener(_onValue);
@@ -281,7 +369,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         }
       }
       if (resume != null && resume > Duration.zero && !_isLive) {
-        await c.seekTo(PlaybackSeekController.clamp(resume, c.value.duration));
+        await _command(
+          c,
+          () =>
+              c.seekTo(PlaybackSeekController.clamp(resume!, c.value.duration)),
+        );
       }
       if (!mounted ||
           _disposed ||
@@ -290,7 +382,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         return;
       }
       if (_error != null) return;
-      if (!_backgrounded) await c.play();
+      if (!_backgrounded && autoplay) await _command(c, c.play);
+      unawaited(
+        _bindSubtitles(c, Uri.parse(request.url).toString(), generation),
+      );
       if (mounted &&
           !_disposed &&
           generation == _openGeneration &&
@@ -302,7 +397,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       if (_controller == c) {
         c.removeListener(_onValue);
         _controller = null;
-        await c.dispose().catchError((Object _) {});
+        await _retireController(c);
       }
       if (mounted && !_disposed && generation == _openGeneration) {
         _fail(timeout: e is TimeoutException);
@@ -343,7 +438,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
-    if (_error != null || _trackDialogOpen) return;
+    if (_error != null || _modalOpen || _panel != null) return;
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         _focusNode.requestFocus();
@@ -367,9 +462,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     if (c.value.isPlaying) {
-      c.pause();
+      unawaited(_command(c, c.pause));
     } else {
-      c.play();
+      unawaited(_command(c, c.play));
     }
     _showControlsBriefly();
   }
@@ -395,6 +490,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _title = ch.name;
       _logo = ch.logo;
     });
+    _watchEpg();
     _open(ch.url);
     _showControlsBriefly();
   }
@@ -443,13 +539,229 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     if (mounted && !_disposed) callback();
   }
 
+  void _watchEpg() {
+    _epgSubscription?.cancel();
+    _programs = [];
+    final id = _activeChannelId;
+    final p = _sessionDb.programs;
+    _epgSubscription =
+        (_sessionDb.select(p)
+              ..where(
+                (p) =>
+                    p.channelId.equals(id) &
+                    p.stop.isBiggerThanValue(DateTime.now()),
+              )
+              ..orderBy([(p) => OrderingTerm(expression: p.start)]))
+            .watch()
+            .listen((programs) {
+              if (!mounted || id != _activeChannelId) return;
+              _programs = programs;
+              if (_showControls || _panel == _TvPanel.epg) setState(() {});
+            }, onError: (Object _) {});
+  }
+
+  void _openPanel(_TvPanel panel) {
+    if (!_isLive || _modalOpen) return;
+    _hideTimer?.cancel();
+    setState(() {
+      _panel = panel;
+      _showControls = true;
+    });
+    if (panel == _TvPanel.epg) {
+      final account = widget.accountId ?? _sessionDb.accountScope;
+      if (account != null) {
+        final id = _activeChannelId;
+        final repo = ref.read(contentRepositoryProvider).forAccount(account);
+        unawaited(
+          ref
+              .read(epgRequestGateProvider)
+              .request(account, id, () => repo.syncChannelEpg(account, '$id')),
+        );
+      }
+    }
+  }
+
+  void _closePanel() {
+    if (!mounted || _panel == null) return;
+    setState(() => _panel = null);
+    _showControlsBriefly();
+    _episodePlayFocus.requestFocus();
+  }
+
+  Future<void> _bindSubtitles(
+    VideoPlayerController c,
+    String url,
+    int generation,
+  ) async {
+    try {
+      final subtitles = await TvSubtitleController.resolve(url);
+      if (!mounted ||
+          generation != _openGeneration ||
+          c != _controller ||
+          subtitles == null)
+        return;
+      final tracks = await subtitles.tracks();
+      if (!mounted || generation != _openGeneration || c != _controller) return;
+      final settings = ref.read(settingsProvider);
+      final match = findBestSubtitleTrack(
+        tracks: [
+          for (var i = 0; i < tracks.length; i++)
+            (
+              id: '$i',
+              language: tracks[i]['language'] as String?,
+              title: tracks[i]['label'] as String?,
+            ),
+        ],
+        wantLanguage: settings.lastPlayerSubtitleLanguage,
+        wantTitle: settings.lastPlayerSubtitleTitle,
+      );
+      if (match != null) await subtitles.select(tracks[int.parse(match.id)]);
+      if (!mounted || generation != _openGeneration || c != _controller) return;
+      setState(() {
+        _subtitles = subtitles;
+        _subtitleVisible =
+            match != null || tracks.any((t) => t['selected'] == true);
+      });
+    } catch (_) {
+      /* Optional subtitles never prevent video playback. */
+    }
+  }
+
+  Future<void> _chooseSubtitles() async {
+    final subtitles = _subtitles;
+    if (_modalOpen || subtitles == null) return;
+    _modalOpen = true;
+    _hideTimer?.cancel();
+    final generation = _openGeneration;
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final tracks = await subtitles.tracks();
+      if (!mounted || generation != _openGeneration) return;
+      final selected = await showDialog<int>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(l10n.subtitle),
+          children: [
+            ListTile(
+              autofocus: !tracks.any((t) => t['selected'] == true),
+              leading: const Icon(Icons.subtitles_off),
+              title: Text(l10n.profileGroupClear),
+              onTap: () => Navigator.of(dialogContext).pop(-1),
+            ),
+            for (var i = 0; i < tracks.length; i++)
+              ListTile(
+                autofocus: tracks[i]['selected'] == true,
+                selected: tracks[i]['selected'] == true,
+                title: Text(
+                  [tracks[i]['label'], tracks[i]['language']]
+                          .whereType<String>()
+                          .where((s) => s.isNotEmpty)
+                          .join(' · ')
+                          .isEmpty
+                      ? '${l10n.subtitle} ${i + 1}'
+                      : [tracks[i]['label'], tracks[i]['language']]
+                            .whereType<String>()
+                            .where((s) => s.isNotEmpty)
+                            .join(' · '),
+                ),
+                onTap: () => Navigator.of(dialogContext).pop(i),
+              ),
+          ],
+        ),
+      );
+      if (selected != null && mounted && generation == _openGeneration) {
+        await subtitles.select(selected < 0 ? null : tracks[selected]);
+        if (!mounted || generation != _openGeneration) return;
+        setState(() => _subtitleVisible = selected >= 0);
+        final settings = ref.read(settingsProvider);
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              selected < 0
+                  ? settings.copyWith(clearLastPlayerSubtitleLanguage: true)
+                  : settings.copyWith(
+                      lastPlayerSubtitleLanguage:
+                          tracks[selected]['language'] as String? ?? '',
+                      lastPlayerSubtitleTitle:
+                          tracks[selected]['label'] as String? ?? '',
+                    ),
+            );
+      }
+    } catch (_) {
+      if (mounted && generation == _openGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.subtitle}: ${l10n.error}')),
+        );
+      }
+    } finally {
+      _modalOpen = false;
+      if (mounted && generation == _openGeneration) {
+        _showControlsBriefly();
+        _episodePlayFocus.requestFocus();
+      }
+    }
+  }
+
+  Future<void> _chooseQuality() async {
+    final c = _controller;
+    if (_modalOpen || c == null || !c.value.isInitialized) return;
+    _modalOpen = true;
+    _hideTimer?.cancel();
+    var expectedGeneration = _openGeneration;
+    final l10n = AppLocalizations.of(context)!;
+    final current = ref.read(settingsProvider).streamQuality;
+    try {
+      final selected = await showDialog<StreamQuality>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(l10n.streamQuality),
+          children: [
+            for (final quality in StreamQuality.values)
+              ListTile(
+                autofocus: quality == current,
+                onTap: () => Navigator.of(dialogContext).pop(quality),
+                title: Text(switch (quality) {
+                  StreamQuality.auto => l10n.qualityAuto,
+                  StreamQuality.high => l10n.qualityHigh,
+                  StreamQuality.medium => l10n.qualityMedium,
+                  StreamQuality.low => l10n.qualityLow,
+                }),
+              ),
+          ],
+        ),
+      );
+      if (!mounted ||
+          expectedGeneration != _openGeneration ||
+          selected == null ||
+          selected == current)
+        return;
+      final wasPlaying = c.value.isPlaying;
+      final position = c.value.position;
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            ref.read(settingsProvider).copyWith(streamQuality: selected),
+          );
+      expectedGeneration++;
+      await _open(
+        _url,
+        startAt: _isLive ? null : position,
+        autoplay: wasPlaying,
+      );
+    } finally {
+      _modalOpen = false;
+      if (mounted && expectedGeneration == _openGeneration) {
+        _showControlsBriefly();
+        _episodePlayFocus.requestFocus();
+      }
+    }
+  }
+
   Future<void> _chooseAudioTrack() async {
     final controller = _controller;
-    if (_trackDialogOpen ||
-        controller == null ||
-        !controller.value.isInitialized)
+    if (_modalOpen || controller == null || !controller.value.isInitialized)
       return;
-    _trackDialogOpen = true;
+    _modalOpen = true;
     _hideTimer?.cancel();
     final generation = _openGeneration;
     final l10n = AppLocalizations.of(context)!;
@@ -510,6 +822,19 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         await controller
             .selectAudioTrack(selected)
             .timeout(const Duration(seconds: 5));
+        if (mounted && generation == _openGeneration) {
+          final track = tracks.firstWhere((t) => t.id == selected);
+          ref
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                ref
+                    .read(settingsProvider)
+                    .copyWith(
+                      lastPlayerAudioLanguage: track.language ?? '',
+                      lastPlayerAudioTitle: track.label ?? '',
+                    ),
+              );
+        }
       }
     } catch (_) {
       if (mounted && generation == _openGeneration) {
@@ -518,7 +843,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         );
       }
     } finally {
-      _trackDialogOpen = false;
+      _modalOpen = false;
       if (mounted && generation == _openGeneration) {
         _showControlsBriefly();
         _episodePlayFocus.requestFocus();
@@ -531,6 +856,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final k = event.logicalKey;
+    if (_panel != null) return KeyEventResult.ignored;
 
     if (k == LogicalKeyboardKey.escape ||
         k == LogicalKeyboardKey.goBack ||
@@ -553,6 +879,13 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _togglePlay();
       return KeyEventResult.handled;
     }
+    if (_isLive &&
+        (k == LogicalKeyboardKey.keyC || k == LogicalKeyboardKey.keyG)) {
+      _openPanel(
+        k == LogicalKeyboardKey.keyC ? _TvPanel.channels : _TvPanel.epg,
+      );
+      return KeyEventResult.handled;
+    }
     if (k == LogicalKeyboardKey.contextMenu || k == LogicalKeyboardKey.info) {
       _showControlsBriefly();
       _episodePlayFocus.requestFocus();
@@ -571,11 +904,19 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowLeft) {
-      _seekBy(-10);
+      if (_isLive) {
+        _openPanel(_TvPanel.channels);
+      } else {
+        _seekBy(-10);
+      }
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowRight) {
-      _seekBy(10);
+      if (_isLive) {
+        _openPanel(_TvPanel.epg);
+      } else {
+        _seekBy(10);
+      }
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowUp) {
@@ -611,19 +952,32 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Keep preferences alive across asynchronous controller replacement.
+    final settings = ref.watch(settingsProvider);
+    final subtitleColor =
+        0xff000000 |
+        ((int.tryParse(
+                  settings.subtitleColor.replaceFirst('#', ''),
+                  radix: 16,
+                ) ??
+                0xffffff) &
+            0xffffff);
     final c = _controller;
     final v = c?.value;
     return PopScope(
-      canPop: true,
+      canPop: _panel == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closePanel();
+      },
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: _handleKey,
         child: GestureDetector(
           onTap: _showControlsBriefly,
-          child: ColoredBox(
-            color: Colors.black,
-            child: Stack(
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: Stack(
               fit: StackFit.expand,
               children: [
                 // Video
@@ -631,7 +985,32 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   Center(
                     child: AspectRatio(
                       aspectRatio: v.aspectRatio > 0 ? v.aspectRatio : 16 / 9,
-                      child: VideoPlayer(c!),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          VideoPlayer(c!),
+                          if (_subtitles != null && _subtitleVisible)
+                            IgnorePointer(
+                              child: ExcludeFocus(
+                                child: AndroidView(
+                                  key: ValueKey(_subtitles!.playerId),
+                                  viewType: 'com.lifeostv.lifeostv/subtitles',
+                                  creationParamsCodec:
+                                      const StandardMessageCodec(),
+                                  creationParams: {
+                                    'playerId': _subtitles!.playerId,
+                                    'fontFraction':
+                                        settings.subtitleFontSize / 1080.0,
+                                    'color': subtitleColor,
+                                    'bold': settings.subtitleBold,
+                                    'background':
+                                        settings.subtitleBackgroundEnabled,
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
 
@@ -646,9 +1025,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   opacity: _showControls ? 1 : 0,
                   duration: const Duration(milliseconds: 150),
                   child: IgnorePointer(
-                    ignoring: !_showControls,
+                    ignoring: !_showControls || _panel != null,
                     child: ExcludeFocus(
-                      excluding: !_showControls || _error != null,
+                      excluding:
+                          !_showControls || _error != null || _panel != null,
                       child: _buildControls(v),
                     ),
                   ),
@@ -684,6 +1064,40 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                         ],
                       ),
                     ),
+                  ),
+                if (_panel == _TvPanel.channels)
+                  ChannelListOverlay(
+                    channels:
+                        widget.channels ??
+                        [
+                          PlayerChannel(
+                            streamId: widget.streamId,
+                            name: _title,
+                            url: _url,
+                            httpHeaders: _headers,
+                          ),
+                        ],
+                    currentChannelIndex: _channelIndex,
+                    categoryNames: {
+                      for (final c in widget.channels ?? <PlayerChannel>[])
+                        if (c.categoryId != null && c.categoryName != null)
+                          c.categoryId!: c.categoryName!,
+                    },
+                    onChannelSelected: (index) {
+                      if (index != _channelIndex)
+                        _channelStep(index - _channelIndex);
+                      _closePanel();
+                    },
+                    onClose: _closePanel,
+                  ),
+                if (_panel == _TvPanel.epg)
+                  EpgOverlay(
+                    programs: _programs
+                        .where((p) => p.stop.isAfter(DateTime.now()))
+                        .toList(),
+                    channelName: _title,
+                    channelLogo: _logo,
+                    onClose: _closePanel,
                   ),
               ],
             ),
@@ -755,10 +1169,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (widget.currentProgramTitle != null &&
-                          widget.currentProgramTitle!.isNotEmpty)
+                      if (_programTitle != null && _programTitle!.isNotEmpty)
                         Text(
-                          widget.currentProgramTitle!,
+                          _programTitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -826,11 +1239,45 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ],
             ),
             const SizedBox(height: 8),
-            IconButton(
-              key: const ValueKey('tv-audio-tracks'),
-              tooltip: AppLocalizations.of(context)!.audioTrack,
-              onPressed: v?.isInitialized == true ? _chooseAudioTrack : null,
-              icon: const Icon(Icons.audiotrack, color: Colors.white),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isLive)
+                  IconButton(
+                    key: const ValueKey('tv-channel-list'),
+                    tooltip: AppLocalizations.of(context)!.channelList,
+                    onPressed: () => _openPanel(_TvPanel.channels),
+                    icon: const Icon(Icons.list, color: Colors.white),
+                  ),
+                IconButton(
+                  key: const ValueKey('tv-audio-tracks'),
+                  tooltip: AppLocalizations.of(context)!.audioTrack,
+                  onPressed: v?.isInitialized == true
+                      ? _chooseAudioTrack
+                      : null,
+                  icon: const Icon(Icons.audiotrack, color: Colors.white),
+                ),
+                if (_subtitles != null)
+                  IconButton(
+                    key: const ValueKey('tv-subtitles'),
+                    tooltip: AppLocalizations.of(context)!.subtitle,
+                    onPressed: _chooseSubtitles,
+                    icon: const Icon(Icons.subtitles, color: Colors.white),
+                  ),
+                IconButton(
+                  key: const ValueKey('tv-quality'),
+                  tooltip: AppLocalizations.of(context)!.streamQuality,
+                  onPressed: v?.isInitialized == true ? _chooseQuality : null,
+                  icon: const Icon(Icons.high_quality, color: Colors.white),
+                ),
+                if (_isLive)
+                  IconButton(
+                    key: const ValueKey('tv-program-guide'),
+                    tooltip: AppLocalizations.of(context)!.programGuide,
+                    onPressed: () => _openPanel(_TvPanel.epg),
+                    icon: const Icon(Icons.view_list, color: Colors.white),
+                  ),
+              ],
             ),
             const Spacer(),
             // Bottom: progress (VOD) or hint (live)
@@ -883,7 +1330,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ),
             ] else if (_isLive)
               const Text(
-                'OK: oynat/duraklat   ▲▼: kanal değiştir   Menü: kontroller',
+                'OK: oynat/duraklat   ▲▼: kanal   ◀: liste   ▶: rehber   Menü: kontroller',
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
           ],

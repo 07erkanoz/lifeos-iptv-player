@@ -17,7 +17,7 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 
 ## Henüz tamamlanmayan uygulama işleri
 
-1. **Android TV özellik eşliği:** native altyazı seçimi ve görüntüleme, player içi kanal/EPG paneli, kalite/Cast kontrolleri. Ses ve temel D-pad düzeltmeleri bu maddelerin tamamının yerine geçmez.
+1. **Android TV özellik eşliği:** Cast ve catch-up. Kanal/EPG, kalite ve native altyazı kodu [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı; fiziksel TV kabulü açık.
 2. **LAN aktarımı:** doğrulanmış şifreleme, sır paylaşımını açık seçime bağlama ve tüm profil eşleme uç durumları. Rastgele token/PIN süre sınırı uygulandı; HTTP güvenliği kapanmadı.
 3. **Platform özellikleri:** iOS gerçek PiP; masaüstünde planlı bildirim; fiziksel cihazdaki teslim/tıklama akışı.
 4. **Büyük katalog UI:** gerçek lazy bölüm listesi; tam katalog arama sıralaması; ekran dışı abonelik/animasyon maliyetinin geniş ölçümü; XMLTV streaming parser ve çalışan işçiyi anında iptal.
@@ -32,4 +32,4 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 - Windows, macOS, iPhone: kurulum/açılış, tam ekran/dönüş, izinler, ses/video, bildirim ve ağ kesintisi.
 - Gerçek Xtream/M3U hesapları, Cast/DLNA alıcısı ve LAN eş cihazlarıyla kabul.
 
-Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](provider-ai-tv-2026-09-23/validation.json) tutulur.
+Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [kanıt dosyasında](tv-controls-2026-09-23/validation.json) tutulur.
