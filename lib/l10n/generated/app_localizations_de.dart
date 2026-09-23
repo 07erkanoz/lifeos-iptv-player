@@ -1641,4 +1641,11 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Stummen YouTube-Trailer hinter dem Dashboard-Hero automatisch abspielen. Kostspielig im Mobilfunknetz; standardmäßig aus.';
+
+  @override
+  String get deviceSyncCatSecrets => 'API-Schlüssel und PINs';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Optional. Über eine unverschlüsselte lokale Verbindung gesendet. Kontozugang wird separat ausgewählt.';
 }

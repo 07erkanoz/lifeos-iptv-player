@@ -1,0 +1,25 @@
+{
+  "note": "Synthetic Linux host, 50000 programmes. Both modes return the same count and metadata model. Timer gaps are not frame times; RSS is the entire test process, not isolated peak memory. Network bytes are still bounded and buffered before parsing.",
+  "samples": [
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8072289,
+      "mode": "dom-worker-baseline",
+      "wallMs": 798.497,
+      "maxMainTimerGapMs": 20.572,
+      "ticks": 85,
+      "processRssMiB": 236.7890625
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8072289,
+      "mode": "events-worker",
+      "wallMs": 471.456,
+      "maxMainTimerGapMs": 11.125,
+      "ticks": 53,
+      "processRssMiB": 183.53125
+    }
+  ]
+}

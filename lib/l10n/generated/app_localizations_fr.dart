@@ -1643,4 +1643,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut.';
+
+  @override
+  String get deviceSyncCatSecrets => 'Clés API et codes PIN';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Facultatif. Envoi sur une connexion locale non chiffrée. Les identifiants du compte sont sélectionnés séparément.';
 }

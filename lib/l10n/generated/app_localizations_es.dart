@@ -1636,4 +1636,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Reproduce automáticamente el tráiler de YouTube sin sonido detrás del hero del panel. Costoso con datos móviles; desactivado por defecto.';
+
+  @override
+  String get deviceSyncCatSecrets => 'Claves API y PIN';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Opcional. Se envían por una conexión local sin cifrar. El acceso a la cuenta se selecciona por separado.';
 }

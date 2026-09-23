@@ -635,5 +635,7 @@
   "fullscreenMode": "Tam ekran modu",
   "fullscreenModeDesc": "Üst durum çubuğunu gizle, içerik tüm ekranı kaplasın.",
   "heroTrailerOnMobile": "Anasayfa fragmanını oynat",
-  "heroTrailerOnMobileDesc": "Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı."
+  "heroTrailerOnMobileDesc": "Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.",
+  "deviceSyncCatSecrets": "API anahtarları ve PIN’ler",
+  "deviceSyncSecretsHint": "İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir."
 }

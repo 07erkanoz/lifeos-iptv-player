@@ -1625,4 +1625,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'تشغيل مقطع YouTube الصامت خلف بطل لوحة التحكم تلقائيًا. يستهلك بيانات الجوال؛ متوقف افتراضيًا.';
+
+  @override
+  String get deviceSyncCatSecrets => 'مفاتيح API ورموز PIN';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'اختياري. تُرسل عبر اتصال محلي غير مشفر. تُحدد بيانات الحساب بشكل منفصل.';
 }

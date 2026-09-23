@@ -1633,4 +1633,11 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Автоматически воспроизводить беззвучный YouTube-трейлер за главным баннером. Расходует мобильный трафик; по умолчанию выключено.';
+
+  @override
+  String get deviceSyncCatSecrets => 'Ключи API и PIN-коды';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Необязательно. Передаются по незашифрованному локальному соединению. Данные входа выбираются отдельно.';
 }

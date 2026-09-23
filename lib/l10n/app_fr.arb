@@ -634,5 +634,7 @@
   "fullscreenMode": "Mode plein écran",
   "fullscreenModeDesc": "Masquer la barre d'état pour un contenu plein écran.",
   "heroTrailerOnMobile": "Lire la bande-annonce du hero",
-  "heroTrailerOnMobileDesc": "Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut."
+  "heroTrailerOnMobileDesc": "Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut.",
+  "deviceSyncCatSecrets": "Clés API et codes PIN",
+  "deviceSyncSecretsHint": "Facultatif. Envoi sur une connexion locale non chiffrée. Les identifiants du compte sont sélectionnés séparément."
 }

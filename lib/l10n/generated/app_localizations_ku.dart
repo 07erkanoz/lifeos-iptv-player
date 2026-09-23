@@ -1630,4 +1630,11 @@ class AppLocalizationsKu extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Fragmana YouTube ya bêdeng a li paş hero ya dashboardê otomatîk bilîze. Bi daneya mobîl giran e; bi xwerû girtî ye.';
+
+  @override
+  String get deviceSyncCatSecrets => 'Mifteyên API û PIN';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Bijartî ye. Bi girêdana herêmî ya neşîfrekirî tê şandin. Têketina hesabê cuda tê hilbijartin.';
 }

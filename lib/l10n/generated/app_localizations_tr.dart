@@ -1628,4 +1628,11 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.';
+
+  @override
+  String get deviceSyncCatSecrets => 'API anahtarları ve PIN’ler';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir.';
 }

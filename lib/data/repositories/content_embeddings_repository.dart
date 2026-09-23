@@ -67,6 +67,51 @@ class ContentEmbeddingsRepository {
     });
   }
 
+  /// Compare the complete model input and write inside one SQLite transaction.
+  /// Metadata/enrichment updates cannot slip between validation and insertion.
+  /// An update after commit invalidates the vector through existing triggers.
+  Future<int> storeCurrentBatch(
+    List<({EmbeddingInput source, ContentEmbeddingsCompanion vector})> rows, {
+    bool Function()? shouldCancel,
+  }) async {
+    if (rows.isEmpty || (shouldCancel?.call() ?? false)) return 0;
+    return _db.transaction(() async {
+      final accepted = <ContentEmbeddingsCompanion>[];
+      // Runner batches are 64; chunk also protects other callers from SQLite's
+      // parameter limit. Each row retains the compound (streamId, type) identity.
+      for (var offset = 0; offset < rows.length; offset += 256) {
+        if (shouldCancel?.call() ?? false) return 0;
+        final page = rows.skip(offset).take(256).toList();
+        final c = _db.channels;
+        final e = _db.contentEnrichment;
+        final current = await (_db.select(c).join([
+          _db.accountLeftJoin(
+            e,
+            e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type),
+          ),
+        ])..where(c.streamId.isIn(page.map((r) => r.source.streamId)))).get();
+        final texts = {
+          for (final row in current)
+            (row.readTable(c).streamId, row.readTable(c).type): _buildText(
+              row.readTable(c),
+              row.readTableOrNull(e),
+            ),
+        };
+        for (final row in page) {
+          final source = row.source;
+          if (row.vector.streamId.value == source.streamId &&
+              row.vector.type.value == source.type &&
+              texts[(source.streamId, source.type)] == source.text) {
+            accepted.add(row.vector);
+          }
+        }
+      }
+      if (shouldCancel?.call() ?? false) return 0;
+      await storeBatch(accepted);
+      return accepted.length;
+    });
+  }
+
   // ── Reads ──────────────────────────────────────────────────────────────
 
   /// Bounded pages prevent decoding an entire 100k-title catalogue into RAM.

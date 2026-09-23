@@ -1,0 +1,24 @@
+{
+  "flutter_tests": 456,
+  "analyzer": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 58
+  },
+  "xmltv_tests_after_lint_cleanup": 11,
+  "android_native_tests_unchanged_package": 65,
+  "linux_release": "passed",
+  "linux_isolated_startup": "passed, 12 seconds, schema 28, 19 account-scoped tables",
+  "android_debug_apk": "passed",
+  "github_workflow": {
+    "name": "Build & Release",
+    "state": "disabled_manually",
+    "apple_windows_runs": "not run"
+  },
+  "limits": [
+    "No physical Android TV/phone, Apple, Windows or receiver acceptance run",
+    "LAN transport remains HTTP",
+    "XMLTV download remains bounded buffered input; event parser avoids whole-feed DOM",
+    "Live Gemini recommendation quality not evaluated by humans"
+  ]
+}

@@ -1,3 +1,4 @@
+import 'lan_transfer_policy.dart';
 import 'lan_pairing_gate.dart';
 import 'm3u_lan_identity.dart';
 import 'dart:async';
@@ -27,12 +28,10 @@ import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 /// the categories the user picked (account, favourites, continue-
 /// watching, settings, profiles).
 ///
-/// Security model: the server only runs while the pairing screen is
-/// open, every request must carry the matching PIN in the
-/// `x-sync-pin` header, and traffic never leaves the LAN. Credentials
-/// / API keys do travel as plain JSON over the local network — that's
-/// the standard trade-off for PIN-gated local pairing; it's gated and
-/// ephemeral, not exposed to the internet.
+/// Pairing PINs expire and trusted peers use random tokens. Transport is still
+/// HTTP: tokens and explicitly selected account credentials are visible on the
+/// LAN. API keys/PINs require a separate manual selection; automatic sync never
+/// sends or accepts them. This is not an encrypted transport.
 
 // ---------------------------------------------------------------------------
 //  Sync categories — what the user can opt into transferring
@@ -45,6 +44,7 @@ enum SyncCategory {
   settings,
   profiles,
   enrichment,
+  secrets,
 }
 
 extension SyncCategoryWire on SyncCategory {
@@ -56,6 +56,7 @@ extension SyncCategoryWire on SyncCategory {
     SyncCategory.settings => 'settings',
     SyncCategory.profiles => 'profiles',
     SyncCategory.enrichment => 'enrichment',
+    SyncCategory.secrets => 'secrets',
   };
 
   static SyncCategory? fromWire(String s) {
@@ -103,6 +104,7 @@ class SyncManifest {
   final int favorites;
   final int progress;
   final bool hasSettings;
+  final bool hasSecrets;
   final int enrichment;
 
   const SyncManifest({
@@ -113,6 +115,7 @@ class SyncManifest {
     required this.progress,
     required this.hasSettings,
     this.enrichment = 0,
+    this.hasSecrets = false,
   });
 
   factory SyncManifest.fromJson(Map<String, dynamic> j) => SyncManifest(
@@ -122,6 +125,7 @@ class SyncManifest {
     favorites: (j['favorites'] ?? 0) as int,
     progress: (j['progress'] ?? 0) as int,
     hasSettings: (j['hasSettings'] ?? false) as bool,
+    hasSecrets: j['hasSecrets'] == true,
     enrichment: (j['enrichment'] ?? 0) as int,
   );
 
@@ -132,6 +136,7 @@ class SyncManifest {
     SyncCategory.progress => progress,
     SyncCategory.settings => hasSettings ? 1 : 0,
     SyncCategory.enrichment => enrichment,
+    SyncCategory.secrets => hasSecrets ? 1 : 0,
   };
 }
 
@@ -413,13 +418,16 @@ class LanSyncService {
             .map((s) => SyncCategoryWire.fromWire(s.trim()))
             .whereType<SyncCategory>()
             .toSet();
-        res.write(jsonEncode(await _buildPayload(cats)));
+        res.write(jsonEncode(await exportSnapshot(cats)));
       } else if (path == '/trust' && req.method == 'POST') {
         // The receiver establishes mutual trust: it sends a shared
         // token + its own id/name; we store it and hand back ours so
         // it can store us too.
-        final body = await utf8.decoder.bind(req).join();
-        final m = (jsonDecode(body) as Map).cast<String, dynamic>();
+        final m = await readLanJson(
+          req,
+          maxBytes: 64 * 1024,
+          timeout: const Duration(seconds: 10),
+        );
         final token = (m['token'] ?? '') as String;
         final peerId = (m['deviceId'] ?? '') as String;
         final peerName = (m['name'] ?? '') as String;
@@ -439,16 +447,20 @@ class LanSyncService {
       } else if (path == '/sync' && req.method == 'POST') {
         // Two-way merge: ingest the caller's rows, then return ours so
         // both sides converge in a single round trip.
-        final body = await utf8.decoder.bind(req).join();
-        final incoming = (jsonDecode(body) as Map).cast<String, dynamic>();
-        await _mergeIncoming(incoming);
-        res.write(jsonEncode(await _buildSyncSnapshot()));
+        final incoming = await readLanJson(req);
+        await mergeSyncSnapshot(incoming);
+        res.write(jsonEncode(await buildSyncSnapshot()));
       } else {
         res.statusCode = HttpStatus.notFound;
       }
-    } catch (e) {
+    } on LanPayloadTooLarge {
+      res.statusCode = HttpStatus.requestEntityTooLarge;
+    } on TimeoutException {
+      res.statusCode = HttpStatus.requestTimeout;
+    } on FormatException {
+      res.statusCode = HttpStatus.badRequest;
+    } catch (_) {
       res.statusCode = HttpStatus.internalServerError;
-      if (kDebugMode) debugPrint('[LanSync] request error: $e');
     }
     await res.close();
   }
@@ -470,6 +482,7 @@ class LanSyncService {
       'favorites': favs.length,
       'progress': prog.length,
       'hasSettings': true,
+      'hasSecrets': true,
       'enrichment': enrich.length,
     };
   }
@@ -584,7 +597,7 @@ class LanSyncService {
     return {...payload, 'm3uIdentities': identities};
   }
 
-  Future<Map<String, dynamic>> _buildPayload(Set<SyncCategory> cats) async {
+  Future<Map<String, dynamic>> exportSnapshot(Set<SyncCategory> cats) async {
     final out = <String, dynamic>{
       'v': _payloadVersion,
       'device': _deviceName,
@@ -615,7 +628,7 @@ class LanSyncService {
             'name': p.name,
             'avatarKey': p.avatarKey,
             'isKids': p.isKids,
-            'pin': p.pin,
+            if (cats.contains(SyncCategory.secrets)) 'pin': p.pin,
           },
       ];
     }
@@ -652,7 +665,18 @@ class LanSyncService {
     }
 
     if (cats.contains(SyncCategory.settings)) {
-      out['settings'] = _exportSettings();
+      out['settings'] = LanTransferPolicy.publicSettings(_exportSettings());
+    }
+
+    if (cats.contains(SyncCategory.secrets)) {
+      out['secrets'] = LanTransferPolicy.secrets(_exportSettings());
+    }
+    if (cats.contains(SyncCategory.favorites) ||
+        cats.contains(SyncCategory.progress)) {
+      final profiles = await _db.select(_db.profiles).get();
+      out['profileRefs'] = [
+        for (final p in profiles) {'oldId': p.id, 'name': p.name},
+      ];
     }
 
     if (cats.contains(SyncCategory.enrichment)) {
@@ -804,23 +828,39 @@ class LanSyncService {
         validateStatus: (s) => s != null && s < 500,
       ),
     );
-    final catsParam = cats.map((c) => c.wire).join(',');
-    final res = await dio.getUri<dynamic>(
-      Uri.parse('${peer.baseUrl}/export?cats=$catsParam'),
-    );
-    if (res.statusCode != 200) {
-      throw Exception('export status ${res.statusCode}');
+    try {
+      final catsParam = cats.map((c) => c.wire).join(',');
+      final res = await dio.getUri<ResponseBody>(
+        Uri.parse('${peer.baseUrl}/export?cats=$catsParam'),
+        options: Options(responseType: ResponseType.stream),
+      );
+      if (res.statusCode != 200 || res.data == null) {
+        throw const FormatException('LAN export failed');
+      }
+      final data = await readLanJson(res.data!.stream);
+      return await importSnapshot(
+        data,
+        cats: cats,
+        activeProfileId: activeProfileId,
+      );
+    } finally {
+      dio.close(force: true);
     }
-    final data = res.data is String ? jsonDecode(res.data as String) : res.data;
-    if (data is! Map) throw Exception('bad payload');
-    return _applyPayload(
-      data.cast<String, dynamic>(),
-      cats: cats,
-      activeProfileId: activeProfileId,
-    );
   }
 
-  Future<SyncImportResult> _applyPayload(
+  Future<SyncImportResult> importSnapshot(
+    Map<String, dynamic> payload, {
+    required Set<SyncCategory> cats,
+    required int activeProfileId,
+  }) => _db.transaction(
+    () => _importSnapshotTransaction(
+      payload,
+      cats: cats,
+      activeProfileId: activeProfileId,
+    ),
+  );
+
+  Future<SyncImportResult> _importSnapshotTransaction(
     Map<String, dynamic> payload, {
     required Set<SyncCategory> cats,
     required int activeProfileId,
@@ -905,9 +945,8 @@ class LanSyncService {
       );
     }
 
-    // 2) Profiles — dedupe by name; build oldId → newId map. When the
-    //    user did NOT opt to sync profiles, everything funnels into the
-    //    target's active profile.
+    // 2) Resolve profile names before importing per-profile data. Unmapped
+    // multiple profiles must never collapse into the active local profile.
     final profileIdMap = <int, int>{};
     if (cats.contains(SyncCategory.profiles) && payload['profiles'] is List) {
       final existing = await _db.select(_db.profiles).get();
@@ -918,6 +957,8 @@ class LanSyncService {
         final name = (m['name'] ?? '') as String;
         if (name.isEmpty) continue;
         final match = existing.where((p) => p.name == name).toList();
+        if (match.length > 1)
+          throw const FormatException('Ambiguous local profile name');
         if (match.isNotEmpty) {
           profileIdMap[oldId] = match.first.id;
           continue;
@@ -929,7 +970,11 @@ class LanSyncService {
                 name: name,
                 avatarKey: Value((m['avatarKey'] ?? 'default') as String),
                 isKids: Value((m['isKids'] ?? false) as bool),
-                pin: Value(m['pin'] as String?),
+                pin: Value(
+                  cats.contains(SyncCategory.secrets)
+                      ? m['pin'] as String?
+                      : null,
+                ),
               ),
             );
         profileIdMap[oldId] = newId;
@@ -937,7 +982,44 @@ class LanSyncService {
       }
     }
 
-    int mapProfile(int oldId) => profileIdMap[oldId] ?? activeProfileId;
+    final refs = payload['profileRefs'] ?? payload['profiles'];
+    if (refs is List) {
+      final local = await _db.select(_db.profiles).get();
+      for (final raw in refs) {
+        if (raw is! Map || raw['oldId'] is! int || raw['name'] is! String)
+          continue;
+        final matches = local.where((p) => p.name == raw['name']).toList();
+        if (matches.length == 1)
+          profileIdMap.putIfAbsent(
+            raw['oldId'] as int,
+            () => matches.single.id,
+          );
+      }
+    }
+    final incomingProfiles = <int>{};
+    for (final key in ['favorites', 'progress']) {
+      if ((key == 'favorites' && !cats.contains(SyncCategory.favorites)) ||
+          (key == 'progress' && !cats.contains(SyncCategory.progress)))
+        continue;
+      if (payload[key] is List) {
+        for (final row in payload[key] as List) {
+          if (row is Map) incomingProfiles.add((row['profileId'] ?? 1) as int);
+        }
+      }
+    }
+    // Legacy peers with no profile references can transfer a single profile.
+    // More than one unknown identity is ambiguous and the transaction aborts.
+    if (refs == null && incomingProfiles.length == 1 && profileIdMap.isEmpty) {
+      profileIdMap[incomingProfiles.single] = activeProfileId;
+    }
+    int mapProfile(int oldId) =>
+        profileIdMap[oldId] ??
+        (throw const FormatException(
+          'Select profiles to import unmatched profile data',
+        ));
+    for (final id in incomingProfiles) {
+      mapProfile(id);
+    }
 
     // 3) Favourites — remap profileId, upsert on the composite PK.
     if (cats.contains(SyncCategory.favorites) && payload['favorites'] is List) {
@@ -992,14 +1074,6 @@ class LanSyncService {
       });
     }
 
-    // 5) Settings — overlay onto the current settings via copyWith so
-    //    we never null-out fields the payload omitted, and never copy
-    //    the device-specific defaultAccountId.
-    if (cats.contains(SyncCategory.settings) && payload['settings'] is Map) {
-      _applySettings((payload['settings'] as Map).cast<String, dynamic>());
-      settingsApplied = true;
-    }
-
     if (cats.contains(SyncCategory.enrichment) &&
         payload['enrichment'] is List &&
         contentDb != null) {
@@ -1007,6 +1081,27 @@ class LanSyncService {
         contentDb,
         _prefs,
       )._applyEnrichmentRows(payload['enrichment'] as List);
+    }
+
+    // 5) Settings — overlay onto the current settings via copyWith so
+    //    we never null-out fields the payload omitted, and never copy
+    //    the device-specific defaultAccountId.
+    if (cats.contains(SyncCategory.settings) && payload['settings'] is Map) {
+      await _applySettings(
+        LanTransferPolicy.publicSettings(
+          (payload['settings'] as Map).cast<String, dynamic>(),
+        ),
+      );
+      settingsApplied = true;
+    }
+
+    if (cats.contains(SyncCategory.secrets) && payload['secrets'] is Map) {
+      await _applySettings(
+        LanTransferPolicy.secrets(
+          (payload['secrets'] as Map).cast<String, dynamic>(),
+        ),
+      );
+      settingsApplied = true;
     }
 
     return SyncImportResult(
@@ -1019,7 +1114,7 @@ class LanSyncService {
     );
   }
 
-  void _applySettings(Map<String, dynamic> m) {
+  Future<void> _applySettings(Map<String, dynamic> m) async {
     final repo = SettingsRepository(_prefs);
     final cur = repo.loadSettings();
     T pick<T>(String k, T fallback) => (m[k] is T) ? m[k] as T : fallback;
@@ -1088,7 +1183,7 @@ class LanSyncService {
     );
     // Fire-and-forget; saveSettings is async but the prefs write is
     // effectively synchronous for our purposes.
-    unawaited(repo.saveSettings(next));
+    await repo.saveSettings(next);
   }
 
   // ── Trust + auto-sync (favourites + continue-watching) ───────────────────
@@ -1138,7 +1233,7 @@ class LanSyncService {
 
   /// Snapshot of favourites + continue-watching, keyed by profile NAME
   /// (ids differ across devices). Used by the two-way `/sync` merge.
-  Future<Map<String, dynamic>> _buildSyncSnapshot() async {
+  Future<Map<String, dynamic>> buildSyncSnapshot() async {
     final profiles = await _db.select(_db.profiles).get();
     final idToName = {for (final p in profiles) p.id: p.name};
     final favs = await _db.select(_db.favorites).get();
@@ -1146,7 +1241,6 @@ class LanSyncService {
     final enrich = await _db.select(_db.contentEnrichment).get();
     final tombstones = await _db.select(_db.syncTombstones).get();
     final catPrefs = await _db.select(_db.categoryPrefs).get();
-    final geminiKey = SettingsRepository(_prefs).loadSettings().geminiApiKey;
     return _withM3uIdentities({
       'v': _payloadVersion,
       'contentAccountKey': await _contentAccountKey(),
@@ -1178,9 +1272,6 @@ class LanSyncService {
       // when it shares the same provider (streamIds line up).
       'accountKeys': (await _accountKeys()).toList(),
       'enrichment': _enrichmentToJson(enrich),
-      // Gemini key travels so paired devices can both enrich / use AI
-      // without re-entering it. Adopted only if the peer has none.
-      if (geminiKey != null && geminiKey.isNotEmpty) 'geminiApiKey': geminiKey,
       'favorites': [
         for (final f in favs)
           {
@@ -1212,7 +1303,7 @@ class LanSyncService {
   /// v1). Continue-watching is last-write-wins on `updatedAt`. Rows
   /// for a profile name that doesn't exist locally are skipped (we
   /// never auto-create profiles here).
-  Future<void> _mergeIncoming(Map<String, dynamic> snap) async {
+  Future<void> mergeSyncSnapshot(Map<String, dynamic> snap) async {
     final identity = await _contentAccountKey();
     if (identity == null || snap['contentAccountKey'] != identity) return;
     final account = await (_db.select(
@@ -1414,17 +1505,6 @@ class LanSyncService {
       }
     }
 
-    // Gemini key — adopt only when we don't already have one, so a
-    // device without AI configured inherits it from a paired device.
-    final incomingKey = snap['geminiApiKey'] as String?;
-    if (incomingKey != null && incomingKey.trim().isNotEmpty) {
-      final repo = SettingsRepository(_prefs);
-      final cur = repo.loadSettings();
-      if (cur.geminiApiKey == null || cur.geminiApiKey!.trim().isEmpty) {
-        unawaited(repo.saveSettings(cur.copyWith(geminiApiKey: incomingKey)));
-        if (kDebugMode) debugPrint('[LanSync] adopted Gemini key from peer');
-      }
-    }
     if (kDebugMode) {
       debugPrint(
         '[LanSync] merged: favAdded=$favAdded progAdded=$progAdded '
@@ -1465,30 +1545,28 @@ class LanSyncService {
   }
 
   Future<bool> _syncWithPeer(SyncPeer peer, String token) async {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {_tokenHeader: token},
+        validateStatus: (s) => s != null && s < 500,
+      ),
+    );
     try {
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 30),
-          headers: {_tokenHeader: token},
-          validateStatus: (s) => s != null && s < 500,
-        ),
-      );
-      final mine = await _buildSyncSnapshot();
-      final res = await dio.postUri<dynamic>(
+      final mine = await buildSyncSnapshot();
+      final res = await dio.postUri<ResponseBody>(
         Uri.parse('${peer.baseUrl}/sync'),
         data: jsonEncode(mine),
+        options: Options(responseType: ResponseType.stream),
       );
-      if (res.statusCode != 200) return false;
-      final data = res.data is String
-          ? jsonDecode(res.data as String)
-          : res.data;
-      if (data is! Map) return false;
-      await _mergeIncoming(data.cast<String, dynamic>());
+      if (res.statusCode != 200 || res.data == null) return false;
+      await mergeSyncSnapshot(await readLanJson(res.data!.stream));
       return true;
-    } catch (e) {
-      if (kDebugMode) debugPrint('[LanSync] syncWithPeer failed: $e');
+    } catch (_) {
       return false;
+    } finally {
+      dio.close(force: true);
     }
   }
 }

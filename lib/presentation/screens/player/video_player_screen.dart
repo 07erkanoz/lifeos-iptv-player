@@ -2842,6 +2842,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await DlnaService.instance.loadMedia(
           url: _currentUrl,
           title: _currentTitle,
+          startPosition: widget.type == VideoType.live
+              ? Duration.zero
+              : _rawPos,
         );
         // TV confirmed PLAYING — tell the user which device has it now.
         if (mounted && !_disposing) {
@@ -2859,8 +2862,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // the TV is off, or the TV doesn't accept the source MIME.
         // Resume local playback and surface the hint.
         if (!mounted || _disposing) return;
-        _player.play();
+        _casting = false;
         await DlnaService.instance.disconnect();
+        if (!mounted || _disposing) return;
+        await _player.play();
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -2875,8 +2880,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       } catch (_) {
         // Transport / SOAP fault — TV didn't respond at all.
         if (!mounted || _disposing) return;
-        _player.play();
+        _casting = false;
         await DlnaService.instance.disconnect();
+        if (!mounted || _disposing) return;
+        await _player.play();
         messenger.showSnackBar(
           SnackBar(
             content: Text(l10n.dlnaConnectFailed),
@@ -2903,10 +2910,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _onCastStopped() async {
     if (!_casting || _disposing) return;
     _casting = false;
-    if (_castingChromecast && widget.type != VideoType.live) {
-      try {
-        await _player.seek(CastService.instance.lastPosition);
-      } catch (_) {}
+    if (widget.type != VideoType.live) {
+      final remotePosition = _castingChromecast
+          ? CastService.instance.lastPosition
+          : DlnaService.instance.lastPosition;
+      if (remotePosition != null) {
+        try {
+          await _player.seek(remotePosition);
+        } catch (_) {}
+      }
     }
     _castingChromecast = false;
     if (mounted && !_disposing) await _player.play();

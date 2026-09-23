@@ -1631,4 +1631,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get heroTrailerOnMobileDesc =>
       'Autoplay the muted YouTube trailer behind the dashboard hero. Costly on mobile data; off by default.';
+
+  @override
+  String get deviceSyncCatSecrets => 'API keys and PINs';
+
+  @override
+  String get deviceSyncSecretsHint =>
+      'Optional. Sent over an unencrypted local connection. Account login is selected separately.';
 }

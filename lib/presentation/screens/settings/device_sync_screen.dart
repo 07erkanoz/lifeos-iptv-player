@@ -176,10 +176,10 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
       });
       return;
     }
-    // Pre-select every category that has something to offer.
+    // Secrets require explicit selection on every manual transfer.
     final pre = <SyncCategory>{
       for (final c in SyncCategory.values)
-        if (manifest.countFor(c) > 0) c,
+        if (c != SyncCategory.secrets && manifest.countFor(c) > 0) c,
     };
     setState(() {
       _connecting = false;
@@ -745,6 +745,11 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
         l10n.deviceSyncCatSettings,
         m.hasSettings ? 1 : 0,
       ),
+      _SyncCatRow(
+        SyncCategory.secrets,
+        l10n.deviceSyncCatSecrets,
+        m.hasSecrets ? 1 : 0,
+      ),
     ];
     return Column(
       children: [
@@ -775,7 +780,9 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                       r.label,
                       style: const TextStyle(color: AppColors.textDark),
                     ),
-                    subtitle: r.cat == SyncCategory.settings
+                    subtitle: r.cat == SyncCategory.secrets
+                        ? Text(l10n.deviceSyncSecretsHint)
+                        : r.cat == SyncCategory.settings
                         ? null
                         : Text(
                             '${r.count}',

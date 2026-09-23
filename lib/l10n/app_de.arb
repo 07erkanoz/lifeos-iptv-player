@@ -634,5 +634,7 @@
   "fullscreenMode": "Vollbildmodus",
   "fullscreenModeDesc": "Statusleiste ausblenden, Inhalt füllt den ganzen Bildschirm.",
   "heroTrailerOnMobile": "Hero-Trailer abspielen",
-  "heroTrailerOnMobileDesc": "Stummen YouTube-Trailer hinter dem Dashboard-Hero automatisch abspielen. Kostspielig im Mobilfunknetz; standardmäßig aus."
+  "heroTrailerOnMobileDesc": "Stummen YouTube-Trailer hinter dem Dashboard-Hero automatisch abspielen. Kostspielig im Mobilfunknetz; standardmäßig aus.",
+  "deviceSyncCatSecrets": "API-Schlüssel und PINs",
+  "deviceSyncSecretsHint": "Optional. Über eine unverschlüsselte lokale Verbindung gesendet. Kontozugang wird separat ausgewählt."
 }

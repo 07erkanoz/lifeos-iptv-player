@@ -3145,6 +3145,18 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.'**
   String get heroTrailerOnMobileDesc;
+
+  /// No description provided for @deviceSyncCatSecrets.
+  ///
+  /// In tr, this message translates to:
+  /// **'API anahtarları ve PIN’ler'**
+  String get deviceSyncCatSecrets;
+
+  /// No description provided for @deviceSyncSecretsHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir.'**
+  String get deviceSyncSecretsHint;
 }
 
 class _AppLocalizationsDelegate

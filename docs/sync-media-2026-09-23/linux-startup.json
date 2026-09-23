@@ -1,0 +1,9 @@
+{
+  "playback_headers": true,
+  "startup": "passed",
+  "seconds": 12,
+  "schema": 28,
+  "profiles": 1,
+  "account_scoped_tables": 19,
+  "isolated_data": "/tmp/iptv-scope-smoke-affsr4dy"
+}

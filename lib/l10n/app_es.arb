@@ -634,5 +634,7 @@
   "fullscreenMode": "Modo pantalla completa",
   "fullscreenModeDesc": "Ocultar la barra de estado para que el contenido ocupe toda la pantalla.",
   "heroTrailerOnMobile": "Reproducir tráiler del hero",
-  "heroTrailerOnMobileDesc": "Reproduce automáticamente el tráiler de YouTube sin sonido detrás del hero del panel. Costoso con datos móviles; desactivado por defecto."
+  "heroTrailerOnMobileDesc": "Reproduce automáticamente el tráiler de YouTube sin sonido detrás del hero del panel. Costoso con datos móviles; desactivado por defecto.",
+  "deviceSyncCatSecrets": "Claves API y PIN",
+  "deviceSyncSecretsHint": "Opcional. Se envían por una conexión local sin cifrar. El acceso a la cuenta se selecciona por separado."
 }

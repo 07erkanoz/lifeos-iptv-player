@@ -634,5 +634,7 @@
   "fullscreenMode": "وضع ملء الشاشة",
   "fullscreenModeDesc": "إخفاء شريط الحالة العلوي حتى يملأ المحتوى الشاشة بالكامل.",
   "heroTrailerOnMobile": "تشغيل مقطع البطل",
-  "heroTrailerOnMobileDesc": "تشغيل مقطع YouTube الصامت خلف بطل لوحة التحكم تلقائيًا. يستهلك بيانات الجوال؛ متوقف افتراضيًا."
+  "heroTrailerOnMobileDesc": "تشغيل مقطع YouTube الصامت خلف بطل لوحة التحكم تلقائيًا. يستهلك بيانات الجوال؛ متوقف افتراضيًا.",
+  "deviceSyncCatSecrets": "مفاتيح API ورموز PIN",
+  "deviceSyncSecretsHint": "اختياري. تُرسل عبر اتصال محلي غير مشفر. تُحدد بيانات الحساب بشكل منفصل."
 }

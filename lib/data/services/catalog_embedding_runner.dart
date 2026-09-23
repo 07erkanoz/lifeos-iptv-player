@@ -67,35 +67,33 @@ class CatalogEmbeddingRunner {
         final n = pending.length < vectors.length
             ? pending.length
             : vectors.length;
-        final fresh = {
-          for (final p in await _repo.pendingItems(limit: _batchSize))
-            (p.streamId, p.type): p.text,
-        };
-        if (_stopped) break;
-        final companions = <ContentEmbeddingsCompanion>[];
+        final companions =
+            <({EmbeddingInput source, ContentEmbeddingsCompanion vector})>[];
         for (var j = 0; j < n; j++) {
-          if (fresh[(pending[j].streamId, pending[j].type)] != pending[j].text)
-            continue;
           final vec = vectors[j];
           if (vec.length != _dims || vec.any((v) => !v.isFinite)) continue;
           final norm = ContentEmbeddingsRepository.normalize(vec);
           if (norm.isEmpty) continue;
-          companions.add(
-            ContentEmbeddingsCompanion.insert(
+          companions.add((
+            source: pending[j],
+            vector: ContentEmbeddingsCompanion.insert(
               streamId: pending[j].streamId,
               type: pending[j].type,
               vector: ContentEmbeddingsRepository.encode(norm),
               dims: norm.length,
               updatedAt: Value(DateTime.now()),
             ),
-          );
+          ));
         }
         if (_stopped) break;
-        await _repo.storeBatch(companions);
-        embedded += companions.length;
+        final written = await _repo.storeCurrentBatch(
+          companions,
+          shouldCancel: () => _stopped,
+        );
+        embedded += written;
         if (kDebugMode) {
           debugPrint(
-            '[embed] batch ${i + 1}: +${companions.length} '
+            '[embed] batch ${i + 1}: +$written '
             '(total $embedded)',
           );
         }

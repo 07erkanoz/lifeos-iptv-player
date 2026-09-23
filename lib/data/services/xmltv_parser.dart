@@ -8,11 +8,13 @@
 /// - 6 saat TTL ile cache
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'bounded_get_client.dart';
 import 'package:dio/dio.dart';
-import 'package:xml/xml.dart';
+import 'package:xml/xml_events.dart';
+import 'sync_budget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -134,60 +136,94 @@ class XmltvParseResult {
 XmltvParseResult parseXmltv(String xmlContent, {DateTime? now}) {
   final programsByChannel = <String, List<XmltvProgram>>{};
 
-  try {
-    final document = XmlDocument.parse(xmlContent);
-    final root = document.rootElement;
-
-    // Parse <programme> elements
-    for (final programme in root.findAllElements('programme')) {
-      final channelId = programme.getAttribute('channel');
-      if (channelId == null || channelId.isEmpty) continue;
-
-      final startStr = programme.getAttribute('start');
-      final stopStr = programme.getAttribute('stop');
-
-      final start = _parseXmltvDate(startStr);
-      final stop = _parseXmltvDate(stopStr);
-      if (start == null || stop == null || !stop.isAfter(start)) continue;
-      if (now != null &&
-          (!stop.isAfter(now.subtract(const Duration(hours: 6))) ||
-              !start.isBefore(now.add(const Duration(days: 7))))) {
-        continue;
-      }
-
-      // Extract title (first <title> element)
-      final titleEl = programme.findElements('title').firstOrNull;
-      final title = titleEl?.innerText.trim() ?? '';
-      if (title.isEmpty) continue;
-
-      // Extract description
-      final descEl = programme.findElements('desc').firstOrNull;
-      final description = descEl?.innerText.trim();
-
-      // Extract category
-      final catEl = programme.findElements('category').firstOrNull;
-      final category = catEl?.innerText.trim();
-
-      programsByChannel
-          .putIfAbsent(channelId, () => [])
-          .add(
-            XmltvProgram(
-              channelId: channelId,
-              title: title,
-              description: description,
-              category: category,
-              start: start,
-              stop: stop,
-            ),
-          );
+  // Event parsing keeps only one programme's fields, not a DOM for the feed.
+  var depth = 0;
+  int? programDepth, fieldDepth;
+  String? channelId, field;
+  DateTime? start, stop;
+  var valid = false;
+  final fields = <String, String>{};
+  StringBuffer? text;
+  void finishElement() {
+    if (fieldDepth == depth) {
+      fields[field!] = text!.toString().trim();
+      field = null;
+      fieldDepth = null;
+      text = null;
     }
+    if (programDepth == depth) {
+      final title = fields['title'] ?? '';
+      if (valid && title.isNotEmpty) {
+        programsByChannel
+            .putIfAbsent(channelId!, () => [])
+            .add(
+              XmltvProgram(
+                channelId: channelId,
+                title: title,
+                description: fields['desc'],
+                category: fields['category'],
+                start: start!,
+                stop: stop!,
+              ),
+            );
+      }
+      programDepth = null;
+      valid = false;
+      fields.clear();
+    }
+    depth--;
+  }
 
-    // Sort each channel's programs by start time
+  try {
+    for (final event in parseEvents(
+      xmlContent,
+      validateNesting: true,
+      validateDocument: true,
+    )) {
+      if (event is XmlStartElementEvent) {
+        depth++;
+        if (event.name == 'programme' && programDepth == null) {
+          programDepth = depth;
+          final attributes = {
+            for (final a in event.attributes) a.name: a.value,
+          };
+          channelId = attributes['channel'];
+          start = _parseXmltvDate(attributes['start']);
+          stop = _parseXmltvDate(attributes['stop']);
+          valid =
+              channelId != null &&
+              channelId.isNotEmpty &&
+              start != null &&
+              stop != null &&
+              stop.isAfter(start);
+          if (valid && now != null) {
+            valid =
+                stop!.isAfter(now.subtract(const Duration(hours: 6))) &&
+                start!.isBefore(now.add(const Duration(days: 7)));
+          }
+        } else if (valid &&
+            depth == programDepth! + 1 &&
+            const {'title', 'desc', 'category'}.contains(event.name) &&
+            !fields.containsKey(event.name)) {
+          field = event.name;
+          fieldDepth = depth;
+          text = StringBuffer();
+        }
+        if (event.isSelfClosing) finishElement();
+      } else if (event is XmlEndElementEvent) {
+        finishElement();
+      } else if (event is XmlTextEvent) {
+        text?.write(event.value);
+      } else if (event is XmlCDATAEvent) {
+        text?.write(event.value);
+      }
+    }
     for (final programs in programsByChannel.values) {
       programs.sort((a, b) => a.start.compareTo(b.start));
     }
   } catch (_) {
-    // XML parse failed — return empty
+    // Never publish a partial feed when a malformed tail invalidates the XML.
+    programsByChannel.clear();
   }
 
   // Build normalized index for fast lookups
@@ -266,8 +302,10 @@ class XmltvCache {
   final Future<XmltvParseResult?> Function(String) load;
   final DateTime Function() now;
   final Duration ttl;
+  final void Function()? onClear;
   XmltvCache({
     required this.load,
+    this.onClear,
     DateTime Function()? now,
     this.ttl = const Duration(hours: 6),
   }) : now = now ?? DateTime.now;
@@ -305,6 +343,7 @@ class XmltvCache {
   }
 
   void clear() {
+    onClear?.call();
     _generation++;
     _url = null;
     _result = null;
@@ -313,21 +352,62 @@ class XmltvCache {
   }
 }
 
+class XmltvParseCancelled implements Exception {
+  const XmltvParseCancelled();
+}
+
+void _xmltvWorker((SendPort, List<int>, DateTime?) input) {
+  try {
+    String body;
+    try {
+      body = utf8.decode(input.$2);
+    } on FormatException {
+      body = latin1.decode(input.$2);
+    }
+    Isolate.exit(input.$1, parseXmltv(body, now: input.$3));
+  } catch (_) {
+    Isolate.exit(input.$1, 'XMLTV parse failed');
+  }
+}
+
 Future<XmltvParseResult> parseXmltvBytesAsync(
   List<int> bytes, {
   DateTime? now,
-}) => Isolate.run(() {
-  String body;
+  Future<void>? cancelled,
+}) async {
+  final port = ReceivePort();
+  Isolate? worker;
   try {
-    body = utf8.decode(bytes);
-  } on FormatException {
-    body = latin1.decode(bytes);
+    worker = await Isolate.spawn(
+      _xmltvWorker,
+      (port.sendPort, bytes, now),
+      onError: port.sendPort,
+      onExit: port.sendPort,
+    );
+    final message = await Future.any<Object?>([
+      port.first,
+      if (cancelled != null)
+        cancelled.then<Object?>((_) => throw const XmltvParseCancelled()),
+    ]);
+    if (message is! XmltvParseResult)
+      throw const FormatException('XMLTV parse failed');
+    return message;
+  } finally {
+    worker?.kill(priority: Isolate.immediate);
+    port.close();
   }
-  return parseXmltv(body, now: now);
-});
+}
 
 class XmltvService {
-  static final _cache = XmltvCache(load: _download);
+  static final _jobs = <Dio, Completer<void>>{};
+  static void _cancelJobs() {
+    for (final entry in _jobs.entries.toList()) {
+      if (!entry.value.isCompleted) entry.value.complete();
+      entry.key.close(force: true);
+    }
+  }
+
+  static final _cache = XmltvCache(load: _download, onClear: _cancelJobs);
   static Future<XmltvParseResult?> fetchAndParse(
     String url, {
     bool force = false,
@@ -342,6 +422,16 @@ class XmltvService {
         responseType: ResponseType.bytes,
       ),
     );
+    final cancelled = Completer<void>();
+    _jobs[dio] = cancelled;
+    final budget = SyncBudget.current;
+    if (budget != null) {
+      unawaited(
+        budget.cancelToken.whenCancel.then((_) {
+          if (!cancelled.isCompleted) cancelled.complete();
+        }),
+      );
+    }
     try {
       final response = await BoundedGetClient(
         dio,
@@ -352,12 +442,14 @@ class XmltvService {
       final result = await parseXmltvBytesAsync(
         response.data!,
         now: DateTime.now(),
+        cancelled: cancelled.future,
       );
       return result.programsByChannel.isEmpty ? null : result;
     } catch (_) {
       return null;
     } finally {
-      dio.close();
+      _jobs.remove(dio);
+      dio.close(force: true);
     }
   }
 

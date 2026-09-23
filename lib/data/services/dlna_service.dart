@@ -91,7 +91,8 @@ class DlnaState {
   });
 
   bool get isConnected => connectionState == DlnaConnectionState.connected;
-  bool get isDisconnected => connectionState == DlnaConnectionState.disconnected;
+  bool get isDisconnected =>
+      connectionState == DlnaConnectionState.disconnected;
 
   DlnaState copyWith({
     DlnaConnectionState? connectionState,
@@ -110,13 +111,24 @@ class DlnaState {
 /// Singleton DLNA control + discovery service.
 class DlnaService {
   DlnaService._();
+
+  @visibleForTesting
+  DlnaService.forTesting();
   static final DlnaService instance = DlnaService._();
 
   /// Reactive state for the UI (mirror of CastService.stateNotifier).
-  final ValueNotifier<DlnaState> stateNotifier = ValueNotifier(const DlnaState());
+  final ValueNotifier<DlnaState> stateNotifier = ValueNotifier(
+    const DlnaState(),
+  );
 
   DlnaState get state => stateNotifier.value;
   void _updateState(DlnaState s) => stateNotifier.value = s;
+
+  Timer? _positionTimer;
+  int _session = 0;
+  bool _pollingPosition = false;
+  Duration? _lastPosition;
+  Duration? get lastPosition => _lastPosition;
 
   // ─── Discovery (SSDP M-SEARCH on UDP 1900) ───────────────────────────
 
@@ -135,8 +147,11 @@ class DlnaService {
   Future<List<DlnaDevice>> discoverDevices({
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    if (Platform.isAndroid || Platform.isIOS ||
-        Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+    if (Platform.isAndroid ||
+        Platform.isIOS ||
+        Platform.isLinux ||
+        Platform.isMacOS ||
+        Platform.isWindows) {
       // OK — these platforms expose UDP sockets.
     } else {
       return const [];
@@ -168,12 +183,17 @@ class DlnaService {
     // Android.
     await _acquireMulticastLock();
     try {
-      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0,
-          reuseAddress: true);
+      final socket = await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        0,
+        reuseAddress: true,
+      );
       try {
         socket.broadcastEnabled = true;
         // Loopback off: we don't want to see our own M-SEARCH back.
-        try { socket.multicastLoopback = false; } catch (_) {}
+        try {
+          socket.multicastLoopback = false;
+        } catch (_) {}
 
         // Build M-SEARCH request — exact format mandated by UPnP spec.
         // MX bumped 3→5 so TVs that wait the full window before
@@ -244,11 +264,13 @@ class DlnaService {
   /// AVTransport controlURL.
   Future<DlnaDevice?> _fetchDevice(Uri location) async {
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 4),
-        receiveTimeout: const Duration(seconds: 4),
-        responseType: ResponseType.plain,
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+          responseType: ResponseType.plain,
+        ),
+      );
       final response = await dio.getUri<String>(location);
       final body = response.data;
       if (body == null || body.isEmpty) return null;
@@ -259,17 +281,32 @@ class DlnaService {
       final device = root.findAllElements('device').firstOrNull;
       if (device == null) return null;
 
-      final name = device.findElements('friendlyName').firstOrNull?.innerText.trim() ?? '';
-      final manufacturer = device.findElements('manufacturer').firstOrNull?.innerText.trim();
-      final modelName = device.findElements('modelName').firstOrNull?.innerText.trim();
+      final name =
+          device.findElements('friendlyName').firstOrNull?.innerText.trim() ??
+          '';
+      final manufacturer = device
+          .findElements('manufacturer')
+          .firstOrNull
+          ?.innerText
+          .trim();
+      final modelName = device
+          .findElements('modelName')
+          .firstOrNull
+          ?.innerText
+          .trim();
 
       // Find AVTransport service among <service> entries.
       String? controlPath;
       String? serviceType;
       for (final svc in device.findAllElements('service')) {
-        final type = svc.findElements('serviceType').firstOrNull?.innerText.trim() ?? '';
+        final type =
+            svc.findElements('serviceType').firstOrNull?.innerText.trim() ?? '';
         if (type.contains('AVTransport')) {
-          controlPath = svc.findElements('controlURL').firstOrNull?.innerText.trim();
+          controlPath = svc
+              .findElements('controlURL')
+              .firstOrNull
+              ?.innerText
+              .trim();
           serviceType = type;
           break;
         }
@@ -295,17 +332,57 @@ class DlnaService {
   // ─── Connection + media control (SOAP over HTTP) ─────────────────────
 
   void connectTo(DlnaDevice device) {
-    _updateState(DlnaState(
-      connectionState: DlnaConnectionState.connected,
-      device: device,
-    ));
+    ++_session;
+    _positionTimer?.cancel();
+    _lastPosition = null;
+    _updateState(
+      DlnaState(connectionState: DlnaConnectionState.connected, device: device),
+    );
   }
 
   Future<void> disconnect() async {
-    if (state.device != null) {
-      await _safeSoap('Stop', state.device!, {'InstanceID': '0'});
+    _positionTimer?.cancel();
+    final session = ++_session;
+    final device = state.device;
+    if (device != null) {
+      await refreshPosition();
+      await _safeSoap('Stop', device, {'InstanceID': '0'});
     }
+    if (session != _session) return;
+    ++_session;
     _updateState(const DlnaState());
+  }
+
+  Future<void> refreshPosition() async {
+    final device = state.device;
+    final session = _session;
+    if (device == null || _pollingPosition) return;
+    _pollingPosition = true;
+    try {
+      final response = await _soapActionRaw('GetPositionInfo', device, {
+        'InstanceID': '0',
+      });
+      final position = parseDlnaTime(_extractElementText(response, 'RelTime'));
+      if (session == _session && position != null) _lastPosition = position;
+    } catch (_) {
+      // Some renderers return NOT_IMPLEMENTED or reject position requests.
+      // Keep the last confirmed position, never replace it with zero.
+    } finally {
+      _pollingPosition = false;
+    }
+  }
+
+  Future<void> seek(Duration position) async {
+    final device = state.device;
+    final session = _session;
+    if (device == null) return;
+    final target = position < Duration.zero ? Duration.zero : position;
+    await _soapAction('Seek', device, {
+      'InstanceID': '0',
+      'Unit': 'REL_TIME',
+      'Target': formatDlnaTime(target),
+    });
+    if (session == _session) _lastPosition = target;
   }
 
   /// Push a media URL to the renderer and start playing.
@@ -322,9 +399,13 @@ class DlnaService {
     required String url,
     required String title,
     String? mimeType,
+    Duration startPosition = Duration.zero,
   }) async {
     final device = state.device;
     if (device == null) return;
+    final session = ++_session;
+    _positionTimer?.cancel();
+    _lastPosition = null;
 
     final mime = mimeType ?? _guessMime(url);
     final didl = _buildDidlMetadata(url: url, title: title, mime: mime);
@@ -337,16 +418,15 @@ class DlnaService {
       'CurrentURI': url,
       'CurrentURIMetaData': didl,
     });
-    await _soapAction('Play', device, {
-      'InstanceID': '0',
-      'Speed': '1',
-    });
+    if (session != _session) return;
+    await _soapAction('Play', device, {'InstanceID': '0', 'Speed': '1'});
+    if (session != _session) return;
     _updateState(state.copyWith(isPlaying: true));
 
     // Verify the renderer actually entered PLAYING within ~5 seconds.
     // GetTransportInfo is part of the AVTransport spec — every
     // compliant renderer must respond. We poll every 500ms; success
-    // is any of {PLAYING, TRANSITIONING}. PAUSED_PLAYBACK,
+    // requires PLAYING, not merely TRANSITIONING. PAUSED_PLAYBACK,
     // STOPPED, NO_MEDIA_PRESENT after the grace window are failures.
     try {
       final ok = await _verifyPlaying(device);
@@ -357,12 +437,19 @@ class DlnaService {
         );
       }
     } on DlnaPlaybackVerificationException {
+      if (session == _session) _updateState(state.copyWith(isPlaying: false));
       rethrow;
     } catch (_) {
       // Renderer didn't implement GetTransportInfo cleanly — fall back
       // to optimistic assumption (we already sent Play; if it really
       // didn't work the user will see no video and try again).
     }
+    if (session != _session) return;
+    if (startPosition > Duration.zero) await seek(startPosition);
+    if (session != _session) return;
+    _positionTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(refreshPosition());
+    });
   }
 
   /// Poll GetTransportInfo until the renderer reports PLAYING or the
@@ -376,19 +463,16 @@ class DlnaService {
     String? last;
     while (DateTime.now().isBefore(deadline)) {
       try {
-        final response = await _soapActionRaw(
-          'GetTransportInfo',
-          device,
-          {'InstanceID': '0'},
-        );
+        final response = await _soapActionRaw('GetTransportInfo', device, {
+          'InstanceID': '0',
+        });
         final transportState = _extractElementText(
           response,
           'CurrentTransportState',
         );
         if (transportState != null) {
           last = transportState;
-          if (transportState == 'PLAYING' ||
-              transportState == 'TRANSITIONING') {
+          if (transportState == 'PLAYING') {
             return (success: true, lastState: transportState);
           }
         }
@@ -403,7 +487,10 @@ class DlnaService {
   String? _extractElementText(String soapResponse, String localName) {
     try {
       final doc = XmlDocument.parse(soapResponse);
-      final el = doc.findAllElements(localName).firstOrNull;
+      final el = doc.descendants
+          .whereType<XmlElement>()
+          .where((e) => e.name.local == localName)
+          .firstOrNull;
       return el?.innerText.trim();
     } catch (_) {
       return null;
@@ -436,8 +523,7 @@ class DlnaService {
     required String url,
     required String title,
     required String mime,
-  }) =>
-      buildDidlMetadata(url: url, title: title, mime: mime);
+  }) => buildDidlMetadata(url: url, title: title, mime: mime);
   String _xmlEscape(String s) => xmlEscape(s);
 
   Future<void> _safeSoap(
@@ -469,8 +555,10 @@ class DlnaService {
   ) async {
     final body = StringBuffer()
       ..write('<?xml version="1.0" encoding="utf-8"?>')
-      ..write('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
-          's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">')
+      ..write(
+        '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+        's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">',
+      )
       ..write('<s:Body>')
       ..write('<u:$action xmlns:u="${device.serviceType}">');
     args.forEach((k, v) {
@@ -481,17 +569,26 @@ class DlnaService {
       ..write('</s:Body>')
       ..write('</s:Envelope>');
 
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
-      responseType: ResponseType.plain,
-      headers: {
-        'Content-Type': 'text/xml; charset="utf-8"',
-        'SOAPAction': '"${device.serviceType}#$action"',
-      },
-    ));
-    final res = await dio.postUri<String>(device.controlUrl, data: body.toString());
-    return res.data ?? '';
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 5),
+        responseType: ResponseType.plain,
+        headers: {
+          'Content-Type': 'text/xml; charset="utf-8"',
+          'SOAPAction': '"${device.serviceType}#$action"',
+        },
+      ),
+    );
+    try {
+      final res = await dio.postUri<String>(
+        device.controlUrl,
+        data: body.toString(),
+      );
+      return res.data ?? '';
+    } finally {
+      dio.close(force: true);
+    }
   }
 }
 
@@ -524,7 +621,8 @@ String dlnaMimeForUrl(String url) {
   if (lower.endsWith('.avi')) return 'video/x-msvideo';
   // Xtream live channels — usually MPEG-TS.
   if (lower.contains('/live/')) return 'video/mp2t';
-  if (lower.contains('/movie/') || lower.contains('/series/')) return 'video/mp4';
+  if (lower.contains('/movie/') || lower.contains('/series/'))
+    return 'video/mp4';
   return 'video/mp4';
 }
 
@@ -576,4 +674,27 @@ String buildDidlMetadata({
       '<res protocolInfo="http-get:*:$mime:$dlnaFlags">$escapedUrl</res>'
       '</item>'
       '</DIDL-Lite>';
+}
+
+/// UPnP relative time; unsupported/invalid values are unknown, not zero.
+Duration? parseDlnaTime(String? value) {
+  final match = RegExp(
+    r'^(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$',
+  ).firstMatch(value?.trim() ?? '');
+  if (match == null) return null;
+  final hours = int.tryParse(match[1]!);
+  if (hours == null || hours > 999999) return null;
+  return Duration(
+    hours: hours,
+    minutes: int.parse(match[2]!),
+    seconds: int.parse(match[3]!),
+    milliseconds: int.parse((match[4] ?? '0').padRight(3, '0')),
+  );
+}
+
+String formatDlnaTime(Duration value) {
+  final seconds = value.inSeconds < 0 ? 0 : value.inSeconds;
+  return '${(seconds ~/ 3600).toString().padLeft(2, '0')}:'
+      '${((seconds ~/ 60) % 60).toString().padLeft(2, '0')}:'
+      '${(seconds % 60).toString().padLeft(2, '0')}';
 }
