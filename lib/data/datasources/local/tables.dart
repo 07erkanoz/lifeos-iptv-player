@@ -67,7 +67,8 @@ class Channels extends Table {
   TextColumn get plot => text().nullable()(); // synopsis/description
   TextColumn get director => text().nullable()();
   TextColumn get cast => text().nullable()(); // comma-separated cast
-  TextColumn get streamUrl => text().nullable()(); // Direct stream URL (M3U accounts only)
+  TextColumn get streamUrl => text().nullable()(); // Direct playback URL (M3U or provider-supplied Xtream source)
+  TextColumn get containerExtension => text().nullable()(); // Xtream media container
   TextColumn get epgChannelId => text().nullable()(); // EPG channel ID for XMLTV matching (tvg-id from M3U, epg_channel_id from Xtream)
   // Precomputed normalised search haystack (name + category + genre + cast +
   // director + year + plot). Built once (migration/backfill + post-sync) so

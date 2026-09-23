@@ -1,0 +1,64 @@
+
+(com.lifeostv.lifeostv:234605): Atk-CRITICAL **: 14:01:53.176: atk_socket_embed: assertion 'plug_id != NULL' failed
+[IMPORTANT:flutter/shell/platform/embedder/embedder_surface_gl_impeller.cc(126)] Using the Impeller rendering backend (OpenGLESSDF).
+Gdk-Message: 14:01:53.249: Unable to load  from the cursor theme
+package:media_kit_libs_linux registered.
+media_kit: VideoOutput: Flutter's EGL config ID: 41
+media_kit: VideoOutput: Using Flutter's EGL config.
+Cannot load libcuda.so.1
+media_kit: VideoOutput: H/W rendering with isolated EGL context.
+VideoOutput.Resize
+{handle: 94424969466800, id: 94424991757504, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 94424991757504
+VideoOutput.Resize
+{handle: 94424969466800, id: 94424991757504, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup h264.mp4 hardware=true","value":816}
+{"check":"decoder/cache","value":{"video-codec":"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10","hwdec-current":"vaapi","hwdec":"auto-safe","video-params/pixelformat":"vaapi","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"-0.003037","decoder-frame-drop-count":"0","frame-drop-count":"0"}}
+{"check":"seek forward/backward","value":true}
+{"check":"fullscreen 3 round trips","value":true}
+{"check":"always on top requested/native","value":true}
+{"check":"pip size","value":[380.0,230.0]}
+{"check":"pip restored fullscreen then session restored window","value":true}
+{"check":"raw screenshot","value":"direct hardware frame; inspect native window capture"}
+{"check":"end A/V","value":"0.000006"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 94424968563712, id: 140380737783488, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 140380737783488
+VideoOutput.Resize
+{handle: 94424968563712, id: 140380737783488, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup h264.mp4 hardware=false","value":819}
+{"check":"decoder/cache","value":{"video-codec":"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10","hwdec-current":"no","hwdec":"no","video-params/pixelformat":"yuv420p","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"-0.002741","decoder-frame-drop-count":"0","frame-drop-count":"6"}}
+{"check":"seek forward/backward","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-gpu-wayland.h264.mp4.false.png"}
+{"check":"end A/V","value":"0.000006"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: Flutter's EGL config ID: 41
+media_kit: VideoOutput: Using Flutter's EGL config.
+Cannot load libcuda.so.1
+media_kit: VideoOutput: H/W rendering with isolated EGL context.
+VideoOutput.Resize
+{handle: 94425058140608, id: 94425057498000, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 94425057498000
+VideoOutput.Resize
+{handle: 94425058140608, id: 94425057498000, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup hevc10.mkv hardware=true","value":920}
+{"check":"decoder/cache","value":{"video-codec":"H.265 / HEVC (High Efficiency Video Coding)","hwdec-current":"vaapi","hwdec":"auto-safe","video-params/pixelformat":"vaapi","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"0.000007","decoder-frame-drop-count":"0","frame-drop-count":"1"}}
+{"check":"seek forward/backward","value":true}
+{"check":"raw screenshot","value":"direct hardware frame; inspect native window capture"}
+{"check":"end A/V","value":"0.000011"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 140380608342576, id: 140380611619200, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 140380611619200
+VideoOutput.Resize
+{handle: 140380608342576, id: 140380611619200, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup hevc10.mkv hardware=false","value":933}
+{"check":"decoder/cache","value":{"video-codec":"H.265 / HEVC (High Efficiency Video Coding)","hwdec-current":"no","hwdec":"no","video-params/pixelformat":"yuv420p10","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"0.000013","decoder-frame-drop-count":"0","frame-drop-count":"1"}}
+{"check":"seek forward/backward","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-gpu-wayland.hevc10.mkv.false.png"}
+{"check":"end A/V","value":"0.000007"}
+{"check":"end dropped frames","value":"0"}
+{"check":"passed","value":true}

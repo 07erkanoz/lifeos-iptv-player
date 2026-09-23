@@ -653,6 +653,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         : StreamUrlBuilder.live(account.url, account.username ?? '', account.password ?? '', channel.streamId, quality: quality);
     context.push('/player', extra: {
       'url': url,
+      'streamId': channel.streamId,
       'title': channel.name,
       'type': VideoType.live,
       'logo': channel.streamIcon,

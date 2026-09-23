@@ -940,6 +940,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       '/player',
       extra: {
         'url': url,
+        'streamId': channel.streamId,
         'title': channel.name,
         'type': VideoType.live,
         'logo': channel.streamIcon,

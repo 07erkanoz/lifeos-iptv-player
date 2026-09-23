@@ -1342,6 +1342,17 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _containerExtensionMeta =
+      const VerificationMeta('containerExtension');
+  @override
+  late final GeneratedColumn<String> containerExtension =
+      GeneratedColumn<String>(
+        'container_extension',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _epgChannelIdMeta = const VerificationMeta(
     'epgChannelId',
   );
@@ -1381,6 +1392,7 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     director,
     cast,
     streamUrl,
+    containerExtension,
     epgChannelId,
     searchText,
   ];
@@ -1500,6 +1512,15 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         streamUrl.isAcceptableOrUnknown(data['stream_url']!, _streamUrlMeta),
       );
     }
+    if (data.containsKey('container_extension')) {
+      context.handle(
+        _containerExtensionMeta,
+        containerExtension.isAcceptableOrUnknown(
+          data['container_extension']!,
+          _containerExtensionMeta,
+        ),
+      );
+    }
     if (data.containsKey('epg_channel_id')) {
       context.handle(
         _epgChannelIdMeta,
@@ -1584,6 +1605,10 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         DriftSqlType.string,
         data['${effectivePrefix}stream_url'],
       ),
+      containerExtension: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}container_extension'],
+      ),
       epgChannelId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}epg_channel_id'],
@@ -1617,6 +1642,7 @@ class Channel extends DataClass implements Insertable<Channel> {
   final String? director;
   final String? cast;
   final String? streamUrl;
+  final String? containerExtension;
   final String? epgChannelId;
   final String? searchText;
   const Channel({
@@ -1635,6 +1661,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     this.director,
     this.cast,
     this.streamUrl,
+    this.containerExtension,
     this.epgChannelId,
     this.searchText,
   });
@@ -1678,6 +1705,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     if (!nullToAbsent || streamUrl != null) {
       map['stream_url'] = Variable<String>(streamUrl);
     }
+    if (!nullToAbsent || containerExtension != null) {
+      map['container_extension'] = Variable<String>(containerExtension);
+    }
     if (!nullToAbsent || epgChannelId != null) {
       map['epg_channel_id'] = Variable<String>(epgChannelId);
     }
@@ -1720,6 +1750,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       streamUrl: streamUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(streamUrl),
+      containerExtension: containerExtension == null && nullToAbsent
+          ? const Value.absent()
+          : Value(containerExtension),
       epgChannelId: epgChannelId == null && nullToAbsent
           ? const Value.absent()
           : Value(epgChannelId),
@@ -1750,6 +1783,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       director: serializer.fromJson<String?>(json['director']),
       cast: serializer.fromJson<String?>(json['cast']),
       streamUrl: serializer.fromJson<String?>(json['streamUrl']),
+      containerExtension: serializer.fromJson<String?>(
+        json['containerExtension'],
+      ),
       epgChannelId: serializer.fromJson<String?>(json['epgChannelId']),
       searchText: serializer.fromJson<String?>(json['searchText']),
     );
@@ -1773,6 +1809,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       'director': serializer.toJson<String?>(director),
       'cast': serializer.toJson<String?>(cast),
       'streamUrl': serializer.toJson<String?>(streamUrl),
+      'containerExtension': serializer.toJson<String?>(containerExtension),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
       'searchText': serializer.toJson<String?>(searchText),
     };
@@ -1794,6 +1831,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     Value<String?> director = const Value.absent(),
     Value<String?> cast = const Value.absent(),
     Value<String?> streamUrl = const Value.absent(),
+    Value<String?> containerExtension = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
     Value<String?> searchText = const Value.absent(),
   }) => Channel(
@@ -1814,6 +1852,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     director: director.present ? director.value : this.director,
     cast: cast.present ? cast.value : this.cast,
     streamUrl: streamUrl.present ? streamUrl.value : this.streamUrl,
+    containerExtension: containerExtension.present
+        ? containerExtension.value
+        : this.containerExtension,
     epgChannelId: epgChannelId.present ? epgChannelId.value : this.epgChannelId,
     searchText: searchText.present ? searchText.value : this.searchText,
   );
@@ -1842,6 +1883,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       director: data.director.present ? data.director.value : this.director,
       cast: data.cast.present ? data.cast.value : this.cast,
       streamUrl: data.streamUrl.present ? data.streamUrl.value : this.streamUrl,
+      containerExtension: data.containerExtension.present
+          ? data.containerExtension.value
+          : this.containerExtension,
       epgChannelId: data.epgChannelId.present
           ? data.epgChannelId.value
           : this.epgChannelId,
@@ -1869,6 +1913,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           ..write('director: $director, ')
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
+          ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText')
           ..write(')'))
@@ -1892,6 +1937,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     director,
     cast,
     streamUrl,
+    containerExtension,
     epgChannelId,
     searchText,
   );
@@ -1914,6 +1960,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           other.director == this.director &&
           other.cast == this.cast &&
           other.streamUrl == this.streamUrl &&
+          other.containerExtension == this.containerExtension &&
           other.epgChannelId == this.epgChannelId &&
           other.searchText == this.searchText);
 }
@@ -1934,6 +1981,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
   final Value<String?> director;
   final Value<String?> cast;
   final Value<String?> streamUrl;
+  final Value<String?> containerExtension;
   final Value<String?> epgChannelId;
   final Value<String?> searchText;
   final Value<int> rowid;
@@ -1953,6 +2001,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.director = const Value.absent(),
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
+    this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1973,6 +2022,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.director = const Value.absent(),
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
+    this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1996,6 +2046,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Expression<String>? director,
     Expression<String>? cast,
     Expression<String>? streamUrl,
+    Expression<String>? containerExtension,
     Expression<String>? epgChannelId,
     Expression<String>? searchText,
     Expression<int>? rowid,
@@ -2016,6 +2067,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       if (director != null) 'director': director,
       if (cast != null) 'cast': cast,
       if (streamUrl != null) 'stream_url': streamUrl,
+      if (containerExtension != null) 'container_extension': containerExtension,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
       if (searchText != null) 'search_text': searchText,
       if (rowid != null) 'rowid': rowid,
@@ -2038,6 +2090,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Value<String?>? director,
     Value<String?>? cast,
     Value<String?>? streamUrl,
+    Value<String?>? containerExtension,
     Value<String?>? epgChannelId,
     Value<String?>? searchText,
     Value<int>? rowid,
@@ -2058,6 +2111,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       director: director ?? this.director,
       cast: cast ?? this.cast,
       streamUrl: streamUrl ?? this.streamUrl,
+      containerExtension: containerExtension ?? this.containerExtension,
       epgChannelId: epgChannelId ?? this.epgChannelId,
       searchText: searchText ?? this.searchText,
       rowid: rowid ?? this.rowid,
@@ -2112,6 +2166,9 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     if (streamUrl.present) {
       map['stream_url'] = Variable<String>(streamUrl.value);
     }
+    if (containerExtension.present) {
+      map['container_extension'] = Variable<String>(containerExtension.value);
+    }
     if (epgChannelId.present) {
       map['epg_channel_id'] = Variable<String>(epgChannelId.value);
     }
@@ -2142,6 +2199,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
           ..write('director: $director, ')
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
+          ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText, ')
           ..write('rowid: $rowid')
@@ -9658,6 +9716,7 @@ typedef $$ChannelsTableCreateCompanionBuilder =
       Value<String?> director,
       Value<String?> cast,
       Value<String?> streamUrl,
+      Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
       Value<int> rowid,
@@ -9679,6 +9738,7 @@ typedef $$ChannelsTableUpdateCompanionBuilder =
       Value<String?> director,
       Value<String?> cast,
       Value<String?> streamUrl,
+      Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
       Value<int> rowid,
@@ -9805,6 +9865,11 @@ class $$ChannelsTableFilterComposer
 
   ColumnFilters<String> get streamUrl => $composableBuilder(
     column: $table.streamUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get containerExtension => $composableBuilder(
+    column: $table.containerExtension,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9946,6 +10011,11 @@ class $$ChannelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get containerExtension => $composableBuilder(
+    column: $table.containerExtension,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get epgChannelId => $composableBuilder(
     column: $table.epgChannelId,
     builder: (column) => ColumnOrderings(column),
@@ -10036,6 +10106,11 @@ class $$ChannelsTableAnnotationComposer
 
   GeneratedColumn<String> get streamUrl =>
       $composableBuilder(column: $table.streamUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get containerExtension => $composableBuilder(
+    column: $table.containerExtension,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get epgChannelId => $composableBuilder(
     column: $table.epgChannelId,
@@ -10139,6 +10214,7 @@ class $$ChannelsTableTableManager
                 Value<String?> director = const Value.absent(),
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
+                Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -10158,6 +10234,7 @@ class $$ChannelsTableTableManager
                 director: director,
                 cast: cast,
                 streamUrl: streamUrl,
+                containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,
                 rowid: rowid,
@@ -10179,6 +10256,7 @@ class $$ChannelsTableTableManager
                 Value<String?> director = const Value.absent(),
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
+                Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -10198,6 +10276,7 @@ class $$ChannelsTableTableManager
                 director: director,
                 cast: cast,
                 streamUrl: streamUrl,
+                containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,
                 rowid: rowid,

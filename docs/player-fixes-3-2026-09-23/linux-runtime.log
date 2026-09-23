@@ -1,0 +1,59 @@
+
+(com.lifeostv.lifeostv:212460): Atk-CRITICAL **: 13:38:35.732: atk_socket_embed: assertion 'plug_id != NULL' failed
+[IMPORTANT:flutter/shell/platform/embedder/embedder_surface_gl_impeller.cc(126)] Using the Impeller rendering backend (OpenGLESSDF).
+package:media_kit_libs_linux registered.
+media_kit: VideoOutput: EGL display or context is invalid.
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 94300324628000, id: 94300324026736, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 94300324026736
+VideoOutput.Resize
+{handle: 94300324628000, id: 94300324026736, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup h264.mp4 hardware=true","value":925}
+{"check":"decoder/cache","value":{"video-codec":"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10","hwdec-current":"vaapi-copy","hwdec":"auto-safe","video-params/pixelformat":"nv12","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"-0.002741","decoder-frame-drop-count":"0","frame-drop-count":"7"}}
+{"check":"seek forward/backward","value":true}
+{"check":"fullscreen 3 round trips","value":true}
+{"check":"always on top requested/native","value":true}
+{"check":"pip size","value":[380.0,230.0]}
+{"check":"pip restored fullscreen then session restored window","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-final-smoke.h264.mp4.true.png"}
+{"check":"end A/V","value":"0.000008"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 94300351175952, id: 94300347777936, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 94300347777936
+VideoOutput.Resize
+{handle: 94300351175952, id: 94300347777936, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup h264.mp4 hardware=false","value":677}
+{"check":"decoder/cache","value":{"video-codec":"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10","hwdec-current":"no","hwdec":"no","video-params/pixelformat":"yuv420p","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"-0.002461","decoder-frame-drop-count":"0","frame-drop-count":"0"}}
+{"check":"seek forward/backward","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-final-smoke.h264.mp4.false.png"}
+{"check":"end A/V","value":"0.000013"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: EGL display or context is invalid.
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 94300352504608, id: 139866466398032, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 139866466398032
+VideoOutput.Resize
+{handle: 94300352504608, id: 139866466398032, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup hevc10.mkv hardware=true","value":737}
+{"check":"decoder/cache","value":{"video-codec":"H.265 / HEVC (High Efficiency Video Coding)","hwdec-current":"vaapi-copy","hwdec":"auto-safe","video-params/pixelformat":"p010","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"0.000005","decoder-frame-drop-count":"0","frame-drop-count":"0"}}
+{"check":"seek forward/backward","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-final-smoke.hevc10.mkv.true.png"}
+{"check":"end A/V","value":"0.000004"}
+{"check":"end dropped frames","value":"0"}
+media_kit: VideoOutput: S/W rendering.
+VideoOutput.Resize
+{handle: 94300433726464, id: 139866466376624, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 139866466376624
+VideoOutput.Resize
+{handle: 94300433726464, id: 139866466376624, rect: {left: 0, top: 0, width: 1920, height: 1080}}
+{"check":"startup hevc10.mkv hardware=false","value":1026}
+{"check":"decoder/cache","value":{"video-codec":"H.265 / HEVC (High Efficiency Video Coding)","hwdec-current":"no","hwdec":"no","video-params/pixelformat":"yuv420p10","demuxer-max-bytes":"134217728","cache-secs":"30.000000","avsync":"0.000006","decoder-frame-drop-count":"0","frame-drop-count":"6"}}
+{"check":"seek forward/backward","value":true}
+{"check":"decoded frame","value":"/tmp/iptv-player3-final-smoke.hevc10.mkv.false.png"}
+{"check":"end A/V","value":"0.000012"}
+{"check":"end dropped frames","value":"0"}
+{"check":"passed","value":true}

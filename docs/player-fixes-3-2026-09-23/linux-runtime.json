@@ -1,0 +1,161 @@
+[
+  {
+    "check": "startup h264.mp4 hardware=true",
+    "value": 925
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+      "hwdec-current": "vaapi-copy",
+      "hwdec": "auto-safe",
+      "video-params/pixelformat": "nv12",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "-0.002741",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "7"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "fullscreen 3 round trips",
+    "value": true
+  },
+  {
+    "check": "always on top requested/native",
+    "value": true
+  },
+  {
+    "check": "pip size",
+    "value": [
+      380.0,
+      230.0
+    ]
+  },
+  {
+    "check": "pip restored fullscreen then session restored window",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-final-smoke.h264.mp4.true.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000008"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup h264.mp4 hardware=false",
+    "value": 677
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+      "hwdec-current": "no",
+      "hwdec": "no",
+      "video-params/pixelformat": "yuv420p",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "-0.002461",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "0"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-final-smoke.h264.mp4.false.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000013"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup hevc10.mkv hardware=true",
+    "value": 737
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.265 / HEVC (High Efficiency Video Coding)",
+      "hwdec-current": "vaapi-copy",
+      "hwdec": "auto-safe",
+      "video-params/pixelformat": "p010",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "0.000005",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "0"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-final-smoke.hevc10.mkv.true.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000004"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup hevc10.mkv hardware=false",
+    "value": 1026
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.265 / HEVC (High Efficiency Video Coding)",
+      "hwdec-current": "no",
+      "hwdec": "no",
+      "video-params/pixelformat": "yuv420p10",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "0.000006",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "6"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-final-smoke.hevc10.mkv.false.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000012"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "passed",
+    "value": true
+  }
+]

@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,83 +31,113 @@ class _PipOverlayState extends ConsumerState<PipOverlay> {
       return const SizedBox.shrink();
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: MouseRegion(
-        onEnter: (_) => setState(() => _controlsVisible = true),
-        onExit: (_) => setState(() => _controlsVisible = false),
-        child: GestureDetector(
-          onTap: () => setState(() => _controlsVisible = !_controlsVisible),
-          child: Stack(
-            children: [
-              // Video fills the entire window
-              Positioned.fill(
-                child: Video(
-                  controller: pipData.controller,
-                  fill: Colors.black,
-                ),
-              ),
-
-              if (_controlsVisible) ...[
-                // Gradient overlay
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          _expand();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: MouseRegion(
+          onEnter: (_) => setState(() => _controlsVisible = true),
+          onExit: (_) => setState(() => _controlsVisible = false),
+          child: GestureDetector(
+            onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+            child: Stack(
+              children: [
+                // Video fills the entire window
                 Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.6),
-                          Colors.transparent,
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                        stops: const [0.0, 0.25, 0.7, 1.0],
-                      ),
-                    ),
+                  child: Video(
+                    controller: pipData.controller,
+                    fill: Colors.black,
+                    controls: NoVideoControls,
                   ),
                 ),
 
-                // Top bar: draggable area + title
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onPanStart: (_) {
-                      windowManager.startDragging();
-                    },
-                    child: Container(
-                      color: Colors.transparent,
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                      child: Text(
-                        pipData.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                if (_controlsVisible) ...[
+                  // Gradient overlay
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.6),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
+                          ],
+                          stops: const [0.0, 0.25, 0.7, 1.0],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                ),
 
-                // Bottom controls
-                Positioned(
-                  bottom: 8,
-                  left: 10,
-                  right: 10,
-                  child: _PipControls(pipData: pipData),
-                ),
+                  // Top bar: draggable area + title
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onPanStart: (_) {
+                        windowManager.startDragging();
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        child: Text(
+                          pipData.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: 4),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom controls
+                  Positioned(
+                    bottom: 8,
+                    left: 10,
+                    right: 10,
+                    child: _PipControls(pipData: pipData),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  bool _expanding = false;
+  Future<void> _expand() async {
+    if (_expanding) return;
+    _expanding = true;
+    try {
+      await ref.read(pipProvider.notifier).expandToFullscreen();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.error)),
+      );
+    } finally {
+      _expanding = false;
+    }
   }
 }
 
@@ -113,7 +145,7 @@ class _PipOverlayState extends ConsumerState<PipOverlay> {
 // a small draggable widget on top of the running app, but users reported
 // the rest of the app stayed visible behind the overlay — not the
 // "popped out" experience expected from PiP. The replacement (see
-// PipNotifier._shrinkWindowToPip) shrinks the host window itself and
+// PlayerWindowController.enterPip) shrinks the host window itself and
 // renders PipOverlay full-window, so the entire screen is the mini
 // player. Same code path now serves Windows + macOS + Linux.
 
@@ -130,6 +162,7 @@ class _PipControls extends ConsumerStatefulWidget {
 }
 
 class _PipControlsState extends ConsumerState<_PipControls> {
+  bool _busy = false;
   @override
   Widget build(BuildContext context) {
     final pd = widget.pipData;
@@ -143,14 +176,15 @@ class _PipControlsState extends ConsumerState<_PipControls> {
     return Row(
       children: [
         // Play/Pause
-        _PipButton(
-          icon: pd.player.state.playing ? Icons.pause : Icons.play_arrow,
-          size: btnSize,
-          iconSize: iconSize,
-          onTap: () {
-            pd.player.playOrPause();
-            setState(() {});
-          },
+        StreamBuilder<bool>(
+          stream: pd.player.stream.playing,
+          initialData: pd.player.state.playing,
+          builder: (_, snapshot) => _PipButton(
+            icon: snapshot.data == true ? Icons.pause : Icons.play_arrow,
+            size: btnSize,
+            iconSize: iconSize,
+            onTap: _busy ? null : () => _run(pd.player.playOrPause),
+          ),
         ),
         const Spacer(),
         // Expand to fullscreen
@@ -158,7 +192,7 @@ class _PipControlsState extends ConsumerState<_PipControls> {
           icon: Icons.open_in_full,
           size: btnSize,
           iconSize: iconSize,
-          onTap: () => _expandToFullscreen(),
+          onTap: _busy ? null : _expandToFullscreen,
         ),
         const SizedBox(width: 6),
         // Close PiP
@@ -166,34 +200,42 @@ class _PipControlsState extends ConsumerState<_PipControls> {
           icon: Icons.close,
           size: btnSize,
           iconSize: iconSize,
-          onTap: _closePip,
+          onTap: _busy ? null : _closePip,
         ),
       ],
     );
   }
 
-  /// Expand back to the fullscreen player. Because the /player route
-  /// stayed mounted under the PiP overlay (main.dart Stacks PipOverlay
-  /// over the router), all we need to do is clear PiP state — the
-  /// player screen sees pipProvider become null, re-shows its Video,
-  /// and the user is back to fullscreen instantly.
-  void _expandToFullscreen() async {
-    await ref.read(pipProvider.notifier).expandToFullscreen();
+  /// Keep close/expand mutually exclusive until native restoration completes.
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.error)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
-  /// Close PiP and return to whatever was below the player route.
-  /// closePip() clears state + restores window size; we then pop
-  /// /player so the player screen disposes the Player.
-  void _closePip() async {
+  void _expandToFullscreen() => _run(() async {
+    await ref.read(pipProvider.notifier).expandToFullscreen();
+  });
+
+  void _closePip() => _run(() async {
     final router = GoRouter.of(context);
     await ref.read(pipProvider.notifier).closePip();
-    if (router.canPop()) router.pop();
-  }
+    if (mounted && router.canPop()) router.pop();
+  });
 }
 
 class _PipButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double size;
   final double iconSize;
 

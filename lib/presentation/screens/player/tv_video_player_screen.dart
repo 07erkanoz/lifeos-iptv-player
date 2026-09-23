@@ -1,3 +1,8 @@
+import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
+import 'package:lifeostv/presentation/state/settings_provider.dart';
+import 'package:lifeostv/core/playback_signal.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:lifeostv/presentation/controllers/playback_seek_controller.dart';
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,6 +31,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
 /// states. Channel list / EPG / subtitle / cast overlays come next.
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
+  final int streamId;
   final String title;
   final VideoType type;
   final String? logo;
@@ -38,6 +44,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   const TvVideoPlayerScreen({
     super.key,
     required this.streamUrl,
+    required this.streamId,
     required this.title,
     this.type = VideoType.live,
     this.logo,
@@ -53,7 +60,8 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
       _TvVideoPlayerScreenState();
 }
 
-class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
+class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
+    with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   final _focusNode = FocusNode();
 
@@ -63,6 +71,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
 
   Timer? _hideTimer;
   Timer? _saveTimer;
+  late final PlaybackSeekController _seek;
+  int _openGeneration = 0;
+  bool _disposed = false;
+  bool _backgrounded = false;
+  Timer? _bufferingTimeout;
+  bool _savedInitialProgress = false;
 
   // Current stream for the active playback (changes on live channel switch).
   late String _url;
@@ -75,10 +89,24 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
     _title = widget.title;
     _logo = widget.logo;
     _channelIndex = widget.currentChannelIndex ?? 0;
+    _seek = PlaybackSeekController(
+      position: () => _controller?.value.position ?? Duration.zero,
+      duration: () => _controller?.value.duration ?? Duration.zero,
+      seek: (target) async {
+        final c = _controller;
+        if (c != null && c.value.isInitialized) await c.seekTo(target);
+      },
+      onPreview: (_) {
+        if (mounted) setState(() {});
+      },
+      onError: () {},
+    );
     WakelockPlus.enable();
     _open(_url, startAt: widget.startPosition);
     _saveTimer = Timer.periodic(
@@ -93,7 +121,14 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+    playbackActiveNotifier.value = false;
+    _bufferingTimeout?.cancel();
+    _bufferingTimeout = null;
+    ++_openGeneration;
     _saveProgress();
+    _seek.dispose();
     _hideTimer?.cancel();
     _saveTimer?.cancel();
     _controller?.removeListener(_onValue);
@@ -101,6 +136,35 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
     _focusNode.dispose();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _backgrounded = false;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _backgrounded = true;
+      _bufferingTimeout?.cancel();
+      _bufferingTimeout = null;
+      unawaited(
+        _controller?.pause().catchError((Object _) {}) ?? Future.value(),
+      );
+      _saveProgress();
+    }
+  }
+
+  void _fail({bool timeout = false}) {
+    if (!mounted || _disposed) return;
+    _bufferingTimeout?.cancel();
+    _bufferingTimeout = null;
+    _hideTimer?.cancel();
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _error = timeout ? l10n.connectionTimedOut : l10n.streamLoadFailed;
+      _buffering = false;
+      _showControls = true;
+    });
+    unawaited(_controller?.pause().catchError((Object _) {}) ?? Future.value());
   }
 
   VideoFormat? _formatHint(String url) {
@@ -111,11 +175,17 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
   }
 
   Future<void> _open(String url, {Duration? startAt}) async {
+    if (_disposed) return;
+    final generation = ++_openGeneration;
+    _seek.cancel();
+    _bufferingTimeout?.cancel();
+    _bufferingTimeout = null;
     // Tear down any previous controller (channel switch / retry).
     final old = _controller;
     _controller = null;
     old?.removeListener(_onValue);
-    await old?.dispose();
+    await old?.dispose().catchError((Object _) {});
+    if (!mounted || _disposed || generation != _openGeneration) return;
 
     if (mounted) {
       setState(() {
@@ -124,6 +194,14 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
       });
     }
 
+    try {
+      await TvPlaybackConfig.apply(ref.read(settingsProvider), live: _isLive);
+    } catch (_) {
+      if (generation == _openGeneration) _fail();
+      return;
+    }
+    if (!mounted || _disposed || generation != _openGeneration) return;
+    _savedInitialProgress = false;
     final c = VideoPlayerController.networkUrl(
       Uri.parse(url),
       formatHint: _formatHint(url),
@@ -132,9 +210,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
       // ExoPlayer's default can be refused, which shows as an endless
       // spinner (connection accepted then starved, no data). A VLC UA is the
       // most broadly whitelisted.
-      httpHeaders: const {
-        'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20',
-      },
+      httpHeaders: const {'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20'},
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
     );
     _controller = c;
@@ -144,26 +220,53 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
       // spinning forever (also the diagnostic signal for UA/redirect/codec
       // problems the user can report).
       await c.initialize().timeout(const Duration(seconds: 25));
-      if (!mounted || _controller != c) return;
-      if (startAt != null && startAt.inSeconds > 0 && !_isLive) {
-        await c.seekTo(startAt);
+      if (!mounted ||
+          _disposed ||
+          generation != _openGeneration ||
+          _controller != c) {
+        return;
       }
-      await c.play();
-      if (mounted) setState(() => _buffering = false);
+      var resume = startAt;
+      if (!_isLive && resume == null) {
+        final saved = await ref
+            .read(playerRepositoryProvider)
+            .getProgress(widget.streamId, widget.type.name);
+        if (!mounted ||
+            _disposed ||
+            generation != _openGeneration ||
+            _controller != c) {
+          return;
+        }
+        if (saved != null && !saved.isFinished) {
+          resume = Duration(milliseconds: saved.position);
+        }
+      }
+      if (resume != null && resume > Duration.zero && !_isLive) {
+        await c.seekTo(PlaybackSeekController.clamp(resume, c.value.duration));
+      }
+      if (!mounted ||
+          _disposed ||
+          generation != _openGeneration ||
+          _controller != c) {
+        return;
+      }
+      if (_error != null) return;
+      if (!_backgrounded) await c.play();
+      if (mounted &&
+          !_disposed &&
+          generation == _openGeneration &&
+          _controller == c) {
+        _onValue();
+      }
     } catch (e) {
       // Free the stuck controller so it stops retrying in the background.
       if (_controller == c) {
         c.removeListener(_onValue);
-        await c.dispose();
         _controller = null;
+        await c.dispose().catchError((Object _) {});
       }
-      if (mounted) {
-        setState(() {
-          _error = e is TimeoutException
-              ? 'Bağlantı zaman aşımına uğradı — yayın açılamadı.\n$url'
-              : e.toString();
-          _buffering = false;
-        });
+      if (mounted && !_disposed && generation == _openGeneration) {
+        _fail(timeout: e is TimeoutException);
       }
     }
   }
@@ -172,10 +275,25 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
     final c = _controller;
     if (c == null || !mounted) return;
     final v = c.value;
-    final buffering = v.isInitialized && v.isBuffering;
-    if (buffering != _buffering) setState(() => _buffering = buffering);
-    if (v.hasError && _error == null) {
-      setState(() => _error = v.errorDescription ?? 'playback error');
+    if (v.hasError && _error == null) _fail();
+    if (!v.isInitialized || _error != null) return;
+    if (v.isBuffering != _buffering) setState(() => _buffering = v.isBuffering);
+    if (v.isBuffering && v.isPlaying && !_backgrounded) {
+      _bufferingTimeout ??= Timer(const Duration(seconds: 20), () {
+        if (_controller == c && c.value.isBuffering && c.value.isPlaying) {
+          _fail(timeout: true);
+        }
+      });
+    } else {
+      _bufferingTimeout?.cancel();
+      _bufferingTimeout = null;
+    }
+    if (!_isLive &&
+        !_savedInitialProgress &&
+        v.position.inSeconds >= 3 &&
+        v.duration.inSeconds >= 10) {
+      _savedInitialProgress = true;
+      _saveProgress();
     }
     // Keep the bottom-bar position/duration live while controls are shown.
     if (_showControls) setState(() {});
@@ -185,6 +303,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
+    if (_error != null) return;
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) setState(() => _showControls = false);
     });
@@ -198,6 +317,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
   // ── Playback ops ──────────────────────────────────────────────────────
 
   void _togglePlay() {
+    if (_error != null) {
+      _open(_url, startAt: _controller?.value.position);
+      return;
+    }
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     if (c.value.isPlaying) {
@@ -211,11 +334,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
   void _seekBy(int seconds) {
     final c = _controller;
     if (c == null || !c.value.isInitialized || _isLive) return;
-    final dur = c.value.duration;
-    var target = c.value.position + Duration(seconds: seconds);
-    if (target < Duration.zero) target = Duration.zero;
-    if (dur > Duration.zero && target > dur) target = dur;
-    c.seekTo(target);
+    _seek.nudge(Duration(seconds: seconds));
     _showControlsBriefly();
   }
 
@@ -243,10 +362,14 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
     final posMs = v.position.inMilliseconds;
     if (posMs <= 0) return;
     try {
-      final sid = int.tryParse(_url.split('/').last.split('.').first);
-      if (sid == null) return;
+      final sid = widget.streamId;
       final repo = ref.read(playerRepositoryProvider);
-      await repo.saveProgress(sid, widget.type.name, posMs, v.duration.inMilliseconds);
+      await repo.saveProgress(
+        sid,
+        widget.type.name,
+        posMs,
+        v.duration.inMilliseconds,
+      );
       if (widget.type == VideoType.series &&
           widget.parentStreamId != null &&
           widget.parentStreamId != sid) {
@@ -337,8 +460,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                 if (v != null && v.isInitialized)
                   Center(
                     child: AspectRatio(
-                      aspectRatio:
-                          v.aspectRatio > 0 ? v.aspectRatio : 16 / 9,
+                      aspectRatio: v.aspectRatio > 0 ? v.aspectRatio : 16 / 9,
                       child: VideoPlayer(c!),
                     ),
                   ),
@@ -349,30 +471,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
 
-                // Error
-                if (_error != null)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline,
-                              color: Colors.white54, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white54),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Controls overlay
+                // Controls stay behind the retry button.
                 AnimatedOpacity(
                   opacity: _showControls ? 1 : 0,
                   duration: const Duration(milliseconds: 150),
@@ -381,6 +480,38 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                     child: _buildControls(v),
                   ),
                 ),
+
+                // Error
+                if (_error != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: _togglePlay,
+                            icon: const Icon(Icons.refresh),
+                            label: Text(AppLocalizations.of(context)!.retry),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -390,7 +521,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
   }
 
   Widget _buildControls(VideoPlayerValue? v) {
-    final pos = v?.position ?? Duration.zero;
+    final pos = _seek.preview ?? v?.position ?? Duration.zero;
     final dur = v?.duration ?? Duration.zero;
     final playing = v?.isPlaying ?? false;
     return Container(
@@ -450,7 +581,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white60, fontSize: 13),
+                            color: Colors.white60,
+                            fontSize: 13,
+                          ),
                         ),
                     ],
                   ),
@@ -458,16 +591,21 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                 if (_isLive)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.shade700,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('LIVE',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800)),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -483,11 +621,14 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
             if (!_isLive && dur.inSeconds > 0) ...[
               Row(
                 children: [
-                  Text(_fmt(pos),
-                      style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontFamily: 'monospace')),
+                  Text(
+                    _fmt(pos),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -495,22 +636,28 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen> {
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
                           value: dur.inMilliseconds > 0
-                              ? (pos.inMilliseconds / dur.inMilliseconds)
-                                  .clamp(0.0, 1.0)
+                              ? (pos.inMilliseconds / dur.inMilliseconds).clamp(
+                                  0.0,
+                                  1.0,
+                                )
                               : 0,
                           minHeight: 4,
                           backgroundColor: Colors.white24,
                           valueColor: const AlwaysStoppedAnimation(
-                              AppColors.primary),
+                            AppColors.primary,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  Text(_fmt(dur),
-                      style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontFamily: 'monospace')),
+                  Text(
+                    _fmt(dur),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),

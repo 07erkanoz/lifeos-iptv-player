@@ -154,6 +154,8 @@ class SyncService {
                 year: Value(item['year']?.toString()),
                 added: Value(item['added']?.toString()),
                 epgChannelId: Value(item['epg_channel_id']?.toString()),
+                streamUrl: Value(type == 'movie' ? item['direct_source']?.toString() : null),
+                containerExtension: Value(item['container_extension']?.toString()),
               ),
               mode: InsertMode.insertOrReplace,
             );
@@ -259,6 +261,8 @@ class SyncService {
                 year: Value(item['year']?.toString()),
                 added: Value(item['added']?.toString()),
                 epgChannelId: Value(item['epg_channel_id']?.toString()),
+                streamUrl: Value(type == 'movie' ? item['direct_source']?.toString() : null),
+                containerExtension: Value(item['container_extension']?.toString()),
               ),
               mode: InsertMode.insertOrReplace,
             );

@@ -1,0 +1,161 @@
+[
+  {
+    "check": "startup h264.mp4 hardware=true",
+    "value": 816
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+      "hwdec-current": "vaapi",
+      "hwdec": "auto-safe",
+      "video-params/pixelformat": "vaapi",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "-0.003037",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "0"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "fullscreen 3 round trips",
+    "value": true
+  },
+  {
+    "check": "always on top requested/native",
+    "value": true
+  },
+  {
+    "check": "pip size",
+    "value": [
+      380.0,
+      230.0
+    ]
+  },
+  {
+    "check": "pip restored fullscreen then session restored window",
+    "value": true
+  },
+  {
+    "check": "raw screenshot",
+    "value": "direct hardware frame; inspect native window capture"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000006"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup h264.mp4 hardware=false",
+    "value": 819
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+      "hwdec-current": "no",
+      "hwdec": "no",
+      "video-params/pixelformat": "yuv420p",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "-0.002741",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "6"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-gpu-wayland.h264.mp4.false.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000006"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup hevc10.mkv hardware=true",
+    "value": 920
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.265 / HEVC (High Efficiency Video Coding)",
+      "hwdec-current": "vaapi",
+      "hwdec": "auto-safe",
+      "video-params/pixelformat": "vaapi",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "0.000007",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "1"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "raw screenshot",
+    "value": "direct hardware frame; inspect native window capture"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000011"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "startup hevc10.mkv hardware=false",
+    "value": 933
+  },
+  {
+    "check": "decoder/cache",
+    "value": {
+      "video-codec": "H.265 / HEVC (High Efficiency Video Coding)",
+      "hwdec-current": "no",
+      "hwdec": "no",
+      "video-params/pixelformat": "yuv420p10",
+      "demuxer-max-bytes": "134217728",
+      "cache-secs": "30.000000",
+      "avsync": "0.000013",
+      "decoder-frame-drop-count": "0",
+      "frame-drop-count": "1"
+    }
+  },
+  {
+    "check": "seek forward/backward",
+    "value": true
+  },
+  {
+    "check": "decoded frame",
+    "value": "/tmp/iptv-player3-gpu-wayland.hevc10.mkv.false.png"
+  },
+  {
+    "check": "end A/V",
+    "value": "0.000007"
+  },
+  {
+    "check": "end dropped frames",
+    "value": "0"
+  },
+  {
+    "check": "passed",
+    "value": true
+  }
+]

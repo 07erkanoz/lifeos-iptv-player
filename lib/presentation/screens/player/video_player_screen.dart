@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/controllers/playback_seek_controller.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -11,6 +12,8 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:lifeostv/presentation/controllers/playback_session.dart';
+import 'package:lifeostv/presentation/controllers/player_window_controller.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
@@ -35,7 +38,6 @@ import 'package:lifeostv/data/services/subtitle_track_matcher.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_appearance_controls.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
-import 'package:lifeostv/utils/gpu_detector.dart';
 import 'package:lifeostv/utils/mpv_config.dart';
 import 'package:lifeostv/data/services/cast_service.dart';
 import 'package:lifeostv/data/services/dlna_service.dart';
@@ -71,6 +73,7 @@ class PlayerChannel {
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
+  final int streamId;
   final String title;
   final VideoType type;
   final String? logo;
@@ -107,6 +110,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   const VideoPlayerScreen({
     super.key,
     required this.streamUrl,
+    required this.streamId,
     required this.title,
     this.type = VideoType.live,
     this.logo,
@@ -144,6 +148,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // -- Player ---------------------------------------------------------------
   late final Player _player;
   late final VideoController _controller;
+  late final PlaybackSession _session;
+  late final PipNotifier _pipNotifier;
+  PlayerWindowController? _window;
+  bool _disposing = false;
+  bool get _alive => mounted && !_disposing;
+  int _openGeneration = 0;
+  bool _playbackFailed = false;
+  bool _backgrounded = false;
 
   // -- UI state -------------------------------------------------------------
   bool _showControls = true;
@@ -167,8 +179,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // ~400ms after the last press. Without this, every press is a real
   // seek → demuxer flush + keyframe re-decode (a 1-2s stall on HQ/IPTV),
   // so a few quick taps stutter and overshoot. null = no active session.
-  Duration? _seekPreview;
-  Timer? _seekCommitTimer;
+  late final PlaybackSeekController _seek;
+  Duration? get _seekPreview => _seek.preview;
 
   // -- Position / Duration --------------------------------------------------
   Duration _pos = Duration.zero;
@@ -333,7 +345,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     }
 
     // Check initial fullscreen state (desktop only)
-    _checkFullscreenState();
+    _pipNotifier = ref.read(pipProvider.notifier);
+    if (pipUsesWindowMode) {
+      _window = ref.read(playerWindowControllerProvider);
+      _window!.addListener(_onWindowStateChanged);
+      unawaited(_window!.beginSession().catchError(_onWindowError));
+    }
 
     _controlsAnim = AnimationController(
       vsync: this,
@@ -373,33 +390,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Mobile only — on desktop a minimised / unfocused window
     // shouldn't stop audio (the user may be listening while working).
     if (!isMobilePlatform) return;
+    if (state == AppLifecycleState.resumed) _backgrounded = false;
     if (_isInPipMode || _pipTransitioning) return;
     // Only true background states — NOT `inactive`, which also fires
     // for transient things (notification shade, permission dialog) and
     // for the PiP-entry transition, where pausing would defeat PiP.
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      try {
-        _player.pause();
-      } catch (_) {}
+      _backgrounded = true;
+      unawaited(_player.pause().catchError((Object _) {}));
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // ── Tear the player down FIRST, unconditionally ──
-    // Everything below (progress save, system-UI restore, timer/sub
-    // cancellation) is best-effort cleanup. If any of it threw or
-    // hung BEFORE we reached the player teardown, the libmpv decoder
-    // kept running — that's the "audio keeps playing after back" and
-    // "two videos on replay" bug. Stopping + disposing the player at
-    // the very top guarantees it never survives this screen.
-    try {
-      _player.pause();
-      _player.stop();
-      _player.dispose();
-    } catch (_) {}
+    _disposing = true;
+    ++_openGeneration;
+    // Closing invalidates queued opens immediately, then releases the native
+    // player after any in-flight configuration/open has completed.
+    unawaited(_session.close().catchError((Object _) {}));
+    _window?.removeListener(_onWindowStateChanged);
+    // Queue restoration now, before a newly opened route can start a session.
+    unawaited(_window?.endSession().catchError((Object _) {}) ?? Future.value());
+    unawaited(_pipNotifier.releasePlayer(_player).catchError((Object _) {}));
     _setPlayerActive(false);
 
     _saveProgress();
@@ -413,11 +427,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         fullscreen: ref.read(settingsProvider).fullscreenMode,
       );
     }
-    // Restore window from fullscreen and always-on-top when leaving player.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      if (_isFullscreen) windowManager.setFullScreen(false);
-      if (_isAlwaysOnTop) windowManager.setAlwaysOnTop(false);
-    }
     for (final s in _subs) {
       s.cancel();
     }
@@ -426,7 +435,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _pipEventSub = null;
     _introMarkerSub?.cancel();
     _posUpdateTimer?.cancel();
-    _seekCommitTimer?.cancel();
+    _seek.dispose();
     _channelInfoTimer?.cancel();
     // Player teardown already happened at the top of dispose().
     _hideTimer?.cancel();
@@ -469,6 +478,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // delete the legacy key so the migration only happens once.
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!_alive) return;
       final legacyKey = 'series_intro_$sid';
       final legacy = prefs.getInt(legacyKey);
       if (legacy != null && legacy > 0) {
@@ -484,6 +494,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       debugPrint('[intro] legacy migration failed: $e');
     }
 
+    if (!_alive) return;
+
     // Eager initial read so the position listener has values to compare
     // against from the first frame — relying on `watchSingleOrNull`'s
     // initial emission was racing the player's first position events
@@ -493,7 +505,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       final initial = await ref
           .read(introMarkerRepositoryProvider)
           .getMarker(sid);
-      if (initial != null && mounted) {
+      if (initial != null && mounted && !_disposing) {
         debugPrint('[intro] initial marker loaded: '
             'start=${initial.introStartMs} end=${initial.introEndMs}');
         setState(() {
@@ -507,13 +519,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       debugPrint('[intro] initial getMarker failed: $e');
     }
 
+    if (!_alive) return;
+
     // Live subscription to the marker. The marking UI writes to the
     // same table, so this picks up edits without an extra reload.
     _introMarkerSub = ref
         .read(introMarkerRepositoryProvider)
         .watchMarker(sid)
         .listen((m) {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       debugPrint('[intro] marker stream emitted: '
           'start=${m?.introStartMs} end=${m?.introEndMs}');
       setState(() {
@@ -532,7 +546,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   ///     showing always lands past the configured intro length.
   Future<void> _skipIntroNow() async {
     final target = _introEndMs ?? widget.introDefaultSeconds * 1000;
-    _player.seek(Duration(milliseconds: target));
+    await _seek.commit(Duration(milliseconds: target));
+    if (!_alive) return;
     setState(() => _showSkipIntro = false);
   }
 
@@ -738,7 +753,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _captureInitialBrightness() async {
     try {
       final b = await ScreenBrightness.instance.application;
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       _initialBrightness = b;
       _gestureBrightness = b;
     } catch (_) {}
@@ -822,7 +837,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// DO update through the declarative path, but pushing them through
   /// the imperative API too costs nothing and is one bug class fewer.
   Future<void> _applySubtitleStyle() async {
-    if (!mounted) return;
+    if (!mounted || _disposing) return;
     _subtitleConfig = _buildSubtitleViewConfig(); // refresh the cache
     setState(() {});
     final state = _videoKey.currentState;
@@ -840,7 +855,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// rest of the config didn't change. Avoids work and avoids the
   /// `update()` post-frame defer.
   void _pushSubtitlePadding() {
-    if (!mounted) return;
+    if (!mounted || _disposing) return;
     _videoKey.currentState?.setSubtitleViewPadding(
       EdgeInsets.fromLTRB(16, 0, 16, _effectiveSubtitleBottomPadding),
       duration: const Duration(milliseconds: 180),
@@ -851,140 +866,127 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Player init
   // =========================================================================
 
-  Future<void> _initPlayer() async {
+  void _initPlayer() {
     final settings = ref.read(settingsProvider);
 
-    // Platform-specific video output config
-    // Linux: do NOT set vo — media_kit handles rendering via its own OpenGL render context.
-    // Setting vo=gpu conflicts with media_kit's texture-based pipeline.
-    String? vo;
-    if (Platform.isWindows) {
-      vo = settings.hardwareAcceleration ? 'gpu' : null;
-    }
-    // Linux: vo=null lets media_kit control the render pipeline
-
     _player = Player(
-      configuration: PlayerConfiguration(
-        vo: vo,
-        // 16 MB on Linux (was 8 MB — too small for high-bitrate 1080p,
-        // causing periodic rebuffer stutter); 32 MB elsewhere.
-        bufferSize: Platform.isLinux ? 16 * 1024 * 1024 : 32 * 1024 * 1024,
-      ),
+      configuration: const PlayerConfiguration(bufferSize: 32 * 1024 * 1024),
     );
     _controller = VideoController(
       _player,
-      // Honour the "Donanım hızlandırma" setting on EVERY platform,
-      // Android TV included. It defaults ON (HW), but must remain a real
-      // escape hatch on TV too: some boxes' HW decoders can't play certain
-      // streams, and forcing HW there left the toggle dead — the user
-      // couldn't fall back to software even when HW produced no video.
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: settings.hardwareAcceleration,
-        // Cap the render texture to 720p on Android TV. media_kit copies +
-        // GL-renders every frame into a Flutter texture (unlike ExoPlayer's
-        // zero-copy SurfaceView); on a weak TV GPU that per-frame cost is
-        // the stutter. A 720p texture roughly halves that work — the TV
-        // panel upscales to its native resolution. Smoothness over a little
-        // sharpness on hardware that otherwise can't keep up.
-        width: PlatformHelper.isTV ? 1280 : null,
-        height: PlatformHelper.isTV ? 720 : null,
+        hwdec: MpvConfig.decoder(hardwareAcceleration: settings.hardwareAcceleration),
       ),
     );
 
-    // ── mpv performance options (auto-configured per GPU) ──
-    if (_player.platform is NativePlayer) {
-      final mpv = _player.platform! as NativePlayer;
-      final gpu = await GpuDetector.detect();
-      await MpvConfig.applyOptimal(mpv, gpu);
-
-      // Wire the "Donanım hızlandırma" setting to mpv's decoder.
-      // ON (default): keep the vendor-detected hardware decoder
-      // (mediacodec / vaapi / nvdec / d3d11va) with mpv's own safe
-      // fallback. OFF: force pure software decoding — the escape hatch
-      // for problematic IPTV streams that green-screen / won't play on
-      // hardware (costs CPU/battery but plays almost anything).
-      // Force pure software decode when the user disabled HW — on TV too.
-      // SW is slow for HD, but it's the last-resort path for streams a
-      // given box's MediaCodec refuses to play; leaving it unreachable on
-      // TV meant "video oynatılamıyor" with no way out.
-      if (!settings.hardwareAcceleration) {
-        await mpv.setProperty('hwdec', 'no');
-      }
-
-      if (widget.type == VideoType.live) {
-        // Live TV: aggressive low-latency
-        await mpv.setProperty('profile', 'low-latency');
-        await mpv.setProperty('cache', 'yes');
-        await mpv.setProperty('cache-secs', '2');
-        await mpv.setProperty('demuxer-max-bytes', '8MiB');
-        await mpv.setProperty('demuxer-max-back-bytes', '4MiB');
-        await mpv.setProperty('demuxer-readahead-secs', '2');
-      } else {
-        // VOD — honour the user's "Tampon süresi" (buffer duration)
-        // setting. Clamped to a sane range so a bad value can't wedge
-        // playback. Higher = smoother on flaky connections, more RAM.
-        final bufSecs = settings.bufferDuration.clamp(5, 120);
-        await mpv.setProperty('cache', 'yes');
-        await mpv.setProperty('cache-secs', '$bufSecs');
-        await mpv.setProperty('demuxer-readahead-secs', '$bufSecs');
-        // Bigger demuxer cache so high-bitrate (HQ/4K) VOD has enough
-        // read-ahead to ride out network dips without rebuffering.
-        await mpv.setProperty('demuxer-max-bytes', '64MiB');
-        await mpv.setProperty('demuxer-max-back-bytes', '32MiB');
-      }
-
-      // Disable subtitles by default only when we have no remembered choice.
-      // If the user previously enabled a subtitle language, _applyRememberedTracks
-      // will pick the matching track as soon as the track list arrives.
-      if (settings.lastPlayerSubtitleLanguage == null) {
-        await mpv.setProperty('sid', 'no');
-      }
-
-      // Subtitle appearance from settings
-      await _applySubtitleStyle();
-
-      // HLS adaptive bitrate quality setting
-      final quality = settings.streamQuality;
-      switch (quality) {
-        case StreamQuality.auto:
-          break;
-        case StreamQuality.high:
-          await mpv.setProperty('hls-bitrate', 'max');
-          break;
-        case StreamQuality.medium:
-          await mpv.setProperty('hls-bitrate', '3000000');
-          break;
-        case StreamQuality.low:
-          await mpv.setProperty('hls-bitrate', '1000000');
-          break;
-      }
-    }
-
-    // ── Stream listeners ──
+    _session = PlaybackSession(
+      initialize: () => _configurePlayer(settings),
+      openMedia: (url) => _player.open(Media(url), play: !_backgrounded),
+      disposePlayer: _player.dispose,
+    );
+    _seek = PlaybackSeekController(
+      position: () => _rawPos,
+      duration: () => _dur,
+      seek: _player.seek,
+      onPreview: (preview) {
+        if (!_alive) return;
+        setState(() => _pos = preview ?? _rawPos);
+      },
+      onError: _onPlaybackError,
+    );
     _attachStreamListeners();
-
-    // Android PiP: notify native side player is active + listen for PiP state
     _setPlayerActive(true);
     _listenPipEvents();
+    unawaited(_openMedia(_currentUrl, initial: true));
+  }
 
-    await _player.open(Media(widget.streamUrl));
-    // Re-apply subtitle appearance now that media is loaded — mpv resets
-    // some of these on file open, and our first apply at init was too early
-    // (before the subtitle renderer was wired up).
-    await _applySubtitleStyle();
-    if (widget.startPosition != null) {
-      _seekWhenReady(widget.startPosition!);
-    } else if (widget.type != VideoType.live) {
-      _checkSavedProgress();
+  Future<void> _configurePlayer(AppSettings settings) async {
+    final native = _player.platform;
+    if (native is NativePlayer) {
+      await MpvConfig.apply(native, live: widget.type == VideoType.live,
+          settings: settings, cancelled: () => !_alive);
     }
-    _resetHideTimer();
+    if (_alive) await _applySubtitleStyle();
+  }
+
+  Future<bool> _openMedia(
+    String url, {
+    bool initial = false,
+    Duration? resume,
+  }) async {
+    if (!_alive) return false;
+    final generation = ++_openGeneration;
+    _seek.cancel();
+    _bufferingTimeoutTimer?.cancel();
+    setState(() {
+      _currentUrl = url;
+      _autoTrackApplied = false;
+      _playbackFailed = false;
+      _showBufferingError = false;
+      _isBuffering = true;
+      _rawPos = Duration.zero;
+      _pos = Duration.zero;
+      _dur = Duration.zero;
+    });
+    _armBufferingTimeout();
+    try {
+      final opened = await _session.open(url);
+      if (!opened || !_alive || generation != _openGeneration) return false;
+      await _applySubtitleStyle();
+      if (!_alive || generation != _openGeneration) return false;
+      if (resume != null) _seekWhenReady(resume);
+      if (initial) {
+        if (widget.startPosition != null) {
+          _seekWhenReady(widget.startPosition!);
+        } else if (widget.type != VideoType.live) {
+          _checkSavedProgress();
+        }
+      }
+      _resetHideTimer();
+      return true;
+    } catch (_) {
+      if (_alive && generation == _openGeneration) _onPlaybackError();
+      return false;
+    }
+  }
+
+  void _onPlaybackError() {
+    if (!mounted || _disposing) return;
+    _bufferingTimeoutTimer?.cancel();
+    _hideTimer?.cancel();
+    _controlsAnim.forward();
+    setState(() {
+      _playbackFailed = true;
+      _showBufferingError = true;
+      _isBuffering = false;
+      _showControls = true;
+    });
+  }
+
+  void _armBufferingTimeout() {
+    _bufferingTimeoutTimer?.cancel();
+    _bufferingTimeoutTimer = Timer(const Duration(seconds: 20), () {
+      if (mounted && !_disposing && _isBuffering) {
+        setState(() => _showBufferingError = true);
+      }
+    });
   }
 
   void _attachStreamListeners() {
+    // Do not display native error text: it may contain account credentials.
+    _subs.add(_player.stream.error.listen((_) => _onPlaybackError()));
     // Position: store raw value, DON'T setState on every tick.
     _subs.add(
       _player.stream.position.listen((p) {
+        if (!mounted || _disposing) return;
         _rawPos = p;
+        if (p > Duration.zero && !_isBuffering && _showBufferingError) {
+          setState(() {
+            _playbackFailed = false;
+            _showBufferingError = false;
+          });
+        }
         // Land in "Continue watching" early: once we're a few seconds in
         // with a known duration, persist once (saves both the episode
         // and, for series, the parent-series row the dashboard joins on).
@@ -1038,7 +1040,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             shouldShow = p.inMilliseconds <
                 widget.introDefaultSeconds * 1000;
           }
-          if (shouldShow != _showSkipIntro && mounted) {
+          if (shouldShow != _showSkipIntro && mounted && !_disposing) {
             setState(() => _showSkipIntro = shouldShow);
           }
         }
@@ -1053,7 +1055,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // during normal viewing. Idle playback now does zero overlay
     // rebuilds; the position re-syncs the instant controls reappear.
     _posUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       // Don't clobber an in-progress D-pad seek preview with the real
       // (not-yet-sought) position.
       if (_seekPreview != null) return;
@@ -1065,13 +1067,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _subs.add(
       _player.stream.duration.listen((d) {
-        if (mounted) setState(() => _dur = d);
+        if (mounted && !_disposing) setState(() => _dur = d);
       }),
     );
 
     _subs.add(
       _player.stream.playing.listen((playing) {
-        if (!mounted) return;
+        if (!mounted || _disposing) return;
         if (!playing) {
           _controlsAnim.forward();
           // Coalesce into a single rebuild instead of two back-to-back.
@@ -1085,7 +1087,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           if (widget.type != VideoType.live && _dur.inSeconds > 0) {
             _pauseBadgeTimer?.cancel();
             _pauseBadgeTimer = Timer(const Duration(seconds: 2), () {
-              if (mounted && _isPaused) setState(() => _showPauseBadge = true);
+              if (mounted && !_disposing && _isPaused) setState(() => _showPauseBadge = true);
             });
           }
         } else {
@@ -1101,19 +1103,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _subs.add(
       _player.stream.buffering.listen((b) {
-        if (mounted) {
+        if (mounted && !_disposing) {
           setState(() => _isBuffering = b);
-          // Buffering timeout: 20 seconds
           if (b) {
-            _bufferingTimeoutTimer?.cancel();
-            _bufferingTimeoutTimer = Timer(const Duration(seconds: 20), () {
-              if (mounted && _isBuffering) {
-                setState(() => _showBufferingError = true);
-              }
-            });
+            _armBufferingTimeout();
           } else {
             _bufferingTimeoutTimer?.cancel();
-            if (_showBufferingError) {
+            if (_showBufferingError && !_playbackFailed) {
               setState(() => _showBufferingError = false);
             }
           }
@@ -1123,7 +1119,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _subs.add(
       _player.stream.volume.listen((v) {
-        if (mounted) setState(() => _volume = v);
+        if (mounted && !_disposing) setState(() => _volume = v);
       }),
     );
 
@@ -1131,7 +1127,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // episode. Track lists arrive asynchronously after Media is opened.
     _subs.add(
       _player.stream.tracks.listen((_) {
-        if (_autoTrackApplied) return;
+        if (_autoTrackApplied || !_alive) return;
         if (widget.type == VideoType.live) return;
         _applyRememberedTracks();
       }),
@@ -1148,7 +1144,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// the same subtitle was exposed as `language` in one episode and
   /// `title` in the next.
   void _applyRememberedTracks() {
-    if (_autoTrackApplied) return;
+    if (_autoTrackApplied || !_alive) return;
     final settings = ref.read(settingsProvider);
     final tracks = _player.state.tracks;
     final audios = tracks.audio;
@@ -1250,8 +1246,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// Seek to position, waiting for player to report duration if needed.
   /// This prevents seek failures when the media hasn't loaded yet.
   void _seekWhenReady(Duration target) {
+    if (!_alive) return;
+    final generation = _openGeneration;
     if (_dur.inSeconds > 0) {
-      _player.seek(target);
+      unawaited(_seek.commit(target));
       return;
     }
     // Player not ready yet — wait for duration to be reported
@@ -1259,7 +1257,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     sub = _player.stream.duration.listen((d) {
       if (d.inSeconds > 0) {
         sub.cancel();
-        if (mounted) _player.seek(target);
+        if (_alive && generation == _openGeneration) unawaited(_seek.commit(target));
       }
     });
     _subs.add(sub);
@@ -1270,15 +1268,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // =========================================================================
 
   Future<void> _checkSavedProgress() async {
+    final generation = _openGeneration;
     try {
-      final sid = int.tryParse(
-        widget.streamUrl.split('/').last.split('.').first,
-      );
-      if (sid == null) return;
+      final sid = widget.streamId;
       final p = await ref
           .read(playerRepositoryProvider)
           .getProgress(sid, widget.type.name);
-      if (p != null && !p.isFinished && p.position > 1000 && mounted) {
+      if (p != null &&
+          !p.isFinished &&
+          p.position > 1000 &&
+          mounted &&
+          !_disposing &&
+          generation == _openGeneration) {
         final l10n = AppLocalizations.of(context)!;
         _showResumeDialog(l10n, Duration(milliseconds: p.position));
       }
@@ -1330,32 +1331,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // while controls are visible) so an early/auto save records a real
     // position > 0 — otherwise the row is filtered out of the rail.
     final posMs = _rawPos.inMilliseconds;
+    final durationMs = _dur.inMilliseconds;
     if (posMs <= 0) return;
     try {
-      final sid = int.tryParse(
-        widget.streamUrl.split('/').last.split('.').first,
+      final sid = widget.streamId;
+      final repo = ref.read(playerRepositoryProvider);
+      // Save episode-level progress (for resume)
+      await repo.saveProgress(
+        sid,
+        widget.type.name,
+        posMs,
+        durationMs,
       );
-      if (sid != null) {
-        final repo = ref.read(playerRepositoryProvider);
-        // Save episode-level progress (for resume)
+      // For series: also save progress for the parent series channel
+      // so that watchContinueWatching('series') join works in history grid
+      if (widget.type == VideoType.series &&
+          widget.parentStreamId != null &&
+          widget.parentStreamId != sid) {
         await repo.saveProgress(
-          sid,
+          widget.parentStreamId!,
           widget.type.name,
           posMs,
-          _dur.inMilliseconds,
+          durationMs,
         );
-        // For series: also save progress for the parent series channel
-        // so that watchContinueWatching('series') join works in history grid
-        if (widget.type == VideoType.series &&
-            widget.parentStreamId != null &&
-            widget.parentStreamId != sid) {
-          await repo.saveProgress(
-            widget.parentStreamId!,
-            widget.type.name,
-            posMs,
-            _dur.inMilliseconds,
-          );
-        }
       }
     } catch (_) {}
   }
@@ -1364,16 +1362,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _saveLiveHistory() async {
     try {
       final sid = _resolveCurrentLiveStreamId();
-      if (sid != null) {
-        await ref
-            .read(playerRepositoryProvider)
-            .saveProgress(
-              sid,
-              'live',
-              1,
-              100, // minimal values just to create a record
-            );
-      }
+      await ref
+          .read(playerRepositoryProvider)
+          .saveProgress(
+            sid,
+            'live',
+            1,
+            100, // minimal values just to create a record
+          );
     } catch (_) {}
   }
 
@@ -1382,7 +1378,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // Guard against the rare window where dispose() runs between
       // the timer firing and the cancel() in dispose taking effect —
       // setState on an unmounted State throws.
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       // The live progress bar only shows inside the controls overlay,
       // so don't rebuild it every second while controls are hidden.
       if (!_showControls && !_isPaused) return;
@@ -1409,7 +1405,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     });
     _nextTimer?.cancel();
     _nextTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       setState(() => _nextCountdown--);
       if (_nextCountdown <= 0) {
         _nextTimer?.cancel();
@@ -1449,7 +1445,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         .read(contentRepositoryProvider)
         .watchPrograms(streamId)
         .listen((programs) {
-          if (!mounted) return;
+          if (!mounted || _disposing) return;
           final now = DateTime.now();
           Program? current;
           Program? next;
@@ -1461,7 +1457,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             }
             if (current != null && next != null) break;
           }
-          if (mounted) {
+          if (mounted && !_disposing) {
             setState(() {
               _currentProgram = current;
               _nextProgram = next;
@@ -1490,7 +1486,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Just open new URL - player instance stays the same (no recreation)
     _currentUrl = ch.url;
     _autoTrackApplied = false;
-    _player.open(Media(ch.url));
+    unawaited(_openMedia(ch.url));
 
     // Save history entry for the new channel
     try {
@@ -1505,7 +1501,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Show channel info overlay for 5 seconds
     _channelInfoTimer?.cancel();
     _channelInfoTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) setState(() => _showChannelInfo = false);
+      if (mounted && !_disposing) setState(() => _showChannelInfo = false);
     });
   }
 
@@ -1523,27 +1519,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _switchChannel(newIdx);
   }
 
-  int? _resolveCurrentLiveStreamId() {
+  int _resolveCurrentLiveStreamId() {
     final channels = widget.channels;
-    if (channels != null &&
-        _channelIndex >= 0 &&
-        _channelIndex < channels.length) {
+    if (channels != null && _channelIndex >= 0 && _channelIndex < channels.length) {
       return channels[_channelIndex].streamId;
     }
-    return _extractStreamIdFromUrl(widget.streamUrl);
-  }
-
-  int? _extractStreamIdFromUrl(String url) {
-    final uri = Uri.tryParse(url);
-    final lastSegment = uri?.pathSegments.isNotEmpty == true
-        ? uri!.pathSegments.last
-        : url.split('/').last;
-    final normalized = lastSegment.split('?').first;
-    final direct = int.tryParse(normalized.split('.').first);
-    if (direct != null) return direct;
-    final match = RegExp(r'(\d+)(?:\.[A-Za-z0-9]+)?$').firstMatch(normalized);
-    if (match == null) return null;
-    return int.tryParse(match.group(1)!);
+    return widget.streamId;
   }
 
   // =========================================================================
@@ -1577,9 +1558,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _resetHideTimer() {
+    if (_showBufferingError || !_alive) return;
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && !_isPaused) {
+      if (mounted && !_disposing && !_isPaused) {
         _controlsAnim.reverse();
         setState(() => _showControls = false);
         _pushSubtitlePadding();
@@ -1624,22 +1606,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// schedule a single real seek once the user stops pressing. Repeated
   /// taps accumulate against the preview, not against repeated flushes.
   void _nudgeSeek(int seconds) {
-    final base = _seekPreview ?? _rawPos;
-    var target = base + Duration(seconds: seconds);
-    if (target < Duration.zero) target = Duration.zero;
-    if (_dur > Duration.zero && target > _dur) target = _dur;
-    setState(() {
-      _seekPreview = target;
-      _pos = target; // live progress-bar + time-label preview
-    });
+    _seek.nudge(Duration(seconds: seconds));
     _showControlsBriefly();
-    _seekCommitTimer?.cancel();
-    _seekCommitTimer = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
-      final t = _seekPreview;
-      _seekPreview = null;
-      if (t != null) _player.seek(t);
-    });
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -1668,7 +1636,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
       // No overlay open.
       // Desktop fullscreen: ESC exits fullscreen first.
-      if (_isFullscreen &&
+      if ((_isFullscreen || (_window?.transitioning ?? false)) &&
           (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
         _setFullscreen(false);
         _showControlsBriefly();
@@ -1682,7 +1650,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
 
       // Otherwise exit player.
-      if (mounted) Navigator.of(context).pop();
+      if (mounted && !_disposing) Navigator.of(context).pop();
       return KeyEventResult.handled;
     }
 
@@ -1825,7 +1793,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         acc.username == null ||
         acc.password == null) {
       // M3U accounts don't expose timeshift; surface a brief notice.
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
@@ -1833,6 +1801,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       );
       return;
     }
+    if (!mounted || _disposing) return;
     final duration = program.stop.difference(program.start);
     final url = StreamUrlBuilder.timeshift(
       acc.url,
@@ -1844,10 +1813,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     );
     // Hide the EPG overlay so the user sees the player while
     // the new media loads.
-    if (mounted) setState(() => _showEpgGuide = false);
+    if (mounted && !_disposing) setState(() => _showEpgGuide = false);
     try {
-      await _player.open(Media(url), play: true);
-      if (mounted) {
+      if (!await _openMedia(url)) return;
+      if (mounted && !_disposing) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!
@@ -1858,7 +1827,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
     } catch (e) {
       debugPrint('[timeshift] open failed: $e');
-      if (mounted) {
+      if (mounted && !_disposing) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
@@ -2099,7 +2068,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           // Outer Video widget needs to rebuild so the
                           // fresh SubtitleViewConfiguration reaches it.
                           onChanged: () {
-                            if (mounted) setState(() {});
+                            if (mounted && !_disposing) setState(() {});
                           },
                         ),
                         const SizedBox(height: 8),
@@ -2143,7 +2112,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   onChanged: (v) {
                                     _subtitleYOffset = v;
                                     setLocal(() {});
-                                    if (mounted) setState(() {});
+                                    if (mounted && !_disposing) setState(() {});
                                     // Push padding through the
                                     // imperative API — declarative
                                     // prop changes are no-ops because
@@ -2339,7 +2308,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (!Platform.isAndroid) return;
     _pipEventSub?.cancel();
     _pipEventSub = _pipEventChannel.receiveBroadcastStream().listen((event) {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       final inPip = event == true;
       if (inPip != _isInPipMode) {
         setState(() => _isInPipMode = inPip);
@@ -2370,12 +2339,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _handleDoubleTapSeek(Offset globalPos) {
     final size = MediaQuery.of(context).size;
     final isLeft = globalPos.dx < size.width / 2;
-    final delta = isLeft ? const Duration(seconds: -10) : const Duration(seconds: 10);
-    final target = _rawPos + delta;
-    final clamped = target < Duration.zero
-        ? Duration.zero
-        : (_dur > Duration.zero && target > _dur ? _dur : target);
-    _player.seek(clamped);
+    _nudgeSeek(isLeft ? -10 : 10);
     _showGestureHud(
       isLeft ? Icons.fast_rewind : Icons.fast_forward,
       isLeft ? '-10 sn' : '+10 sn',
@@ -2424,7 +2388,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _showGestureHud(IconData icon, String text, double? value) {
-    if (!mounted) return;
+    if (!mounted || _disposing) return;
     setState(() {
       _gestureHudIcon = icon;
       _gestureHudText = text;
@@ -2432,7 +2396,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     });
     _gestureHudTimer?.cancel();
     _gestureHudTimer = Timer(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       setState(() {
         _gestureHudIcon = null;
         _gestureHudText = null;
@@ -2458,7 +2422,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _sleepDeadline = DateTime.now().add(d);
     });
     _sleepTimer = Timer(d, () {
-      if (!mounted) return;
+      if (!mounted || _disposing) return;
       _onSleepTimerFired();
     });
   }
@@ -2473,7 +2437,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _cancelSleepTimer() {
     _sleepTimer?.cancel();
-    if (!mounted) return;
+    if (!mounted || _disposing) return;
     setState(() {
       _sleepDeadline = null;
       _sleepAtEpisodeEnd = false;
@@ -2486,7 +2450,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _sleepDeadline = null;
       _sleepAtEpisodeEnd = false;
     });
-    if (mounted) {
+    if (mounted && !_disposing) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2598,6 +2562,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final width = await get('width');
     final height = await get('height');
     final vCodec = await get('video-codec');
+    final activeDecoder = await get('hwdec-current');
+    final cacheSeconds = await get('demuxer-cache-duration');
+    final avSync = await get('avsync');
     final vBitrate = await get('video-bitrate');
     final aCodec = await get('audio-codec');
     final aBitrate = await get('audio-bitrate');
@@ -2605,7 +2572,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final dropped = await get('decoder-frame-drop-count');
     final aChannels = await get('audio-params/channel-count');
 
-    if (!mounted) return;
+    if (!mounted || _disposing) return;
     final l10n = AppLocalizations.of(context)!;
 
     String formatBitrate(String? bps) {
@@ -2653,6 +2620,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 const SizedBox(height: 16),
                 _statRow(l10n.resolution, res),
                 _statRow(l10n.videoCodec, vCodec ?? '—'),
+                _statRow(l10n.hardwareAcceleration, activeDecoder ?? '—'),
+                _statRow(l10n.bufferDuration, '${cacheSeconds ?? '—'} s'),
+                _statRow('A/V', '${avSync ?? '—'} s'),
                 _statRow(l10n.frameRate, formatFps(fps)),
                 _statRow(l10n.bitrate, formatBitrate(vBitrate)),
                 const Divider(color: Colors.white12, height: 24),
@@ -2718,23 +2688,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       _saveProgress();
 
-      // Restore fullscreen/always-on-top before entering PiP (PiP manages its own window state)
-      if (_isFullscreen) {
-        await windowManager.setFullScreen(false);
-        _isFullscreen = false;
-      }
-      if (_isAlwaysOnTop) {
-        await windowManager.setAlwaysOnTop(false);
-        _isAlwaysOnTop = false;
-      }
-
       // Don't pop the /player route. With main.dart's Stack-layered
       // PipOverlay this screen stays mounted under the overlay; its
       // build() reacts to pipProvider and hides the local Video so
       // there's no double texture binding. Expand becomes "clear PiP
       // state" (Video re-appears, user is back to fullscreen). Close
       // pops /player from PipOverlay's button.
-      await ref.read(pipProvider.notifier).enterPip(
+      if (!mounted || _disposing) return;
+      await _pipNotifier.enterPip(
             player: _player,
             controller: _controller,
             title: _currentTitle,
@@ -2742,6 +2703,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             url: _currentUrl,
             typeName: widget.type.name,
           );
+    } catch (error) {
+      _onWindowError(error);
     } finally {
       _pipTransitioning = false;
     }
@@ -2780,7 +2743,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           title: _currentTitle,
         );
         // TV confirmed PLAYING — tell the user which device has it now.
-        if (mounted) {
+        if (mounted && !_disposing) {
           final name =
               DlnaService.instance.state.device?.displayName ?? '';
           messenger.showSnackBar(
@@ -2795,7 +2758,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // most common cause: DMR / Smart View / Screen Share toggle on
         // the TV is off, or the TV doesn't accept the source MIME.
         // Resume local playback and surface the hint.
-        if (!mounted) return;
+        if (!mounted || _disposing) return;
         _player.play();
         await DlnaService.instance.disconnect();
         messenger.showSnackBar(
@@ -2811,7 +2774,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         );
       } catch (_) {
         // Transport / SOAP fault — TV didn't respond at all.
-        if (!mounted) return;
+        if (!mounted || _disposing) return;
         _player.play();
         await DlnaService.instance.disconnect();
         messenger.showSnackBar(
@@ -2834,42 +2797,44 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Fullscreen toggle (desktop only)
   // =========================================================================
 
-  Future<void> _toggleFullscreen() async {
-    if (!(Platform.isWindows || Platform.isLinux || Platform.isMacOS)) return;
-    await _setFullscreen(!_isFullscreen);
+  void _onWindowStateChanged() {
+    if (!mounted || _disposing) return;
+    setState(() {
+      _isFullscreen = _window!.fullscreen;
+      _isAlwaysOnTop = _window!.alwaysOnTop;
+    });
   }
 
-  Future<void> _setFullscreen(bool enabled) async {
-    if (!(Platform.isWindows || Platform.isLinux || Platform.isMacOS)) return;
+  void _onWindowError(Object error) {
+    if (!mounted || _disposing) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.error)),
+    );
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (_window == null || _pipTransitioning) return;
     try {
-      await windowManager.setFullScreen(enabled);
-      if (mounted) setState(() => _isFullscreen = enabled);
-    } catch (_) {
-      try {
-        final actual = await windowManager.isFullScreen();
-        if (mounted) setState(() => _isFullscreen = actual);
-      } catch (_) {}
+      await _window!.toggleFullscreen();
+    } catch (error) {
+      _onWindowError(error);
     }
   }
 
-  Future<void> _checkFullscreenState() async {
-    if (!(Platform.isWindows || Platform.isLinux || Platform.isMacOS)) return;
-    final isFs = await windowManager.isFullScreen();
-    if (mounted && isFs != _isFullscreen) setState(() => _isFullscreen = isFs);
+  Future<void> _setFullscreen(bool enabled) async {
+    try {
+      await _window?.setFullscreen(enabled);
+    } catch (error) {
+      _onWindowError(error);
+    }
   }
 
   Future<void> _toggleAlwaysOnTop() async {
-    if (!(Platform.isWindows || Platform.isLinux || Platform.isMacOS)) return;
-    final newValue = !_isAlwaysOnTop;
+    if (_pipTransitioning) return;
     try {
-      await windowManager.setAlwaysOnTop(newValue);
-      if (mounted) setState(() => _isAlwaysOnTop = newValue);
-    } catch (_) {
-      // Fallback: verify actual state
-      try {
-        final actual = await windowManager.isAlwaysOnTop();
-        if (mounted) setState(() => _isAlwaysOnTop = actual);
-      } catch (_) {}
+      await _window?.toggleAlwaysOnTop();
+    } catch (error) {
+      _onWindowError(error);
     }
   }
 
@@ -3086,7 +3051,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              AppLocalizations.of(context)!.connectionTimedOut,
+                              _playbackFailed ? l10n.error : l10n.connectionTimedOut,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -3103,12 +3068,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
-                              onPressed: () {
-                                setState(() => _showBufferingError = false);
-                                _player.open(Media(_currentUrl));
-                              },
+                              onPressed: () => _openMedia(
+                                _currentUrl,
+                                resume: widget.type == VideoType.live ? null : _rawPos,
+                              ),
                               icon: const Icon(Icons.refresh),
-                              label: const Text('Tekrar Dene'),
+                              label: Text(l10n.retry),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
@@ -3283,7 +3248,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           if (service == null) {
                             // No API key configured
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
+                              if (mounted && !_disposing) {
                                 setState(() => _showSubtitleSearch = false);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -3734,7 +3699,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 _DpadIconBtn(
                   icon: Icons.replay_10,
                   onTap: () {
-                    _player.seek(_pos - const Duration(seconds: 10));
+                    _nudgeSeek(-10);
                     _showControlsBriefly();
                   },
                 ),
@@ -3744,7 +3709,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 _DpadIconBtn(
                   icon: Icons.forward_10,
                   onTap: () {
-                    _player.seek(_pos + const Duration(seconds: 10));
+                    _nudgeSeek(10);
                     _showControlsBriefly();
                   },
                 ),
@@ -3976,7 +3941,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             child: Slider(
               value: curVal,
               max: maxVal,
-              onChanged: (v) => _player.seek(Duration(seconds: v.toInt())),
+              onChangeStart: _dur > Duration.zero ? (v) {
+                _hideTimer?.cancel();
+                _seek.updatePreview(Duration(milliseconds: (v * 1000).round()));
+              } : null,
+              onChanged: _dur > Duration.zero ? (v) {
+                _seek.updatePreview(Duration(milliseconds: (v * 1000).round()));
+              } : null,
+              onChangeEnd: _dur > Duration.zero ? (_) {
+                unawaited(_seek.commitPreview());
+                _resetHideTimer();
+              } : null,
             ),
           ),
         ),

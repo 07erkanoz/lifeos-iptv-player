@@ -1,0 +1,8 @@
+00:00 +0: loading /tmp/iptv_audit_probes_test.dart
+00:00 +0: two distinct M3U channels collide in production identity function
+00:00 +1: quoted attribute comma becomes part of the parsed display name
+00:00 +2: M3U VOD identity is different from player URL-derived identity
+00:00 +3: reserved credential characters alter stream URL structure
+00:00 +4: sync mutex is per object, not shared between entry points
+00:00 +5: production Xtream interceptor retries more than once after timeouts
+01:00 +6: All tests passed!

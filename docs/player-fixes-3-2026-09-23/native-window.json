@@ -1,0 +1,57 @@
+[
+  {
+    "second": 0.32,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 1.58,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 1.69,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 1.8,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_ABOVE, _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 4.0,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 4.32,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) ="
+  },
+  {
+    "second": 4.43,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_ABOVE, _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 5.23,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 5.37,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+  },
+  {
+    "second": 17.84,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) ="
+  },
+  {
+    "second": 21.79,
+    "window": "0x1600003",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+  }
+]

@@ -15,13 +15,15 @@ class PlayerRepository {
   int get _pid => _getActiveProfileId();
 
   Future<void> saveProgress(int streamId, String type, int position, int duration) async {
-    final isFinished = (position / duration) > 0.95; // Mark as finished if > 95% watched
+    if (duration <= 0 || position < 0) return;
+    final boundedPosition = position.clamp(0, duration);
+    final isFinished = (boundedPosition / duration) > 0.95;
 
     await _db.into(_db.playbackProgress).insert(
       PlaybackProgressCompanion.insert(
         streamId: streamId,
         type: type,
-        position: position,
+        position: boundedPosition,
         duration: duration,
         isFinished: Value(isFinished),
         updatedAt: Value(DateTime.now()),

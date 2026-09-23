@@ -27,7 +27,7 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/presentation/state/tonight_context_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
-import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 
 /// "Bu akşam ne izleyim?" chat sheet.
 ///
@@ -495,28 +495,33 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     }
   }
 
+  bool _openingPlayback = false;
+
   Future<void> _playChannel(Channel ch) async {
+    if (_openingPlayback) return;
     final acc = ref.read(currentAccountProvider).value;
     if (acc == null) return;
-    if (ch.streamUrl == null || ch.streamUrl!.isEmpty) {
-      if (acc.username == null || acc.password == null) return;
+    _openingPlayback = true;
+    try {
+      final url = await ref.read(playbackUrlResolverProvider).resolve(acc, ch);
+      if (!mounted || ref.read(currentAccountProvider).value?.id != acc.id) return;
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      context.push('/player', extra: {
+        'url': url,
+        'streamId': ch.streamId,
+        'title': ch.name,
+        'type': _videoTypeFromString(ch.type),
+        'logo': ch.streamIcon,
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)),
+      );
+    } finally {
+      _openingPlayback = false;
     }
-    final url = StreamUrlBuilder.build(
-      acc.url,
-      acc.username ?? '',
-      acc.password ?? '',
-      ch.streamId,
-      ch.type,
-      directUrl: ch.streamUrl,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    context.push('/player', extra: {
-      'url': url,
-      'title': ch.name,
-      'type': _videoTypeFromString(ch.type),
-      'logo': ch.streamIcon,
-    });
   }
 
   Future<void> _openDetailChannel(Channel ch) async {
@@ -995,33 +1000,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// nothing. (UI never shows the option, so this is defensive.)
   Future<void> _playRecommendation(TonightRecommendation rec) async {
     final ch = await _resolveChannel(rec);
-    if (ch == null) return;
-    final acc = ref.read(currentAccountProvider).value;
-    if (acc == null) return;
-    // M3U accounts store the stream URL on the channel row directly;
-    // Xtream accounts build a URL from credentials. StreamUrlBuilder
-    // handles both cases. We require an Xtream account to have
-    // credentials for the latter path — if either is missing on an
-    // Xtream row, bail.
-    if (ch.streamUrl == null || ch.streamUrl!.isEmpty) {
-      if (acc.username == null || acc.password == null) return;
-    }
-    final url = StreamUrlBuilder.build(
-      acc.url,
-      acc.username ?? '',
-      acc.password ?? '',
-      ch.streamId,
-      ch.type,
-      directUrl: ch.streamUrl,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    context.push('/player', extra: {
-      'url': url,
-      'title': ch.name,
-      'type': _videoTypeFromString(ch.type),
-      'logo': ch.streamIcon,
-    });
+    if (ch == null || !mounted) return;
+    await _playChannel(ch);
   }
 
   /// Pop the sheet and surface the item via the pending-detail

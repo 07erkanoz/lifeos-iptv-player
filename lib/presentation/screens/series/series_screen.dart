@@ -1,3 +1,4 @@
+import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -820,8 +821,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     context.push(
       '/player',
       extra: {
-        'url':
-            '${acc.url}/series/${acc.username}/${acc.password}/$epId.${ext.isNotEmpty ? ext : 'mp4'}',
+        'url': StreamUrlBuilder.series(
+          acc.url, acc.username ?? '', acc.password ?? '', epId,
+          extension: ext.isNotEmpty ? ext : 'mp4',
+          directUrl: currentIdx >= 0
+              ? allEpisodes[currentIdx]['direct_source']?.toString() : null,
+        ),
+        'streamId': epId,
         'title': fullTitle,
         'type': VideoType.series,
         'logo': _detailChannel?.streamIcon,

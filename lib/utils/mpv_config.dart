@@ -1,165 +1,76 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:media_kit/media_kit.dart';
-import 'gpu_detector.dart';
 
-/// Platform-aware MPV configuration based on detected GPU
+/// Conservative decoder/cache policy. GPU vendor names do not prove decoder
+/// availability or texture interop; let mpv probe supported devices at runtime.
 class MpvConfig {
-  /// Apply optimal MPV properties for the detected GPU
-  static Future<void> applyOptimal(NativePlayer mpv, GpuInfo gpu) async {
-    // ── Hardware decoding ──
-    await mpv.setProperty('hwdec', gpu.hwdecMode);
-    await mpv.setProperty('hwdec-codecs', 'all');
+  const MpvConfig._();
 
-    if (Platform.isAndroid) {
-      await _applyAndroid(mpv, gpu);
-    } else if (Platform.isLinux) {
-      await _applyLinux(mpv, gpu);
-    } else if (Platform.isWindows) {
-      await _applyWindows(mpv, gpu);
-    }
-
-    // ── Common: drop late frames ──
-    await mpv.setProperty('framedrop', 'vo');
-    await mpv.setProperty('audio-buffer', '0.1');
-
-    // ── GPU-light render path (Android) ───────────────────────────────
-    // Unlike TiViMate/ExoPlayer (which render the decoder surface
-    // DIRECTLY to a SurfaceView, zero-copy), media_kit copies every
-    // frame into a Flutter GL texture and runs mpv's GPU shader chain
-    // on it. On weak phone/TV GPUs that chain is what makes HQ/4K
-    // stutter. Turn off the optional, cosmetic shader passes so each
-    // frame is a cheap blit — closes much of the gap on high-bitrate
-    // content. (No visible quality loss on real-world streams.)
-    if (Platform.isAndroid) {
-      await mpv.setProperty('deband', 'no'); // skip debanding shader
-      await mpv.setProperty('dither', 'no');
-      await mpv.setProperty('correct-downscaling', 'no');
-      await mpv.setProperty('sigmoid-upscaling', 'no');
-      await mpv.setProperty('scaler-resizes-only', 'yes');
-      await mpv.setProperty('hdr-compute-peak', 'no');
-    }
+  static String decoder({
+    required bool hardwareAcceleration,
+    TargetPlatform? platform,
+  }) {
+    if (!hardwareAcceleration) return 'no';
+    return (platform ?? defaultTargetPlatform) == TargetPlatform.android
+        ? 'mediacodec-copy'
+        : 'auto-safe';
   }
 
-  static Future<void> _applyAndroid(NativePlayer mpv, GpuInfo gpu) async {
-    // Android: media_kit uses OpenGL ES texture rendering
-    // Do NOT set vo — let media_kit manage it via its own render context
-
-    switch (gpu.vendor) {
-      case GpuVendor.qualcomm:
-        // Adreno GPUs: well-optimized, enable async decode
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('interpolation', 'no');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      case GpuVendor.arm:
-        // ARM Mali GPUs (MediaTek, Kirin, etc.)
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('interpolation', 'no');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      case GpuVendor.samsung:
-        // Samsung Exynos (Xclipse/Mali): use copy mode, conservative settings
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('interpolation', 'no');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      case GpuVendor.nvidia:
-        // NVIDIA Shield / Tegra: powerful, but stick to safe defaults
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        break;
-
-      case GpuVendor.imgtech:
-        // PowerVR: older GPUs, conservative
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('interpolation', 'no');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      default:
-        // Unknown Android GPU: safe defaults
-        await mpv.setProperty('video-sync', 'audio');
-        await mpv.setProperty('interpolation', 'no');
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-    }
+  static Map<String, String> options({
+    required bool live,
+    required AppSettings settings,
+    TargetPlatform? platform,
+  }) {
+    final target = platform ?? defaultTargetPlatform;
+    final mobile =
+        target == TargetPlatform.android || target == TargetPlatform.iOS;
+    final seconds = settings.bufferDuration.clamp(5, live ? 30 : 120);
+    return {
+      'hwdec': decoder(
+        hardwareAcceleration: settings.hardwareAcceleration,
+        platform: target,
+      ),
+      // Keep mpv's codec whitelist and fallback policy; don't force every codec
+      // through hardware or apply the global low-latency profile to VOD.
+      'video-sync': 'audio',
+      'interpolation': 'no',
+      'framedrop': 'vo',
+      'cache': 'yes',
+      'cache-secs': '$seconds',
+      'demuxer-readahead-secs': '$seconds',
+      'demuxer-max-bytes': live
+          ? '32MiB'
+          : mobile
+          ? '64MiB'
+          : '128MiB',
+      'demuxer-max-back-bytes': live
+          ? '4MiB'
+          : mobile
+          ? '16MiB'
+          : '32MiB',
+      'cache-pause': 'yes',
+      'cache-pause-initial': 'yes',
+      'cache-pause-wait': live ? '1' : '2',
+      if (settings.lastPlayerSubtitleLanguage == null) 'sid': 'no',
+      'hls-bitrate': switch (settings.streamQuality) {
+        StreamQuality.auto => 'max',
+        StreamQuality.high => 'max',
+        StreamQuality.medium => '3000000',
+        StreamQuality.low => '1000000',
+      },
+    };
   }
 
-  static Future<void> _applyLinux(NativePlayer mpv, GpuInfo gpu) async {
-    // Linux: media_kit uses its own OpenGL render context
-    // Do NOT set vo — let media_kit manage it
-    await mpv.setProperty('gpu-api', 'opengl');
-    await mpv.setProperty('video-sync', 'audio');
-    await mpv.setProperty('interpolation', 'no');
-
-    switch (gpu.vendor) {
-      case GpuVendor.amd:
-        // AMD Radeon: VA-API via radeonsi
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      case GpuVendor.nvidia:
-        // NVIDIA: nvdec, can handle better scalers
-        await mpv.setProperty('scale', 'spline36');
-        await mpv.setProperty('cscale', 'spline36');
-        break;
-
-      case GpuVendor.intel:
-        // Intel iGPU: VA-API via iHD, lightweight scalers
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      default:
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-    }
-  }
-
-  static Future<void> _applyWindows(NativePlayer mpv, GpuInfo gpu) async {
-    switch (gpu.vendor) {
-      case GpuVendor.nvidia:
-        // NVIDIA: nvdec + better quality scalers
-        await mpv.setProperty('scale', 'spline36');
-        await mpv.setProperty('cscale', 'spline36');
-        break;
-
-      case GpuVendor.amd:
-        // AMD: D3D11VA, moderate scalers
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        break;
-
-      case GpuVendor.intel:
-        // Intel iGPU: D3D11VA, lightweight
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        await mpv.setProperty('dscale', 'bilinear');
-        break;
-
-      default:
-        await mpv.setProperty('scale', 'bilinear');
-        await mpv.setProperty('cscale', 'bilinear');
-        break;
+  static Future<void> apply(
+    NativePlayer player, {
+    required bool live,
+    required AppSettings settings,
+    bool Function()? cancelled,
+  }) async {
+    for (final entry in options(live: live, settings: settings).entries) {
+      if (cancelled?.call() == true) return;
+      await player.setProperty(entry.key, entry.value);
     }
   }
 }

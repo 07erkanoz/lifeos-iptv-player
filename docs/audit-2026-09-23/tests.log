@@ -1,0 +1,225 @@
+00:00 +0: loading /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart
+00:00 +0: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.live default (auto quality) uses .m3u8 / HLS for adaptive bitrate
+00:00 +1: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.live non-auto quality uses .ts (fixed-bitrate MPEG-TS)
+00:00 +2: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.movie / .series movie uses .mkv extension
+00:00 +3: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.movie / .series series uses .mkv extension
+00:00 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.build directUrl wins when provided (M3U accounts)
+00:00 +5: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.build empty directUrl is ignored — falls through to type builders
+00:00 +6: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.build dispatches to live/movie/series by type
+00:00 +7: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.build unknown type falls back to a generic <base>/<u>/<p>/<id> shape
+00:00 +8: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/stream_url_builder_test.dart: StreamUrlBuilder.build passes quality through to the live path
+00:00 +9: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: isAdultContent flags English keywords (case-insensitive)
+00:00 +10: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: isAdultContent flags Turkish keywords (yetiskin / yetişkin / erotik)
+00:00 +11: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: isAdultContent flags Arabic keywords used in MENA IPTV bouquets
+00:00 +12: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: isAdultContent does NOT flag innocent content with similar substrings
+00:00 +13: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: isAdultContent empty string is not adult
+00:00 +14: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: filterAdultContent removes adult items from a typed list
+00:00 +15: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: filterAdultContent returns original ordering for non-adult items
+00:00 +16: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/content_filter_test.dart: filterAdultContent empty input → empty output
+00:03 +17: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels recent is a no-op (returns input order, fresh list)
+00:03 +18: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels rating sorts descending; null rating sinks to bottom
+00:03 +19: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels name sorts case-insensitively (Turkish letters not normalized)
+00:03 +20: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels empty list stays empty for every mode
+00:03 +21: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres returns the union of all genres, alphabetically
+00:03 +22: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres handles comma, slash AND pipe separators uniformly
+00:03 +23: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres skips null / empty / whitespace-only genre strings
+00:03 +24: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres limit caps the result count
+00:03 +25: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres empty input → empty result
+00:03 +26: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre null genre is the All-pass-through, returns a fresh list
+00:03 +27: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre empty string is also pass-through
+00:03 +28: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches the requested genre token (comma-separated)
+00:03 +29: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches across slash separator
+00:03 +30: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches across pipe separator
+00:03 +31: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre case-insensitive match
+00:03 +32: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre substring is NOT enough — must be a full token
+00:03 +33: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre null / empty channel.genre never matches a real query
+00:03 +34: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl appends "trailer" and URL-encodes the query
+00:03 +35: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl includes year when present
+00:03 +36: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl omits year segment when null/empty
+00:03 +37: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl encodes Turkish characters and spaces
+00:03 +38: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel returns null for live channels (no trailer concept)
+00:03 +39: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel uses canonical URL when channel.youtubeTrailer is a full URL
+00:03 +40: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel expands bare 11-char video id into a watch URL
+00:03 +41: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel falls back to YouTube search when trailer field is empty / sentinel
+00:03 +42: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel falls back to search when trailer field is null
+00:03 +43: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel non-11-char non-URL strings (rare malformed values) fall back to search
+00:04 +44: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — screen handler claim screen handler handled → consumed
+00:04 +45: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — screen handler claim screen-claimed press wins over everything else, even with a fresh lastBackPress that would otherwise exit
+00:04 +46: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — desktop/TV sidebar bounce focus on content → focusSidebar
+00:04 +47: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — desktop/TV sidebar bounce also fires on Dashboard branch when sidebar not focused
+00:04 +48: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — desktop/TV sidebar bounce sidebar not mounted → skip bounce
+00:04 +49: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — desktop/TV sidebar bounce mobile platform → skip bounce
+00:04 +50: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — branch navigation sidebar focused + non-Dashboard branch → goToDashboard
+00:04 +51: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — branch navigation mobile + non-Dashboard branch → goToDashboard
+00:04 +52: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — Dashboard exit dance first back on Dashboard + sidebar focused → showExitConfirm
+00:04 +53: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — Dashboard exit dance second back within window → exit
+00:04 +54: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — Dashboard exit dance second back after window expired → showExitConfirm again
+00:04 +55: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — Dashboard exit dance custom exitConfirmWindow honored
+00:04 +56: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — mobile Dashboard exit mobile + Dashboard + no lastBackPress → showExitConfirm
+00:04 +57: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/layout/app_shell_back_resolver_test.dart: AppShellBackResolver — mobile Dashboard exit mobile + Dashboard + recent lastBackPress → exit
+00:15 +58: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math wide viewport — height is the limiting axis
+00:16 +59: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math square viewport — width is the limiting axis
+00:16 +60: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math portrait viewport — width is the limiting axis
+00:16 +61: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math very wide viewport (ultra-wide monitor) — falls back to height-limited so the dialog doesn't span the whole desk
+00:16 +62: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math custom scale parameter is honored
+00:16 +63: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: computeExpandedTrailerSize — 16:9 letterbox math result is always 16:9 regardless of input aspect ratio
+00:16 +64: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: get / set / TTL set then get returns the same value before TTL elapses
+00:16 +65: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: get / set / TTL get returns null when the key was never set
+00:16 +66: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: get / set / TTL expired entry is evicted on read and returns null
+00:16 +67: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: get / set / TTL has() agrees with get() for non-expired entries
+00:16 +68: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=false when fresh
+00:16 +69: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +70: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns null only on a true miss
+00:16 +71: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache fetchWithCache calls the fetcher exactly once on cold cache
+00:16 +72: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache fetchWithCache returns stale data immediately, revalidates async
+00:16 +73: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache fetchWithCache(forceRefresh: true) bypasses the cache
+00:16 +74: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: invalidation invalidate(key) removes one entry only
+00:16 +75: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: invalidation invalidatePrefix removes everything matching the prefix
+00:16 +76: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: invalidation invalidateForAccount removes everything containing the identifier
+00:16 +77: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: invalidation clear() empties the whole cache
+00:16 +78: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: invalidation cleanup() drops only expired entries
+00:17 +79: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: normalizeChannelId lowercases the input
+00:17 +80: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: normalizeChannelId strips ".tr" and ".com.tr" suffixes (Turkish XMLTV feeds)
+00:17 +81: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: normalizeChannelId removes spaces, dots, underscores, hyphens
+00:17 +82: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher phase 1: exact match wins
+00:17 +83: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher phase 2: case-insensitive match when no exact
+00:17 +84: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher phase 3: prefix match (XMLTV key starts with searchId + delimiter)
+00:17 +85: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher phase 4: normalized match strips suffixes / punctuation
+00:17 +86: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher returns null when nothing matches at any phase
+00:17 +87: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/xmltv_parser_test.dart: findXmltvChannelId — 4-phase matcher empty searchId returns null
+00:17 +88: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/opensubtitles_test.dart: srtToVtt prepends WEBVTT header
+00:17 +89: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/opensubtitles_test.dart: srtToVtt replaces comma decimal separator with period in timestamps
+00:17 +90: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/opensubtitles_test.dart: srtToVtt strips standalone sequence numbers (the "1\n" / "2\n" lines)
+00:17 +91: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/opensubtitles_test.dart: srtToVtt normalizes CRLF and CR-only line endings to LF
+00:17 +92: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/opensubtitles_test.dart: srtToVtt preserves multi-line cue text
+00:17 +93: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — empty inputs no remembered preference → no match
+00:17 +94: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — empty inputs empty string inputs counted as no preference
+00:17 +95: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — empty inputs no real tracks (only auto / no) → no match
+00:17 +96: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — exact language match case-insensitive language hit beats anything else
+00:17 +97: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — exact language match whitespace in stored preference is trimmed
+00:17 +98: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — title fallback when only title was remembered, finds a track with matching title
+00:17 +99: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — title fallback partial title match works in either direction
+00:17 +100: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — cross-field fallback old track stored its label in title but new track has it as language
+00:17 +101: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — cross-field fallback old track stored its label in language but new track has it as title
+00:17 +102: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — language prefix variants "tr" remembered, "tur" available → match
+00:17 +103: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — language prefix variants "tur" remembered, "tr" available → match
+00:17 +104: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — synthetic tracks ignored "no" and "auto" never match even with empty real tracks
+00:17 +105: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — synthetic tracks ignored synthetic tracks coexisting with real tracks → real track wins
+00:17 +106: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/subtitle_track_matcher_test.dart: findBestSubtitleTrack — no plausible match completely unrelated language → null (caller leaves default)
+00:18 +107: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: stableM3uChannelId is deterministic — same input → same id
+00:18 +108: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: stableM3uChannelId different url OR different name → different id (collisions are rare)
+00:18 +109: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: stableM3uChannelId always returns a positive 31-bit int (fits any signed-int column)
+00:18 +110: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: stableM3uChannelId null and empty name are treated identically (URL-only)
+00:18 +111: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType tvg-type "live" wins over everything
+00:18 +112: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType Xtream-style /movie/ path → movie
+00:18 +113: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType Xtream-style /series/ path → series
+00:18 +114: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType Xtream-style /live/ path → live
+00:18 +115: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType S01E02 episode marker in name boosts series score
+00:18 +116: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: classifyStreamType plain http URL with no signals defaults to live
+00:18 +117: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw extracts url-tvg from #EXTM3U header
+00:18 +118: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw parses tvg-id, tvg-name, tvg-logo, group-title attributes
+00:18 +119: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw group-title is sticky across entries that omit it
+00:18 +120: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw skips dummy URLs (http://blank, /null, etc.)
+00:18 +121: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw handles CRLF line endings
+00:18 +122: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_parser_test.dart: parseM3URaw empty input yields empty result, no crash
+00:19 +123: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: extractSsdpLocationHeader parses LOCATION value out of an M-SEARCH response
+00:19 +124: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: extractSsdpLocationHeader header lookup is case-insensitive
+00:19 +125: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: extractSsdpLocationHeader returns null when no LOCATION header is present
+00:19 +126: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl matches by file extension
+00:19 +127: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl Xtream /live/ path → MPEG-TS
+00:19 +128: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl Xtream /movie/ + /series/ → MP4
+00:19 +129: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl extension wins over Xtream path heuristic
+00:19 +130: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl falls back to mp4 when nothing matches
+00:19 +131: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: dlnaMimeForUrl case-insensitive on extension
+00:19 +132: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: xmlEscape escapes the five XML special characters
+00:19 +133: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: xmlEscape leaves unicode / non-ASCII alone
+00:19 +134: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: xmlEscape empty string round-trips
+00:19 +135: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: buildDidlMetadata embeds title, url and protocolInfo MIME
+00:19 +136: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: buildDidlMetadata escapes XML-unsafe characters in title and url
+00:19 +137: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: DlnaDevice.displayName uses friendly name only when model matches or is missing
+00:19 +138: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: DlnaDevice.displayName appends model when it differs from friendly name
+00:19 +139: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/dlna_test.dart: DlnaDevice.displayName two devices with the same controlUrl are equal
+00:19 +140: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.fromXtreamResponse parses status, exp_date and connection counts
+00:19 +141: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.fromXtreamResponse handles missing user_info gracefully
+00:19 +142: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.fromXtreamResponse exp_date "0" is treated as no expiry
+00:19 +143: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.fromXtreamResponse is_trial == "1" → isTrial true
+00:19 +144: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo computed properties isActive requires Active status AND non-expired date
+00:19 +145: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo computed properties isExpired catches both Expired status and elapsed date
+00:19 +146: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo computed properties remainingDays clamps to 0 for expired accounts
+00:19 +147: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo computed properties remainingDays is null when expiry is null
+00:19 +148: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo computed properties remainingDays counts forward correctly
+00:19 +149: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.toMap / fromMap round-trip preserves every field
+00:19 +150: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/domain/models/account_info_test.dart: AccountInfo.toMap / fromMap round-trip tolerates a map with missing keys (legacy SharedPreferences)
+00:19 +151: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry main sidebar requestMainSidebar returns false when nothing registered
+00:19 +152: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry main sidebar requestMainSidebar fires the registered callback
+00:19 +153: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry main sidebar unregisterMainSidebar only clears the matching callback
+00:19 +154: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry branch primary requestActivePrimary returns false with no registrations
+00:19 +155: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry branch primary routes to the matching branch index
+00:19 +156: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry branch primary unregister only removes the exact callback
+00:19 +157: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry overlay priority overlay takes precedence over branch primary
+00:19 +158: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry overlay priority popOverlayPrimary restores branch as the active target
+00:19 +159: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_focus_registry_test.dart: TvFocusRegistry overlay priority popOverlayPrimary ignores a stale callback
+00:20 +160: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +161: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +162: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +163: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +164: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +165: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:20 +166: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +167: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +168: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +169: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +170: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +171: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +172: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +173: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +174: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +175: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +176: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +177: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +178: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid focus initialization focusFirst lands on the first mounted item
+00:21 +179: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization focusFirst lands on the first channel
+00:21 +180: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization focusFirst lands on the first channel
+00:21 +181: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization focusFirst lands on the first channel
+00:22 +182: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization focusFirst lands on the first channel
+00:22 +183: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization focusFirst lands on the first channel
+00:22 +184: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid D-pad navigation (row-major, no wrap) arrow up moves to same column in previous row
+00:22 +185: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization controller picks up the channelIds + layout snapshot
+00:22 +186: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList focus initialization controller picks up the channelIds + layout snapshot
+00:22 +187: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid D-pad navigation (row-major, no wrap) arrow down on partial last row is a no-op
+00:22 +188: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow down moves to next channel
+00:22 +189: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow down moves to next channel
+00:22 +190: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid edge callbacks arrow up on top row fires onTopEdge
+00:22 +191: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow up moves to previous channel
+00:22 +192: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGrid activation select/enter fires onActivate with the focused item
+00:22 +193: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow up on first row fires onTopEdge
+00:22 +194: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow up on first row fires onTopEdge
+00:22 +195: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow up on first row fires onTopEdge
+00:22 +196: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +197: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +198: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +199: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +200: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +201: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_widget_test.dart: TvPosterGridController focus restore focusByStreamId restores after another item was focused
+00:22 +202: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_indexed_list_widget_test.dart: TvIndexedList D-pad up/down (no wrap) arrow down on last row fires onBottomEdge
+00:23 +203: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +204: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +205: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +206: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +207: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +208: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +209: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +210: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +211: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +212: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +213: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +214: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +215: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +216: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +217: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +218: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +219: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId synchronously focuses a mounted node
+00:23 +220: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId returns false for unknown streamId
+00:23 +221: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusByStreamId for known-but-unmounted streamId returns true (async retry path)
+00:23 +222: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/core/tv_focus/tv_poster_grid_controller_test.dart: TvPosterGridController focus delivery focusCurrentOrFirst falls back to first when lastFocused dropped out of the list
+00:23 +223: All tests passed!

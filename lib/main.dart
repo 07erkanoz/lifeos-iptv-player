@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lifeostv/presentation/controllers/player_window_controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +28,6 @@ import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
-import 'package:lifeostv/utils/gpu_detector.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 
 /// Pre-loaded SharedPreferences provider - overridden in main()
@@ -76,7 +76,7 @@ void main() async {
 
     final windowOptions = WindowOptions(
       size: Size(1280, 720),
-      minimumSize: Size(900, 500),
+      minimumSize: appWindowMinimumSize,
       center: true,
       backgroundColor: Platform.isLinux
           ? const Color(0x00000000)
@@ -92,12 +92,6 @@ void main() async {
 
   // Pre-load SharedPreferences to eliminate async waterfall
   final prefs = await SharedPreferences.getInstance();
-
-  // Pre-cache GPU info so player init is instant. Skipped on Android TV:
-  // media_kit isn't initialised there (ExoPlayer handles playback), so the
-  // GPU renderer string is never read — the native EGL probe would just be
-  // wasted work in the critical first-frame window on a weak TV CPU.
-  if (!isTV) GpuDetector.detect();
 
   // On Android TV: force landscape. On mobile: allow all orientations
   if (Platform.isAndroid) {

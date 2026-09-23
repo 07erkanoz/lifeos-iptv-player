@@ -1,0 +1,4 @@
+rows=1000 bytes=91478 medianMs=14 sampleMs=[11, 14, 25] collisions=0 processRssMiB=225.6
+rows=10000 bytes=944678 medianMs=94 sampleMs=[86, 94, 96] collisions=0 processRssMiB=260.7
+rows=50000 bytes=4856678 medianMs=455 sampleMs=[443, 455, 460] collisions=2 processRssMiB=285.8
+rows=100000 bytes=9746678 medianMs=919 sampleMs=[912, 919, 945] collisions=7 processRssMiB=325.2

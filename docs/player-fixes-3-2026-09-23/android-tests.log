@@ -1,0 +1,212 @@
+
+> Configure project :gradle
+WARNING: Unsupported Kotlin plugin version.
+The `embedded-kotlin` and `kotlin-dsl` plugins rely on features of Kotlin `2.0.21` that might work differently than in the requested version `2.2.20`.
+
+> Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle:compileKotlin UP-TO-DATE
+> Task :gradle:compileJava NO-SOURCE
+> Task :gradle:compileGroovy NO-SOURCE
+> Task :gradle:pluginDescriptors UP-TO-DATE
+> Task :gradle:processResources UP-TO-DATE
+> Task :gradle:classes UP-TO-DATE
+> Task :gradle:jar UP-TO-DATE
+
+> Configure project :app
+Warning: Flutter support for your project's Gradle version (8.14.0) will soon be dropped. Please upgrade your Gradle version to a version of at least 9.1.0 soon.
+Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+
+Potential fix: Your project's gradle version is typically defined in the gradle wrapper file. By default, this can be found at /home/erkanoz/projeler/iptv/lifeos-iptv-player/android/gradle/wrapper/gradle-wrapper.properties. 
+For more information, see https://docs.gradle.org/current/userguide/gradle_wrapper.html.
+
+Warning: Flutter support for your project's Android Gradle Plugin version (Android Gradle Plugin version 8.11.1) will soon be dropped. Please upgrade your Android Gradle Plugin version to a version of at least Android Gradle Plugin version 9.0.1 soon.
+Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+
+Potential fix: Your project's AGP version is typically defined in the plugins block of the `settings.gradle` file (/home/erkanoz/projeler/iptv/lifeos-iptv-player/android/settings.gradle), by a plugin with the id of com.android.application. 
+If you don't see a plugins block, your project was likely created with an older template version. In this case it is most likely defined in the top-level build.gradle file (/home/erkanoz/projeler/iptv/lifeos-iptv-player/android/build.gradle) by the following line in the dependencies block of the buildscript: "classpath 'com.android.tools.build:gradle:<version>'".
+
+Warning: Flutter support for your project's Kotlin version (2.2.20) will soon be dropped. Please upgrade your Kotlin version to a version of at least 2.3.20 soon.
+Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+
+Potential fix: Your project's KGP version is typically defined in the plugins block of the `settings.gradle` file (/home/erkanoz/projeler/iptv/lifeos-iptv-player/android/settings.gradle), by a plugin with the id of org.jetbrains.kotlin.android. 
+If you don't see a plugins block, your project was likely created with an older template version, in which case it is most likely defined in the top-level build.gradle file (/home/erkanoz/projeler/iptv/lifeos-iptv-player/android/build.gradle) by the ext.kotlin_version property.
+
+
+> Task :video_player_android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :video_player_android:preBuild UP-TO-DATE
+> Task :video_player_android:preDebugBuild UP-TO-DATE
+> Task :video_player_android:generateDebugResValues UP-TO-DATE
+> Task :video_player_android:generateDebugResources UP-TO-DATE
+> Task :video_player_android:packageDebugResources UP-TO-DATE
+> Task :video_player_android:parseDebugLocalResources UP-TO-DATE
+> Task :video_player_android:generateDebugRFile UP-TO-DATE
+> Task :video_player_android:compileDebugKotlin UP-TO-DATE
+> Task :video_player_android:javaPreCompileDebug UP-TO-DATE
+> Task :video_player_android:compileDebugJavaWithJavac UP-TO-DATE
+> Task :video_player_android:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :video_player_android:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :video_player_android:preDebugUnitTestBuild UP-TO-DATE
+> Task :video_player_android:writeDebugAarMetadata UP-TO-DATE
+> Task :video_player_android:checkDebugUnitTestAarMetadata UP-TO-DATE
+> Task :video_player_android:compileDebugLibraryResources UP-TO-DATE
+> Task :video_player_android:generateDebugUnitTestResValues UP-TO-DATE
+> Task :video_player_android:mapDebugUnitTestSourceSetPaths UP-TO-DATE
+> Task :video_player_android:generateDebugUnitTestResources UP-TO-DATE
+> Task :video_player_android:mergeDebugUnitTestResources UP-TO-DATE
+> Task :video_player_android:extractDeepLinksDebug UP-TO-DATE
+> Task :video_player_android:processDebugManifest UP-TO-DATE
+> Task :video_player_android:processDebugUnitTestManifest UP-TO-DATE
+> Task :video_player_android:processDebugUnitTestResources UP-TO-DATE
+> Task :video_player_android:compileDebugUnitTestKotlin NO-SOURCE
+> Task :video_player_android:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :video_player_android:compileDebugUnitTestJavaWithJavac
+> Task :video_player_android:generateDebugUnitTestAssets UP-TO-DATE
+> Task :video_player_android:mergeDebugShaders UP-TO-DATE
+> Task :video_player_android:compileDebugShaders NO-SOURCE
+> Task :video_player_android:generateDebugAssets UP-TO-DATE
+> Task :video_player_android:mergeDebugAssets UP-TO-DATE
+> Task :video_player_android:mergeDebugUnitTestAssets UP-TO-DATE
+> Task :video_player_android:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :video_player_android:generateDebugUnitTestConfig UP-TO-DATE
+> Task :video_player_android:processDebugJavaRes UP-TO-DATE
+> Task :video_player_android:processDebugUnitTestJavaRes NO-SOURCE
+
+> Task :video_player_android:testDebugUnitTest
+
+VideoPlayerPluginTest STANDARD_ERROR
+    [Robolectric] WARN: Android SDK 36 requires Java 21 (have Java 17). Tests won't be run on SDK 36 unless explicitly requested.
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :video_player_android:testDebugUnitTest
+
+VideoPlayerPluginTest > createsPlatformViewVideoPlayer PASSED
+
+VideoPlayerPluginTest > initPluginDoesNotThrow PASSED
+
+VideoPlayerPluginTest > createsTextureVideoPlayer PASSED
+
+VideoPlayerPluginTest > registersPlatformVideoViewFactory PASSED
+
+ExoPlayerEventListenerTest > onPlaybackStateChangedBufferingSendsBuffering PASSED
+
+ExoPlayerEventListenerTest > onPlaybackStateChangedReadySendsInitializedAndReady PASSED
+
+ExoPlayerEventListenerTest > onErrorBehindLiveWindowSeekToDefaultAndPrepare PASSED
+
+ExoPlayerEventListenerTest > onPlaybackStateChangedEndedSendsEnded PASSED
+
+ExoPlayerEventListenerTest > onIsPlayingChangedToggled PASSED
+
+ExoPlayerEventListenerTest > onPlaybackStateChangedIdleSendsIdle PASSED
+
+PlatformVideoViewFactoryTest > createsPlatformVideoViewBasedOnSuppliedArguments PASSED
+
+PlatformVideoViewTest > createsSurfaceViewAndSetsItForExoPlayer PASSED
+
+PlatformViewExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode90DegreesSwapsWidthAndHeight PASSED
+
+PlatformViewExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode270DegreesSwapsWidthAndHeight PASSED
+
+PlatformViewExoPlayerEventListenerTest > onPlaybackStateChangedReadySendInitialized PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode90DegreesSwapWidthAndHeight_whenSurfaceProducerDoesNotHandleCropAndRotation PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode270DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerDoesNotHandleCropAndRotation PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode90DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerHandlesCropAndRotation PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadySendInitializedWithRotationCorrectionAndWidthAndHeightSwap_whenSurfaceProducerDoesNotHandleCropAndRotation PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadyInPortraitMode270DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerHandlesCropAndRotation PASSED
+
+TextureExoPlayerEventListenerTest > onPlaybackStateChangedReadySendInitialized_whenSurfaceProducerHandlesCropAndRotation PASSED
+
+TextureVideoPlayerTest > disposeReleasesExoPlayerBeforeTexture PASSED
+
+TextureVideoPlayerTest > onSurfaceAvailableDoesNotSendInitializeEventAgain PASSED
+
+TextureVideoPlayerTest > loadsAndPreparesProvidedMediaEnablesAudioFocusByDefault PASSED
+
+TextureVideoPlayerTest > onSurfaceAvailableWithoutCleanupDoesNotRecreate PASSED
+
+TextureVideoPlayerTest > onInitializedCalledWhenVideoPlayerInitiallyCreated PASSED
+
+TextureVideoPlayerTest > onSurfaceProducerCleanupDoesNotStopOrPauseVideo PASSED
+
+TextureVideoPlayerTest > onSurfaceProducerCleanupAndAvailableRemovesAndRestoresSurface PASSED
+
+VideoAssetTest > remoteVideoSetsAdditionalHttpHeadersIfProvided PASSED
+
+VideoAssetTest > rtspVideoCreatesMediaItem PASSED
+
+VideoAssetTest > rtspVideoRequiresRtspUrl PASSED
+
+VideoAssetTest > localVideoCreatesMediaItem PASSED
+
+VideoAssetTest > remoteVideoGetMediaSourceFactoryInProductionReturnsRealMediaSource PASSED
+
+VideoAssetTest > localVideoRequiresAssetUrl PASSED
+
+VideoAssetTest > remoteVideoSetsUserAgentAndCrossProtocolRedirects PASSED
+
+VideoPlayerEventCallbacksTest > onError PASSED
+
+VideoPlayerEventCallbacksTest > onPlaybackStateChanged PASSED
+
+VideoPlayerEventCallbacksTest > onInitializedSendsExpectedArguments PASSED
+
+VideoPlayerEventCallbacksTest > onIsPlayingStateUpdate PASSED
+
+VideoPlayerTest > disposeReleasesExoPlayer PASSED
+
+VideoPlayerTest > testGetAudioTracks_withMultipleAudioTracks PASSED
+
+VideoPlayerTest > testSelectAudioTrack_invalidTrackIndex PASSED
+
+VideoPlayerTest > testSelectAudioTrack_invalidGroupIndex PASSED
+
+VideoPlayerTest > getCurrentPosition PASSED
+
+VideoPlayerTest > testSelectAudioTrack_nullTrackSelector PASSED
+
+VideoPlayerTest > testGetAudioTracks_withNoAudioTracks PASSED
+
+VideoPlayerTest > seekTo PASSED
+
+VideoPlayerTest > testGetAudioTracks_withMultipleTracksInSameGroup PASSED
+
+VideoPlayerTest > setVolumeIsClampedBetween0and1 PASSED
+
+VideoPlayerTest > getBufferedPosition PASSED
+
+VideoPlayerTest > testSelectAudioTrack_negativeIndices PASSED
+
+VideoPlayerTest > loadsAndPreparesProvidedMediaEnablesAudioFocusByDefault PASSED
+
+VideoPlayerTest > setPlaybackSpeedSetsPlaybackParametersWithValue PASSED
+
+VideoPlayerTest > testSelectAudioTrack_nonAudioGroup PASSED
+
+VideoPlayerTest > onInitializedCalledWhenVideoPlayerInitiallyAvailable PASSED
+
+VideoPlayerTest > loadsAndPreparesProvidedMediaDisablesAudioFocusWhenMixModeSet PASSED
+
+VideoPlayerTest > togglesLoopingEnablesAndDisablesRepeatMode PASSED
+
+VideoPlayerTest > testSelectAudioTrack_validIndices PASSED
+
+VideoPlayerTest > testGetAudioTracks_withNullValues PASSED
+
+VideoPlayerTest > playsAndPausesProvidedMedia PASSED
+
+[Incubating] Problems report is available at: file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 30s
+34 actionable tasks: 2 executed, 32 up-to-date

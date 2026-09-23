@@ -86,6 +86,7 @@ GoRouter router(Ref ref) {
           if (PlatformHelper.isTV) {
             return TvVideoPlayerScreen(
               streamUrl: extras['url'],
+              streamId: extras['streamId'] as int,
               title: extras['title'],
               type: extras['type'] ?? VideoType.live,
               logo: extras['logo'],
@@ -98,6 +99,7 @@ GoRouter router(Ref ref) {
           }
           return VideoPlayerScreen(
             streamUrl: extras['url'],
+            streamId: extras['streamId'] as int,
             title: extras['title'],
             type: extras['type'] ?? VideoType.live,
             logo: extras['logo'],

@@ -1,7 +1,7 @@
 import 'package:lifeostv/domain/models/app_settings.dart';
 
 /// Centralized stream URL builder for all screen types.
-/// Uses HLS (.m3u8) for adaptive bitrate when quality is set to auto.
+/// HLS may be adaptive when the provider supplies a master playlist.
 class StreamUrlBuilder {
   const StreamUrlBuilder._();
 
@@ -16,33 +16,53 @@ class StreamUrlBuilder {
     StreamQuality quality = StreamQuality.auto,
   }) {
     final ext = quality == StreamQuality.auto ? 'm3u8' : 'ts';
-    return '$baseUrl/live/$username/$password/$streamId.$ext';
+    return _path(baseUrl, ['live', username, password, '$streamId.$ext']);
   }
 
-  /// Build a VOD (movie) stream URL. VOD always uses the same format.
+  /// Prefer the provider URL or container; MKV is a legacy fallback only.
   static String movie(
     String baseUrl,
     String username,
     String password,
-    int streamId,
-  ) {
-    return '$baseUrl/movie/$username/$password/$streamId.mkv';
+    int streamId, {
+    String? extension,
+    String? directUrl,
+  }) {
+    if (directUrl != null && directUrl.trim().isNotEmpty) {
+      return directUrl.trim();
+    }
+    return _path(baseUrl, [
+      'movie',
+      username,
+      password,
+      '$streamId.${_extension(extension, 'mkv')}',
+    ]);
   }
 
-  /// Build a series episode stream URL. Always uses the same format.
+  /// Build an episode URL using its provider-supplied container or direct URL.
   static String series(
     String baseUrl,
     String username,
     String password,
-    int streamId,
-  ) {
-    return '$baseUrl/series/$username/$password/$streamId.mkv';
+    int streamId, {
+    String? extension,
+    String? directUrl,
+  }) {
+    if (directUrl != null && directUrl.trim().isNotEmpty) {
+      return directUrl.trim();
+    }
+    return _path(baseUrl, [
+      'series',
+      username,
+      password,
+      '$streamId.${_extension(extension, 'mkv')}',
+    ]);
   }
 
   /// Build an Xtream timeshift / catch-up URL.
   ///
-  /// Pattern: `<base>/timeshift/<user>/<pass>/<duration_minutes>/
-  /// <start_yyyy-MM-dd:HH-mm>/<stream_id>.ts`.
+  /// Pattern: `base/timeshift/user/pass/duration_minutes/start/stream_id.ts`.
+  /// The start timestamp uses the `yyyy-MM-dd:HH-mm` format.
   ///
   /// Use this to replay a programme that started at [start] and ran
   /// for [duration]. The Xtream server keeps a rolling timeshift
@@ -70,7 +90,62 @@ class StreamUrlBuilder {
     final stamp =
         '${s.year}-${_pad2(s.month)}-${_pad2(s.day)}:${_pad2(s.hour)}-${_pad2(s.minute)}';
     final mins = duration.inMinutes.clamp(1, 24 * 60);
-    return '$baseUrl/timeshift/$username/$password/$mins/$stamp/$streamId.ts';
+    return _path(baseUrl, [
+      'timeshift',
+      username,
+      password,
+      '$mins',
+      stamp,
+      '$streamId.ts',
+    ]);
+  }
+
+  static String _path(String baseUrl, List<String> segments) {
+    final base = Uri.parse(baseUrl.trim());
+    final prefix = base.pathSegments.toList();
+    while (prefix.isNotEmpty && prefix.last.isEmpty) {
+      prefix.removeLast();
+    }
+    return Uri(
+      scheme: base.scheme,
+      userInfo: base.userInfo,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+      pathSegments: [...prefix, ...segments],
+    ).toString();
+  }
+
+  static String _extension(String? value, String fallback) {
+    final ext = (value ?? '')
+        .trim()
+        .replaceFirst(RegExp(r'^\.'), '')
+        .toLowerCase();
+    return RegExp(r'^[a-z0-9]+$').hasMatch(ext) ? ext : fallback;
+  }
+
+  /// Returns null when a provider has supplied neither a direct source nor a
+  /// container, so legacy catalogues can request VOD details before guessing.
+  static String? vodFromMetadata(
+    String baseUrl,
+    String username,
+    String password,
+    int streamId,
+    Map metadata,
+  ) {
+    final direct = metadata['direct_source']?.toString().trim();
+    final extension = metadata['container_extension']?.toString().trim();
+    if ((direct == null || direct.isEmpty) &&
+        (extension == null || extension.isEmpty)) {
+      return null;
+    }
+    return movie(
+      baseUrl,
+      username,
+      password,
+      streamId,
+      extension: extension,
+      directUrl: direct,
+    );
   }
 
   static String _pad2(int n) => n.toString().padLeft(2, '0');
@@ -85,6 +160,7 @@ class StreamUrlBuilder {
     String type, {
     StreamQuality quality = StreamQuality.auto,
     String? directUrl,
+    String? extension,
   }) {
     // M3U accounts store the stream URL directly
     if (directUrl != null && directUrl.isNotEmpty) return directUrl;
@@ -93,11 +169,23 @@ class StreamUrlBuilder {
       case 'live':
         return live(baseUrl, username, password, streamId, quality: quality);
       case 'movie':
-        return movie(baseUrl, username, password, streamId);
+        return movie(
+          baseUrl,
+          username,
+          password,
+          streamId,
+          extension: extension,
+        );
       case 'series':
-        return series(baseUrl, username, password, streamId);
+        return series(
+          baseUrl,
+          username,
+          password,
+          streamId,
+          extension: extension,
+        );
       default:
-        return '$baseUrl/$username/$password/$streamId';
+        return _path(baseUrl, [username, password, '$streamId']);
     }
   }
 }

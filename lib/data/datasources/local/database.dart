@@ -10,8 +10,10 @@ part 'database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -190,6 +192,14 @@ class AppDatabase extends _$AppDatabase {
          // Rows are backfilled off the UI isolate by
          // ContentRepository.refreshSearchIndex() at startup / after sync.
          await m.addColumn(channels, channels.searchText);
+       }
+       if (from < 24) {
+         // Nullable metadata only; catalogue keys and user progress are unchanged.
+         // Probe first to support builds that applied the column before user_version.
+         final columns = await customSelect('PRAGMA table_info(channels)').get();
+         if (!columns.any((row) => row.data['name'] == 'container_extension')) {
+           await m.addColumn(channels, channels.containerExtension);
+         }
        }
     },
     beforeOpen: (details) async {

@@ -60,3 +60,6 @@ LifeosTV-flutter/
 .archive/
 flathub/
 lifeostv_main_amd64/
+
+# Local release archives
+/dist/

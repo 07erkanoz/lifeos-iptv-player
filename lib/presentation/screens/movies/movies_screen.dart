@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -327,33 +328,49 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
   }
 
-  void _playMovie(Channel channel, {Duration? startPosition}) {
+  bool _openingMovie = false;
+
+  Future<void> _playMovie(Channel channel, {Duration? startPosition}) async {
+    if (_openingMovie) return;
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
-    // M3U accounts: use direct stream URL from DB
-    final url = (account.type == 'm3u' && channel.streamUrl != null && channel.streamUrl!.isNotEmpty)
-        ? channel.streamUrl!
-        : '${account.url}/movie/${account.username}/${account.password}/${channel.streamId}.mkv';
+    _openingMovie = true;
+    final vodInfo = _detailChannel?.streamId == channel.streamId ? _vodInfo : null;
+    try {
+      final url = await ref.read(playbackUrlResolverProvider).resolve(
+        account, channel,
+        vodInfo: vodInfo,
+      );
+      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
 
-    // Extract VOD metadata for pause info badge
-    final infoRaw = _vodInfo?['info'];
-    final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
-    final ratingStr = info?['rating']?.toString() ?? channel.rating?.toStringAsFixed(1);
-    final ratingVal = ratingStr != null ? double.tryParse(ratingStr) : null;
+      // Extract VOD metadata for pause info badge
+      final infoRaw = vodInfo?['info'];
+      final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
+      final ratingStr = info?['rating']?.toString() ?? channel.rating?.toStringAsFixed(1);
+      final ratingVal = ratingStr != null ? double.tryParse(ratingStr) : null;
 
-    context.push('/player', extra: {
-      'url': url,
-      'title': channel.name,
-      'type': VideoType.movie,
-      'logo': channel.streamIcon,
-      'startPosition': startPosition,
-      'plot': info?['plot'] ?? channel.plot,
-      'genre': info?['genre'] ?? channel.genre,
-      'year': info?['release_date']?.toString().split('-').firstOrNull ?? channel.year,
-      'director': info?['director'] ?? channel.director,
-      'cast': info?['cast'] ?? channel.cast,
-      'rating': ratingVal,
-    });
+      context.push('/player', extra: {
+        'url': url,
+        'streamId': channel.streamId,
+        'title': channel.name,
+        'type': VideoType.movie,
+        'logo': channel.streamIcon,
+        'startPosition': startPosition,
+        'plot': info?['plot'] ?? channel.plot,
+        'genre': info?['genre'] ?? channel.genre,
+        'year': info?['release_date']?.toString().split('-').firstOrNull ?? channel.year,
+        'director': info?['director'] ?? channel.director,
+        'cast': info?['cast'] ?? channel.cast,
+        'rating': ratingVal,
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)),
+      );
+    } finally {
+      _openingMovie = false;
+    }
   }
 
   /// Select a category, then (desktop/TV) collapse the sidebar like the

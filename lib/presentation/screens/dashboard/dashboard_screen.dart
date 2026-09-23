@@ -27,7 +27,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
-import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -629,7 +629,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   /// Play channel directly
-  void _playChannel(Channel channel) {
+  bool _openingChannel = false;
+
+  Future<void> _playChannel(Channel channel) async {
+    if (_openingChannel) return;
     final account = ref.read(currentAccountProvider).value;
     if (account == null) {
       final l10n = AppLocalizations.of(context)!;
@@ -639,44 +642,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return;
     }
 
-    final settings = ref.read(settingsProvider);
-    String url;
-    VideoType type;
+    _openingChannel = true;
+    try {
+      final url = await ref.read(playbackUrlResolverProvider).resolve(
+        account, channel, quality: ref.read(settingsProvider).streamQuality,
+      );
+      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
+      final type = channel.type == 'movie' ? VideoType.movie
+          : channel.type == 'series' ? VideoType.series : VideoType.live;
 
-    // M3U accounts: use direct stream URL
-    if (account.type == 'm3u' && channel.streamUrl != null && channel.streamUrl!.isNotEmpty) {
-      url = channel.streamUrl!;
-      type = channel.type == 'movie' ? VideoType.movie
-          : channel.type == 'series' ? VideoType.series
-          : VideoType.live;
-    } else {
-      switch (channel.type) {
-        case 'live':
-          url = StreamUrlBuilder.live(account.url, account.username ?? '', account.password ?? '', channel.streamId, quality: settings.streamQuality);
-          type = VideoType.live;
-          break;
-        case 'movie':
-          url = StreamUrlBuilder.movie(account.url, account.username ?? '', account.password ?? '', channel.streamId);
-          type = VideoType.movie;
-          break;
-        default:
-          url = StreamUrlBuilder.series(account.url, account.username ?? '', account.password ?? '', channel.streamId);
-          type = VideoType.series;
-      }
+      context.push('/player', extra: {
+        'url': url,
+        'streamId': channel.streamId,
+        'title': channel.name,
+        'type': type,
+        'logo': channel.streamIcon,
+        'plot': channel.plot,
+        'genre': channel.genre,
+        'year': channel.year,
+        'director': channel.director,
+        'cast': channel.cast,
+        'rating': channel.rating,
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.streamLoadFailed)),
+      );
+    } finally {
+      _openingChannel = false;
     }
-
-    context.push('/player', extra: {
-      'url': url,
-      'title': channel.name,
-      'type': type,
-      'logo': channel.streamIcon,
-      'plot': channel.plot,
-      'genre': channel.genre,
-      'year': channel.year,
-      'director': channel.director,
-      'cast': channel.cast,
-      'rating': channel.rating,
-    });
   }
 
   void _clearContinueWatching() {
