@@ -33,13 +33,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   late final FocusNode _textFocus;
   final FocusNode _gridFocus = FocusNode();
+
   /// Stable focus node for the first result card across rebuilds.
   /// Reassigned to whichever section is currently first non-empty so
   /// the text input's arrow-down bridge always lands on a visible
   /// poster. Created here (not per item builder) so identity survives
   /// list rebuilds — otherwise FocusNode.requestFocus() from the
   /// arrow-down bridge would race the rebuild.
-  final FocusNode _firstResultFocus = FocusNode(debugLabel: 'SearchFirstResult');
+  final FocusNode _firstResultFocus = FocusNode(
+    debugLabel: 'SearchFirstResult',
+  );
   Timer? _debounce;
   int _searchRequestId = 0;
 
@@ -72,9 +75,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// Per-card "AI seçti çünkü…" reason text from the Tier-3 library
   /// curator. Result tiles look up their stream id in this map and
   /// render the reason underneath the poster when present.
-  Map<int, String> _curatorReasons = const {};
+  Map<(String, int), String> _curatorReasons = const {};
 
-  bool get _hasResults => _movieResults.isNotEmpty || _seriesResults.isNotEmpty || _liveResults.isNotEmpty;
+  bool get _hasResults =>
+      _movieResults.isNotEmpty ||
+      _seriesResults.isNotEmpty ||
+      _liveResults.isNotEmpty;
 
   @override
   void initState() {
@@ -117,6 +123,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// of the phrasing.
   void _scheduleSuggest(String query) {
     _suggestDebounce?.cancel();
+    final requestId = ++_suggestRequestId;
     final trimmed = query.trim();
     if (trimmed.length < 2) {
       if (_aiSuggestions.isNotEmpty || _loadingSuggestions) {
@@ -132,17 +139,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // No AI key — keep chip row hidden entirely.
       return;
     }
-    final requestId = ++_suggestRequestId;
     setState(() => _loadingSuggestions = true);
     _suggestDebounce = Timer(const Duration(milliseconds: 300), () async {
       final lang = ref.read(settingsProvider).language.name == 'system'
           ? 'tr'
           : ref.read(settingsProvider).language.name;
       final out = await gemini
-          .suggestSearchRefinements(
-            partialQuery: trimmed,
-            targetLanguage: lang,
-          )
+          .suggestSearchRefinements(partialQuery: trimmed, targetLanguage: lang)
           .timeout(const Duration(seconds: 8), onTimeout: () => null);
       if (!mounted || requestId != _suggestRequestId) return;
       setState(() {
@@ -185,6 +188,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onSearchChanged(String query) {
+    final requestId = ++_searchRequestId;
     _debounce?.cancel();
     // Kick the AI suggest pipeline in parallel — it has its own
     // debouncer and its own request id, so it doesn't fight the
@@ -209,7 +213,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // friendly pattern. Typed text just sits in the field until committed.
     if (PlatformHelper.isTV) return;
     setState(() => _isSearching = true);
-    final requestId = ++_searchRequestId;
     _debounce = Timer(const Duration(milliseconds: 400), () {
       _executeSearch(query, requestId);
     });
@@ -219,7 +222,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// both the live debounce (desktop/mobile) and TV's on-submit path reuse
   /// it. [requestId] guards a stale pass from overwriting a newer one.
   Future<void> _executeSearch(String query, int requestId) async {
-    {
+    try {
       final trimmed = query.trim();
 
       // Phase 1 — always do the plain LIKE search first and surface
@@ -257,12 +260,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // stay on screen.
       if (gemini == null) return;
       final plainAll = [...plain[0], ...plain[1], ...plain[2]];
-      final aiResults =
-          await _runAiSearch(trimmed, requestId, gemini, plainAll);
+      final aiResults = await _runAiSearch(
+        trimmed,
+        requestId,
+        gemini,
+        plainAll,
+      );
       if (!mounted || requestId != _searchRequestId) {
-        // Stale request — never leave the spinner stuck even when
-        // we bail early.
-        if (mounted) setState(() => _aiRefining = false);
         return;
       }
       if (aiResults == null) {
@@ -277,6 +281,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _curatorReasons = aiResults.curatorReasons;
         _aiRefining = false;
       });
+    } catch (_) {
+      if (mounted && requestId == _searchRequestId) {
+        setState(() {
+          _isSearching = false;
+          _aiRefining = false;
+        });
+      }
     }
   }
 
@@ -346,12 +357,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // when the user is searching by title; intent matches widen
     // the net for genre/cast/director/theme; top-rated padding
     // ensures the pool isn't empty for purely thematic queries.
-    final pool = <int, Channel>{};
+    final pool = <(String, int), Channel>{};
     for (final ch in plainResults) {
-      pool[ch.streamId] = ch;
+      pool[(ch.type, ch.streamId)] = ch;
     }
     for (final ch in intentChannels) {
-      pool.putIfAbsent(ch.streamId, () => ch);
+      pool.putIfAbsent((ch.type, ch.streamId), () => ch);
     }
 
     // Thematic queries (no exact name match, but the AI extracted
@@ -365,7 +376,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // New strategy: when the pool is small, pad up to 800 with a
     // wide top-rated + recent-added stratification. The compact
     // serialisation below keeps the prompt under ~12 K tokens.
-    final isThematic = plainResults.isEmpty &&
+    final isThematic =
+        plainResults.isEmpty &&
         intent != null &&
         ((intent.themeKeywords?.isNotEmpty ?? false) ||
             (intent.genres?.isNotEmpty ?? false));
@@ -378,7 +390,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
       if (requestId != _searchRequestId) return null;
       for (final ch in pad) {
-        pool.putIfAbsent(ch.streamId, () => ch);
+        pool.putIfAbsent((ch.type, ch.streamId), () => ch);
       }
     }
 
@@ -398,28 +410,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
     final compactLines = <String>[
       'id|title|type|year|genre|director|cast|rating',
-      for (final c in sampleEntries)
-        '${c.streamId}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
+      for (final (i, c) in sampleEntries.indexed)
+        '${i + 1}|${escape(c.name)}|${c.type}|${escape(c.year)}|${escape(c.genre)}|${escape(c.director)}|${escape(c.cast)}|${c.rating?.toStringAsFixed(1) ?? ""}',
     ];
     final compactSample = [
-      {'_format': 'pipe-separated rows', '_rows': compactLines}
+      {'_format': 'pipe-separated rows', '_rows': compactLines},
     ];
 
     // Step 3 — Curator ranks + annotates.
-    final curatorPicks = await withTimeout(gemini.curateLibraryByQuery(
-      query: query,
-      librarySample: compactSample,
-      targetLanguage: lang,
-    ));
+    final curatorPicks = await withTimeout(
+      gemini.curateLibraryByQuery(
+        query: query,
+        librarySample: compactSample,
+        targetLanguage: lang,
+      ),
+    );
     if (requestId != _searchRequestId) return null;
 
-    final reasonByStreamId = <int, String>{};
+    final reasonByStreamId = <(String, int), String>{};
     final curatorChannels = <Channel>[];
     if (curatorPicks != null) {
       for (final pick in curatorPicks) {
-        final ch = pool[pick.streamId];
-        if (ch == null) continue; // hallucinated id; drop
-        reasonByStreamId[pick.streamId] = pick.reason;
+        // The model sees request-local IDs; provider IDs can collide across types.
+        if (pick.streamId < 1 || pick.streamId > sampleEntries.length) continue;
+        final ch = sampleEntries[pick.streamId - 1];
+        reasonByStreamId[(ch.type, ch.streamId)] = pick.reason;
         curatorChannels.add(ch);
       }
     }
@@ -432,16 +447,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // curator didn't already include, then any plain hits still
     // unseen. The plain set is never shrunk; AI only reorders + adds
     // reasons.
-    final seen = <int>{};
+    final seen = <(String, int)>{};
     final merged = <Channel>[];
     for (final ch in curatorChannels) {
-      if (seen.add(ch.streamId)) merged.add(ch);
+      if (seen.add((ch.type, ch.streamId))) merged.add(ch);
     }
     for (final ch in intentChannels) {
-      if (seen.add(ch.streamId)) merged.add(ch);
+      if (seen.add((ch.type, ch.streamId))) merged.add(ch);
     }
     for (final ch in plainResults) {
-      if (seen.add(ch.streamId)) merged.add(ch);
+      if (seen.add((ch.type, ch.streamId))) merged.add(ch);
     }
 
     final movies = <Channel>[];
@@ -522,15 +537,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
-              const Icon(Icons.auto_awesome,
-                  color: AppColors.primary, size: 14),
+              const Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+                size: 14,
+              ),
               const SizedBox(width: 6),
               if (_loadingSuggestions && _aiSuggestions.isEmpty) ...[
                 const SizedBox(
                   width: 12,
                   height: 12,
                   child: CircularProgressIndicator(
-                    strokeWidth: 1.5, color: AppColors.primary),
+                    strokeWidth: 1.5,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Center(
@@ -550,7 +570,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     onTap: () {
                       _controller.text = s;
                       _controller.selection = TextSelection.collapsed(
-                          offset: s.length);
+                        offset: s.length,
+                      );
                       _onSearchChanged(s);
                     },
                   ),
@@ -563,7 +584,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildSectionHeader(IconData icon, String title, Color color, int count) {
+  Widget _buildSectionHeader(
+    IconData icon,
+    String title,
+    Color color,
+    int count,
+  ) {
     return Row(
       children: [
         Icon(icon, color: color, size: 20),
@@ -585,7 +611,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           child: Text(
             '$count',
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -598,7 +628,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// cards build/decode — a large result set no longer materialises every
   /// card at once, which was the freeze / OOM-on-results on weak TVs.
   List<Widget> _buildResultSlivers(
-      IconData icon, String label, Color color, List<Channel> channels, bool isMobile) {
+    IconData icon,
+    String label,
+    Color color,
+    List<Channel> channels,
+    bool isMobile,
+  ) {
     if (channels.isEmpty) return const [];
     final maxCross = isMobile ? 140.0 : 180.0;
     // Whether this section is the first non-empty results group — only its
@@ -606,8 +641,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // _firstResultFocus node for the text→grid bridge.
     final isFirst = _isFirstSection(channels);
     final pad = isMobile ? 12.0 : 20.0;
-    final cols =
-        ((MediaQuery.of(context).size.width - pad * 2) / maxCross).floor().clamp(1, 50);
+    final cols = ((MediaQuery.of(context).size.width - pad * 2) / maxCross)
+        .floor()
+        .clamp(1, 50);
     return [
       SliverToBoxAdapter(
         child: Padding(
@@ -624,21 +660,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             crossAxisSpacing: isMobile ? 8 : 12,
             mainAxisSpacing: isMobile ? 8 : 12,
           ),
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final ch = channels[index];
-              return _SearchResultCard(
-                channel: ch,
-                onTap: () => _onResultTap(ch),
-                focusNode: (isFirst && index == 0) ? _firstResultFocus : null,
-                onTopEdge: (isFirst && index < cols)
-                    ? () => _textFocus.requestFocus()
-                    : null,
-                aiReason: _curatorReasons[ch.streamId],
-              );
-            },
-            childCount: channels.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final ch = channels[index];
+            return _SearchResultCard(
+              channel: ch,
+              onTap: () => _onResultTap(ch),
+              focusNode: (isFirst && index == 0) ? _firstResultFocus : null,
+              onTopEdge: (isFirst && index < cols)
+                  ? () => _textFocus.requestFocus()
+                  : null,
+              aiReason: _curatorReasons[(ch.type, ch.streamId)],
+            );
+          }, childCount: channels.length),
         ),
       ),
     ];
@@ -648,21 +681,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
     final quality = ref.read(settingsProvider).streamQuality;
-    final url = (account.type == 'm3u' && channel.streamUrl != null && channel.streamUrl!.isNotEmpty)
+    final url =
+        (account.type == 'm3u' &&
+            channel.streamUrl != null &&
+            channel.streamUrl!.isNotEmpty)
         ? channel.streamUrl!
-        : StreamUrlBuilder.live(account.url, account.username ?? '', account.password ?? '', channel.streamId, quality: quality);
-    context.push('/player', extra: {
-      'url': url,
-      'streamId': channel.streamId,
+        : StreamUrlBuilder.live(
+            account.url,
+            account.username ?? '',
+            account.password ?? '',
+            channel.streamId,
+            quality: quality,
+          );
+    context.push(
+      '/player',
+      extra: {
+        'url': url,
+        'streamId': channel.streamId,
         'accountId': channel.accountId,
-      'title': channel.name,
-      'type': VideoType.live,
-      'logo': channel.streamIcon,
-    });
+        'title': channel.name,
+        'type': VideoType.live,
+        'logo': channel.streamIcon,
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(contentRepositoryProvider, (previous, next) {
+      if (previous == next) return;
+      _onSearchChanged('');
+      if (_controller.text.trim().isNotEmpty) {
+        _onSearchChanged(_controller.text);
+      }
+    });
     final l10n = AppLocalizations.of(context)!;
     final isMobile = isMobilePlatform;
 
@@ -686,7 +738,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 decoration: const BoxDecoration(
                   color: AppColors.backgroundDark,
-                  border: Border(bottom: BorderSide(color: AppColors.borderDark)),
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.borderDark),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -747,11 +801,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                         decoration: InputDecoration(
                           hintText: l10n.search,
-                          hintStyle: const TextStyle(color: AppColors.textTertiaryDark),
-                          prefixIcon: const Icon(Icons.search, color: AppColors.textTertiaryDark, size: 20),
+                          hintStyle: const TextStyle(
+                            color: AppColors.textTertiaryDark,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: AppColors.textTertiaryDark,
+                            size: 20,
+                          ),
                           suffixIcon: _controller.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, color: AppColors.textTertiaryDark, size: 18),
+                                  icon: const Icon(
+                                    Icons.clear,
+                                    color: AppColors.textTertiaryDark,
+                                    size: 18,
+                                  ),
                                   onPressed: () {
                                     _controller.clear();
                                     _onSearchChanged('');
@@ -767,7 +831,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 2,
+                            ),
                           ),
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: 16,
@@ -807,162 +874,198 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                       )
                     : !_hasResults
-                        // Plain search returned nothing. If AI is
-                        // still in flight, show a "Düşünüyor…" panel
-                        // instead of the "Kanal bulunamadı" empty
-                        // state — otherwise the user gives up before
-                        // the AI tier even gets a chance to surface
-                        // results (a common case for thematic
-                        // queries like "korku dizileri" where plain
-                        // LIKE has nothing to grab onto).
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (_aiRefining) ...[
-                                  const SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: AppColors.primary),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    l10n.aiThinking,
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 14,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ] else if (_controller.text.isEmpty) ...[
-                                  // Recent + trending chip rows. Only
-                                  // shown on the empty-query landing
-                                  // state; when there's an active query
-                                  // we want the user focused on results
-                                  // and not distracted by history.
-                                  _SearchHistoryPanel(
-                                    onPick: (q) {
-                                      _controller.text = q;
-                                      _onSearchChanged(q);
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-                                  EmptyState.search(
-                                    title: l10n.search,
-                                    fillParent: false,
-                                  ),
-                                ] else
-                                  EmptyState.search(
-                                    title: l10n.noChannels,
-                                    subtitle:
-                                        '"${_controller.text}" için sonuç bulunamadı. Farklı kelimeler dene veya AI asistana sor.',
-                                    fillParent: false,
-                                  ),
-                              ],
-                            ),
-                          )
-                        : Focus(
-                            focusNode: _gridFocus,
-                            skipTraversal: true,
-                            child: CustomScrollView(
-                              slivers: [
-                                SliverPadding(
-                                  padding: EdgeInsets.all(isMobile ? 12 : 20),
-                                  sliver: SliverList(
-                                    delegate: SliverChildListDelegate([
-                                // "AI yorumladı: …" chip row, only shown
-                                // when the active query was routed
-                                // through Gemini AND it produced at
-                                // least one structured filter.
-                                if (_activeIntent != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _AiIntentChips(intent: _activeIntent!),
-                                  ),
-                                // Header banner when curator actively
-                                // ranked the top of the grid — gives
-                                // the user a clear "AI did work for
-                                // you" signal so the ✨ reasons on
-                                // individual cards aren't easy to
-                                // miss when scrolling.
-                                if (_curatorReasons.isNotEmpty)
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 10),
-                                    child: Row(children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.15),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.auto_awesome,
-                                                size: 12,
-                                                color: AppColors.primary),
-                                            const SizedBox(width: 5),
-                                            Text(
-                                              'AI tarafından sıralandı · ${_curatorReasons.length} öneri',
-                                              style: const TextStyle(
-                                                color: AppColors.primary,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ]),
-                                  ),
-                                // While Tier 2/3 are still in flight,
-                                // surface a small "AI yorumluyor…"
-                                // badge above the plain results so
-                                // the user knows further refinement
-                                // is coming.
-                                if (_aiRefining)
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 12),
-                                    child: Row(children: [
-                                      const SizedBox(
-                                        width: 12,
-                                        height: 12,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            color: AppColors.primary),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        l10n.aiThinking,
-                                        style: const TextStyle(
-                                          color: AppColors.primary,
-                                          fontSize: 12,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ]),
-                                  ),
-                                    ]),
-                                  ),
+                    // Plain search returned nothing. If AI is
+                    // still in flight, show a "Düşünüyor…" panel
+                    // instead of the "Kanal bulunamadı" empty
+                    // state — otherwise the user gives up before
+                    // the AI tier even gets a chance to surface
+                    // results (a common case for thematic
+                    // queries like "korku dizileri" where plain
+                    // LIKE has nothing to grab onto).
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_aiRefining) ...[
+                              const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppColors.primary,
                                 ),
-                                // Lazy sliver grids — only on-screen cards
-                                // build/decode, so a large result set no
-                                // longer materialises every card at once
-                                // (the freeze / OOM-on-results on weak TVs).
-                                ..._buildResultSlivers(Icons.movie_outlined, l10n.movie, AppColors.primary, _movieResults, isMobile),
-                                ..._buildResultSlivers(Icons.tv_outlined, l10n.seriesLabel, AppColors.accent, _seriesResults, isMobile),
-                                ..._buildResultSlivers(Icons.live_tv_outlined, l10n.liveTV, Colors.red, _liveResults, isMobile),
-                                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                              ],
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                l10n.aiThinking,
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ] else if (_controller.text.isEmpty) ...[
+                              // Recent + trending chip rows. Only
+                              // shown on the empty-query landing
+                              // state; when there's an active query
+                              // we want the user focused on results
+                              // and not distracted by history.
+                              _SearchHistoryPanel(
+                                onPick: (q) {
+                                  _controller.text = q;
+                                  _onSearchChanged(q);
+                                },
+                              ),
+                              const SizedBox(height: 24),
+                              EmptyState.search(
+                                title: l10n.search,
+                                fillParent: false,
+                              ),
+                            ] else
+                              EmptyState.search(
+                                title: l10n.noChannels,
+                                subtitle:
+                                    '"${_controller.text}" için sonuç bulunamadı. Farklı kelimeler dene veya AI asistana sor.',
+                                fillParent: false,
+                              ),
+                          ],
+                        ),
+                      )
+                    : Focus(
+                        focusNode: _gridFocus,
+                        skipTraversal: true,
+                        child: CustomScrollView(
+                          slivers: [
+                            SliverPadding(
+                              padding: EdgeInsets.all(isMobile ? 12 : 20),
+                              sliver: SliverList(
+                                delegate: SliverChildListDelegate([
+                                  // "AI yorumladı: …" chip row, only shown
+                                  // when the active query was routed
+                                  // through Gemini AND it produced at
+                                  // least one structured filter.
+                                  if (_activeIntent != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: _AiIntentChips(
+                                        intent: _activeIntent!,
+                                      ),
+                                    ),
+                                  // Header banner when curator actively
+                                  // ranked the top of the grid — gives
+                                  // the user a clear "AI did work for
+                                  // you" signal so the ✨ reasons on
+                                  // individual cards aren't easy to
+                                  // miss when scrolling.
+                                  if (_curatorReasons.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 10,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.auto_awesome,
+                                                  size: 12,
+                                                  color: AppColors.primary,
+                                                ),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  'AI tarafından sıralandı · ${_curatorReasons.length} öneri',
+                                                  style: const TextStyle(
+                                                    color: AppColors.primary,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  // While Tier 2/3 are still in flight,
+                                  // surface a small "AI yorumluyor…"
+                                  // badge above the plain results so
+                                  // the user knows further refinement
+                                  // is coming.
+                                  if (_aiRefining)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const SizedBox(
+                                            width: 12,
+                                            height: 12,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            l10n.aiThinking,
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ]),
+                              ),
                             ),
-                          ),
+                            // Lazy sliver grids — only on-screen cards
+                            // build/decode, so a large result set no
+                            // longer materialises every card at once
+                            // (the freeze / OOM-on-results on weak TVs).
+                            ..._buildResultSlivers(
+                              Icons.movie_outlined,
+                              l10n.movie,
+                              AppColors.primary,
+                              _movieResults,
+                              isMobile,
+                            ),
+                            ..._buildResultSlivers(
+                              Icons.tv_outlined,
+                              l10n.seriesLabel,
+                              AppColors.accent,
+                              _seriesResults,
+                              isMobile,
+                            ),
+                            ..._buildResultSlivers(
+                              Icons.live_tv_outlined,
+                              l10n.liveTV,
+                              Colors.red,
+                              _liveResults,
+                              isMobile,
+                            ),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 24),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -1054,8 +1157,8 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                 border: _isFocused
                     ? Border.all(color: AppColors.primary, width: 2)
                     : isActive
-                        ? Border.all(color: AppColors.borderDark, width: 1)
-                        : null,
+                    ? Border.all(color: AppColors.borderDark, width: 1)
+                    : null,
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -1081,7 +1184,9 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                         Text(
                           ch.name,
                           style: TextStyle(
-                            color: isActive ? AppColors.textDark : AppColors.textSecondaryDark,
+                            color: isActive
+                                ? AppColors.textDark
+                                : AppColors.textSecondaryDark,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1090,7 +1195,10 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                         ),
                         const SizedBox(height: 2),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: _typeColor(ch.type).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(3),
@@ -1111,8 +1219,7 @@ class _SearchResultCardState extends State<_SearchResultCard> {
                         if (widget.aiReason != null) ...[
                           const SizedBox(height: 4),
                           Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Icon(
                                 Icons.auto_awesome,
@@ -1215,7 +1322,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -1227,9 +1334,13 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.primary.withValues(alpha: 0.2) : Colors.transparent,
+            color: _isFocused
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
+            border: _isFocused
+                ? Border.all(color: AppColors.primary, width: 2)
+                : null,
           ),
           child: Icon(
             widget.icon,
@@ -1281,8 +1392,8 @@ class _AiIntentChips extends StatelessWidget {
       final years = (intent.minYear != null && intent.maxYear != null)
           ? '${intent.minYear}–${intent.maxYear}'
           : (intent.minYear != null
-              ? '${intent.minYear}+'
-              : '≤${intent.maxYear}');
+                ? '${intent.minYear}+'
+                : '≤${intent.maxYear}');
       chips.add(_chip(Icons.calendar_today_outlined, years));
     }
 
@@ -1315,16 +1426,9 @@ class _AiIntentChips extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Icon(Icons.auto_awesome,
-            size: 14, color: AppColors.primary),
+        const Icon(Icons.auto_awesome, size: 14, color: AppColors.primary),
         const SizedBox(width: 6),
-        Expanded(
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: chips,
-          ),
-        ),
+        Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: chips)),
       ],
     );
   }
@@ -1336,20 +1440,25 @@ class _AiIntentChips extends StatelessWidget {
         color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.25), width: 1),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 11, color: AppColors.primary),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.25),
+          width: 1,
         ),
-      ]),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: AppColors.primary),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1370,7 +1479,7 @@ class _SearchResults {
   /// the Tier-3 library curator picked specific titles for this
   /// query. Result cards check this map and render the reason
   /// underneath the poster when their id is present.
-  final Map<int, String> curatorReasons;
+  final Map<(String, int), String> curatorReasons;
 
   const _SearchResults({
     required this.movies,
@@ -1410,8 +1519,7 @@ class _SuggestionChipState extends State<_SuggestionChip> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isActive
                   ? AppColors.primary.withValues(alpha: 0.22)
@@ -1481,8 +1589,11 @@ class _SearchHistoryPanel extends ConsumerWidget {
           if (recentList.isNotEmpty) ...[
             Row(
               children: [
-                Icon(Icons.history_rounded,
-                    size: 14, color: AppColors.textSecondaryDark),
+                Icon(
+                  Icons.history_rounded,
+                  size: 14,
+                  color: AppColors.textSecondaryDark,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   l10n.searchRecent,
@@ -1497,20 +1608,23 @@ class _SearchHistoryPanel extends ConsumerWidget {
                 // Trailing "Geçmişi temizle" — wipes everything.
                 TextButton.icon(
                   onPressed: () async {
-                    await ref
-                        .read(searchHistoryRepositoryProvider)
-                        .clearAll();
+                    await ref.read(searchHistoryRepositoryProvider).clearAll();
                     ref.invalidate(recentSearchesProvider);
                     ref.invalidate(trendingSearchesProvider);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(l10n.searchHistoryCleared),
-                        duration: const Duration(seconds: 2),
-                      ));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.searchHistoryCleared),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
                     }
                   },
-                  icon: const Icon(Icons.delete_sweep_outlined,
-                      size: 14, color: AppColors.textTertiaryDark),
+                  icon: const Icon(
+                    Icons.delete_sweep_outlined,
+                    size: 14,
+                    color: AppColors.textTertiaryDark,
+                  ),
                   label: Text(
                     l10n.searchClearHistory,
                     style: const TextStyle(
@@ -1520,7 +1634,9 @@ class _SearchHistoryPanel extends ConsumerWidget {
                   ),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
                 ),
               ],
@@ -1530,18 +1646,20 @@ class _SearchHistoryPanel extends ConsumerWidget {
               spacing: 6,
               runSpacing: 6,
               children: recentList
-                  .map((q) => _HistoryChip(
-                        label: q,
-                        icon: Icons.history_rounded,
-                        onTap: () => onPick(q),
-                        onRemove: () async {
-                          await ref
-                              .read(searchHistoryRepositoryProvider)
-                              .remove(q);
-                          ref.invalidate(recentSearchesProvider);
-                          ref.invalidate(trendingSearchesProvider);
-                        },
-                      ))
+                  .map(
+                    (q) => _HistoryChip(
+                      label: q,
+                      icon: Icons.history_rounded,
+                      onTap: () => onPick(q),
+                      onRemove: () async {
+                        await ref
+                            .read(searchHistoryRepositoryProvider)
+                            .remove(q);
+                        ref.invalidate(recentSearchesProvider);
+                        ref.invalidate(trendingSearchesProvider);
+                      },
+                    ),
+                  )
                   .toList(),
             ),
             const SizedBox(height: 18),
@@ -1549,8 +1667,11 @@ class _SearchHistoryPanel extends ConsumerWidget {
           if (trendingList.isNotEmpty) ...[
             Row(
               children: [
-                Icon(Icons.trending_up_rounded,
-                    size: 14, color: AppColors.primary),
+                Icon(
+                  Icons.trending_up_rounded,
+                  size: 14,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   l10n.searchTrending,
@@ -1568,12 +1689,14 @@ class _SearchHistoryPanel extends ConsumerWidget {
               spacing: 6,
               runSpacing: 6,
               children: trendingList
-                  .map((q) => _HistoryChip(
-                        label: q,
-                        icon: Icons.trending_up_rounded,
-                        emphasised: true,
-                        onTap: () => onPick(q),
-                      ))
+                  .map(
+                    (q) => _HistoryChip(
+                      label: q,
+                      icon: Icons.trending_up_rounded,
+                      emphasised: true,
+                      onTap: () => onPick(q),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -1629,8 +1752,8 @@ class _HistoryChipState extends State<_HistoryChip> {
     final border = _focused
         ? AppColors.primary
         : (widget.emphasised
-            ? AppColors.primary.withValues(alpha: 0.35)
-            : AppColors.borderDark);
+              ? AppColors.primary.withValues(alpha: 0.35)
+              : AppColors.borderDark);
     return Focus(
       onFocusChange: (f) => setState(() => _focused = f),
       onKeyEvent: (_, event) {
@@ -1650,14 +1773,9 @@ class _HistoryChipState extends State<_HistoryChip> {
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: _focused
-                ? AppColors.primary.withValues(alpha: 0.18)
-                : bg,
+            color: _focused ? AppColors.primary.withValues(alpha: 0.18) : bg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: border,
-              width: _focused ? 2 : 1,
-            ),
+            border: Border.all(color: border, width: _focused ? 2 : 1),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1669,8 +1787,9 @@ class _HistoryChipState extends State<_HistoryChip> {
                 style: TextStyle(
                   color: widget.emphasised ? color : AppColors.textDark,
                   fontSize: 12,
-                  fontWeight:
-                      widget.emphasised ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: widget.emphasised
+                      ? FontWeight.w600
+                      : FontWeight.w500,
                 ),
               ),
             ],

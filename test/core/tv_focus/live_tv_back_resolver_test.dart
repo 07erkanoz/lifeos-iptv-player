@@ -34,8 +34,7 @@ void main() {
   });
 
   group('resolveLiveTvBackAction — category panel layer', () {
-    test('category focused → handToShell (AppShell moves to main sidebar)',
-        () {
+    test('category focused → handToShell (AppShell moves to main sidebar)', () {
       expect(
         resolveLiveTvBackAction(
           mainSidebarFocused: false,
@@ -48,7 +47,7 @@ void main() {
       );
     });
 
-    test('category collapsed → never bounces to category', () {
+    test('category collapsed → reopens categories', () {
       // Channel list focused but no category panel available → fall
       // through to handToShell instead of trying to bounce to a
       // non-existent panel.
@@ -60,7 +59,7 @@ void main() {
           epgFocused: false,
           channelListFocused: true,
         ),
-        LiveTvBackAction.handToShell,
+        LiveTvBackAction.focusCategorySidebar,
       );
     });
   });
@@ -107,22 +106,18 @@ void main() {
       );
     });
 
-    test(
-      'channel list focused + categories collapsed → handToShell '
-      '(no panel to bounce to)',
-      () {
-        expect(
-          resolveLiveTvBackAction(
-            mainSidebarFocused: false,
-            categoriesCollapsed: true,
-            categoryScopeFocused: false,
-            epgFocused: false,
-            channelListFocused: true,
-          ),
-          LiveTvBackAction.handToShell,
-        );
-      },
-    );
+    test('channel list focused + categories collapsed → reopen panel', () {
+      expect(
+        resolveLiveTvBackAction(
+          mainSidebarFocused: false,
+          categoriesCollapsed: true,
+          categoryScopeFocused: false,
+          epgFocused: false,
+          channelListFocused: true,
+        ),
+        LiveTvBackAction.focusCategorySidebar,
+      );
+    });
   });
 
   group('resolveLiveTvBackAction — full back ladder', () {
@@ -168,7 +163,7 @@ void main() {
       expect(action, LiveTvBackAction.handToShell);
     });
 
-    test('with collapsed categories the ladder skips that zone', () {
+    test('with collapsed categories the ladder reopens that zone', () {
       // EPG → channel list.
       var action = resolveLiveTvBackAction(
         mainSidebarFocused: false,
@@ -179,7 +174,7 @@ void main() {
       );
       expect(action, LiveTvBackAction.focusChannelList);
 
-      // Channel list → straight to AppShell (no category panel).
+      // Channel list → reopen categories.
       action = resolveLiveTvBackAction(
         mainSidebarFocused: false,
         categoriesCollapsed: true,
@@ -187,7 +182,7 @@ void main() {
         epgFocused: false,
         channelListFocused: true,
       );
-      expect(action, LiveTvBackAction.handToShell);
+      expect(action, LiveTvBackAction.focusCategorySidebar);
     });
   });
 }

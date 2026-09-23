@@ -8,6 +8,8 @@ Son ek: [Senkron dayanıklılığı](SENKRON_DAYANIKLILIK_2026-09-23.md) paketiy
 
 Yeni ek: [M3U/XMLTV dayanıklılığı](M3U_XMLTV_DAYANIKLILIK_2026-09-23.md): kalıcı M3U kimlikleri, şema 27/yedek v4, ayrıştırma işçileri, 100 bin kayıt temizliği, atomik EPG değişimi ve XMLTV bellek TTL düzeltmesi. **373 Flutter testi geçti.**
 
+Yeni paket: [Dizi, canlı TV, odak ve arama](DIZI_CANLI_TV_ODAK_2026-09-23.md). B07–08 dizi/bölüm geçmişi ve M3U sezon modeli uygulandı. B20 için ortak PIN ve görünür içerik çözümlemesi; B27 eski sorgu iptali; B29 tür çakışması ve kapsam koruması uygulandı. B28 indeks eksikleri/metadata geçersizliği kısmen düzeltildi; tam katalog arama sıralaması ve embedding güncelliği açık. EPG artık ortak iş, süre bütçesi, hata sonrası tekrar ve manuel XMLTV yenileme içeriyor. Odak/geri yönlendirmesi sayfa bazında, player→detay→grid ve ayarlar panel dönüşleri testli. Bu paket bütün platformların gerçek cihaz kabul testinin tamamlandığı anlamına gelmez.
+
 ## Tamamlanan ve doğrulanan bölüm
 
 - Player oturumunda açma/kapatma/yeniden deneme işlemlerinin sıralanması; geciken sonuçların kapanmış player’a uygulanmasının engellenmesi.
@@ -90,4 +92,4 @@ Kabul: Türkçe sorgu veri setinde tam başlık, yazım hatası, oyuncu/tür ve 
 - Apple CI ve Android release imzalama yolunu düzelt; kritik akışların platform testlerini genişlet (B40, B41).
 - `ONEMLI.md` içindeki eski/yarım şema geçişleri, şema doğrulaması ve geçiş öncesi yedek teknik borcunu tamamla.
 
-Sıradaki paket: M3U dizi/sezon/bölüm oynatma ve geçmiş kimliği (B07–08), sağlayıcı oynatma başlıkları (B26’nın kalanı). Sonrasında AI oynatmada PIN/görünürlük (B20) ve arama doğruluğu (B27–31). Player için gerçek cihaz/uzun oynatma testleri cihaz erişimi oldukça aynı takvimde yürütülebilir.
+Sıradaki paket: sağlayıcı oynatma başlıkları (B26’nın kalanı), TV player kontrolleri (B16), Cast/altyazı sınırları (B36/B39), embedding ve AI iş yükü (B30–33). Player için gerçek cihaz/uzun oynatma testleri cihaz erişimi oldukça aynı takvimde yürütülebilir.

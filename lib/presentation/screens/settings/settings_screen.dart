@@ -46,38 +46,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// FocusNode for the first nav item — the branch-primary target so
   /// sidebar → right lands on the leftmost setting section instead
   /// of stranding focus on an arbitrary input field.
-  final FocusNode _firstNavFocus = FocusNode(debugLabel: 'SettingsFirstNav');
+  final _navNodes = List.generate(
+    11,
+    (i) => FocusNode(debugLabel: 'SettingsNav$i'),
+  );
+  final _contentScope = FocusScopeNode(debugLabel: 'SettingsContent');
+  late final bool Function() _branchBackCb = _handleBack;
 
   late final VoidFocusCallback _branchPrimaryCb;
+
+  late final TvFocusRegistry _focusRegistry;
 
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     _branchPrimaryCb = _focusFirstNav;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
-            TvBranchIndex.settings,
-            _branchPrimaryCb,
-          );
+      _focusRegistry.registerBranchBack(TvBranchIndex.settings, _branchBackCb);
+      _focusRegistry.registerBranchPrimary(
+        TvBranchIndex.settings,
+        _branchPrimaryCb,
+      );
     });
   }
 
   @override
   void dispose() {
-    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
-          TvBranchIndex.settings,
-          _branchPrimaryCb,
-        );
-    _firstNavFocus.dispose();
+    _focusRegistry.unregisterBranchPrimary(
+      TvBranchIndex.settings,
+      _branchPrimaryCb,
+    );
+    _focusRegistry.unregisterBranchBack(TvBranchIndex.settings, _branchBackCb);
+    for (final node in _navNodes) {
+      node.dispose();
+    }
+    _contentScope.dispose();
     super.dispose();
   }
 
   void _focusFirstNav() {
     if (!mounted) return;
-    if (_firstNavFocus.canRequestFocus) {
-      _firstNavFocus.requestFocus();
-    }
+    final node = _navNodes[_selectedIndex.clamp(0, _navNodes.length - 1)];
+    node.requestFocus();
+    if (node.context != null) Scrollable.ensureVisible(node.context!);
+  }
+
+  bool _handleBack() {
+    if (!_contentScope.hasFocus) return false;
+    _focusFirstNav();
+    return true;
+  }
+
+  void _focusContent(int index) {
+    setState(() => _selectedIndex = index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _contentScope.requestFocus();
+      if (_contentScope.focusedChild == null) _contentScope.nextFocus();
+    });
   }
 
   List<({IconData icon, String label})> _getSections(AppLocalizations l10n) => [
@@ -86,7 +114,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     (icon: Icons.palette_outlined, label: l10n.appearance),
     (icon: Icons.play_circle_outline, label: l10n.player),
     (icon: Icons.language_outlined, label: l10n.language),
-    (icon: Icons.shield_outlined, label: l10n.categories), // Content / Adult filter
+    (
+      icon: Icons.shield_outlined,
+      label: l10n.categories,
+    ), // Content / Adult filter
     (icon: Icons.subtitles_outlined, label: l10n.subtitle), // OpenSubtitles
     (icon: Icons.auto_awesome_outlined, label: l10n.aiAssistant), // Gemini key
     (icon: Icons.bar_chart_rounded, label: l10n.statsTitle), // Watch time stats
@@ -112,8 +143,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             width: 260,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-              border: Border(right: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
+              color: isDark
+                  ? AppColors.backgroundDark
+                  : AppColors.backgroundLight,
+              border: Border(
+                right: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                ),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +182,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         // Only the first item gets the branch-primary
                         // focus node so sidebar → right has a stable
                         // landing spot.
-                        focusNode: index == 0 ? _firstNavFocus : null,
+                        focusNode: _navNodes[index],
+                        onRight: () => _focusContent(index),
+                        onLeft: () => _focusRegistry.requestMainSidebar(),
                       );
                     },
                   ),
@@ -156,7 +195,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Right Panel
           Expanded(
-            child: _buildContent(settings, l10n),
+            child: FocusScope(
+              node: _contentScope,
+              child: _buildContent(settings, l10n),
+            ),
           ),
         ],
       ),
@@ -211,9 +253,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           setState(() => _selectedIndex = -1);
         },
         child: Scaffold(
-          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+          backgroundColor: isDark
+              ? AppColors.backgroundDark
+              : AppColors.backgroundLight,
           appBar: AppBar(
-            backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+            backgroundColor: isDark
+                ? AppColors.backgroundDark
+                : AppColors.backgroundLight,
             surfaceTintColor: Colors.transparent,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -235,7 +281,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Section list
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : AppColors.backgroundLight,
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -262,7 +310,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: isDark ? AppColors.textDark : AppColors.textLight,
                 ),
               ),
-              trailing: Icon(Icons.chevron_right, color: AppColors.textTertiaryDark, size: 20),
+              trailing: Icon(
+                Icons.chevron_right,
+                color: AppColors.textTertiaryDark,
+                size: 20,
+              ),
               onTap: () => setState(() => _selectedIndex = index),
             );
           }),
@@ -282,6 +334,8 @@ class _SettingsNavItem extends StatefulWidget {
   /// nav item so the registry's branch-primary callback can target
   /// it directly (sidebar → right lands here).
   final FocusNode? focusNode;
+  final VoidCallback? onRight;
+  final VoidCallback? onLeft;
 
   const _SettingsNavItem({
     required this.icon,
@@ -289,6 +343,8 @@ class _SettingsNavItem extends StatefulWidget {
     required this.isSelected,
     required this.onTap,
     this.focusNode,
+    this.onRight,
+    this.onLeft,
   });
 
   @override
@@ -311,8 +367,14 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
         onKeyEvent: (_, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
-               event.logicalKey == LogicalKeyboardKey.enter)) {
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
             widget.onTap();
+            return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+              widget.onLeft != null) {
+            widget.onLeft!();
             return KeyEventResult.handled;
           }
           // D-pad Right → select this section and hand focus to the content
@@ -321,11 +383,7 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
           // appeared to "do nothing" from the settings nav).
           if (event is KeyDownEvent &&
               event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            widget.onTap();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              FocusManager.instance.primaryFocus
-                  ?.focusInDirection(TraversalDirection.right);
-            });
+            (widget.onRight ?? widget.onTap)();
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
@@ -338,20 +396,40 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
             decoration: BoxDecoration(
               color: widget.isSelected
                   ? AppColors.primary.withValues(alpha: 0.12)
-                  : (_isFocused ? AppColors.primary.withValues(alpha: 0.18) : Colors.transparent),
+                  : (_isFocused
+                        ? AppColors.primary.withValues(alpha: 0.18)
+                        : Colors.transparent),
               borderRadius: BorderRadius.circular(10),
-              border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
+              border: _isFocused
+                  ? Border.all(color: AppColors.primary, width: 2)
+                  : null,
             ),
             child: Row(
               children: [
-                Icon(widget.icon, size: 20, color: isActive ? AppColors.primary : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+                Icon(
+                  widget.icon,
+                  size: 20,
+                  color: isActive
+                      ? AppColors.primary
+                      : (isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondaryLight),
+                ),
                 const SizedBox(width: 12),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: isActive ? (isDark ? AppColors.textDark : AppColors.textLight) : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    fontSize: 14,
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isActive
+                          ? (isDark ? AppColors.textDark : AppColors.textLight)
+                          : (isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight),
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
@@ -376,17 +454,48 @@ class _AccountsSection extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text(l10n.accountManagement, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
+        Text(
+          l10n.accountManagement,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
+        ),
         const SizedBox(height: 8),
-        Text(l10n.manageAccounts, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+        Text(
+          l10n.manageAccounts,
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
         const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: _SettingsActionCard(icon: Icons.dns_outlined, title: l10n.addXtreamAccount, onTap: () => context.push('/auth/xtream'))),
-          const SizedBox(width: 12),
-          Expanded(child: _SettingsActionCard(icon: Icons.playlist_add_outlined, title: l10n.addM3UPlaylist, onTap: () => context.push('/auth/m3u'))),
-        ]),
+        Row(
+          children: [
+            Expanded(
+              child: _SettingsActionCard(
+                icon: Icons.dns_outlined,
+                title: l10n.addXtreamAccount,
+                onTap: () => context.push('/auth/xtream'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SettingsActionCard(
+                icon: Icons.playlist_add_outlined,
+                title: l10n.addM3UPlaylist,
+                onTap: () => context.push('/auth/m3u'),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
-        Text(l10n.savedAccounts, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? AppColors.textDark : AppColors.textLight)),
+        Text(
+          l10n.savedAccounts,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
+        ),
         const SizedBox(height: 12),
         accountsAsync.when(
           data: (accounts) {
@@ -394,26 +503,43 @@ class _AccountsSection extends ConsumerWidget {
               return Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                  color: isDark
+                      ? AppColors.surfaceDark
+                      : AppColors.surfaceLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
+                  ),
                 ),
-                child: Column(children: [
-                  Icon(Icons.account_circle_outlined, size: 48, color: AppColors.textDisabledDark),
-                  const SizedBox(height: 12),
-                  Text(l10n.noAccountsYet, style: TextStyle(color: AppColors.textSecondaryDark)),
-                ]),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.account_circle_outlined,
+                      size: 48,
+                      color: AppColors.textDisabledDark,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.noAccountsYet,
+                      style: TextStyle(color: AppColors.textSecondaryDark),
+                    ),
+                  ],
+                ),
               );
             }
-            return Column(children: accounts.map((account) {
-              final isDefault = account.isActive;
-              return _AccountCard(
-                account: account,
-                isDefault: isDefault,
-                l10n: l10n,
-                isDark: isDark,
-              );
-            }).toList());
+            return Column(
+              children: accounts.map((account) {
+                final isDefault = account.isActive;
+                return _AccountCard(
+                  account: account,
+                  isDefault: isDefault,
+                  l10n: l10n,
+                  isDark: isDark,
+                );
+              }).toList(),
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Text('${l10n.error}: $err'),
@@ -467,7 +593,10 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
     setState(() => _loadingInfo = true);
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      if (authRepo is! AuthRepositoryImpl) { if (mounted) setState(() => _loadingInfo = false); return; }
+      if (authRepo is! AuthRepositoryImpl) {
+        if (mounted) setState(() => _loadingInfo = false);
+        return;
+      }
       final info = await authRepo.validateAccount(widget.account);
       if (mounted) {
         setState(() {
@@ -493,7 +622,9 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
         color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isDefault ? AppColors.primary : (isDark ? AppColors.borderDark : AppColors.borderLight),
+          color: isDefault
+              ? AppColors.primary
+              : (isDark ? AppColors.borderDark : AppColors.borderLight),
           width: isDefault ? 2 : 1,
         ),
       ),
@@ -502,62 +633,116 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
           // Main row
           InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: account.type == 'xtream' ? () => setState(() => _expanded = !_expanded) : null,
+            onTap: account.type == 'xtream'
+                ? () => setState(() => _expanded = !_expanded)
+                : null,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(children: [
-                Icon(
-                  account.type == 'xtream' ? Icons.dns : Icons.playlist_play,
-                  color: isDefault ? AppColors.primary : AppColors.textSecondaryDark,
-                ),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Flexible(child: Text(account.name, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppColors.textDark : AppColors.textLight))),
-                    if (_info != null) ...[
-                      const SizedBox(width: 8),
-                      _StatusBadge(info: _info!),
-                    ],
-                  ]),
-                  Text(account.url, style: TextStyle(fontSize: 12, color: AppColors.textSecondaryDark)),
-                ])),
-                if (isDefault) Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                  child: Text(l10n.defaultLabel, style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-                ),
-                if (!isDefault) TextButton(onPressed: () async {
-                  // 2. Re-establish the single-active-row invariant in
-                  //    the DB. Old builds didn't enforce this on insert,
-                  //    so existing installs may have multiple actives —
-                  //    setActiveAccount fixes that atomically.
-                  final authRepo = ref.read(authRepositoryProvider);
-                  await authRepo.setActiveAccount(account.id);
-                  if (!mounted) return;
-                  ref.read(settingsProvider.notifier).setDefaultAccount(account.id);
-                  ref.invalidate(savedAccountsProvider);
-
-                  // Switching only changes the bound database handle. All
-                  // accounts retain their catalogue and profile preferences.
-                  // 5. Invalidate the providers that read account state
-                  //    so the rest of the app picks up the switch
-                  //    immediately.
-                  ref.invalidate(currentAccountProvider);
-                  ref.invalidate(initialSyncProvider);
-                }, child: Text(l10n.setDefault)),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: Icon(Icons.edit_outlined, size: 20, color: AppColors.textSecondaryDark),
-                  tooltip: l10n.editAccount(account.name),
-                  onPressed: () => context.push('/account/edit', extra: account),
-                ),
-                if (account.type == 'xtream')
+              child: Row(
+                children: [
                   Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.textSecondaryDark,
-                    size: 20,
+                    account.type == 'xtream' ? Icons.dns : Icons.playlist_play,
+                    color: isDefault
+                        ? AppColors.primary
+                        : AppColors.textSecondaryDark,
                   ),
-              ]),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                account.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppColors.textDark
+                                      : AppColors.textLight,
+                                ),
+                              ),
+                            ),
+                            if (_info != null) ...[
+                              const SizedBox(width: 8),
+                              _StatusBadge(info: _info!),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          account.url,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isDefault)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        l10n.defaultLabel,
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (!isDefault)
+                    TextButton(
+                      onPressed: () async {
+                        // 2. Re-establish the single-active-row invariant in
+                        //    the DB. Old builds didn't enforce this on insert,
+                        //    so existing installs may have multiple actives —
+                        //    setActiveAccount fixes that atomically.
+                        final authRepo = ref.read(authRepositoryProvider);
+                        await authRepo.setActiveAccount(account.id);
+                        if (!mounted) return;
+                        ref
+                            .read(settingsProvider.notifier)
+                            .setDefaultAccount(account.id);
+                        ref.invalidate(savedAccountsProvider);
+
+                        // Switching only changes the bound database handle. All
+                        // accounts retain their catalogue and profile preferences.
+                        // 5. Invalidate the providers that read account state
+                        //    so the rest of the app picks up the switch
+                        //    immediately.
+                        ref.invalidate(currentAccountProvider);
+                        ref.invalidate(initialSyncProvider);
+                      },
+                      child: Text(l10n.setDefault),
+                    ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: AppColors.textSecondaryDark,
+                    ),
+                    tooltip: l10n.editAccount(account.name),
+                    onPressed: () =>
+                        context.push('/account/edit', extra: account),
+                  ),
+                  if (account.type == 'xtream')
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      color: AppColors.textSecondaryDark,
+                      size: 20,
+                    ),
+                ],
+              ),
             ),
           ),
 
@@ -589,14 +774,18 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
                   _InfoChip(
                     icon: Icons.calendar_today,
                     label: l10n.expiration,
-                    value: '${DateFormat('dd.MM.yyyy').format(_info!.expiryDate!)} (${l10n.daysRemaining(_info!.remainingDays ?? 0)})',
-                    color: (_info!.remainingDays ?? 0) < 7 ? Colors.orange : AppColors.textSecondaryDark,
+                    value:
+                        '${DateFormat('dd.MM.yyyy').format(_info!.expiryDate!)} (${l10n.daysRemaining(_info!.remainingDays ?? 0)})',
+                    color: (_info!.remainingDays ?? 0) < 7
+                        ? Colors.orange
+                        : AppColors.textSecondaryDark,
                   ),
                 // Connections
                 _InfoChip(
                   icon: Icons.people_outline,
                   label: l10n.connections,
-                  value: '${_info!.activeConnections} / ${_info!.maxConnections}',
+                  value:
+                      '${_info!.activeConnections} / ${_info!.maxConnections}',
                 ),
                 // Created
                 if (_info!.createdAt != null)
@@ -619,7 +808,10 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
           ] else ...[
             Text(
               l10n.accountInfoLoadFailed,
-              style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
+              style: TextStyle(
+                color: AppColors.textSecondaryDark,
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 8),
           ],
@@ -630,7 +822,11 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
             child: TextButton.icon(
               onPressed: _loadingInfo ? null : _refreshAccountInfo,
               icon: _loadingInfo
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.refresh, size: 16),
               label: Text(_loadingInfo ? l10n.checking : l10n.checkConnection),
               style: TextButton.styleFrom(
@@ -661,7 +857,11 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         info.status,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -672,7 +872,12 @@ class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
   final Color? color;
-  const _InfoChip({required this.icon, required this.label, required this.value, this.color});
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -681,8 +886,18 @@ class _InfoChip extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: color ?? AppColors.textSecondaryDark),
         const SizedBox(width: 4),
-        Text('$label: ', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
-        Text(value, style: TextStyle(color: color ?? AppColors.textDark, fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(
+          '$label: ',
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color ?? AppColors.textDark,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -692,7 +907,11 @@ class _SettingsActionCard extends StatefulWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
-  const _SettingsActionCard({required this.icon, required this.title, required this.onTap});
+  const _SettingsActionCard({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
   @override
   State<_SettingsActionCard> createState() => _SettingsActionCardState();
 }
@@ -707,7 +926,7 @@ class _SettingsActionCardState extends State<_SettingsActionCard> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -721,13 +940,34 @@ class _SettingsActionCardState extends State<_SettingsActionCard> {
           decoration: BoxDecoration(
             color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _isFocused ? AppColors.primary : (isDark ? AppColors.borderDark : AppColors.borderLight), width: _isFocused ? 2 : 1),
+            border: Border.all(
+              color: _isFocused
+                  ? AppColors.primary
+                  : (isDark ? AppColors.borderDark : AppColors.borderLight),
+              width: _isFocused ? 2 : 1,
+            ),
           ),
-          child: Column(children: [
-            Icon(widget.icon, size: 32, color: _isFocused ? AppColors.primary : AppColors.textSecondaryDark),
-            const SizedBox(height: 10),
-            Text(widget.title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isDark ? AppColors.textDark : AppColors.textLight), textAlign: TextAlign.center),
-          ]),
+          child: Column(
+            children: [
+              Icon(
+                widget.icon,
+                size: 32,
+                color: _isFocused
+                    ? AppColors.primary
+                    : AppColors.textSecondaryDark,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -742,48 +982,72 @@ class _AppearanceSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.appearance, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 24),
-      SwitchListTile(
-        title: Text(l10n.darkMode, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.darkModeDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.themeMode == AppThemeMode.dark,
-        onChanged: (val) => ref.read(settingsProvider.notifier).setTheme(val ? AppThemeMode.dark : AppThemeMode.light),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      // Mobile-only: hide system status bar for an edge-to-edge feel.
-      // Hidden on desktop / TV because the SystemUiOverlay enum is a
-      // no-op there. The toggle takes effect immediately — the
-      // MaterialApp builder watches settings and re-applies the mode
-      // on every change.
-      if (PlatformHelper.isMobile) ...[
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: Text(l10n.fullscreenMode,
-              style: TextStyle(
-                  color: isDark
-                      ? AppColors.textDark
-                      : AppColors.textLight)),
-          subtitle: Text(
-            l10n.fullscreenModeDesc,
-            style: const TextStyle(
-                color: AppColors.textSecondaryDark, fontSize: 13),
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.appearance,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
           ),
-          value: settings.fullscreenMode,
+        ),
+        const SizedBox(height: 24),
+        SwitchListTile(
+          title: Text(
+            l10n.darkMode,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.darkModeDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.themeMode == AppThemeMode.dark,
           onChanged: (val) => ref
               .read(settingsProvider.notifier)
-              .setFullscreenMode(val),
+              .setTheme(val ? AppThemeMode.dark : AppThemeMode.light),
           activeThumbColor: AppColors.primary,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
-          tileColor:
-              isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         ),
+        // Mobile-only: hide system status bar for an edge-to-edge feel.
+        // Hidden on desktop / TV because the SystemUiOverlay enum is a
+        // no-op there. The toggle takes effect immediately — the
+        // MaterialApp builder watches settings and re-applies the mode
+        // on every change.
+        if (PlatformHelper.isMobile) ...[
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: Text(
+              l10n.fullscreenMode,
+              style: TextStyle(
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+            subtitle: Text(
+              l10n.fullscreenModeDesc,
+              style: const TextStyle(
+                color: AppColors.textSecondaryDark,
+                fontSize: 13,
+              ),
+            ),
+            value: settings.fullscreenMode,
+            onChanged: (val) =>
+                ref.read(settingsProvider.notifier).setFullscreenMode(val),
+            activeThumbColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          ),
+        ],
       ],
-    ]);
+    );
   }
 }
 
@@ -795,126 +1059,254 @@ class _PlayerSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.playerSettings, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 24),
-      SwitchListTile(
-        title: Text(l10n.hardwareAcceleration, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.hardwareAccelerationDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.hardwareAcceleration,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(hardwareAcceleration: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      // Stream Quality dropdown
-      ListTile(
-        leading: Icon(Icons.hd_outlined, color: AppColors.primary),
-        title: Text(l10n.streamQuality, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.streamQualityDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        trailing: DropdownButton<StreamQuality>(
-          value: settings.streamQuality,
-          dropdownColor: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceLight,
-          underline: const SizedBox.shrink(),
-          style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontSize: 13),
-          items: [
-            DropdownMenuItem(value: StreamQuality.auto, child: Text(l10n.qualityAuto)),
-            DropdownMenuItem(value: StreamQuality.high, child: Text(l10n.qualityHigh)),
-            DropdownMenuItem(value: StreamQuality.medium, child: Text(l10n.qualityMedium)),
-            DropdownMenuItem(value: StreamQuality.low, child: Text(l10n.qualityLow)),
-          ],
-          onChanged: (val) {
-            if (val != null) {
-              ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(streamQuality: val));
-            }
-          },
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      ListTile(
-        title: Text(l10n.bufferDuration, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text('${settings.bufferDuration} ${l10n.seconds}', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(icon: Icon(Icons.remove_circle_outline, color: AppColors.textSecondaryDark),
-            onPressed: settings.bufferDuration > 5 ? () => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(bufferDuration: settings.bufferDuration - 5)) : null),
-          IconButton(icon: Icon(Icons.add_circle_outline, color: AppColors.textSecondaryDark),
-            onPressed: settings.bufferDuration < 60 ? () => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(bufferDuration: settings.bufferDuration + 5)) : null),
-        ]),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      SwitchListTile(
-        title: Text(l10n.nextEpisode, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.autoNextEpisodeDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.autoNextEpisode,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(autoNextEpisode: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      // Skip-Intro toggle. Only affects the floating in-player button;
-      // the marker-management bookmark icon stays available on the
-      // player toolbar regardless so users can still record/edit a
-      // marker.
-      SwitchListTile(
-        title: Text(l10n.skipIntroSetting, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.skipIntroSettingDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.showSkipIntroButton,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(showSkipIntroButton: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      // Floating trailer PiP on detail pages. Default on — it's a
-      // big quality-of-life win on desktop/TV — but heavy users
-      // sometimes prefer a static detail panel (slow internet,
-      // distraction, etc.).
-      SwitchListTile(
-        title: Text(l10n.showTrailerSetting, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.showTrailerSettingDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.showTrailer,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(showTrailer: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      // Mobile-only opt-in: autoplay the muted hero trailer on the
-      // dashboard. Off by default — see [AppSettings.heroTrailerOnMobile]
-      // for the data-cost rationale. Hidden on desktop/TV (their hero
-      // already plays trailers unconditionally, gated only by the
-      // PiP-trailer toggle above).
-      if (PlatformHelper.isMobile) ...[
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: Text(l10n.heroTrailerOnMobile,
-              style: TextStyle(
-                  color: isDark
-                      ? AppColors.textDark
-                      : AppColors.textLight)),
-          subtitle: Text(
-            l10n.heroTrailerOnMobileDesc,
-            style: const TextStyle(
-                color: AppColors.textSecondaryDark, fontSize: 13),
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.playerSettings,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
           ),
-          value: settings.heroTrailerOnMobile,
+        ),
+        const SizedBox(height: 24),
+        SwitchListTile(
+          title: Text(
+            l10n.hardwareAcceleration,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.hardwareAccelerationDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.hardwareAcceleration,
           onChanged: (val) => ref
               .read(settingsProvider.notifier)
-              .updateSettings(
-                  settings.copyWith(heroTrailerOnMobile: val)),
+              .updateSettings(settings.copyWith(hardwareAcceleration: val)),
           activeThumbColor: AppColors.primary,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
-          tileColor:
-              isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         ),
+        const SizedBox(height: 12),
+        // Stream Quality dropdown
+        ListTile(
+          leading: Icon(Icons.hd_outlined, color: AppColors.primary),
+          title: Text(
+            l10n.streamQuality,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.streamQualityDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          trailing: DropdownButton<StreamQuality>(
+            value: settings.streamQuality,
+            dropdownColor: isDark
+                ? AppColors.surfaceElevatedDark
+                : AppColors.surfaceLight,
+            underline: const SizedBox.shrink(),
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+              fontSize: 13,
+            ),
+            items: [
+              DropdownMenuItem(
+                value: StreamQuality.auto,
+                child: Text(l10n.qualityAuto),
+              ),
+              DropdownMenuItem(
+                value: StreamQuality.high,
+                child: Text(l10n.qualityHigh),
+              ),
+              DropdownMenuItem(
+                value: StreamQuality.medium,
+                child: Text(l10n.qualityMedium),
+              ),
+              DropdownMenuItem(
+                value: StreamQuality.low,
+                child: Text(l10n.qualityLow),
+              ),
+            ],
+            onChanged: (val) {
+              if (val != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(settings.copyWith(streamQuality: val));
+              }
+            },
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        ListTile(
+          title: Text(
+            l10n.bufferDuration,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            '${settings.bufferDuration} ${l10n.seconds}',
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.remove_circle_outline,
+                  color: AppColors.textSecondaryDark,
+                ),
+                onPressed: settings.bufferDuration > 5
+                    ? () => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                            settings.copyWith(
+                              bufferDuration: settings.bufferDuration - 5,
+                            ),
+                          )
+                    : null,
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.add_circle_outline,
+                  color: AppColors.textSecondaryDark,
+                ),
+                onPressed: settings.bufferDuration < 60
+                    ? () => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                            settings.copyWith(
+                              bufferDuration: settings.bufferDuration + 5,
+                            ),
+                          )
+                    : null,
+              ),
+            ],
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          title: Text(
+            l10n.nextEpisode,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.autoNextEpisodeDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.autoNextEpisode,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoNextEpisode: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        // Skip-Intro toggle. Only affects the floating in-player button;
+        // the marker-management bookmark icon stays available on the
+        // player toolbar regardless so users can still record/edit a
+        // marker.
+        SwitchListTile(
+          title: Text(
+            l10n.skipIntroSetting,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.skipIntroSettingDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.showSkipIntroButton,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(settings.copyWith(showSkipIntroButton: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        // Floating trailer PiP on detail pages. Default on — it's a
+        // big quality-of-life win on desktop/TV — but heavy users
+        // sometimes prefer a static detail panel (slow internet,
+        // distraction, etc.).
+        SwitchListTile(
+          title: Text(
+            l10n.showTrailerSetting,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            l10n.showTrailerSettingDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.showTrailer,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(settings.copyWith(showTrailer: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        // Mobile-only opt-in: autoplay the muted hero trailer on the
+        // dashboard. Off by default — see [AppSettings.heroTrailerOnMobile]
+        // for the data-cost rationale. Hidden on desktop/TV (their hero
+        // already plays trailers unconditionally, gated only by the
+        // PiP-trailer toggle above).
+        if (PlatformHelper.isMobile) ...[
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: Text(
+              l10n.heroTrailerOnMobile,
+              style: TextStyle(
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+            subtitle: Text(
+              l10n.heroTrailerOnMobileDesc,
+              style: const TextStyle(
+                color: AppColors.textSecondaryDark,
+                fontSize: 13,
+              ),
+            ),
+            value: settings.heroTrailerOnMobile,
+            onChanged: (val) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(settings.copyWith(heroTrailerOnMobile: val)),
+            activeThumbColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          ),
+        ],
       ],
-    ]);
+    );
   }
 }
 
@@ -927,7 +1319,11 @@ class _LanguageSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final languages = [
-      (value: AppLanguage.system, label: l10n.systemDefault, icon: Icons.settings_suggest),
+      (
+        value: AppLanguage.system,
+        label: l10n.systemDefault,
+        icon: Icons.settings_suggest,
+      ),
       (value: AppLanguage.en, label: 'English', icon: Icons.language),
       (value: AppLanguage.tr, label: 'Türkçe', icon: Icons.language),
       (value: AppLanguage.de, label: 'Deutsch', icon: Icons.language),
@@ -937,30 +1333,71 @@ class _LanguageSection extends ConsumerWidget {
       (value: AppLanguage.ru, label: 'Русский', icon: Icons.language),
       (value: AppLanguage.ku, label: 'Kurdî', icon: Icons.language),
     ];
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.language, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 8),
-      Text(l10n.selectLanguage, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-      const SizedBox(height: 24),
-      ...languages.map((lang) {
-        final isSelected = settings.language == lang.value;
-        return Padding(padding: const EdgeInsets.only(bottom: 8), child: _FocusableListTile(
-          leading: Icon(lang.icon, color: isSelected ? AppColors.primary : AppColors.textSecondaryDark),
-          title: Text(lang.label, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400)),
-          trailing: isSelected ? Icon(Icons.check_circle, color: AppColors.primary) : Icon(Icons.radio_button_unchecked, color: isDark ? AppColors.borderDark : AppColors.borderLight),
-          selected: isSelected,
-          selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
-          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderColor: isSelected ? AppColors.primary : (isDark ? AppColors.borderDark : AppColors.borderLight),
-          onTap: () {
-            ref.read(settingsProvider.notifier).setLanguage(lang.value);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.languageSet(lang.label)), duration: const Duration(seconds: 2)),
-            );
-          },
-        ));
-      }),
-    ]);
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.language,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.selectLanguage,
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        const SizedBox(height: 24),
+        ...languages.map((lang) {
+          final isSelected = settings.language == lang.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _FocusableListTile(
+              leading: Icon(
+                lang.icon,
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.textSecondaryDark,
+              ),
+              title: Text(
+                lang.label,
+                style: TextStyle(
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              trailing: isSelected
+                  ? Icon(Icons.check_circle, color: AppColors.primary)
+                  : Icon(
+                      Icons.radio_button_unchecked,
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
+                    ),
+              selected: isSelected,
+              selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
+              tileColor: isDark
+                  ? AppColors.surfaceDark
+                  : AppColors.surfaceLight,
+              borderColor: isSelected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.borderDark : AppColors.borderLight),
+              onTap: () {
+                ref.read(settingsProvider.notifier).setLanguage(lang.value);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.languageSet(lang.label)),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          );
+        }),
+      ],
+    );
   }
 }
 
@@ -1000,7 +1437,7 @@ class _FocusableListTileState extends State<_FocusableListTile> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -1038,42 +1475,92 @@ class _ContentSection extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accountAsync = ref.watch(currentAccountProvider);
     final account = accountAsync.value;
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.categories, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 24),
-      // Per-category visibility lives in the account editor; surface a
-      // direct entry point here so the two stop feeling disconnected.
-      ListTile(
-        leading: Icon(Icons.visibility_off_outlined, color: AppColors.primary),
-        title: Text(l10n.categoryVisibility, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontWeight: FontWeight.w600)),
-        subtitle: Text(l10n.categoryVisibilityDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        trailing: Icon(Icons.chevron_right, color: AppColors.textSecondaryDark),
-        onTap: account == null ? null : () => context.push('/account/edit', extra: account),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      SwitchListTile(
-        secondary: Icon(Icons.shield_outlined, color: AppColors.primary),
-        title: Text(l10n.live, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text('18+ / XXX', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        value: settings.autoHideAdult,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(autoHideAdult: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      const SizedBox(height: 12),
-      SwitchListTile(
-        secondary: Icon(Icons.history, color: AppColors.primary),
-        title: Text(l10n.continueWatching, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        value: settings.continueWatchingEnabled,
-        onChanged: (val) => ref.read(settingsProvider.notifier).updateSettings(settings.copyWith(continueWatchingEnabled: val)),
-        activeThumbColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-    ]);
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.categories,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Per-category visibility lives in the account editor; surface a
+        // direct entry point here so the two stop feeling disconnected.
+        ListTile(
+          leading: Icon(
+            Icons.visibility_off_outlined,
+            color: AppColors.primary,
+          ),
+          title: Text(
+            l10n.categoryVisibility,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            l10n.categoryVisibilityDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: AppColors.textSecondaryDark,
+          ),
+          onTap: account == null
+              ? null
+              : () => context.push('/account/edit', extra: account),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          secondary: Icon(Icons.shield_outlined, color: AppColors.primary),
+          title: Text(
+            l10n.live,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          subtitle: Text(
+            '18+ / XXX',
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          value: settings.autoHideAdult,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoHideAdult: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          secondary: Icon(Icons.history, color: AppColors.primary),
+          title: Text(
+            l10n.continueWatching,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+            ),
+          ),
+          value: settings.continueWatchingEnabled,
+          onChanged: (val) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings(settings.copyWith(continueWatchingEnabled: val)),
+          activeThumbColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        ),
+      ],
+    );
   }
 }
 
@@ -1125,13 +1612,16 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController(text: widget.settings.opensubtitlesApiKey ?? '');
+    _apiKeyController = TextEditingController(
+      text: widget.settings.opensubtitlesApiKey ?? '',
+    );
   }
 
   @override
   void didUpdateWidget(covariant _SubtitleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.settings.opensubtitlesApiKey != widget.settings.opensubtitlesApiKey) {
+    if (oldWidget.settings.opensubtitlesApiKey !=
+        widget.settings.opensubtitlesApiKey) {
       _apiKeyController.text = widget.settings.opensubtitlesApiKey ?? '';
     }
   }
@@ -1144,11 +1634,20 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
 
   void _saveApiKey() {
     final key = _apiKeyController.text.trim();
-    ref.read(settingsProvider.notifier).updateSettings(
-      widget.settings.copyWith(opensubtitlesApiKey: key.isEmpty ? null : key),
-    );
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          widget.settings.copyWith(
+            opensubtitlesApiKey: key.isEmpty ? null : key,
+          ),
+        );
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(key.isEmpty ? widget.l10n.apiKeyCleared : widget.l10n.apiKeySaved), duration: const Duration(seconds: 2)),
+      SnackBar(
+        content: Text(
+          key.isEmpty ? widget.l10n.apiKeyCleared : widget.l10n.apiKeySaved,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -1158,107 +1657,198 @@ class _SubtitleSectionState extends ConsumerState<_SubtitleSection> {
     final settings = widget.settings;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.subtitleSettings, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: isDark ? AppColors.textDark : AppColors.textLight)),
-      const SizedBox(height: 8),
-      Text(l10n.subtitleSearchInfo, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-      const SizedBox(height: 24),
-
-      // API Key input
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.subtitleSettings,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.key_outlined, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.opensubtitlesApiKey, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppColors.textDark : AppColors.textLight)),
-          ]),
-          const SizedBox(height: 4),
-          Text(l10n.opensubtitlesApiKeyDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _apiKeyController,
-                decoration: InputDecoration(
-                  hintText: l10n.apiKeyHint,
-                  hintStyle: TextStyle(color: AppColors.textDisabledDark),
-                  filled: true,
-                  fillColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppColors.primary, width: 2)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  isDense: true,
+        const SizedBox(height: 8),
+        Text(
+          l10n.subtitleSearchInfo,
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        ),
+        const SizedBox(height: 24),
+
+        // API Key input
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.key_outlined, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.opensubtitlesApiKey,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.textDark : AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.opensubtitlesApiKeyDesc,
+                style: TextStyle(
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 12,
                 ),
-                style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontSize: 13),
-                onSubmitted: (_) => _saveApiKey(),
               ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _saveApiKey,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _apiKeyController,
+                      decoration: InputDecoration(
+                        hintText: l10n.apiKeyHint,
+                        hintStyle: TextStyle(color: AppColors.textDisabledDark),
+                        filled: true,
+                        fillColor: isDark
+                            ? AppColors.backgroundDark
+                            : AppColors.backgroundLight,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.borderLight,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.borderLight,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textDark
+                            : AppColors.textLight,
+                        fontSize: 13,
+                      ),
+                      onSubmitted: (_) => _saveApiKey(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _saveApiKey,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(l10n.save),
+                  ),
+                ],
               ),
-              child: Text(l10n.save),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Preferred subtitle language
+        ListTile(
+          leading: Icon(Icons.translate, color: AppColors.primary),
+          title: Text(
+            l10n.preferredSubtitleLanguage,
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
             ),
-          ]),
-        ]),
-      ),
-
-      const SizedBox(height: 16),
-
-      // Preferred subtitle language
-      ListTile(
-        leading: Icon(Icons.translate, color: AppColors.primary),
-        title: Text(l10n.preferredSubtitleLanguage, style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight)),
-        subtitle: Text(l10n.preferredSubtitleLanguageDesc, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-        trailing: DropdownButton<String>(
-          value: _subtitleLanguages.containsKey(settings.subtitlePreferredLanguage)
-              ? settings.subtitlePreferredLanguage
-              : 'tr',
-          dropdownColor: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceLight,
-          underline: const SizedBox.shrink(),
-          style: TextStyle(color: isDark ? AppColors.textDark : AppColors.textLight, fontSize: 13),
-          items: _subtitleLanguages.entries.map((e) =>
-            DropdownMenuItem(value: e.key, child: Text(e.value)),
-          ).toList(),
-          onChanged: (val) {
-            if (val != null) {
-              ref.read(settingsProvider.notifier).updateSettings(
-                settings.copyWith(subtitlePreferredLanguage: val),
-              );
-            }
-          },
+          ),
+          subtitle: Text(
+            l10n.preferredSubtitleLanguageDesc,
+            style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+          ),
+          trailing: DropdownButton<String>(
+            value:
+                _subtitleLanguages.containsKey(
+                  settings.subtitlePreferredLanguage,
+                )
+                ? settings.subtitlePreferredLanguage
+                : 'tr',
+            dropdownColor: isDark
+                ? AppColors.surfaceElevatedDark
+                : AppColors.surfaceLight,
+            underline: const SizedBox.shrink(),
+            style: TextStyle(
+              color: isDark ? AppColors.textDark : AppColors.textLight,
+              fontSize: 13,
+            ),
+            items: _subtitleLanguages.entries
+                .map(
+                  (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
+                )
+                .toList(),
+            onChanged: (val) {
+              if (val != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      settings.copyWith(subtitlePreferredLanguage: val),
+                    );
+              }
+            },
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
 
-      const SizedBox(height: 28),
-      Text(
-        l10n.subtitleAppearance,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: isDark ? AppColors.textDark : AppColors.textLight,
+        const SizedBox(height: 28),
+        Text(
+          l10n.subtitleAppearance,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.textDark : AppColors.textLight,
+          ),
         ),
-      ),
-      const SizedBox(height: 16),
-      // Shared controls — same widget used in the in-player track
-      // picker, so changes here surface in playback immediately if a
-      // stream is active.
-      const SubtitleAppearanceControls(),
-    ]);
+        const SizedBox(height: 16),
+        // Shared controls — same widget used in the in-player track
+        // picker, so changes here surface in playback immediately if a
+        // stream is active.
+        const SubtitleAppearanceControls(),
+      ],
+    );
   }
 }
 
@@ -1294,8 +1884,9 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
   @override
   void initState() {
     super.initState();
-    _keyController =
-        TextEditingController(text: widget.settings.geminiApiKey ?? '');
+    _keyController = TextEditingController(
+      text: widget.settings.geminiApiKey ?? '',
+    );
   }
 
   @override
@@ -1356,48 +1947,59 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
     final messenger = ScaffoldMessenger.of(context);
     final key = _keyController.text.trim();
     if (key.isEmpty) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(l10n.geminiKeyInvalid),
-        duration: const Duration(seconds: 2),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.geminiKeyInvalid),
+          duration: const Duration(seconds: 2),
+        ),
+      );
       return;
     }
     setState(() => _testing = true);
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-        validateStatus: (_) => true, // we handle status manually
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 15),
+          validateStatus: (_) => true, // we handle status manually
+        ),
+      );
       final res = await dio.get<Map<String, dynamic>>(
         'https://generativelanguage.googleapis.com/v1beta/models',
         queryParameters: {'key': key},
       );
       if (!mounted) return;
       if (res.statusCode == 200) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(l10n.geminiKeyTestSuccess),
-          duration: const Duration(seconds: 2),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.geminiKeyTestSuccess),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       } else {
         // Google embeds the human-readable reason at
         // `error.message`. Fall back to the raw status if it's gone.
         final body = res.data;
-        final reason = (body is Map<String, dynamic> &&
+        final reason =
+            (body is Map<String, dynamic> &&
                 body['error'] is Map<String, dynamic>)
             ? (body['error']['message']?.toString() ?? '${res.statusCode}')
             : '${res.statusCode}';
-        messenger.showSnackBar(SnackBar(
-          content: Text(l10n.geminiKeyTestFailed(reason)),
-          duration: const Duration(seconds: 4),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.geminiKeyTestFailed(reason)),
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(l10n.geminiKeyTestFailed(e.toString())),
-        duration: const Duration(seconds: 4),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.geminiKeyTestFailed(e.toString())),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -1409,428 +2011,483 @@ class _AiAssistantSectionState extends ConsumerState<_AiAssistantSection> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasKey = widget.settings.hasAiKey;
 
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Row(children: [
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Row(
+          children: [
+            Text(
+              l10n.aiAssistant,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Active / Not configured badge — at-a-glance status without
+            // having to read the field below.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (hasKey ? AppColors.primary : AppColors.textDisabledDark)
+                    .withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                hasKey ? l10n.geminiStatusActive : l10n.geminiStatusInactive,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: hasKey
+                      ? AppColors.primary
+                      : AppColors.textSecondaryDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Text(
-          l10n.aiAssistant,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: isDark ? AppColors.textDark : AppColors.textLight,
-          ),
+          l10n.aiAssistantSubtitle,
+          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
         ),
-        const SizedBox(width: 10),
-        // Active / Not configured badge — at-a-glance status without
-        // having to read the field below.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: (hasKey ? AppColors.primary : AppColors.textDisabledDark)
-                .withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            hasKey ? l10n.geminiStatusActive : l10n.geminiStatusInactive,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: hasKey ? AppColors.primary : AppColors.textSecondaryDark,
-            ),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 8),
-      Text(
-        l10n.aiAssistantSubtitle,
-        style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
-      ),
-      const SizedBox(height: 20),
+        const SizedBox(height: 20),
 
-      // ── Benefits card ────────────────────────────────────────────────
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            l10n.aiAssistantWhy,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.textDark : AppColors.textLight,
+        // ── Benefits card ────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
             ),
           ),
-          const SizedBox(height: 12),
-          for (final benefit in [
-            l10n.aiBenefitNaturalSearch,
-            l10n.aiBenefitTonightChat,
-            l10n.aiBenefitRecap,
-            l10n.aiBenefitPlot,
-            l10n.aiBenefitSubtitle,
-          ])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.aiAssistantWhy,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final benefit in [
+                l10n.aiBenefitNaturalSearch,
+                l10n.aiBenefitTonightChat,
+                l10n.aiBenefitRecap,
+                l10n.aiBenefitPlot,
+                l10n.aiBenefitSubtitle,
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline,
+                        color: AppColors.primary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          benefit,
+                          style: TextStyle(
+                            color: AppColors.textSecondaryDark,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Key input + actions ─────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
                   const Icon(
-                    Icons.check_circle_outline,
+                    Icons.key_outlined,
                     color: AppColors.primary,
-                    size: 18,
+                    size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      benefit,
-                      style: TextStyle(
-                        color: AppColors.textSecondaryDark,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
+                  Text(
+                    l10n.geminiApiKey,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.textDark : AppColors.textLight,
                     ),
                   ),
                 ],
               ),
-            ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-
-      // ── Key input + actions ─────────────────────────────────────────
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Icon(Icons.key_outlined, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              l10n.geminiApiKey,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isDark ? AppColors.textDark : AppColors.textLight,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _keyController,
-            obscureText: _obscure,
-            decoration: InputDecoration(
-              hintText: l10n.geminiApiKeyHint,
-              hintStyle: TextStyle(color: AppColors.textDisabledDark),
-              filled: true,
-              fillColor:
-                  isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                    color: isDark
-                        ? AppColors.borderDark
-                        : AppColors.borderLight),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                    color: isDark
-                        ? AppColors.borderDark
-                        : AppColors.borderLight),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              isDense: true,
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscure ? Icons.visibility : Icons.visibility_off,
-                  size: 18,
-                  color: AppColors.textSecondaryDark,
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
-            ),
-            style: TextStyle(
-              color: isDark ? AppColors.textDark : AppColors.textLight,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            ElevatedButton.icon(
-              onPressed: _saveKey,
-              icon: const Icon(Icons.save_outlined, size: 16),
-              label: Text(l10n.geminiSaveKey),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _testing ? null : _testKey,
-              icon: _testing
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_circle_outline, size: 16),
-              label: Text(l10n.geminiTestKey),
-            ),
-            if (hasKey)
-              OutlinedButton.icon(
-                onPressed: _clearKey,
-                icon: const Icon(Icons.delete_outline, size: 16),
-                label: Text(l10n.geminiClearKey),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: BorderSide(
-                      color: Colors.redAccent.withValues(alpha: 0.4)),
-                ),
-              ),
-          ]),
-          const SizedBox(height: 12),
-          // Privacy note — gray, smaller text.
-          Text(
-            l10n.aiPrivacyNote,
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-          // Taste-wizard reset — only when there's a key, since the
-          // wizard is gated on hasAiKey too. Resets the flag and the
-          // dashboard re-prompts on next open.
-          if (hasKey) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(children: [
-              const Icon(Icons.auto_awesome_outlined,
-                  size: 16, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.tasteWizardReset,
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.tasteWizardResetDesc,
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 11,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () {
-                  ref.read(settingsProvider.notifier).updateSettings(
-                      widget.settings.copyWith(
-                          tasteWizardCompleted: false));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.tasteWizardDone),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                },
-                child: Text(l10n.tasteWizardReset),
-              ),
-            ]),
-          ],
-        ]),
-      ),
-      // ── AI debug panel entry — appears only when there's a key ──
-      // so the row isn't a dead end for users who haven't enabled AI
-      // yet. Routes to a stream-backed log + per-feature stats view.
-      if (hasKey) ...[
-        const SizedBox(height: 12),
-        // Smart catalogue tagging — fills missing genre/year/mood in
-        // the background. Default on; the single biggest quality lever
-        // for search / similar / dashboard rails.
-        SwitchListTile(
-          title: Text(l10n.catalogEnrichment,
-              style: TextStyle(
-                  color: isDark ? AppColors.textDark : AppColors.textLight)),
-          subtitle: Text(l10n.catalogEnrichmentDesc,
-              style: const TextStyle(
-                  color: AppColors.textSecondaryDark, fontSize: 13)),
-          value: widget.settings.catalogEnrichmentEnabled,
-          onChanged: (v) {
-            ref.read(settingsProvider.notifier).updateSettings(
-                widget.settings.copyWith(catalogEnrichmentEnabled: v));
-            if (v) {
-              // Kick a pass right away so the user sees the benefit
-              // without waiting for the next app launch.
-              ref.read(catalogEnrichmentRunnerProvider).runOnce();
-            }
-          },
-          activeThumbColor: AppColors.primary,
-          contentPadding: EdgeInsets.zero,
-        ),
-        if (widget.settings.catalogEnrichmentEnabled)
-          const _EnrichmentStatusTile(),
-        const SizedBox(height: 12),
-        InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => const AiDebugPanel(),
-            ));
-          },
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.surfaceDark
-                  : AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.borderDark
-                    : AppColors.borderLight,
-              ),
-            ),
-            child: Row(children: [
-              const Icon(Icons.analytics_outlined,
-                  size: 18, color: AppColors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.aiDebugPanelTitle,
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.aiDebugPanelDesc,
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 11,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right,
-                  color: AppColors.textTertiary(context)),
-            ]),
-          ),
-        ),
-      ],
-      const SizedBox(height: 16),
-
-      // ── How to get a key (expandable) ───────────────────────────────
-      Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-          ),
-        ),
-        child: Theme(
-          data: Theme.of(context)
-              .copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            initiallyExpanded: !hasKey, // First-time users see steps open.
-            onExpansionChanged: (v) => setState(() => _howToOpen = v),
-            leading: const Icon(Icons.help_outline,
-                color: AppColors.primary, size: 20),
-            title: Text(
-              l10n.howToGetGeminiKey,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isDark ? AppColors.textDark : AppColors.textLight,
-              ),
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            children: [
-              for (final step in [
-                l10n.geminiStep1,
-                l10n.geminiStep2,
-                l10n.geminiStep3,
-                l10n.geminiStep4,
-                l10n.geminiStep5,
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    step,
-                    style: TextStyle(
-                      color: AppColors.textSecondaryDark,
-                      fontSize: 13,
-                      height: 1.5,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _keyController,
+                obscureText: _obscure,
+                decoration: InputDecoration(
+                  hintText: l10n.geminiApiKeyHint,
+                  hintStyle: TextStyle(color: AppColors.textDisabledDark),
+                  filled: true,
+                  fillColor: isDark
+                      ? AppColors.backgroundDark
+                      : AppColors.backgroundLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
                     ),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscure ? Icons.visibility : Icons.visibility_off,
+                      size: 18,
+                      color: AppColors.textSecondaryDark,
+                    ),
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                  ),
                 ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.geminiFreeReassurance,
                 style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  height: 1.4,
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
                 ),
               ),
               const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://aistudio.google.com/app/apikey'),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: Text(l10n.openGeminiSite),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _saveKey,
+                    icon: const Icon(Icons.save_outlined, size: 16),
+                    label: Text(l10n.geminiSaveKey),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _testing ? null : _testKey,
+                    icon: _testing
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_circle_outline, size: 16),
+                    label: Text(l10n.geminiTestKey),
+                  ),
+                  if (hasKey)
+                    OutlinedButton.icon(
+                      onPressed: _clearKey,
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: Text(l10n.geminiClearKey),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: BorderSide(
+                          color: Colors.redAccent.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Privacy note — gray, smaller text.
+              Text(
+                l10n.aiPrivacyNote,
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 11,
+                  height: 1.4,
                 ),
               ),
+              // Taste-wizard reset — only when there's a key, since the
+              // wizard is gated on hasAiKey too. Resets the flag and the
+              // dashboard re-prompts on next open.
+              if (hasKey) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.tasteWizardReset,
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.textDark
+                                  : AppColors.textLight,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.tasteWizardResetDesc,
+                            style: TextStyle(
+                              color: AppColors.textTertiary(context),
+                              fontSize: 11,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .updateSettings(
+                              widget.settings.copyWith(
+                                tasteWizardCompleted: false,
+                              ),
+                            );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.tasteWizardDone),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      },
+                      child: Text(l10n.tasteWizardReset),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
-      ),
-      // Read but not used here — exists so the file's existing
-      // `_howToOpen` toggle survives the linter without warnings.
-      if (_howToOpen) const SizedBox.shrink(),
-    ]);
+        // ── AI debug panel entry — appears only when there's a key ──
+        // so the row isn't a dead end for users who haven't enabled AI
+        // yet. Routes to a stream-backed log + per-feature stats view.
+        if (hasKey) ...[
+          const SizedBox(height: 12),
+          // Smart catalogue tagging — fills missing genre/year/mood in
+          // the background. Default on; the single biggest quality lever
+          // for search / similar / dashboard rails.
+          SwitchListTile(
+            title: Text(
+              l10n.catalogEnrichment,
+              style: TextStyle(
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+              ),
+            ),
+            subtitle: Text(
+              l10n.catalogEnrichmentDesc,
+              style: const TextStyle(
+                color: AppColors.textSecondaryDark,
+                fontSize: 13,
+              ),
+            ),
+            value: widget.settings.catalogEnrichmentEnabled,
+            onChanged: (v) {
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    widget.settings.copyWith(catalogEnrichmentEnabled: v),
+                  );
+              if (v) {
+                // Kick a pass right away so the user sees the benefit
+                // without waiting for the next app launch.
+                ref.read(catalogEnrichmentRunnerProvider).runOnce();
+              }
+            },
+            activeThumbColor: AppColors.primary,
+            contentPadding: EdgeInsets.zero,
+          ),
+          if (widget.settings.catalogEnrichmentEnabled)
+            const _EnrichmentStatusTile(),
+          const SizedBox(height: 12),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AiDebugPanel()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.analytics_outlined,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.aiDebugPanelTitle,
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.textDark
+                                : AppColors.textLight,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l10n.aiDebugPanelDesc,
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textTertiary(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+
+        // ── How to get a key (expandable) ───────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: !hasKey, // First-time users see steps open.
+              onExpansionChanged: (v) => setState(() => _howToOpen = v),
+              leading: const Icon(
+                Icons.help_outline,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              title: Text(
+                l10n.howToGetGeminiKey,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
+                ),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              children: [
+                for (final step in [
+                  l10n.geminiStep1,
+                  l10n.geminiStep2,
+                  l10n.geminiStep3,
+                  l10n.geminiStep4,
+                  l10n.geminiStep5,
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      step,
+                      style: TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.geminiFreeReassurance,
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://aistudio.google.com/app/apikey'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: Text(l10n.openGeminiSite),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Read but not used here — exists so the file's existing
+        // `_howToOpen` toggle survives the linter without warnings.
+        if (_howToOpen) const SizedBox.shrink(),
+      ],
+    );
   }
 }
 
@@ -1845,8 +2502,7 @@ class _EnrichmentStatusTile extends ConsumerStatefulWidget {
       _EnrichmentStatusTileState();
 }
 
-class _EnrichmentStatusTileState
-    extends ConsumerState<_EnrichmentStatusTile> {
+class _EnrichmentStatusTileState extends ConsumerState<_EnrichmentStatusTile> {
   int? _done;
   int? _pending;
   int? _embedded;
@@ -1872,8 +2528,9 @@ class _EnrichmentStatusTileState
     final repo = ref.read(contentEnrichmentRepositoryProvider);
     final done = await repo.enrichedCount();
     final pending = await repo.pendingCount();
-    final embedded =
-        await ref.read(contentEmbeddingsRepositoryProvider).embeddedCount();
+    final embedded = await ref
+        .read(contentEmbeddingsRepositoryProvider)
+        .embeddedCount();
     if (!mounted) return;
     setState(() {
       _done = done;
@@ -1915,13 +2572,17 @@ class _EnrichmentStatusTileState
                       ? '—'
                       : l10n.catalogEnrichmentStatus(_done!, _pending!),
                   style: const TextStyle(
-                      color: AppColors.textSecondaryDark, fontSize: 12),
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 12,
+                  ),
                 ),
                 if (_embedded != null && _embedded! > 0)
                   Text(
                     l10n.embeddingStatus(_embedded!),
                     style: const TextStyle(
-                        color: AppColors.textTertiaryDark, fontSize: 11),
+                      color: AppColors.textTertiaryDark,
+                      fontSize: 11,
+                    ),
                   ),
               ],
             ),
@@ -1933,7 +2594,10 @@ class _EnrichmentStatusTileState
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.primary))
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
                 : const Icon(Icons.play_arrow, size: 18),
             label: Text(l10n.catalogEnrichmentRun),
           ),
@@ -1975,8 +2639,7 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
         children: [
           Text(
             l10n.statsTitle,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 16),
 
@@ -2015,7 +2678,9 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
                       l10n.statsEmpty,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          color: AppColors.textSecondaryDark, fontSize: 13),
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 );
@@ -2024,8 +2689,7 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _StatBigNumberRow(
-                    primaryValue: _formatDuration(
-                        s.totalMinutes, l10n),
+                    primaryValue: _formatDuration(s.totalMinutes, l10n),
                     primaryLabel: l10n.statsWatchTime,
                   ),
                   const SizedBox(height: 12),
@@ -2064,23 +2728,28 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
                       spacing: 6,
                       runSpacing: 6,
                       children: s.topGenres
-                          .map((g) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(14),
+                          .map(
+                            (g) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.12,
                                 ),
-                                child: Text(
-                                  g,
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                g,
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
                                 ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   ],
@@ -2131,10 +2800,10 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
     // Bucket → updatedAt cutoff
     final DateTime? cutoff = switch (bucket) {
       _StatsBucket.allTime => null,
-      _StatsBucket.thisMonth =>
-        DateTime.now().subtract(const Duration(days: 30)),
-      _StatsBucket.thisWeek =>
-        DateTime.now().subtract(const Duration(days: 7)),
+      _StatsBucket.thisMonth => DateTime.now().subtract(
+        const Duration(days: 30),
+      ),
+      _StatsBucket.thisWeek => DateTime.now().subtract(const Duration(days: 7)),
     };
     if (cutoff != null) {
       query.where(db.playbackProgress.updatedAt.isBiggerThanValue(cutoff));
@@ -2171,22 +2840,21 @@ class _StatsSectionState extends ConsumerState<_StatsSection> {
         if (parts.isNotEmpty) {
           final share = secs ~/ parts.length;
           for (final g in parts) {
-            genreSeconds.update(g, (v) => v + share,
-                ifAbsent: () => share);
+            genreSeconds.update(g, (v) => v + share, ifAbsent: () => share);
           }
         }
       } else if (cat != null && cat.name.isNotEmpty) {
         // Fallback: use the catalogue category name when the channel
         // has no genre column populated (common for Xtream feeds).
-        genreSeconds.update(cat.name, (v) => v + secs,
-            ifAbsent: () => secs);
+        genreSeconds.update(cat.name, (v) => v + secs, ifAbsent: () => secs);
       }
     }
-    final topGenres = (genreSeconds.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(6)
-        .map((e) => e.key)
-        .toList();
+    final topGenres =
+        (genreSeconds.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value)))
+            .take(6)
+            .map((e) => e.key)
+            .toList();
     return _StatsSnapshot(
       totalMinutes: totalSeconds ~/ 60,
       finishedMovies: movies,
@@ -2226,9 +2894,7 @@ class _StatBigNumberRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2273,9 +2939,7 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.surfaceElevatedDark
-            : AppColors.surfaceLight,
+        color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -2315,9 +2979,9 @@ class _DataSection extends ConsumerWidget {
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.cacheClearedMsg)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.cacheClearedMsg)));
   }
 
   Future<void> _resetContentData(BuildContext context, WidgetRef ref) async {
@@ -2353,9 +3017,9 @@ class _DataSection extends ConsumerWidget {
     await db.delete(db.programs).go();
     ApiCache.instance.clear();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.resetContentDataDone)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.resetContentDataDone)));
   }
 
   Future<void> _exportBackup(BuildContext context, WidgetRef ref) async {
@@ -2381,9 +3045,9 @@ class _DataSection extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${l10n.backupFailed}: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${l10n.backupFailed}: $e')));
     }
   }
 
@@ -2434,19 +3098,19 @@ class _DataSection extends ConsumerWidget {
       ref.invalidate(profiles.activeProfileProvider);
       ref.invalidate(initialSyncProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.backupRestored)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.backupRestored)));
     } on FormatException {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.backupInvalidFormat)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.backupInvalidFormat)));
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${l10n.backupFailed}: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${l10n.backupFailed}: $e')));
     }
   }
 
@@ -2454,81 +3118,124 @@ class _DataSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.textDark : AppColors.textLight;
-    final surfaceColor = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(
-        l10n.dataBackup,
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor),
-      ),
-      const SizedBox(height: 24),
-      ListTile(
-        leading: const Icon(Icons.cloud_upload_outlined, color: AppColors.primary),
-        title: Text(l10n.backupNow, style: TextStyle(color: textColor)),
-        subtitle: Text(
-          l10n.backupNowDesc,
-          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+    final surfaceColor = isDark
+        ? AppColors.surfaceDark
+        : AppColors.surfaceLight;
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.dataBackup,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: textColor,
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: surfaceColor,
-        onTap: () => _exportBackup(context, ref),
-      ),
-      const SizedBox(height: 12),
-      ListTile(
-        leading: const Icon(Icons.restore, color: AppColors.primary),
-        title: Text(l10n.restoreFromBackup, style: TextStyle(color: textColor)),
-        subtitle: Text(
-          l10n.restoreFromBackupDesc,
-          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        const SizedBox(height: 24),
+        ListTile(
+          leading: const Icon(
+            Icons.cloud_upload_outlined,
+            color: AppColors.primary,
+          ),
+          title: Text(l10n.backupNow, style: TextStyle(color: textColor)),
+          subtitle: Text(
+            l10n.backupNowDesc,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: surfaceColor,
+          onTap: () => _exportBackup(context, ref),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: surfaceColor,
-        onTap: () => _importBackup(context, ref),
-      ),
-      const SizedBox(height: 12),
-      // Same-network device-to-device transfer (no cloud / file).
-      ListTile(
-        leading: const Icon(Icons.devices_other, color: AppColors.primary),
-        title: Text(l10n.deviceSync, style: TextStyle(color: textColor)),
-        subtitle: Text(
-          l10n.deviceSyncDesc,
-          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        const SizedBox(height: 12),
+        ListTile(
+          leading: const Icon(Icons.restore, color: AppColors.primary),
+          title: Text(
+            l10n.restoreFromBackup,
+            style: TextStyle(color: textColor),
+          ),
+          subtitle: Text(
+            l10n.restoreFromBackupDesc,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: surfaceColor,
+          onTap: () => _importBackup(context, ref),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: surfaceColor,
-        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const DeviceSyncScreen(),
-        )),
-      ),
-      const SizedBox(height: 24),
-      Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-      const SizedBox(height: 12),
-      ListTile(
-        leading: const Icon(Icons.delete_outline, color: AppColors.primary),
-        title: Text(l10n.clearCache, style: TextStyle(color: textColor)),
-        subtitle: Text(
-          l10n.clearCacheDesc,
-          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        const SizedBox(height: 12),
+        // Same-network device-to-device transfer (no cloud / file).
+        ListTile(
+          leading: const Icon(Icons.devices_other, color: AppColors.primary),
+          title: Text(l10n.deviceSync, style: TextStyle(color: textColor)),
+          subtitle: Text(
+            l10n.deviceSyncDesc,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: surfaceColor,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const DeviceSyncScreen()),
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: surfaceColor,
-        onTap: () => _clearCaches(context),
-      ),
-      const SizedBox(height: 12),
-      ListTile(
-        leading: const Icon(Icons.cleaning_services_outlined, color: Colors.orange),
-        title: Text(
-          l10n.resetContentData,
-          style: TextStyle(color: textColor),
+        const SizedBox(height: 24),
+        Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        const SizedBox(height: 12),
+        ListTile(
+          leading: const Icon(Icons.delete_outline, color: AppColors.primary),
+          title: Text(l10n.clearCache, style: TextStyle(color: textColor)),
+          subtitle: Text(
+            l10n.clearCacheDesc,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: surfaceColor,
+          onTap: () => _clearCaches(context),
         ),
-        subtitle: Text(
-          l10n.resetContentDataDesc,
-          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+        const SizedBox(height: 12),
+        ListTile(
+          leading: const Icon(
+            Icons.cleaning_services_outlined,
+            color: Colors.orange,
+          ),
+          title: Text(
+            l10n.resetContentData,
+            style: TextStyle(color: textColor),
+          ),
+          subtitle: Text(
+            l10n.resetContentDataDesc,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          tileColor: surfaceColor,
+          onTap: () => _resetContentData(context, ref),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        tileColor: surfaceColor,
-        onTap: () => _resetContentData(context, ref),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -2540,99 +3247,249 @@ class _AboutSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.textDark : AppColors.textLight;
-    final secondaryColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final surfaceColor = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
+    final secondaryColor = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+    final surfaceColor = isDark
+        ? AppColors.surfaceDark
+        : AppColors.surfaceLight;
     final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text(l10n.about, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor)),
-      const SizedBox(height: 24),
-
-      // App info card
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: surfaceColor, borderRadius: BorderRadius.circular(12)),
-        child: Column(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-            child: const Text('TV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24)),
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          l10n.about,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: textColor,
           ),
-          const SizedBox(height: 12),
-          Text('LifeOS TV', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor)),
-          const SizedBox(height: 4),
-          Text('${l10n.version} 1.0.0', style: TextStyle(color: secondaryColor)),
-          const SizedBox(height: 16),
-          Text(l10n.aboutDescription, style: TextStyle(color: secondaryColor, fontSize: 13, height: 1.5), textAlign: TextAlign.center),
-        ]),
-      ),
-      const SizedBox(height: 16),
-
-      // Developer info card
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: surfaceColor, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(l10n.developerInfo, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
-          const SizedBox(height: 16),
-          _buildInfoRow(Icons.person_outline, l10n.developer, 'Erkan ÖZ', textColor, secondaryColor),
-          Divider(color: borderColor, height: 24),
-          _buildInfoRow(Icons.email_outlined, 'E-mail', 'erkanoz07@gmail.com', textColor, secondaryColor),
-          Divider(color: borderColor, height: 24),
-          _buildInfoRow(Icons.language, l10n.website, 'lifeos.com.tr', textColor, secondaryColor),
-          Divider(color: borderColor, height: 24),
-          _buildInfoRow(Icons.copyright, l10n.license, l10n.allRightsReserved, textColor, secondaryColor),
-          const SizedBox(height: 8),
-          Text(l10n.copyrightNotice, style: TextStyle(color: secondaryColor, fontSize: 12)),
-        ]),
-      ),
-      const SizedBox(height: 16),
-
-      // Legal disclaimer card
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.gavel, color: Colors.orange, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.legalDisclaimer, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
-          ]),
-          const SizedBox(height: 12),
-          Text(l10n.disclaimerText, style: TextStyle(color: secondaryColor, fontSize: 13, height: 1.6)),
-        ]),
-      ),
-      const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
-      // License card
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: surfaceColor, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.license, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
-          ]),
-          const SizedBox(height: 12),
-          Text(l10n.licenseText, style: TextStyle(color: secondaryColor, fontSize: 13, height: 1.6)),
-        ]),
-      ),
-      const SizedBox(height: 24),
-    ]);
+        // App info card
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'TV',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'LifeOS TV',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${l10n.version} 1.0.0',
+                style: TextStyle(color: secondaryColor),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.aboutDescription,
+                style: TextStyle(
+                  color: secondaryColor,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Developer info card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.developerInfo,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildInfoRow(
+                Icons.person_outline,
+                l10n.developer,
+                'Erkan ÖZ',
+                textColor,
+                secondaryColor,
+              ),
+              Divider(color: borderColor, height: 24),
+              _buildInfoRow(
+                Icons.email_outlined,
+                'E-mail',
+                'erkanoz07@gmail.com',
+                textColor,
+                secondaryColor,
+              ),
+              Divider(color: borderColor, height: 24),
+              _buildInfoRow(
+                Icons.language,
+                l10n.website,
+                'lifeos.com.tr',
+                textColor,
+                secondaryColor,
+              ),
+              Divider(color: borderColor, height: 24),
+              _buildInfoRow(
+                Icons.copyright,
+                l10n.license,
+                l10n.allRightsReserved,
+                textColor,
+                secondaryColor,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.copyrightNotice,
+                style: TextStyle(color: secondaryColor, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Legal disclaimer card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.gavel, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.legalDisclaimer,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.disclaimerText,
+                style: TextStyle(
+                  color: secondaryColor,
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // License card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.license,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.licenseText,
+                style: TextStyle(
+                  color: secondaryColor,
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, Color textColor, Color secondaryColor) {
-    return Row(children: [
-      Icon(icon, size: 18, color: secondaryColor),
-      const SizedBox(width: 12),
-      Text(label, style: TextStyle(color: secondaryColor, fontSize: 13)),
-      const Spacer(),
-      Text(value, style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w500)),
-    ]);
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value,
+    Color textColor,
+    Color secondaryColor,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: secondaryColor),
+        const SizedBox(width: 12),
+        Text(label, style: TextStyle(color: secondaryColor, fontSize: 13)),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 }

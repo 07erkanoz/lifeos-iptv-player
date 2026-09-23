@@ -57,7 +57,8 @@ class MoviesScreen extends ConsumerStatefulWidget {
 class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   String? _selectedCategoryId;
   String _searchQuery = '';
-  bool _categoriesCollapsed = isMobilePlatform; // collapsed by default on mobile
+  bool _categoriesCollapsed =
+      isMobilePlatform; // collapsed by default on mobile
 
   // Hero: hovered poster shows big hero (NO API call on hover)
   Channel? _hoveredChannel;
@@ -80,18 +81,20 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   // Node attached to the SELECTED category item — entering the sidebar
   // focuses this real item instead of the bare scope (which traps focus
   // → "no key works").
-  final FocusNode _selectedCatFocusNode =
-      FocusNode(debugLabel: 'MoviesSelectedCat');
+  final FocusNode _selectedCatFocusNode = FocusNode(
+    debugLabel: 'MoviesSelectedCat',
+  );
   // Node on the always-visible "Favorites" row. When the SELECTED category
   // lives off-screen in the scrolling list its node isn't mounted, so we
   // land focus here instead — a real, focusable item rather than the bare
   // scope (which would orphan focus).
-  final FocusNode _favCatFocusNode =
-      FocusNode(debugLabel: 'MoviesFavCat');
+  final FocusNode _favCatFocusNode = FocusNode(debugLabel: 'MoviesFavCat');
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
-  final FocusNode _detailPlayFocusNode = FocusNode();
+  final FocusNode _detailPlayFocusNode = FocusNode(
+    debugLabel: 'MovieDetailPlay',
+  );
 
   /// Controls index-based D-pad navigation and lazy-mount-safe focus
   /// restore for the poster grid. Outlives detail open/close so the
@@ -107,9 +110,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   /// [_onCategoryScopeFocusChange].
   Timer? _categoryCollapseTimer;
 
+  late final TvFocusRegistry _focusRegistry;
+
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     _branchPrimaryCb = _focusGrid;
     // Collapse the category panel when D-pad focus leaves it (TV), the
     // same focus-driven way the main sidebar collapses.
@@ -117,10 +123,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _registerBackHandler();
-      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
-            TvBranchIndex.movies,
-            _branchPrimaryCb,
-          );
+      _focusRegistry.registerBranchPrimary(
+        TvBranchIndex.movies,
+        _branchPrimaryCb,
+      );
     });
   }
 
@@ -144,14 +150,17 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   @override
   void dispose() {
+    _focusRegistry.unregisterBranchBack(TvBranchIndex.movies, _branchBackCb);
     // De-register before nodes disappear so registry callbacks can't
     // race a dispose. Identity-checked: a stale callback (from a hot
     // reload) can't wipe a freshly-registered live one.
-    ref.read(tvFocusRegistryProvider)
-        .unregisterBranchPrimary(TvBranchIndex.movies, _branchPrimaryCb);
+    _focusRegistry.unregisterBranchPrimary(
+      TvBranchIndex.movies,
+      _branchPrimaryCb,
+    );
     final overlay = _detailOverlayCb;
     if (overlay != null) {
-      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _focusRegistry.popOverlayPrimary(TvBranchIndex.movies, overlay);
     }
     _categoryCollapseTimer?.cancel();
     _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
@@ -169,29 +178,32 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   ///
   /// detail → close
   /// grid → category panel (when open) → main sidebar → Dashboard / exit
+  late final bool Function() _branchBackCb = _handleScreenBack;
+
   void _registerBackHandler() {
-    ref.read(backHandlerProvider.notifier).set(() {
-      final action = resolveGridScreenBackAction(
-        detailOpen: _detailChannel != null,
-        mainSidebarFocused:
-            ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
-        categoriesCollapsed: _categoriesCollapsed,
-        categoryScopeFocused: _categorySidebarScope.hasFocus,
-        categoryPanelAvailable: !isMobilePlatform,
-      );
-      switch (action) {
-        case GridScreenBackAction.closeDetail:
-          _closeDetail();
-          return true;
-        case GridScreenBackAction.bounceToCategory:
-          // Opens the panel first if it's collapsed, then lands focus on
-          // a real category item (never the bare scope).
-          _openCategorySidebar();
-          return true;
-        case GridScreenBackAction.handToShell:
-          return false;
-      }
-    });
+    _focusRegistry.registerBranchBack(TvBranchIndex.movies, _branchBackCb);
+  }
+
+  bool _handleScreenBack() {
+    final action = resolveGridScreenBackAction(
+      detailOpen: _detailChannel != null,
+      mainSidebarFocused: _focusRegistry.isMainSidebarFocused,
+      categoriesCollapsed: _categoriesCollapsed,
+      categoryScopeFocused: _categorySidebarScope.hasFocus,
+      categoryPanelAvailable: !isMobilePlatform,
+    );
+    switch (action) {
+      case GridScreenBackAction.closeDetail:
+        _closeDetail();
+        return true;
+      case GridScreenBackAction.bounceToCategory:
+        // Opens the panel first if it's collapsed, then lands focus on
+        // a real category item (never the bare scope).
+        _openCategorySidebar();
+        return true;
+      case GridScreenBackAction.handToShell:
+        return false;
+    }
   }
 
   void _openSearch(AppLocalizations l10n) async {
@@ -225,10 +237,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     // button instead of the grid behind the detail panel.
     final cb = _focusDetailPlayCallback;
     _detailOverlayCb = cb;
-    ref.read(tvFocusRegistryProvider).pushOverlayPrimary(cb);
+    _focusRegistry.pushOverlayPrimary(TvBranchIndex.movies, cb);
     _categorySidebarScope.canRequestFocus = false;
     // Show DB-cached data immediately if available (no loading spinner)
-    final hasCachedInfo = ch.genre != null || ch.plot != null || ch.backdropPath != null;
+    final hasCachedInfo =
+        ch.genre != null || ch.plot != null || ch.backdropPath != null;
     if (hasCachedInfo) {
       // Build a pseudo vodInfo from DB cache so detail view can render immediately
       final cachedInfo = <String, dynamic>{
@@ -245,7 +258,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           if (ch.year != null) 'release_date': ch.year,
         },
       };
-      setState(() { _detailChannel = ch; _vodInfo = cachedInfo; _loadingDetail = false; });
+      setState(() {
+        _detailChannel = ch;
+        _vodInfo = cachedInfo;
+        _loadingDetail = false;
+      });
       _focusDetailBackButton();
       // Still fetch fresh data in background to update cache silently
       _refreshDetailInBackground(ch);
@@ -253,7 +270,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
 
     // No cache - show loading and fetch from API
-    setState(() { _detailChannel = ch; _loadingDetail = true; _vodInfo = null; });
+    setState(() {
+      _detailChannel = ch;
+      _loadingDetail = true;
+      _vodInfo = null;
+    });
     _focusDetailBackButton();
     final account = ref.read(currentAccountProvider).value;
     if (account == null || account.type == 'm3u') {
@@ -267,14 +288,27 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           if (ch.streamIcon != null) 'movie_image': ch.streamIcon,
         },
       };
-      if (mounted) setState(() { _vodInfo = basicInfo; _loadingDetail = false; });
+      if (mounted) {
+        setState(() {
+          _vodInfo = basicInfo;
+          _loadingDetail = false;
+        });
+      }
       return;
     }
     try {
       final api = ref.read(xtreamApiServiceProvider);
-      final info = await api.getVODInfo(account.url, account.username ?? '', account.password ?? '', ch.streamId);
+      final info = await api.getVODInfo(
+        account.url,
+        account.username ?? '',
+        account.password ?? '',
+        ch.streamId,
+      );
       if (mounted) {
-        setState(() { _vodInfo = info; _loadingDetail = false; });
+        setState(() {
+          _vodInfo = info;
+          _loadingDetail = false;
+        });
         _cacheMetadata(ch, info);
       }
     } catch (_) {
@@ -288,7 +322,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     if (account == null || account.type == 'm3u') return;
     final api = ref.read(xtreamApiServiceProvider);
     try {
-      final info = await api.getVODInfo(account.url, account.username ?? '', account.password ?? '', ch.streamId);
+      final info = await api.getVODInfo(
+        account.url,
+        account.username ?? '',
+        account.password ?? '',
+        ch.streamId,
+      );
       if (mounted && _detailChannel?.streamId == ch.streamId && info != null) {
         setState(() => _vodInfo = info);
         _cacheMetadata(ch, info);
@@ -302,9 +341,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
     if (info == null) return;
     String? backdrop;
-    if (info['backdrop_path'] is List && (info['backdrop_path'] as List).isNotEmpty) {
+    if (info['backdrop_path'] is List &&
+        (info['backdrop_path'] as List).isNotEmpty) {
       backdrop = info['backdrop_path'][0]?.toString();
-    } else if (info['movie_image'] != null && info['movie_image'].toString().isNotEmpty) {
+    } else if (info['movie_image'] != null &&
+        info['movie_image'].toString().isNotEmpty) {
       backdrop = info['movie_image'].toString();
     }
     final trailer = _extractTrailerUrl(info, raw: vodInfo);
@@ -313,18 +354,30 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final director = info['director']?.toString();
     final castInfo = info['cast']?.toString();
     // Cache all metadata to DB (serve from cache next time, no API call needed)
-    if (backdrop != null || (trailer != null && trailer.isNotEmpty) ||
-        (genre != null && genre.isNotEmpty) || (plot != null && plot.isNotEmpty) ||
-        (director != null && director.isNotEmpty) || (castInfo != null && castInfo.isNotEmpty)) {
-      ref.read(contentRepositoryProvider).updateChannelMetadata(
-        ch.streamId, 'movie',
-        backdropPath: backdrop,
-        youtubeTrailer: (trailer != null && trailer.isNotEmpty) ? trailer : null,
-        genre: (genre != null && genre.isNotEmpty) ? genre : null,
-        plot: (plot != null && plot.isNotEmpty) ? plot : null,
-        director: (director != null && director.isNotEmpty) ? director : null,
-        castInfo: (castInfo != null && castInfo.isNotEmpty) ? castInfo : null,
-      );
+    if (backdrop != null ||
+        (trailer != null && trailer.isNotEmpty) ||
+        (genre != null && genre.isNotEmpty) ||
+        (plot != null && plot.isNotEmpty) ||
+        (director != null && director.isNotEmpty) ||
+        (castInfo != null && castInfo.isNotEmpty)) {
+      ref
+          .read(contentRepositoryProvider)
+          .updateChannelMetadata(
+            ch.streamId,
+            'movie',
+            backdropPath: backdrop,
+            youtubeTrailer: (trailer != null && trailer.isNotEmpty)
+                ? trailer
+                : null,
+            genre: (genre != null && genre.isNotEmpty) ? genre : null,
+            plot: (plot != null && plot.isNotEmpty) ? plot : null,
+            director: (director != null && director.isNotEmpty)
+                ? director
+                : null,
+            castInfo: (castInfo != null && castInfo.isNotEmpty)
+                ? castInfo
+                : null,
+          );
     }
   }
 
@@ -335,35 +388,50 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
     _openingMovie = true;
-    final vodInfo = _detailChannel?.streamId == channel.streamId ? _vodInfo : null;
+    final vodInfo = _detailChannel?.streamId == channel.streamId
+        ? _vodInfo
+        : null;
     try {
-      final url = await ref.read(playbackUrlResolverProvider).resolve(
-        account, channel,
-        vodInfo: vodInfo,
-      );
-      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
+      final url = await ref
+          .read(playbackUrlResolverProvider)
+          .resolve(account, channel, vodInfo: vodInfo);
+      if (!mounted ||
+          ref.read(currentAccountProvider).value?.id != account.id) {
+        return;
+      }
 
       // Extract VOD metadata for pause info badge
       final infoRaw = vodInfo?['info'];
       final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
-      final ratingStr = info?['rating']?.toString() ?? channel.rating?.toStringAsFixed(1);
+      final ratingStr =
+          info?['rating']?.toString() ?? channel.rating?.toStringAsFixed(1);
       final ratingVal = ratingStr != null ? double.tryParse(ratingStr) : null;
 
-      context.push('/player', extra: {
-        'url': url,
-        'streamId': channel.streamId,
-        'accountId': channel.accountId,
-        'title': channel.name,
-        'type': VideoType.movie,
-        'logo': channel.streamIcon,
-        'startPosition': startPosition,
-        'plot': info?['plot'] ?? channel.plot,
-        'genre': info?['genre'] ?? channel.genre,
-        'year': info?['release_date']?.toString().split('-').firstOrNull ?? channel.year,
-        'director': info?['director'] ?? channel.director,
-        'cast': info?['cast'] ?? channel.cast,
-        'rating': ratingVal,
-      });
+      await context.push(
+        '/player',
+        extra: {
+          'url': url,
+          'streamId': channel.streamId,
+          'accountId': channel.accountId,
+          'title': channel.name,
+          'type': VideoType.movie,
+          'logo': channel.streamIcon,
+          'startPosition': startPosition,
+          'plot': info?['plot'] ?? channel.plot,
+          'genre': info?['genre'] ?? channel.genre,
+          'year':
+              info?['release_date']?.toString().split('-').firstOrNull ??
+              channel.year,
+          'director': info?['director'] ?? channel.director,
+          'cast': info?['cast'] ?? channel.cast,
+          'rating': ratingVal,
+        },
+      );
+      if (mounted &&
+          _detailChannel?.streamId == channel.streamId &&
+          ref.read(currentAccountProvider).value?.id == account.id) {
+        _focusDetailBackButton();
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -423,19 +491,24 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? AppColors.surfaceElevated(context) : AppColors.surfaceLight,
+      backgroundColor: isDark
+          ? AppColors.surfaceElevated(context)
+          : AppColors.surfaceLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       isScrollControlled: true,
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
       builder: (ctx) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.textTertiary(context),
@@ -444,37 +517,84 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(children: [
-                Icon(Icons.movie_outlined, color: AppColors.primary, size: 18),
-                const SizedBox(width: 8),
-                Text(l10n.categories, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.text(context) : AppColors.textLight)),
-              ]),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.movie_outlined,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.categories,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: isDark
+                          ? AppColors.text(context)
+                          : AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const Divider(height: 1),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  _buildMobileCatTile('⭐ ${l10n.myFavorites}', _selectedCategoryId == _kFavoritesId, () {
-                    Navigator.pop(ctx);
-                    _selectCategory(_kFavoritesId);
-                  }),
-                  _buildMobileCatTile('📺 ${l10n.watchHistory}', _selectedCategoryId == _kHistoryId, () {
-                    Navigator.pop(ctx);
-                    _selectCategory(_kHistoryId);
-                  }),
-                  _buildMobileCatTile(l10n.allMovies, _selectedCategoryId == null, () {
-                    Navigator.pop(ctx);
-                    _selectCategory(null);
-                  }),
+                  _buildMobileCatTile(
+                    '⭐ ${l10n.myFavorites}',
+                    _selectedCategoryId == _kFavoritesId,
+                    () {
+                      Navigator.pop(ctx);
+                      _selectCategory(_kFavoritesId);
+                    },
+                  ),
+                  _buildMobileCatTile(
+                    '📺 ${l10n.watchHistory}',
+                    _selectedCategoryId == _kHistoryId,
+                    () {
+                      Navigator.pop(ctx);
+                      _selectCategory(_kHistoryId);
+                    },
+                  ),
+                  _buildMobileCatTile(
+                    l10n.allMovies,
+                    _selectedCategoryId == null,
+                    () {
+                      Navigator.pop(ctx);
+                      _selectCategory(null);
+                    },
+                  ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ...categoriesAsync.when(
-                    data: (cats) => cats.map((cat) => _buildMobileCatTile(cat.name, cat.id == _selectedCategoryId, () {
-                      Navigator.pop(ctx);
-                      _selectCategory(cat.id);
-                    })),
-                    loading: () => [const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))],
-                    error: (e, _) => [Center(child: Padding(padding: const EdgeInsets.all(20), child: Text('$e')))],
+                    data: (cats) => cats.map(
+                      (cat) => _buildMobileCatTile(
+                        cat.name,
+                        cat.id == _selectedCategoryId,
+                        () {
+                          Navigator.pop(ctx);
+                          _selectCategory(cat.id);
+                        },
+                      ),
+                    ),
+                    loading: () => [
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ],
+                    error: (e, _) => [
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text('$e'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -491,11 +611,20 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       selected: isSelected,
       selectedColor: AppColors.primary,
       selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-      leading: isSelected ? const Icon(Icons.check_circle, size: 18) : Icon(Icons.circle_outlined, size: 18, color: AppColors.textTertiary(context)),
-      title: Text(name, style: TextStyle(
-        fontSize: 14,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-      )),
+      leading: isSelected
+          ? const Icon(Icons.check_circle, size: 18)
+          : Icon(
+              Icons.circle_outlined,
+              size: 18,
+              color: AppColors.textTertiary(context),
+            ),
+      title: Text(
+        name,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
       onTap: onTap,
     );
   }
@@ -575,23 +704,27 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   /// under StatefulShellRoute.indexedStack so the ancestor lookup
   /// never finds it anyway).
   void _focusMainSidebar() {
-    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    final ok = _focusRegistry.requestMainSidebar();
     if (!ok) {
       // First-frame fallback before the sidebar finished registering.
-      FocusManager.instance.primaryFocus
-          ?.focusInDirection(TraversalDirection.left);
+      FocusManager.instance.primaryFocus?.focusInDirection(
+        TraversalDirection.left,
+      );
     }
   }
 
   void _closeDetail() {
     _similarCacheKey = null;
     _similarCache = const [];
-    setState(() { _detailChannel = null; _vodInfo = null; });
+    setState(() {
+      _detailChannel = null;
+      _vodInfo = null;
+    });
     // Pop the overlay focus target so subsequent sidebar/back jumps go
     // back to the grid rather than a disposed detail button.
     final overlay = _detailOverlayCb;
     if (overlay != null) {
-      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _focusRegistry.popOverlayPrimary(TvBranchIndex.movies, overlay);
       _detailOverlayCb = null;
     }
     _categorySidebarScope.canRequestFocus = true;
@@ -609,7 +742,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Widget build(BuildContext context) {
     // Watch for pending detail from dashboard navigation
     final pendingChannel = ref.watch(pendingDetailChannelProvider);
-    if (pendingChannel != null && pendingChannel.type == 'movie' && _detailChannel == null) {
+    if (pendingChannel != null &&
+        pendingChannel.type == 'movie' &&
+        _detailChannel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _detailChannel == null) {
           ref.read(pendingDetailChannelProvider.notifier).clear();
@@ -627,16 +762,19 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       body: Stack(
         children: [
           // Keep the list alive behind detail view so scroll position is preserved
-          Offstage(
-            offstage: showDetail,
-            child: isMobilePlatform
-                ? _buildContentArea(isDark, l10n)
-                : Row(
-                    children: [
-                      _buildCategoriesPanel(categoriesAsync, isDark, l10n),
-                      Expanded(child: _buildContentArea(isDark, l10n)),
-                    ],
-                  ),
+          ExcludeFocus(
+            excluding: showDetail,
+            child: Offstage(
+              offstage: showDetail,
+              child: isMobilePlatform
+                  ? _buildContentArea(isDark, l10n)
+                  : Row(
+                      children: [
+                        _buildCategoriesPanel(categoriesAsync, isDark, l10n),
+                        Expanded(child: _buildContentArea(isDark, l10n)),
+                      ],
+                    ),
+            ),
           ),
           if (showDetail)
             PopScope(
@@ -654,7 +792,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     );
   }
 
-  Widget _buildCategoriesPanel(AsyncValue<List<Category>> categoriesAsync, bool isDark, AppLocalizations l10n) {
+  Widget _buildCategoriesPanel(
+    AsyncValue<List<Category>> categoriesAsync,
+    bool isDark,
+    AppLocalizations l10n,
+  ) {
     // Fully hidden when collapsed — content takes full width
     if (_categoriesCollapsed) {
       return const SizedBox.shrink();
@@ -665,48 +807,120 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.background(context) : AppColors.backgroundLight,
-          border: Border(right: BorderSide(color: isDark ? AppColors.border(context) : AppColors.borderLight)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-            child: Row(children: [
-              Icon(Icons.movie_outlined, color: AppColors.primary, size: 18),
-              const SizedBox(width: 8),
-              Text(l10n.movies, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? AppColors.text(context) : AppColors.textLight)),
-            ]),
-          ),
-          // ⭐ Favorites
-          _buildCatItem('⭐ ${l10n.myFavorites}', _selectedCategoryId == _kFavoritesId, () => _selectCategory(_kFavoritesId), isDark, fallbackNode: _favCatFocusNode),
-          // 📺 History
-          _buildCatItem('📺 ${l10n.watchHistory}', _selectedCategoryId == _kHistoryId, () => _selectCategory(_kHistoryId), isDark),
-          // All movies
-          _buildCatItem(l10n.allMovies, _selectedCategoryId == null, () => _selectCategory(null), isDark),
-          Divider(color: isDark ? AppColors.border(context) : AppColors.borderLight, height: 1, indent: 12, endIndent: 12),
-          Expanded(
-            child: categoriesAsync.when(
-              data: (cats) => ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                itemCount: cats.length,
-                itemBuilder: (_, i) => _buildCatItem(cats[i].name, cats[i].id == _selectedCategoryId, () => _selectCategory(cats[i].id), isDark),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('$e', style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12))),
+          color: isDark
+              ? AppColors.background(context)
+              : AppColors.backgroundLight,
+          border: Border(
+            right: BorderSide(
+              color: isDark ? AppColors.border(context) : AppColors.borderLight,
             ),
           ),
-        ],
-      ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.movie_outlined,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.movies,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: isDark
+                          ? AppColors.text(context)
+                          : AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ⭐ Favorites
+            _buildCatItem(
+              '⭐ ${l10n.myFavorites}',
+              _selectedCategoryId == _kFavoritesId,
+              () => _selectCategory(_kFavoritesId),
+              isDark,
+              fallbackNode: _favCatFocusNode,
+            ),
+            // 📺 History
+            _buildCatItem(
+              '📺 ${l10n.watchHistory}',
+              _selectedCategoryId == _kHistoryId,
+              () => _selectCategory(_kHistoryId),
+              isDark,
+            ),
+            // All movies
+            _buildCatItem(
+              l10n.allMovies,
+              _selectedCategoryId == null,
+              () => _selectCategory(null),
+              isDark,
+            ),
+            Divider(
+              color: isDark ? AppColors.border(context) : AppColors.borderLight,
+              height: 1,
+              indent: 12,
+              endIndent: 12,
+            ),
+            Expanded(
+              child: categoriesAsync.when(
+                data: (cats) => ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  itemCount: cats.length,
+                  itemBuilder: (_, i) => _buildCatItem(
+                    cats[i].name,
+                    cats[i].id == _selectedCategoryId,
+                    () => _selectCategory(cats[i].id),
+                    isDark,
+                  ),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Text(
+                    '$e',
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCatItem(String name, bool isSelected, VoidCallback onTap, bool isDark, {FocusNode? fallbackNode}) {
+  Widget _buildCatItem(
+    String name,
+    bool isSelected,
+    VoidCallback onTap,
+    bool isDark, {
+    FocusNode? fallbackNode,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: _FocusableCatItem(name: name, isSelected: isSelected, isDark: isDark, focusNode: isSelected ? _selectedCatFocusNode : fallbackNode, onTap: onTap, onRightPressed: _focusGrid, onLeftPressed: _focusMainSidebar),
+      child: _FocusableCatItem(
+        name: name,
+        isSelected: isSelected,
+        isDark: isDark,
+        focusNode: isSelected ? _selectedCatFocusNode : fallbackNode,
+        onTap: onTap,
+        onRightPressed: _focusGrid,
+        onLeftPressed: _focusMainSidebar,
+      ),
     );
   }
 
@@ -718,58 +932,64 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     return Column(
       children: [
         // Hero banner (Tauri style: backdrop + info)
-        if (_hoveredChannel != null && (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) != null)
+        if (_hoveredChannel != null &&
+            (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) !=
+                null)
           _buildHeroBanner(_hoveredChannel!, isDark, l10n)
         else
           const SizedBox(height: 8),
         // Search bar + back-to-categories button
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Row(children: [
-            // Toggle category sidebar open/close
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _FocusableIconButton(
-                icon: _categoriesCollapsed ? Icons.menu : Icons.menu_open,
-                tooltip: l10n.categories,
-                onTap: _toggleCategorySidebar,
+          child: Row(
+            children: [
+              // Toggle category sidebar open/close
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _FocusableIconButton(
+                  icon: _categoriesCollapsed ? Icons.menu : Icons.menu_open,
+                  tooltip: l10n.categories,
+                  onTap: _toggleCategorySidebar,
+                ),
               ),
-            ),
-            Expanded(
-              child: _SearchButton(
-                hintText: _searchQuery.isNotEmpty ? _searchQuery : l10n.searchMovies,
-                isActive: _searchQuery.isNotEmpty,
-                onTap: () => _openSearch(l10n),
-                onClear: _searchQuery.isNotEmpty
-                    ? () => setState(() => _searchQuery = '')
-                    : null,
+              Expanded(
+                child: _SearchButton(
+                  hintText: _searchQuery.isNotEmpty
+                      ? _searchQuery
+                      : l10n.searchMovies,
+                  isActive: _searchQuery.isNotEmpty,
+                  onTap: () => _openSearch(l10n),
+                  onClear: _searchQuery.isNotEmpty
+                      ? () => setState(() => _searchQuery = '')
+                      : null,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // Genre filter (only renders when there are genres in DB).
-            // Uses the currently-loaded movie list to populate the picker
-            // so the dropdown only ever shows genres that actually have
-            // matching content.
-            Consumer(
-              builder: (context, ref, _) {
-                return GenreDropdown(
-                  value: ref.watch(movieGenreFilterProvider),
-                  genres: ref.watch(_movieGenresProvider),
-                  onChanged: (g) =>
-                      ref.read(movieGenreFilterProvider.notifier).set(g),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-            // Sort picker (newest / rating / name)
-            Consumer(
-              builder: (context, ref, _) => SortDropdown(
-                value: ref.watch(movieSortModeProvider),
-                onChanged: (m) =>
-                    ref.read(movieSortModeProvider.notifier).set(m),
+              const SizedBox(width: 8),
+              // Genre filter (only renders when there are genres in DB).
+              // Uses the currently-loaded movie list to populate the picker
+              // so the dropdown only ever shows genres that actually have
+              // matching content.
+              Consumer(
+                builder: (context, ref, _) {
+                  return GenreDropdown(
+                    value: ref.watch(movieGenreFilterProvider),
+                    genres: ref.watch(_movieGenresProvider),
+                    onChanged: (g) =>
+                        ref.read(movieGenreFilterProvider.notifier).set(g),
+                  );
+                },
               ),
-            ),
-          ]),
+              const SizedBox(width: 8),
+              // Sort picker (newest / rating / name)
+              Consumer(
+                builder: (context, ref, _) => SortDropdown(
+                  value: ref.watch(movieSortModeProvider),
+                  onChanged: (m) =>
+                      ref.read(movieSortModeProvider.notifier).set(m),
+                ),
+              ),
+            ],
+          ),
         ),
         // Grid
         Expanded(child: _buildGrid(l10n)),
@@ -779,15 +999,48 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   Widget _buildGrid(AppLocalizations l10n) {
     if (_selectedCategoryId == _kFavoritesId) {
-      return _FavoritesGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _FavoritesGridView(
+        gridController: _gridController,
+        searchQuery: _searchQuery,
+        onPlay: _playMovie,
+        onHover: _onPosterHover,
+        onTap: _openDetail,
+        onLeftEdge: _openCategorySidebar,
+        l10n: l10n,
+      );
     }
     if (_selectedCategoryId == _kHistoryId) {
-      return _HistoryGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _HistoryGridView(
+        gridController: _gridController,
+        searchQuery: _searchQuery,
+        onPlay: _playMovie,
+        onHover: _onPosterHover,
+        onTap: _openDetail,
+        onLeftEdge: _openCategorySidebar,
+        l10n: l10n,
+      );
     }
     if (_selectedCategoryId != null) {
-      return _MovieGridView(gridController: _gridController, categoryId: _selectedCategoryId!, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+      return _MovieGridView(
+        gridController: _gridController,
+        categoryId: _selectedCategoryId!,
+        searchQuery: _searchQuery,
+        onPlay: _playMovie,
+        onHover: _onPosterHover,
+        onTap: _openDetail,
+        onLeftEdge: _openCategorySidebar,
+        l10n: l10n,
+      );
     }
-    return _AllMoviesGridView(gridController: _gridController, searchQuery: _searchQuery, onPlay: _playMovie, onHover: _onPosterHover, onTap: _openDetail, onLeftEdge: _openCategorySidebar, l10n: l10n);
+    return _AllMoviesGridView(
+      gridController: _gridController,
+      searchQuery: _searchQuery,
+      onPlay: _playMovie,
+      onHover: _onPosterHover,
+      onTap: _openDetail,
+      onLeftEdge: _openCategorySidebar,
+      l10n: l10n,
+    );
   }
 
   Widget _buildHeroBanner(Channel ch, bool isDark, AppLocalizations l10n) {
@@ -804,143 +1057,256 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           children: [
             // Background image (backdrop preferred)
             if (imgUrl != null)
-              CachedNetworkImage(imageUrl: imgUrl, fit: BoxFit.cover,
+              CachedNetworkImage(
+                imageUrl: imgUrl,
+                fit: BoxFit.cover,
                 memCacheWidth: 960,
                 alignment: const Alignment(0, -0.3),
-                errorWidget: (_, _, _) => Container(color: AppColors.surface(context))),
+                errorWidget: (_, _, _) =>
+                    Container(color: AppColors.surface(context)),
+              ),
 
             // Left gradient for text readability (lighter to show more poster)
-            Container(decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft, end: Alignment.centerRight,
-                colors: [
-                  AppColors.background(context).withValues(alpha: 0.85),
-                  AppColors.background(context).withValues(alpha: 0.4),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.3, 0.7],
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppColors.background(context).withValues(alpha: 0.85),
+                    AppColors.background(context).withValues(alpha: 0.4),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.3, 0.7],
+                ),
               ),
-            )),
+            ),
             // Bottom gradient
-            Container(decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                colors: [
-                  AppColors.background(context),
-                  AppColors.background(context).withValues(alpha: 0.5),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.2, 0.5],
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    AppColors.background(context),
+                    AppColors.background(context).withValues(alpha: 0.5),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.2, 0.5],
+                ),
               ),
-            )),
+            ),
 
             // Content overlay
             Positioned(
-              left: 24, bottom: 20, right: 200,
+              left: 24,
+              bottom: 20,
+              right: 200,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Badges: type + rating + year
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(4)),
-                      child: Text(l10n.movie, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 10)),
-                    ),
-                    if (ch.rating != null && ch.rating! > 0) ...[
-                      const SizedBox(width: 8),
+                  Row(
+                    children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.star, color: AppColors.gold, size: 12),
-                          const SizedBox(width: 3),
-                          Text(ch.rating!.toStringAsFixed(1), style: const TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ]),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          l10n.movie,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
+                      if (ch.rating != null && ch.rating! > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: AppColors.gold,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                ch.rating!.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  color: AppColors.gold,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (ch.year != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            ch.year!,
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                    if (ch.year != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(ch.year!, style: TextStyle(color: AppColors.textSecondary(context), fontSize: 11)),
-                      ),
-                    ],
-                  ]),
+                  ),
                   const SizedBox(height: 10),
                   // Title
-                  Text(ch.name,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24, height: 1.2),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    ch.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   // Genre (from DB cache)
                   if (ch.genre != null && ch.genre!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
-                      children: ch.genre!.split(',').take(4).map((g) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                        ),
-                        child: Text(g.trim(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 10)),
-                      )).toList(),
+                      children: ch.genre!
+                          .split(',')
+                          .take(4)
+                          .map(
+                            (g) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                ),
+                              ),
+                              child: Text(
+                                g.trim(),
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                   ],
                   // Plot (from DB cache)
                   if (ch.plot != null && ch.plot!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      ch.plot!.length > 150 ? '${ch.plot!.substring(0, 150)}...' : ch.plot!,
-                      style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12, height: 1.4),
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      ch.plot!.length > 150
+                          ? '${ch.plot!.substring(0, 150)}...'
+                          : ch.plot!,
+                      style: TextStyle(
+                        color: AppColors.textSecondary(context),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                   const SizedBox(height: 14),
                   // Action buttons
-                  Row(children: [
-                    ElevatedButton.icon(
-                      onPressed: () => _playMovie(ch),
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: Text(l10n.play),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton.icon(
-                      onPressed: () => _openDetail(ch),
-                      icon: const Icon(Icons.info_outline, size: 16),
-                      label: Text(l10n.details),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
-                    // Trailer button (if available in DB)
-                    if (ch.youtubeTrailer != null && ch.youtubeTrailer!.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          final tid = ch.youtubeTrailer!;
-                          final url = tid.startsWith('http') ? tid : 'https://www.youtube.com/watch?v=$tid';
-                          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                        },
-                        icon: const Icon(Icons.play_circle_outline, size: 16),
-                        label: Text(l10n.trailer),
-                        style: OutlinedButton.styleFrom(
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _playMovie(ch),
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: Text(l10n.play),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => _openDetail(ch),
+                        icon: const Icon(Icons.info_outline, size: 16),
+                        label: Text(l10n.details),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                      // Trailer button (if available in DB)
+                      if (ch.youtubeTrailer != null &&
+                          ch.youtubeTrailer!.isNotEmpty) ...[
+                        const SizedBox(width: 10),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            final tid = ch.youtubeTrailer!;
+                            final url = tid.startsWith('http')
+                                ? tid
+                                : 'https://www.youtube.com/watch?v=$tid';
+                            launchUrl(
+                              Uri.parse(url),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                          icon: const Icon(Icons.play_circle_outline, size: 16),
+                          label: Text(l10n.trailer),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ]),
+                  ),
                 ],
               ),
             ),
@@ -948,12 +1314,18 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             // Mini poster (bottom right, like Tauri)
             if (ch.streamIcon != null && hasBackdrop)
               Positioned(
-                right: 24, bottom: 20,
+                right: 24,
+                bottom: 20,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(imageUrl: ch.streamIcon!, width: 100, height: 150, fit: BoxFit.cover,
+                  child: CachedNetworkImage(
+                    imageUrl: ch.streamIcon!,
+                    width: 100,
+                    height: 150,
+                    fit: BoxFit.cover,
                     memCacheWidth: 300,
-                    errorWidget: (_, _, _) => const SizedBox.shrink()),
+                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
           ],
@@ -975,57 +1347,77 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final genre = info?['genre'] ?? '';
     final rating = info?['rating'] ?? ch.rating?.toStringAsFixed(1) ?? '';
     final releaseDate = info?['release_date']?.toString() ?? '';
-    final year = releaseDate.length >= 4 ? releaseDate.substring(0, 4) : (ch.year ?? '');
+    final year = releaseDate.length >= 4
+        ? releaseDate.substring(0, 4)
+        : (ch.year ?? '');
     final duration = info?['duration'] ?? '';
     // Server / DB cache first; if neither has a real URL fall back to a
     // YouTube search query so every movie has a working trailer button.
-    final trailerUrl = _extractTrailerUrl(info, fallback: ch.youtubeTrailer, raw: _vodInfo)
-        ?? youtubeSearchTrailerUrl(ch.name, year: year.isNotEmpty ? year : ch.year);
-    final backdrop = (info?['backdrop_path'] is List && (info!['backdrop_path'] as List).isNotEmpty)
-        ? info['backdrop_path'][0] : info?['movie_image'] ?? ch.backdropPath ?? ch.streamIcon ?? '';
+    final trailerUrl =
+        _extractTrailerUrl(info, fallback: ch.youtubeTrailer, raw: _vodInfo) ??
+        youtubeSearchTrailerUrl(
+          ch.name,
+          year: year.isNotEmpty ? year : ch.year,
+        );
+    final backdrop =
+        (info?['backdrop_path'] is List &&
+            (info!['backdrop_path'] as List).isNotEmpty)
+        ? info['backdrop_path'][0]
+        : info?['movie_image'] ?? ch.backdropPath ?? ch.streamIcon ?? '';
 
     // Get playback progress
-    final progressAsync = ref.watch(_playbackProgressProvider((streamId: ch.streamId, type: 'movie')));
-    final progress = progressAsync.when(data: (p) => p, loading: () => null, error: (_, _) => null);
-    final favIds = ref.watch(_favMovieIdsProvider).when(
-      data: (v) => v,
-      loading: () => const <int>[],
-      error: (_, _) => const <int>[],
+    final progressAsync = ref.watch(
+      _playbackProgressProvider((streamId: ch.streamId, type: 'movie')),
     );
+    final progress = progressAsync.when(
+      data: (p) => p,
+      loading: () => null,
+      error: (_, _) => null,
+    );
+    final favIds = ref
+        .watch(_favMovieIdsProvider)
+        .when(
+          data: (v) => v,
+          loading: () => const <int>[],
+          error: (_, _) => const <int>[],
+        );
     final favoriteMovies = favIds.isEmpty
         ? const <Channel>[]
-        : ref.watch(_favChannelsProvider(favIds)).when(
-              data: (v) => v,
-              loading: () => const <Channel>[],
-              error: (_, _) => const <Channel>[],
-            );
-    final historyMovies = ref.watch(_continueWatchingMoviesProvider).when(
-      data: (v) => v,
-      loading: () => const <Channel>[],
-      error: (_, _) => const <Channel>[],
-    );
+        : ref
+              .watch(_favChannelsProvider(favIds))
+              .when(
+                data: (v) => v,
+                loading: () => const <Channel>[],
+                error: (_, _) => const <Channel>[],
+              );
+    final historyMovies = ref
+        .watch(_continueWatchingMoviesProvider)
+        .when(
+          data: (v) => v,
+          loading: () => const <Channel>[],
+          error: (_, _) => const <Channel>[],
+        );
     final allMoviesAsync = ref.watch(_allMoviesProvider);
     // Prefer semantic (embedding) similarity when available — it's
     // genuinely per-title. Falls back to the metadata heuristic until
     // the catalogue is embedded.
     final embSimilar =
         ref.watch(_embeddingSimilarMoviesProvider(ch.streamId)).value ??
-            const <Channel>[];
+        const <Channel>[];
     final similarMovies = embSimilar.isNotEmpty
         ? embSimilar
         : allMoviesAsync.when(
             data: (all) => _memoSimilarMovies(
               ch,
               all,
-              genreText:
-                  genre.toString().isNotEmpty ? genre.toString() : ch.genre,
+              genreText: genre.toString().isNotEmpty
+                  ? genre.toString()
+                  : ch.genre,
               baseDirector: director.toString().isNotEmpty
                   ? director.toString()
                   : ch.director,
-              baseCast:
-                  cast.toString().isNotEmpty ? cast.toString() : ch.cast,
-              basePlot:
-                  plot.toString().isNotEmpty ? plot.toString() : ch.plot,
+              baseCast: cast.toString().isNotEmpty ? cast.toString() : ch.cast,
+              basePlot: plot.toString().isNotEmpty ? plot.toString() : ch.plot,
               personalizationSeed: [...favoriteMovies, ...historyMovies],
             ),
             loading: () => _similarCacheKey == ch.streamId
@@ -1052,36 +1444,73 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 : const ColoredBox(color: Colors.black),
           ),
           // Gradients
-          Positioned.fill(child: Container(
-            decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-              colors: [Colors.transparent, AppColors.background(context).withValues(alpha: 0.6), AppColors.background(context)], stops: const [0.0, 0.35, 0.65])),
-          )),
-          Positioned.fill(child: Container(
-            decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight,
-              colors: [AppColors.background(context).withValues(alpha: 0.85), Colors.transparent], stops: const [0.0, 0.5])),
-          )),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.background(context).withValues(alpha: 0.6),
+                    AppColors.background(context),
+                  ],
+                  stops: const [0.0, 0.35, 0.65],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppColors.background(context).withValues(alpha: 0.85),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.5],
+                ),
+              ),
+            ),
+          ),
 
           // Back button + Favorite button
-          Positioned(top: 16, left: 16, child: _FocusableActionButton(
-            icon: Icons.arrow_back,
-            label: '',
-            isPrimary: false,
-            backgroundColor: Colors.black45,
-            onTap: _closeDetail,
-            focusNode: _detailBackFocusNode,
-          )),
-          Positioned(top: 16, right: 16, child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              WatchlistButton(
-                streamId: ch.streamId, type: 'movie', name: ch.name, thumbnail: ch.streamIcon,
-              ),
-              const SizedBox(width: 8),
-              FavoriteButton(
-                streamId: ch.streamId, type: 'movie', name: ch.name, thumbnail: ch.streamIcon,
-              ),
-            ],
-          )),
+          Positioned(
+            top: 16,
+            left: 16,
+            child: _FocusableActionButton(
+              icon: Icons.arrow_back,
+              label: '',
+              isPrimary: false,
+              backgroundColor: Colors.black45,
+              onTap: _closeDetail,
+              focusNode: _detailBackFocusNode,
+            ),
+          ),
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WatchlistButton(
+                  streamId: ch.streamId,
+                  type: 'movie',
+                  name: ch.name,
+                  thumbnail: ch.streamIcon,
+                ),
+                const SizedBox(width: 8),
+                FavoriteButton(
+                  streamId: ch.streamId,
+                  type: 'movie',
+                  name: ch.name,
+                  thumbnail: ch.streamIcon,
+                ),
+              ],
+            ),
+          ),
 
           // Content
           Positioned(
@@ -1090,220 +1519,440 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             right: isMobilePlatform ? 16 : 40,
             bottom: 0,
             child: SingleChildScrollView(
-            child: isMobilePlatform
-                ? _buildMobileDetailContent(ch, l10n, progress, trailerUrl, similarMovies)
-                : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Poster (200×300, Tauri style)
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: PlatformHelper.isTV ? const <BoxShadow>[] : [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 40, offset: const Offset(0, 12))],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: ch.streamIcon != null
-                        ? CachedNetworkImage(imageUrl: ch.streamIcon!, width: 180, height: 270, fit: BoxFit.cover,
-                            memCacheWidth: 360,
-                            errorWidget: (_, _, _) => Container(width: 180, height: 270, color: AppColors.surface(context),
-                              child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))))
-                        : Container(width: 180, height: 270, color: AppColors.surface(context),
-                            child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 48))),
-                  ),
-                ),
-                const SizedBox(width: 32),
-                // Info column
-                Expanded(child: _loadingDetail
-                    ? const Center(child: Padding(padding: EdgeInsets.only(top: 60), child: CircularProgressIndicator()))
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          // Badges row
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                              decoration: BoxDecoration(color: Colors.blue.shade700, borderRadius: BorderRadius.circular(20)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.movie, color: Colors.white, size: 12),
-                                const SizedBox(width: 5),
-                                Text(l10n.movie, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 0.3)),
-                              ]),
-                            ),
-                            if (rating.toString().isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                  const Icon(Icons.star, color: AppColors.gold, size: 12),
-                                  const SizedBox(width: 4),
-                                  Text(rating.toString(), style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w600, fontSize: 11)),
-                                ]),
-                              ),
-                            ],
-                          ]),
-                          const SizedBox(height: 14),
-                          // Title
-                          Text(title.toString(), style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w800, fontSize: 30,
-                            letterSpacing: -0.5, height: 1.15,
-                            shadows: [Shadow(color: Colors.black, blurRadius: 8)],
-                          )),
-                          const SizedBox(height: 10),
-                          // Meta row with dot separators
-                          _buildMetaRow(year, genre.toString(), duration.toString()),
-                          const SizedBox(height: 20),
-                          // Actions row (D-pad focusable)
-                          Wrap(spacing: 10, runSpacing: 8, children: [
-                            if (progress != null && !progress.isFinished && progress.position > 1000)
-                              _FocusableActionButton(
-                                icon: Icons.play_arrow,
-                                label: l10n.continueFrom(_formatDuration(Duration(milliseconds: progress.position))),
-                                isPrimary: true,
-                                focusNode: _detailPlayFocusNode,
-                                onTap: () => _playMovie(ch, startPosition: Duration(milliseconds: progress.position)),
-                              )
-                            else
-                              _FocusableActionButton(
-                                icon: Icons.play_arrow,
-                                label: l10n.play,
-                                isPrimary: true,
-                                focusNode: _detailPlayFocusNode,
-                                onTap: () => _playMovie(ch),
-                              ),
-                            _FocusableActionButton(
-                              icon: Icons.play_circle_outline,
-                              label: l10n.watchTrailer,
-                              isPrimary: false,
-                              backgroundColor: Colors.red.shade900.withValues(alpha: 0.3),
-                              onTap: () => _openTrailer(trailerUrl),
-                            ),
-                            _FocusableActionButton(
-                              icon: Icons.open_in_new,
-                              label: 'IMDB',
-                              isPrimary: false,
-                              onTap: () => _openImdb(title.toString(), year),
-                            ),
-                          ]),
-                          // Progress bar
-                          if (progress != null && !progress.isFinished && progress.position > 1000 && progress.duration > 0) ...[
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              width: 300,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: LinearProgressIndicator(
-                                  value: (progress.position / progress.duration).clamp(0.0, 1.0),
-                                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                  color: AppColors.primary,
-                                  minHeight: 3,
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          // Plot (max-width constrained for readability).
-                          // PlotEnrichedView falls back to plain Text
-                          // when the user has no Gemini key — so this
-                          // is visually identical for users without AI
-                          // and gains inline translate / summarise /
-                          // fill-in links for those who opt in.
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 600),
-                            child: PlotEnrichedView(
-                              channel: ch,
-                              plotText: plot.toString(),
-                              textStyle: TextStyle(
-                                color: AppColors.textSecondary(context),
-                                fontSize: 14,
-                                height: 1.6,
-                              ),
-                            ),
+              child: isMobilePlatform
+                  ? _buildMobileDetailContent(
+                      ch,
+                      l10n,
+                      progress,
+                      trailerUrl,
+                      similarMovies,
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Poster (200×300, Tauri style)
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: PlatformHelper.isTV
+                                ? const <BoxShadow>[]
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 12),
+                                    ),
+                                  ],
                           ),
-                          const SizedBox(height: 20),
-                          // Credits (label-value pairs)
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 600),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (director.toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        SizedBox(
-                                          width: 80,
-                                          child: Text(l10n.director, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: ch.streamIcon != null
+                                ? CachedNetworkImage(
+                                    imageUrl: ch.streamIcon!,
+                                    width: 180,
+                                    height: 270,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 360,
+                                    errorWidget: (_, _, _) => Container(
+                                      width: 180,
+                                      height: 270,
+                                      color: AppColors.surface(context),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.movie,
+                                          color: AppColors.textTertiary(
+                                            context,
+                                          ),
+                                          size: 48,
                                         ),
-                                        Expanded(child: Text(director.toString(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4))),
-                                      ],
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 180,
+                                    height: 270,
+                                    color: AppColors.surface(context),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.movie,
+                                        color: AppColors.textTertiary(context),
+                                        size: 48,
+                                      ),
                                     ),
                                   ),
-                                if (cast.toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                        ),
+                        const SizedBox(width: 32),
+                        // Info column
+                        Expanded(
+                          child: _loadingDetail
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 60),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 20),
+                                    // Badges row
+                                    Row(
                                       children: [
-                                        SizedBox(
-                                          width: 80,
-                                          child: Text(l10n.cast, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
-                                        ),
-                                        Expanded(
-                                          child: CastChipRow(
-                                            raw: cast.toString(),
-                                            currentTitle: ch.name,
-                                            onChannelTap: (c) {
-                                              // Defer-pop the bottom sheet,
-                                              // then switch the detail page
-                                              // to the new channel.
-                                              setState(() => _hoveredChannel = c);
-                                            },
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade700,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.movie,
+                                                color: Colors.white,
+                                                size: 12,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                l10n.movie,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 11,
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        if (rating.toString().isNotEmpty) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.gold.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.star,
+                                                  color: AppColors.gold,
+                                                  size: 12,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  rating.toString(),
+                                                  style: const TextStyle(
+                                                    color: AppColors.gold,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
-                                  ),
-                                if (genre.toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    const SizedBox(height: 14),
+                                    // Title
+                                    Text(
+                                      title.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 30,
+                                        letterSpacing: -0.5,
+                                        height: 1.15,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black,
+                                            blurRadius: 8,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Meta row with dot separators
+                                    _buildMetaRow(
+                                      year,
+                                      genre.toString(),
+                                      duration.toString(),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    // Actions row (D-pad focusable)
+                                    Wrap(
+                                      spacing: 10,
+                                      runSpacing: 8,
                                       children: [
-                                        SizedBox(
-                                          width: 80,
-                                          child: Text(l10n.genre, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13, fontWeight: FontWeight.w700)),
+                                        if (progress != null &&
+                                            !progress.isFinished &&
+                                            progress.position > 1000)
+                                          _FocusableActionButton(
+                                            icon: Icons.play_arrow,
+                                            label: l10n.continueFrom(
+                                              _formatDuration(
+                                                Duration(
+                                                  milliseconds:
+                                                      progress.position,
+                                                ),
+                                              ),
+                                            ),
+                                            isPrimary: true,
+                                            focusNode: _detailPlayFocusNode,
+                                            onTap: () => _playMovie(
+                                              ch,
+                                              startPosition: Duration(
+                                                milliseconds: progress.position,
+                                              ),
+                                            ),
+                                          )
+                                        else
+                                          _FocusableActionButton(
+                                            icon: Icons.play_arrow,
+                                            label: l10n.play,
+                                            isPrimary: true,
+                                            focusNode: _detailPlayFocusNode,
+                                            onTap: () => _playMovie(ch),
+                                          ),
+                                        _FocusableActionButton(
+                                          icon: Icons.play_circle_outline,
+                                          label: l10n.watchTrailer,
+                                          isPrimary: false,
+                                          backgroundColor: Colors.red.shade900
+                                              .withValues(alpha: 0.3),
+                                          onTap: () => _openTrailer(trailerUrl),
                                         ),
-                                        Expanded(child: Text(genre.toString(), style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13, height: 1.4))),
+                                        _FocusableActionButton(
+                                          icon: Icons.open_in_new,
+                                          label: 'IMDB',
+                                          isPrimary: false,
+                                          onTap: () =>
+                                              _openImdb(title.toString(), year),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          // Smart Similar — falls back to the
-                          // token-overlap rail when no Gemini key or
-                          // when the AI call doesn't yield usable
-                          // results.
-                          const SizedBox(height: 44),
-                          AiSimilarSection(
-                            current: ch,
-                            onTap: (target) => _openDetail(target),
-                            fallbackBuilder: (_) => similarMovies.isNotEmpty
-                                ? _buildSimilarSection(similarMovies)
-                                : const SizedBox.shrink(),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
-                      ),
-                ),
-              ],
+                                    // Progress bar
+                                    if (progress != null &&
+                                        !progress.isFinished &&
+                                        progress.position > 1000 &&
+                                        progress.duration > 0) ...[
+                                      const SizedBox(height: 14),
+                                      SizedBox(
+                                        width: 300,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                          child: LinearProgressIndicator(
+                                            value:
+                                                (progress.position /
+                                                        progress.duration)
+                                                    .clamp(0.0, 1.0),
+                                            backgroundColor: Colors.white
+                                                .withValues(alpha: 0.1),
+                                            color: AppColors.primary,
+                                            minHeight: 3,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 24),
+                                    // Plot (max-width constrained for readability).
+                                    // PlotEnrichedView falls back to plain Text
+                                    // when the user has no Gemini key — so this
+                                    // is visually identical for users without AI
+                                    // and gains inline translate / summarise /
+                                    // fill-in links for those who opt in.
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 600,
+                                      ),
+                                      child: PlotEnrichedView(
+                                        channel: ch,
+                                        plotText: plot.toString(),
+                                        textStyle: TextStyle(
+                                          color: AppColors.textSecondary(
+                                            context,
+                                          ),
+                                          fontSize: 14,
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    // Credits (label-value pairs)
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 600,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (director.toString().isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 80,
+                                                    child: Text(
+                                                      l10n.director,
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textTertiary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(
+                                                      director.toString(),
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textSecondary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 13,
+                                                        height: 1.4,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (cast.toString().isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 80,
+                                                    child: Text(
+                                                      l10n.cast,
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textTertiary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: CastChipRow(
+                                                      raw: cast.toString(),
+                                                      currentTitle: ch.name,
+                                                      onChannelTap: (c) {
+                                                        // Defer-pop the bottom sheet,
+                                                        // then switch the detail page
+                                                        // to the new channel.
+                                                        setState(
+                                                          () =>
+                                                              _hoveredChannel =
+                                                                  c,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          if (genre.toString().isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 80,
+                                                    child: Text(
+                                                      l10n.genre,
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textTertiary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(
+                                                      genre.toString(),
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.textSecondary(
+                                                              context,
+                                                            ),
+                                                        fontSize: 13,
+                                                        height: 1.4,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Smart Similar — falls back to the
+                                    // token-overlap rail when no Gemini key or
+                                    // when the AI call doesn't yield usable
+                                    // results.
+                                    const SizedBox(height: 44),
+                                    AiSimilarSection(
+                                      current: ch,
+                                      onTap: (target) => _openDetail(target),
+                                      fallbackBuilder: (_) =>
+                                          similarMovies.isNotEmpty
+                                          ? _buildSimilarSection(similarMovies)
+                                          : const SizedBox.shrink(),
+                                    ),
+                                    const SizedBox(height: 40),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
             ),
-          )),
+          ),
 
           // Compact picture-in-picture YouTube trailer in the upper-right
           // empty area. Placed LAST in the Stack so it sits on top of
@@ -1357,8 +2006,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                               context,
                               directTrailerRef: ch.youtubeTrailer,
                               searchTitle: ch.name,
-                              searchYear:
-                                  year.isNotEmpty ? year : ch.year,
+                              searchYear: year.isNotEmpty ? year : ch.year,
                               channelType: ch.type,
                             ),
                             child: const SizedBox.expand(),
@@ -1391,7 +2039,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final genre = info?['genre'] ?? '';
     final rating = info?['rating'] ?? ch.rating?.toStringAsFixed(1) ?? '';
     final releaseDate = info?['release_date']?.toString() ?? '';
-    final year = releaseDate.length >= 4 ? releaseDate.substring(0, 4) : (ch.year ?? '');
+    final year = releaseDate.length >= 4
+        ? releaseDate.substring(0, 4)
+        : (ch.year ?? '');
     final duration = info?['duration'] ?? '';
 
     return Column(
@@ -1404,87 +2054,151 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 8))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(imageUrl: ch.streamIcon!, width: 120, height: 180, fit: BoxFit.cover,
+                child: CachedNetworkImage(
+                  imageUrl: ch.streamIcon!,
+                  width: 120,
+                  height: 180,
+                  fit: BoxFit.cover,
                   memCacheWidth: 360,
-                  errorWidget: (_, _, _) => Container(width: 120, height: 180, color: AppColors.surface(context),
-                    child: Center(child: Icon(Icons.movie, color: AppColors.textTertiary(context), size: 36)))),
+                  errorWidget: (_, _, _) => Container(
+                    width: 120,
+                    height: 180,
+                    color: AppColors.surface(context),
+                    child: Center(
+                      child: Icon(
+                        Icons.movie,
+                        color: AppColors.textTertiary(context),
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         // Badges
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.blue.shade700, borderRadius: BorderRadius.circular(16)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.movie, color: Colors.white, size: 10),
-              const SizedBox(width: 4),
-              Text(l10n.movie, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 10)),
-            ]),
-          ),
-          if (rating.toString().isNotEmpty) ...[
-            const SizedBox(width: 6),
+        Row(
+          children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.star, color: AppColors.gold, size: 10),
-                const SizedBox(width: 3),
-                Text(rating.toString(), style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w600, fontSize: 10)),
-              ]),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.movie, color: Colors.white, size: 10),
+                  const SizedBox(width: 4),
+                  Text(
+                    l10n.movie,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            if (rating.toString().isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star, color: AppColors.gold, size: 10),
+                    const SizedBox(width: 3),
+                    Text(
+                      rating.toString(),
+                      style: const TextStyle(
+                        color: AppColors.gold,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
         const SizedBox(height: 10),
         // Title
-        Text(title.toString(), style: const TextStyle(
-          color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22,
-          letterSpacing: -0.3, height: 1.15,
-        )),
+        Text(
+          title.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            letterSpacing: -0.3,
+            height: 1.15,
+          ),
+        ),
         const SizedBox(height: 6),
         // Meta
         _buildMetaRow(year, genre.toString(), duration.toString()),
         const SizedBox(height: 16),
         // Action buttons
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (progress != null && !progress.isFinished && progress.position > 1000)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (progress != null &&
+                !progress.isFinished &&
+                progress.position > 1000)
+              ElevatedButton.icon(
+                onPressed: () => _playMovie(
+                  ch,
+                  startPosition: Duration(milliseconds: progress.position),
+                ),
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: Text(l10n.continueWatching),
+              ),
             ElevatedButton.icon(
-              onPressed: () => _playMovie(ch, startPosition: Duration(milliseconds: progress.position)),
+              onPressed: () => _playMovie(ch),
               icon: const Icon(Icons.play_arrow, size: 18),
-              label: Text(l10n.continueWatching),
+              label: Text(l10n.play),
             ),
-          ElevatedButton.icon(
-            onPressed: () => _playMovie(ch),
-            icon: const Icon(Icons.play_arrow, size: 18),
-            label: Text(l10n.play),
-          ),
-          if (trailerUrl != null)
-            OutlinedButton.icon(
-              // Mobile entry point for the trailer. Desktop has a
-              // floating PiP that opens the same dialog on tap, but
-              // mobile skips the PiP (see the Positioned in
-              // `_buildDetailView`) — so this button is the only path.
-              // Open the in-app `showExpandedTrailer` instead of
-              // bouncing the user out to the external YouTube app.
-              onPressed: () => showExpandedTrailer(
-                context,
-                directTrailerRef: ch.youtubeTrailer,
-                searchTitle: ch.name,
-                searchYear: year.isNotEmpty ? year : ch.year,
-                channelType: ch.type,
+            if (trailerUrl != null)
+              OutlinedButton.icon(
+                // Mobile entry point for the trailer. Desktop has a
+                // floating PiP that opens the same dialog on tap, but
+                // mobile skips the PiP (see the Positioned in
+                // `_buildDetailView`) — so this button is the only path.
+                // Open the in-app `showExpandedTrailer` instead of
+                // bouncing the user out to the external YouTube app.
+                onPressed: () => showExpandedTrailer(
+                  context,
+                  directTrailerRef: ch.youtubeTrailer,
+                  searchTitle: ch.name,
+                  searchYear: year.isNotEmpty ? year : ch.year,
+                  channelType: ch.type,
+                ),
+                icon: const Icon(Icons.play_circle_outline, size: 16),
+                label: Text(l10n.trailer),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                ),
               ),
-              icon: const Icon(Icons.play_circle_outline, size: 16),
-              label: Text(l10n.trailer),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-              ),
-            ),
-        ]),
+          ],
+        ),
         const SizedBox(height: 16),
         // Plot — same AI-aware wrapper as the desktop branch.
         PlotEnrichedView(
@@ -1530,11 +2244,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label,
-                style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700)),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           Expanded(
             child: CastChipRow(
@@ -1558,9 +2275,25 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         children: [
           SizedBox(
             width: 70,
-            child: Text(label, style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12, fontWeight: FontWeight.w700)),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          Expanded(child: Text(value, style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12, height: 1.4))),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1570,7 +2303,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     final s = d.inSeconds.remainder(60);
-    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    if (h > 0) {
+      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
@@ -1584,13 +2319,29 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     return Row(
       children: [
         for (int i = 0; i < items.length; i++) ...[
-          if (i > 0) Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('·', style: TextStyle(color: AppColors.textTertiary(context), fontSize: 16, fontWeight: FontWeight.w700)),
-          ),
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '·',
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           Flexible(
-            child: Text(items[i], style: TextStyle(color: AppColors.textSecondary(context), fontSize: 14, fontWeight: FontWeight.w500),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(
+              items[i],
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ],
@@ -1664,7 +2415,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           return 'https://www.youtube.com/watch?v=${uri.pathSegments.first}';
         }
 
-        if (host.contains('youtube.com') || host.contains('youtube-nocookie.com')) {
+        if (host.contains('youtube.com') ||
+            host.contains('youtube-nocookie.com')) {
           final queryVideoId = uri.queryParameters['v'];
           if (queryVideoId != null && queryVideoId.isNotEmpty) {
             return 'https://www.youtube.com/watch?v=$queryVideoId';
@@ -1741,15 +2493,19 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }) {
     final baseGenres = _genreTokens(genreText ?? current.genre ?? '');
     final baseDirectors = _textTokens(baseDirector ?? current.director ?? '');
-    final baseCastTokens = _textTokens(baseCast ?? current.cast ?? '', minLength: 4);
+    final baseCastTokens = _textTokens(
+      baseCast ?? current.cast ?? '',
+      minLength: 4,
+    );
     // Plot tokens — meaningful content words from the current item's
     // plot. Drives a thematic-overlap score so e.g. an action film
     // about "kidnapping a daughter" surfaces other films whose
     // plots include "kidnapping". Stopword-filtered + length-gated
     // to drop "the", "and", "için", etc.
-    final basePlotTokens =
-        _plotTokens(basePlot ?? current.plot ?? '');
-    final seedItems = personalizationSeed.where((c) => c.streamId != current.streamId).toList();
+    final basePlotTokens = _plotTokens(basePlot ?? current.plot ?? '');
+    final seedItems = personalizationSeed
+        .where((c) => c.streamId != current.streamId)
+        .toList();
     final seedIds = seedItems.map((c) => c.streamId).toSet();
     final prefGenres = <String>{};
     final prefDirectors = <String>{};
@@ -1781,7 +2537,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       }
 
       final itemDirectors = _textTokens(channel.director ?? '');
-      if (baseDirectors.isNotEmpty && itemDirectors.any(baseDirectors.contains)) {
+      if (baseDirectors.isNotEmpty &&
+          itemDirectors.any(baseDirectors.contains)) {
         score += 5;
       }
 
@@ -1798,8 +2555,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       if (basePlotTokens.isNotEmpty) {
         final itemPlotTokens = _plotTokens(channel.plot ?? '');
         if (itemPlotTokens.isNotEmpty) {
-          final plotOverlap =
-              itemPlotTokens.where(basePlotTokens.contains).length;
+          final plotOverlap = itemPlotTokens
+              .where(basePlotTokens.contains)
+              .length;
           score += plotOverlap.clamp(0, 5);
         }
       }
@@ -1809,7 +2567,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         score += prefGenreOverlap * 2;
       }
 
-      if (prefDirectors.isNotEmpty && itemDirectors.any(prefDirectors.contains)) {
+      if (prefDirectors.isNotEmpty &&
+          itemDirectors.any(prefDirectors.contains)) {
         score += 3;
       }
 
@@ -1832,7 +2591,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     }
 
     if (scored.isEmpty) {
-      return all.where((c) => c.streamId != current.streamId).take(limit).toList();
+      return all
+          .where((c) => c.streamId != current.streamId)
+          .take(limit)
+          .toList();
     }
 
     // Sort: score desc, then per-current deterministic shuffle.
@@ -1854,8 +2616,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       // is already absorbed into the score; using it as the
       // tiebreaker on top of that just biases toward the same
       // few items again.
-      return (tieOrder[a.key.streamId] ?? 0)
-          .compareTo(tieOrder[b.key.streamId] ?? 0);
+      return (tieOrder[a.key.streamId] ?? 0).compareTo(
+        tieOrder[b.key.streamId] ?? 0,
+      );
     });
 
     // Diversity guard — without it the top-N tends to be a clone
@@ -1991,7 +2754,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                         fit: BoxFit.cover,
                         width: double.infinity,
                         memCacheWidth: 360,
-                        errorWidget: (_, _, _) => Container(color: AppColors.surface(context)),
+                        errorWidget: (_, _, _) =>
+                            Container(color: AppColors.surface(context)),
                       )
                     : Container(color: AppColors.surface(context)),
               ),
@@ -2074,7 +2838,15 @@ class _FocusableCatItem extends StatefulWidget {
   final VoidCallback? onRightPressed;
   final VoidCallback? onLeftPressed;
   final FocusNode? focusNode;
-  const _FocusableCatItem({required this.name, required this.isSelected, required this.isDark, required this.onTap, this.onRightPressed, this.onLeftPressed, this.focusNode});
+  const _FocusableCatItem({
+    required this.name,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+    this.onRightPressed,
+    this.onLeftPressed,
+    this.focusNode,
+  });
   @override
   State<_FocusableCatItem> createState() => _FocusableCatItemState();
 }
@@ -2113,7 +2885,9 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
         return KeyEventResult.ignored;
       },
       child: Material(
-        color: isActive ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
+        color: isActive
+            ? AppColors.primary.withValues(alpha: 0.15)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -2123,14 +2897,28 @@ class _FocusableCatItemState extends State<_FocusableCatItem> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _isFocused ? AppColors.primary : (widget.isSelected ? AppColors.primary : Colors.transparent),
+                color: _isFocused
+                    ? AppColors.primary
+                    : (widget.isSelected
+                          ? AppColors.primary
+                          : Colors.transparent),
                 width: _isFocused ? 2 : (widget.isSelected ? 1.5 : 0),
               ),
             ),
-            child: Text(widget.name, style: TextStyle(
-              color: isActive ? AppColors.primary : (widget.isDark ? AppColors.textSecondary(context) : AppColors.textSecondaryLight),
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400, fontSize: 13,
-            ), maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(
+              widget.name,
+              style: TextStyle(
+                color: isActive
+                    ? AppColors.primary
+                    : (widget.isDark
+                          ? AppColors.textSecondary(context)
+                          : AppColors.textSecondaryLight),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),
@@ -2145,20 +2933,16 @@ class _FocusableActionButton extends StatefulWidget {
   final String label;
   final bool isPrimary;
   final VoidCallback? onTap;
-  final bool autofocus;
   final Color? backgroundColor;
   final FocusNode? focusNode;
-  final double? maxWidth;
 
   const _FocusableActionButton({
     required this.icon,
     required this.label,
     required this.isPrimary,
     this.onTap,
-    this.autofocus = false,
     this.backgroundColor,
     this.focusNode,
-    this.maxWidth,
   });
 
   @override
@@ -2172,12 +2956,11 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
   Widget build(BuildContext context) {
     return Focus(
       focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap?.call();
           return KeyEventResult.handled;
         }
@@ -2187,16 +2970,23 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: EdgeInsets.symmetric(horizontal: widget.label.isEmpty ? 10 : 18, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.label.isEmpty ? 10 : 18,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
-            color: widget.backgroundColor ?? (widget.isPrimary
-                ? AppColors.primary
-                : Colors.white.withValues(alpha: 0.08)),
+            color:
+                widget.backgroundColor ??
+                (widget.isPrimary
+                    ? AppColors.primary
+                    : Colors.white.withValues(alpha: 0.08)),
             borderRadius: BorderRadius.circular(8),
-            border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
+            border: _isFocused
+                ? Border.all(color: AppColors.primary, width: 2)
+                : null,
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: widget.maxWidth ?? double.infinity),
+            constraints: BoxConstraints(maxWidth: double.infinity),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2206,7 +2996,11 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
                   Flexible(
                     child: Text(
                       widget.label,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -2232,23 +3026,56 @@ class _MovieGridView extends ConsumerWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _MovieGridView({required this.gridController, required this.categoryId, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _MovieGridView({
+    required this.gridController,
+    required this.categoryId,
+    required this.searchQuery,
+    required this.onPlay,
+    required this.onHover,
+    required this.onTap,
+    this.onLeftEdge,
+    required this.l10n,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final channelsAsync = ref.watch(_movieChannelsProvider(categoryId));
     return channelsAsync.when(
       data: (channels) {
-        final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
-        final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
-        final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge,
+        final filtered = searchQuery.isEmpty
+            ? channels
+            : channels
+                  .where((c) => c.name.toLowerCase().contains(searchQuery))
+                  .toList();
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              l10n.noMoviesFound,
+              style: TextStyle(color: AppColors.textTertiary(context)),
+            ),
+          );
+        }
+        final genreFiltered = filterByGenre(
+          filtered,
+          ref.watch(movieGenreFilterProvider),
+        );
+        final sorted = sortChannels(
+          genreFiltered,
+          ref.watch(movieSortModeProvider),
+        );
+        return _PosterGrid(
+          controller: gridController,
+          channels: sorted,
+          onPlay: (ch) => onPlay(ch),
+          onHover: onHover,
+          onTap: onTap,
+          onLeftEdge: onLeftEdge,
           // Grow the page when the grid nears its end. Idempotent: bumps to
           // raw-count + one page only while the DB returned a full page
           // (more may exist); stops once a short page proves exhaustion.
           onNeedMore: () =>
-              ref.read(_movieGridLimitProvider.notifier).grow(channels.length));
+              ref.read(_movieGridLimitProvider.notifier).grow(channels.length),
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -2264,20 +3091,52 @@ class _AllMoviesGridView extends ConsumerWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _AllMoviesGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _AllMoviesGridView({
+    required this.gridController,
+    required this.searchQuery,
+    required this.onPlay,
+    required this.onHover,
+    required this.onTap,
+    this.onLeftEdge,
+    required this.l10n,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final channelsAsync = ref.watch(_allMoviesProvider);
     return channelsAsync.when(
       data: (channels) {
-        final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noMoviesFound, style: TextStyle(color: AppColors.textTertiary(context))));
-        final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
-        final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-        return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge,
+        final filtered = searchQuery.isEmpty
+            ? channels
+            : channels
+                  .where((c) => c.name.toLowerCase().contains(searchQuery))
+                  .toList();
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              l10n.noMoviesFound,
+              style: TextStyle(color: AppColors.textTertiary(context)),
+            ),
+          );
+        }
+        final genreFiltered = filterByGenre(
+          filtered,
+          ref.watch(movieGenreFilterProvider),
+        );
+        final sorted = sortChannels(
+          genreFiltered,
+          ref.watch(movieSortModeProvider),
+        );
+        return _PosterGrid(
+          controller: gridController,
+          channels: sorted,
+          onPlay: (ch) => onPlay(ch),
+          onHover: onHover,
+          onTap: onTap,
+          onLeftEdge: onLeftEdge,
           onNeedMore: () =>
-              ref.read(_movieGridLimitProvider.notifier).grow(channels.length));
+              ref.read(_movieGridLimitProvider.notifier).grow(channels.length),
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -2293,7 +3152,15 @@ class _FavoritesGridView extends ConsumerWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _FavoritesGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _FavoritesGridView({
+    required this.gridController,
+    required this.searchQuery,
+    required this.onPlay,
+    required this.onHover,
+    required this.onTap,
+    this.onLeftEdge,
+    required this.l10n,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2303,22 +3170,41 @@ class _FavoritesGridView extends ConsumerWidget {
         if (ids.isEmpty) {
           return EmptyState.favorites(
             title: l10n.noFavorites,
-            subtitle: 'Bir filmin yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
+            subtitle:
+                'Bir filmin yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
           );
         }
         final channelsAsync = ref.watch(_favChannelsProvider(ids));
         return channelsAsync.when(
           data: (channels) {
-            final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
+            final filtered = searchQuery.isEmpty
+                ? channels
+                : channels
+                      .where((c) => c.name.toLowerCase().contains(searchQuery))
+                      .toList();
             if (filtered.isEmpty) {
               return EmptyState.search(
                 title: l10n.noFavorites,
-                subtitle: '"$searchQuery" aramasıyla eşleşen favori bulunamadı.',
+                subtitle:
+                    '"$searchQuery" aramasıyla eşleşen favori bulunamadı.',
               );
             }
-            final genreFiltered = filterByGenre(filtered, ref.watch(movieGenreFilterProvider));
-            final sorted = sortChannels(genreFiltered, ref.watch(movieSortModeProvider));
-            return _PosterGrid(controller: gridController, channels: sorted, onPlay: (ch) => onPlay(ch), onHover: onHover, onTap: onTap, onLeftEdge: onLeftEdge);
+            final genreFiltered = filterByGenre(
+              filtered,
+              ref.watch(movieGenreFilterProvider),
+            );
+            final sorted = sortChannels(
+              genreFiltered,
+              ref.watch(movieSortModeProvider),
+            );
+            return _PosterGrid(
+              controller: gridController,
+              channels: sorted,
+              onPlay: (ch) => onPlay(ch),
+              onHover: onHover,
+              onTap: onTap,
+              onLeftEdge: onLeftEdge,
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),
@@ -2338,33 +3224,69 @@ class _HistoryGridView extends ConsumerWidget {
   final Function(Channel) onTap;
   final VoidCallback? onLeftEdge;
   final AppLocalizations l10n;
-  const _HistoryGridView({required this.gridController, required this.searchQuery, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, required this.l10n});
+  const _HistoryGridView({
+    required this.gridController,
+    required this.searchQuery,
+    required this.onPlay,
+    required this.onHover,
+    required this.onTap,
+    this.onLeftEdge,
+    required this.l10n,
+  });
 
   void _clearAllHistory(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceElevated(context),
-        title: Text(l10n.clearHistory, style: TextStyle(color: AppColors.text(context))),
-        content: Text(l10n.clearHistoryConfirm, style: TextStyle(color: AppColors.textSecondary(context))),
+        title: Text(
+          l10n.clearHistory,
+          style: TextStyle(color: AppColors.text(context)),
+        ),
+        content: Text(
+          l10n.clearHistoryConfirm,
+          style: TextStyle(color: AppColors.textSecondary(context)),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () {
               ref.read(playerRepositoryProvider).clearAllProgress('movie');
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.historyCleared), duration: const Duration(seconds: 2)));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(l10n.historyCleared),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
             },
-            child: Text(l10n.clearHistory, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.clearHistory,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _removeFromHistory(BuildContext context, WidgetRef ref, Channel channel) {
-    ref.read(playerRepositoryProvider).deleteProgress(channel.streamId, 'movie');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.removedFromHistory), duration: const Duration(seconds: 2)));
+  void _removeFromHistory(
+    BuildContext context,
+    WidgetRef ref,
+    Channel channel,
+  ) {
+    ref
+        .read(playerRepositoryProvider)
+        .deleteProgress(channel.streamId, 'movie');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.removedFromHistory),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -2372,9 +3294,27 @@ class _HistoryGridView extends ConsumerWidget {
     final channelsAsync = ref.watch(_continueWatchingMoviesProvider);
     return channelsAsync.when(
       data: (channels) {
-        if (channels.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiary(context))));
-        final filtered = searchQuery.isEmpty ? channels : channels.where((c) => c.name.toLowerCase().contains(searchQuery)).toList();
-        if (filtered.isEmpty) return Center(child: Text(l10n.noHistory, style: TextStyle(color: AppColors.textTertiary(context))));
+        if (channels.isEmpty) {
+          return Center(
+            child: Text(
+              l10n.noHistory,
+              style: TextStyle(color: AppColors.textTertiary(context)),
+            ),
+          );
+        }
+        final filtered = searchQuery.isEmpty
+            ? channels
+            : channels
+                  .where((c) => c.name.toLowerCase().contains(searchQuery))
+                  .toList();
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              l10n.noHistory,
+              style: TextStyle(color: AppColors.textTertiary(context)),
+            ),
+          );
+        }
         return Column(
           children: [
             // Clear history button bar
@@ -2385,11 +3325,23 @@ class _HistoryGridView extends ConsumerWidget {
                 children: [
                   TextButton.icon(
                     onPressed: () => _clearAllHistory(context, ref),
-                    icon: const Icon(Icons.delete_sweep, size: 16, color: Colors.red),
-                    label: Text(l10n.clearHistory, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    icon: const Icon(
+                      Icons.delete_sweep,
+                      size: 16,
+                      color: Colors.red,
+                    ),
+                    label: Text(
+                      l10n.clearHistory,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       backgroundColor: Colors.red.withValues(alpha: 0.1),
                     ),
                   ),
@@ -2430,7 +3382,16 @@ class _PosterGrid extends StatefulWidget {
   final VoidCallback? onLeftEdge;
   final Function(Channel)? onLongPress;
   final VoidCallback? onNeedMore;
-  const _PosterGrid({required this.controller, required this.channels, required this.onPlay, required this.onHover, required this.onTap, this.onLeftEdge, this.onLongPress, this.onNeedMore});
+  const _PosterGrid({
+    required this.controller,
+    required this.channels,
+    required this.onPlay,
+    required this.onHover,
+    required this.onTap,
+    this.onLeftEdge,
+    this.onLongPress,
+    this.onNeedMore,
+  });
 
   @override
   State<_PosterGrid> createState() => _PosterGridState();
@@ -2477,7 +3438,11 @@ class _PosterGridState extends State<_PosterGrid> {
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
       padding: EdgeInsets.fromLTRB(
-          context.horizontalPadding, 4, context.horizontalPadding, 60),
+        context.horizontalPadding,
+        4,
+        context.horizontalPadding,
+        60,
+      ),
       onActivate: (ch) => widget.onTap(ch),
       onLeftEdge: widget.onLeftEdge,
       onNeedMore: widget.onNeedMore,
@@ -2529,14 +3494,17 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this,
-        // Snap the focus scale instantly on Android TV (no per-D-pad-move
-        // re-composite tween); animated on desktop where the GPU can spare it.
-        duration: PlatformHelper.isTV
-            ? Duration.zero
-            : const Duration(milliseconds: 180));
-    _scale = Tween(begin: 1.0, end: PlatformHelper.focusedScale)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      vsync: this,
+      // Snap the focus scale instantly on Android TV (no per-D-pad-move
+      // re-composite tween); animated on desktop where the GPU can spare it.
+      duration: PlatformHelper.isTV
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
+    );
+    _scale = Tween(
+      begin: 1.0,
+      end: PlatformHelper.focusedScale,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _syncAnim();
   }
 
@@ -2596,16 +3564,19 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: active ? AppColors.primary : Colors.transparent,
-                  width: active ? PlatformHelper.focusRingWidth : 0),
+                color: active ? AppColors.primary : Colors.transparent,
+                width: active ? PlatformHelper.focusRingWidth : 0,
+              ),
               // No blurred glow on TV — the focus border alone marks the
               // tile; a 24px Gaussian glow per D-pad move is wasted GPU work.
               boxShadow: (active && !PlatformHelper.isTV)
                   ? [
                       BoxShadow(
-                          color: AppColors.primary.withValues(
-                              alpha: PlatformHelper.focusRingGlowAlpha),
-                          blurRadius: PlatformHelper.focusRingGlowBlur)
+                        color: AppColors.primary.withValues(
+                          alpha: PlatformHelper.focusRingGlowAlpha,
+                        ),
+                        blurRadius: PlatformHelper.focusRingGlowBlur,
+                      ),
                     ]
                   : const <BoxShadow>[],
             ),
@@ -2615,84 +3586,120 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                 fit: StackFit.expand,
                 children: [
                   widget.channel.streamIcon != null
-                      ? CachedNetworkImage(imageUrl: widget.channel.streamIcon!,
+                      ? CachedNetworkImage(
+                          imageUrl: widget.channel.streamIcon!,
                           fit: BoxFit.cover,
                           // Decode posters to ~tile width, not full source
                           // resolution — a grid of full-res decodes is the
                           // main OOM/jank source on weak Android TV GPUs.
                           memCacheWidth: 320,
                           errorWidget: (_, _, _) =>
-                              _placeholder(context, widget.channel))
+                              _placeholder(context, widget.channel),
+                        )
                       : _placeholder(context, widget.channel),
                   Positioned.fill(
-                      child: Container(
-                          decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.85)
-                              ],
-                                  stops: const [0.55, 1.0])))),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.85),
+                          ],
+                          stops: const [0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
                   if (active)
                     Center(
-                        child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.85),
-                          shape: BoxShape.circle),
-                      child: const Icon(Icons.play_arrow,
-                          color: Colors.white, size: 22),
-                    )),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
                   if (widget.channel.rating != null &&
                       widget.channel.rating! > 0)
                     Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(3)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.star,
-                                color: AppColors.gold, size: 10),
+                      top: 5,
+                      right: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: AppColors.gold,
+                              size: 10,
+                            ),
                             const SizedBox(width: 2),
-                            Text(widget.channel.rating!.toStringAsFixed(1),
-                                style: const TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700)),
-                          ]),
-                        )),
+                            Text(
+                              widget.channel.rating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (widget.channel.year != null)
                     Positioned(
-                        top: 5,
-                        left: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(3)),
-                          child: Text(widget.channel.year!,
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 9)),
-                        )),
-                  Positioned(
-                      bottom: 6,
-                      left: 6,
-                      right: 6,
-                      child: Text(widget.channel.name,
+                      top: 5,
+                      left: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          widget.channel.year!,
                           style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis)),
+                            color: Colors.white70,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    right: 6,
+                    child: Text(
+                      widget.channel.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2705,17 +3712,22 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
   static Widget _placeholder(BuildContext context, Channel channel) {
     final i = channel.name.isNotEmpty
         ? channel.name
-            .substring(0, channel.name.length.clamp(0, 2))
-            .toUpperCase()
+              .substring(0, channel.name.length.clamp(0, 2))
+              .toUpperCase()
         : '?';
     return Container(
-        color: AppColors.surfaceElevated(context),
-        child: Center(
-            child: Text(i,
-                style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800))));
+      color: AppColors.surfaceElevated(context),
+      child: Center(
+        child: Text(
+          i,
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2750,17 +3762,25 @@ class _GridLimitNotifier extends Notifier<int> {
 /// Row cap for the currently shown movie grid (category or "All"). Only
 /// one grid is visible at a time, so a single shared provider suffices;
 /// it's reset on every category switch so each category starts at page 1.
-final _movieGridLimitProvider =
-    NotifierProvider<_GridLimitNotifier, int>(_GridLimitNotifier.new);
+final _movieGridLimitProvider = NotifierProvider<_GridLimitNotifier, int>(
+  _GridLimitNotifier.new,
+);
 
-final _movieChannelsProvider = StreamProvider.family<List<Channel>, String>((ref, categoryId) {
+final _movieChannelsProvider = StreamProvider.family<List<Channel>, String>((
+  ref,
+  categoryId,
+) {
   final limit = ref.watch(_movieGridLimitProvider);
-  return ref.watch(contentRepositoryProvider).watchChannels(categoryId, type: 'movie', limit: limit);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchChannels(categoryId, type: 'movie', limit: limit);
 });
 
 final _allMoviesProvider = StreamProvider<List<Channel>>((ref) {
   final limit = ref.watch(_movieGridLimitProvider);
-  return ref.watch(contentRepositoryProvider).watchAllChannelsByType('movie', limit: limit);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchAllChannelsByType('movie', limit: limit);
 });
 
 /// Genre chips derived from the loaded movie list. Memoized as a Provider so
@@ -2778,45 +3798,55 @@ final _movieGenresProvider = Provider<List<String>>((ref) {
 /// makes the rail genuinely per-title instead of "same top items".
 final _embeddingSimilarMoviesProvider =
     FutureProvider.family<List<Channel>, int>((ref, streamId) async {
-  // Never run the semantic (embedding) similar scan on Android TV — if a
-  // paired phone LAN-synced embeddings, this would loadAll + sort every
-  // vector on the DB isolate on each detail open. The metadata fallback
-  // (_memoSimilarMovies) covers TV cheaply.
-  if (PlatformHelper.isTV) return const [];
-  final hits = await ref
-      .watch(semanticSearchServiceProvider)
-      .similarTo(streamId, 'movie', k: 30, restrictType: 'movie');
-  if (hits.isEmpty) return const [];
-  final db = ref.watch(appDatabaseProvider);
-  final ids = hits.map((h) => h.streamId).toList();
-  final rows = await (db.select(db.channels)
-        ..where((t) => t.streamId.isIn(ids)))
-      .get();
-  final byId = {
-    for (final r in rows)
-      if (r.type == 'movie') r.streamId: r
-  };
-  return [
-    for (final h in hits)
-      if (byId[h.streamId] != null) byId[h.streamId]!
-  ];
-});
+      // Never run the semantic (embedding) similar scan on Android TV — if a
+      // paired phone LAN-synced embeddings, this would loadAll + sort every
+      // vector on the DB isolate on each detail open. The metadata fallback
+      // (_memoSimilarMovies) covers TV cheaply.
+      if (PlatformHelper.isTV) return const [];
+      final hits = await ref
+          .watch(semanticSearchServiceProvider)
+          .similarTo(streamId, 'movie', k: 30, restrictType: 'movie');
+      if (hits.isEmpty) return const [];
+      final db = ref.watch(appDatabaseProvider);
+      final ids = hits.map((h) => h.streamId).toList();
+      final rows = await (db.select(
+        db.channels,
+      )..where((t) => t.streamId.isIn(ids))).get();
+      final byId = {
+        for (final r in rows)
+          if (r.type == 'movie') r.streamId: r,
+      };
+      return [
+        for (final h in hits)
+          if (byId[h.streamId] != null) byId[h.streamId]!,
+      ];
+    });
 
 final _favMovieIdsProvider = StreamProvider<List<int>>((ref) {
   return ref.watch(favoritesRepositoryProvider).watchFavoriteStreamIds('movie');
 });
 
-final _favChannelsProvider = StreamProvider.family<List<Channel>, List<int>>((ref, ids) {
-  return ref.watch(contentRepositoryProvider).watchFavoriteChannels('movie', ids);
+final _favChannelsProvider = StreamProvider.family<List<Channel>, List<int>>((
+  ref,
+  ids,
+) {
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchFavoriteChannels('movie', ids);
 });
 
 final _continueWatchingMoviesProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(contentRepositoryProvider).watchContinueWatching('movie');
 });
 
-final _playbackProgressProvider = StreamProvider.family<PlaybackProgressData?, ({int streamId, String type})>((ref, params) {
-  return ref.watch(contentRepositoryProvider).watchPlaybackProgress(params.streamId, params.type);
-});
+final _playbackProgressProvider =
+    StreamProvider.family<PlaybackProgressData?, ({int streamId, String type})>(
+      (ref, params) {
+        return ref
+            .watch(contentRepositoryProvider)
+            .watchPlaybackProgress(params.streamId, params.type);
+      },
+    );
 
 // ─── Focusable Icon Button (for category sidebar toggle etc.) ──────────────
 
@@ -2824,7 +3854,11 @@ class _FocusableIconButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
-  const _FocusableIconButton({required this.icon, required this.tooltip, required this.onTap});
+  const _FocusableIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
   @override
   State<_FocusableIconButton> createState() => _FocusableIconButtonState();
 }
@@ -2841,7 +3875,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -2859,11 +3893,21 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isActive ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surface(context),
+                color: isActive
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : AppColors.surface(context),
                 borderRadius: BorderRadius.circular(10),
-                border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
+                border: _isFocused
+                    ? Border.all(color: AppColors.primary, width: 2)
+                    : null,
               ),
-              child: Icon(widget.icon, color: isActive ? AppColors.primary : AppColors.textSecondary(context), size: 22),
+              child: Icon(
+                widget.icon,
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.textSecondary(context),
+                size: 22,
+              ),
             ),
           ),
         ),
@@ -2879,7 +3923,12 @@ class _SearchButton extends StatefulWidget {
   final bool isActive;
   final VoidCallback onTap;
   final VoidCallback? onClear;
-  const _SearchButton({required this.hintText, this.isActive = false, required this.onTap, this.onClear});
+  const _SearchButton({
+    required this.hintText,
+    this.isActive = false,
+    required this.onTap,
+    this.onClear,
+  });
   @override
   State<_SearchButton> createState() => _SearchButtonState();
 }
@@ -2894,7 +3943,7 @@ class _SearchButtonState extends State<_SearchButton> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -2906,21 +3955,35 @@ class _SearchButtonState extends State<_SearchButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _isFocused ? AppColors.surfaceElevated(context) : AppColors.surface(context),
+            color: _isFocused
+                ? AppColors.surfaceElevated(context)
+                : AppColors.surface(context),
             borderRadius: BorderRadius.circular(10),
-            border: _isFocused ? Border.all(color: AppColors.primary, width: 2) : null,
+            border: _isFocused
+                ? Border.all(color: AppColors.primary, width: 2)
+                : null,
           ),
           child: Row(
             children: [
-              Icon(Icons.search, color: widget.isActive ? AppColors.primary : AppColors.textTertiary(context), size: 20),
+              Icon(
+                Icons.search,
+                color: widget.isActive
+                    ? AppColors.primary
+                    : AppColors.textTertiary(context),
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.hintText,
                   style: TextStyle(
-                    color: widget.isActive ? AppColors.text(context) : AppColors.textTertiary(context),
+                    color: widget.isActive
+                        ? AppColors.text(context)
+                        : AppColors.textTertiary(context),
                     fontSize: 14,
-                    fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: widget.isActive
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2935,7 +3998,11 @@ class _SearchButtonState extends State<_SearchButton> {
                   // onto the surrounding button and reopening it.
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.close, color: AppColors.textTertiary(context), size: 18),
+                    child: Icon(
+                      Icons.close,
+                      color: AppColors.textTertiary(context),
+                      size: 18,
+                    ),
                   ),
                 ),
             ],

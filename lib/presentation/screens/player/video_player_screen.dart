@@ -1,4 +1,5 @@
-import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
+import 'package:lifeostv/data/repositories/profile_repository.dart'
+    show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/presentation/controllers/playback_seek_controller.dart';
 import 'dart:async';
@@ -96,6 +97,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
   /// For series: the parent series channel streamId (so history grid works)
   final int? parentStreamId;
+  final bool saveSeriesSummary;
 
   /// Default intro length (seconds) used when no precise marker has
   /// been recorded for this series. Wired in by the router from
@@ -132,6 +134,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.rating,
     this.startPosition,
     this.parentStreamId,
+    this.saveSeriesSummary = true,
     this.introDefaultSeconds = 90,
     this.channels,
     this.currentChannelIndex,
@@ -312,22 +315,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   @override
   void initState() {
     super.initState();
-    final profileId = ref.read(activeProfileIdProvider).value ??
-        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
+    final profileId =
+        ref.read(activeProfileIdProvider).value ??
+        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ??
+        1;
     _progressRepository = widget.accountId == null
         ? ref.read(playerRepositoryProvider)
-        : PlayerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!), () => profileId);
+        : PlayerRepository(
+            ref.read(rootDatabaseProvider).forAccount(widget.accountId!),
+            () => profileId,
+          );
 
     _introRepository = widget.accountId == null
         ? ref.read(introMarkerRepositoryProvider)
-        : IntroMarkerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!));
+        : IntroMarkerRepository(
+            ref.read(rootDatabaseProvider).forAccount(widget.accountId!),
+          );
     final content = ref.read(contentRepositoryProvider);
     _sessionContentRepository = widget.accountId == null
-        ? content : content.forAccount(widget.accountId!);
+        ? content
+        : content.forAccount(widget.accountId!);
     final root = ref.read(rootDatabaseProvider);
     _sessionAccount = widget.accountId == null
         ? ref.read(currentAccountProvider.future)
-        : (root.select(root.accounts)..where((a) => a.id.equals(widget.accountId!))).getSingleOrNull();
+        : (root.select(
+            root.accounts,
+          )..where((a) => a.id.equals(widget.accountId!))).getSingleOrNull();
     WidgetsBinding.instance.addObserver(this);
 
     // Hide status bar & navigation bar on mobile (immersive mode)
@@ -436,7 +449,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     unawaited(_session.close().catchError((Object _) {}));
     _window?.removeListener(_onWindowStateChanged);
     // Queue restoration now, before a newly opened route can start a session.
-    unawaited(_window?.endSession().catchError((Object _) {}) ?? Future.value());
+    unawaited(
+      _window?.endSession().catchError((Object _) {}) ?? Future.value(),
+    );
     unawaited(_pipNotifier.releasePlayer(_player).catchError((Object _) {}));
     _setPlayerActive(false);
 
@@ -508,10 +523,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (legacy != null && legacy > 0) {
         debugPrint('[intro] migrating legacy key=$legacyKey value=${legacy}s');
         await _introRepository.setMarker(
-              sid,
-              introStartMs: 0,
-              introEndMs: legacy * 1000,
-            );
+          sid,
+          introStartMs: 0,
+          introEndMs: legacy * 1000,
+        );
         await prefs.remove(legacyKey);
       }
     } catch (e) {
@@ -526,11 +541,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // on devices where Drift's stream wakes a tick later than the
     // media_kit player.
     try {
-      final initial = await _introRepository
-          .getMarker(sid);
+      final initial = await _introRepository.getMarker(sid);
       if (initial != null && mounted && !_disposing) {
-        debugPrint('[intro] initial marker loaded: '
-            'start=${initial.introStartMs} end=${initial.introEndMs}');
+        debugPrint(
+          '[intro] initial marker loaded: '
+          'start=${initial.introStartMs} end=${initial.introEndMs}',
+        );
         setState(() {
           _introStartMs = initial.introStartMs;
           _introEndMs = initial.introEndMs;
@@ -546,12 +562,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Live subscription to the marker. The marking UI writes to the
     // same table, so this picks up edits without an extra reload.
-    _introMarkerSub = _introRepository
-        .watchMarker(sid)
-        .listen((m) {
+    _introMarkerSub = _introRepository.watchMarker(sid).listen((m) {
       if (!mounted || _disposing) return;
-      debugPrint('[intro] marker stream emitted: '
-          'start=${m?.introStartMs} end=${m?.introEndMs}');
+      debugPrint(
+        '[intro] marker stream emitted: '
+        'start=${m?.introStartMs} end=${m?.introEndMs}',
+      );
       setState(() {
         _introStartMs = m?.introStartMs;
         _introEndMs = m?.introEndMs;
@@ -606,8 +622,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           final hasMarker = _introStartMs != null && _introEndMs != null;
           return Dialog(
             backgroundColor: AppColors.surfaceElevatedDark,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: SizedBox(
               width: 360,
               child: Padding(
@@ -618,8 +635,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.bookmark_outline,
-                            color: AppColors.primary, size: 20),
+                        const Icon(
+                          Icons.bookmark_outline,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Text(
                           l10n.skipIntro,
@@ -674,15 +694,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       onTap: () async {
                         final start = pendingStartMs;
                         final end = _rawPos.inMilliseconds;
-                        debugPrint('[intro] marking dialog: '
-                            'start=$start end=$end sid=$sid');
+                        debugPrint(
+                          '[intro] marking dialog: '
+                          'start=$start end=$end sid=$sid',
+                        );
                         if (start == null || end <= start) {
                           debugPrint(
-                              '[intro] invalid range, refusing setMarker');
-                          messenger.showSnackBar(SnackBar(
-                            content: Text(l10n.introMarkInvalid),
-                            duration: const Duration(seconds: 2),
-                          ));
+                            '[intro] invalid range, refusing setMarker',
+                          );
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.introMarkInvalid),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                           return;
                         }
                         try {
@@ -695,18 +720,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         } catch (e) {
                           debugPrint('[intro] setMarker failed: $e');
                           if (!ctx.mounted) return;
-                          messenger.showSnackBar(SnackBar(
-                            content: Text('${l10n.introMarkInvalid}: $e'),
-                            duration: const Duration(seconds: 3),
-                          ));
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('${l10n.introMarkInvalid}: $e'),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
                           return;
                         }
                         if (!ctx.mounted) return;
                         Navigator.pop(ctx);
-                        messenger.showSnackBar(SnackBar(
-                          content: Text(l10n.introMarked),
-                          duration: const Duration(seconds: 2),
-                        ));
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.introMarked),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
                       },
                     ),
                     if (hasMarker)
@@ -718,10 +747,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           await repo.clearMarker(sid);
                           if (!ctx.mounted) return;
                           Navigator.pop(ctx);
-                          messenger.showSnackBar(SnackBar(
-                            content: Text(l10n.introCleared),
-                            duration: const Duration(seconds: 2),
-                          ));
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.introCleared),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                         },
                       ),
                   ],
@@ -843,7 +874,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         shadows: s.subtitleBackgroundEnabled
             ? const []
             : const [
-                Shadow(color: Colors.black, blurRadius: 3, offset: Offset(0, 1)),
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
                 Shadow(color: Colors.black, blurRadius: 6),
               ],
       ),
@@ -898,7 +933,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _player,
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: settings.hardwareAcceleration,
-        hwdec: MpvConfig.decoder(hardwareAcceleration: settings.hardwareAcceleration),
+        hwdec: MpvConfig.decoder(
+          hardwareAcceleration: settings.hardwareAcceleration,
+        ),
       ),
     );
 
@@ -926,8 +963,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _configurePlayer(AppSettings settings) async {
     final native = _player.platform;
     if (native is NativePlayer) {
-      await MpvConfig.apply(native, live: widget.type == VideoType.live,
-          settings: settings, cancelled: () => !_alive);
+      await MpvConfig.apply(
+        native,
+        live: widget.type == VideoType.live,
+        settings: settings,
+        cancelled: () => !_alive,
+      );
     }
     if (_alive) await _applySubtitleStyle();
   }
@@ -1056,11 +1097,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           final hasMarker = _introStartMs != null && _introEndMs != null;
           final bool shouldShow;
           if (hasMarker) {
-            shouldShow = p.inMilliseconds >= _introStartMs! &&
+            shouldShow =
+                p.inMilliseconds >= _introStartMs! &&
                 p.inMilliseconds <= _introEndMs!;
           } else {
-            shouldShow = p.inMilliseconds <
-                widget.introDefaultSeconds * 1000;
+            shouldShow = p.inMilliseconds < widget.introDefaultSeconds * 1000;
           }
           if (shouldShow != _showSkipIntro && mounted && !_disposing) {
             setState(() => _showSkipIntro = shouldShow);
@@ -1109,7 +1150,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           if (widget.type != VideoType.live && _dur.inSeconds > 0) {
             _pauseBadgeTimer?.cancel();
             _pauseBadgeTimer = Timer(const Duration(seconds: 2), () {
-              if (mounted && !_disposing && _isPaused) setState(() => _showPauseBadge = true);
+              if (mounted && !_disposing && _isPaused) {
+                setState(() => _showPauseBadge = true);
+              }
             });
           }
         } else {
@@ -1218,10 +1261,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// shape. Audio and subtitle tracks share id / language / title
   /// fields, so a single conversion works for both.
   TrackCandidate _toCandidate(dynamic t) => (
-        id: t.id as String,
-        language: t.language as String?,
-        title: t.title as String?,
-      );
+    id: t.id as String,
+    language: t.language as String?,
+    title: t.title as String?,
+  );
 
   void _rememberAudioChoice(AudioTrack t) {
     if (t.id == 'auto' || t.id == 'no') return;
@@ -1233,10 +1276,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (lang.isEmpty && title.isEmpty) return;
     final notifier = ref.read(settingsProvider.notifier);
     final cur = ref.read(settingsProvider);
-    notifier.updateSettings(cur.copyWith(
-      lastPlayerAudioLanguage: lang,
-      lastPlayerAudioTitle: title,
-    ));
+    notifier.updateSettings(
+      cur.copyWith(lastPlayerAudioLanguage: lang, lastPlayerAudioTitle: title),
+    );
   }
 
   void _rememberSubtitleChoice(SubtitleTrack t) {
@@ -1255,10 +1297,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final lang = t.language ?? '';
     final title = t.title ?? '';
     if (lang.isEmpty && title.isEmpty) return;
-    notifier.updateSettings(cur.copyWith(
-      lastPlayerSubtitleLanguage: lang,
-      lastPlayerSubtitleTitle: title,
-    ));
+    notifier.updateSettings(
+      cur.copyWith(
+        lastPlayerSubtitleLanguage: lang,
+        lastPlayerSubtitleTitle: title,
+      ),
+    );
   }
 
   // =========================================================================
@@ -1279,7 +1323,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     sub = _player.stream.duration.listen((d) {
       if (d.inSeconds > 0) {
         sub.cancel();
-        if (_alive && generation == _openGeneration) unawaited(_seek.commit(target));
+        if (_alive && generation == _openGeneration) {
+          unawaited(_seek.commit(target));
+        }
       }
     });
     _subs.add(sub);
@@ -1293,8 +1339,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final generation = _openGeneration;
     try {
       final sid = widget.streamId;
-      final p = await _progressRepository
-          .getProgress(sid, widget.type.name);
+      final p = await _progressRepository.getProgress(sid, widget.type.name);
       if (p != null &&
           !p.isFinished &&
           p.position > 1000 &&
@@ -1347,6 +1392,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   Future<void> _saveProgress() async {
+    if (widget.type == VideoType.live) {
+      await _saveLiveHistory();
+      return;
+    }
     if (_dur.inSeconds < 10) return;
     // Use _rawPos (always current) not _pos (throttled, only refreshed
     // while controls are visible) so an early/auto save records a real
@@ -1357,24 +1406,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     try {
       final sid = widget.streamId;
       final repo = _progressRepository;
-      // Save episode-level progress (for resume)
-      await repo.saveProgress(
-        sid,
-        widget.type.name,
-        posMs,
-        durationMs,
-      );
-      // For series: also save progress for the parent series channel
-      // so that watchContinueWatching('series') join works in history grid
-      if (widget.type == VideoType.series &&
-          widget.parentStreamId != null &&
-          widget.parentStreamId != sid) {
-        await repo.saveProgress(
-          widget.parentStreamId!,
-          widget.type.name,
+      if (widget.type == VideoType.series) {
+        await repo.saveEpisodeProgress(
+          sid,
           posMs,
           durationMs,
+          parentSeriesId: widget.saveSeriesSummary
+              ? widget.parentStreamId
+              : null,
         );
+      } else {
+        await repo.saveProgress(sid, widget.type.name, posMs, durationMs);
       }
     } catch (_) {}
   }
@@ -1383,13 +1425,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _saveLiveHistory() async {
     try {
       final sid = _resolveCurrentLiveStreamId();
-      await _progressRepository
-          .saveProgress(
-            sid,
-            'live',
-            1,
-            100, // minimal values just to create a record
-          );
+      await _progressRepository.saveProgress(
+        sid,
+        'live',
+        1,
+        100, // minimal values just to create a record
+      );
     } catch (_) {}
   }
 
@@ -1463,25 +1504,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _epgSub?.cancel();
     _sessionPrograms = _sessionContentRepository.watchPrograms(streamId);
     _epgSub = _sessionPrograms!.listen((programs) {
-          if (!mounted || _disposing) return;
-          final now = DateTime.now();
-          Program? current;
-          Program? next;
-          for (final p in programs) {
-            if (p.start.isBefore(now) && p.stop.isAfter(now)) {
-              current = p;
-            } else if (p.start.isAfter(now) && next == null) {
-              next = p;
-            }
-            if (current != null && next != null) break;
-          }
-          if (mounted && !_disposing) {
-            setState(() {
-              _currentProgram = current;
-              _nextProgram = next;
-            });
-          }
+      if (!mounted || _disposing) return;
+      final now = DateTime.now();
+      Program? current;
+      Program? next;
+      for (final p in programs) {
+        if (p.start.isBefore(now) && p.stop.isAfter(now)) {
+          current = p;
+        } else if (p.start.isAfter(now) && next == null) {
+          next = p;
+        }
+        if (current != null && next != null) break;
+      }
+      if (mounted && !_disposing) {
+        setState(() {
+          _currentProgram = current;
+          _nextProgram = next;
         });
+      }
+    });
   }
 
   void _switchChannel(int newIndex) {
@@ -1508,8 +1549,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Save history entry for the new channel
     try {
-      _progressRepository
-          .saveProgress(ch.streamId, 'live', 1, 100);
+      _progressRepository.saveProgress(ch.streamId, 'live', 1, 100);
     } catch (_) {}
 
     // Update EPG for new channel
@@ -1538,7 +1578,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   int _resolveCurrentLiveStreamId() {
     final channels = widget.channels;
-    if (channels != null && _channelIndex >= 0 && _channelIndex < channels.length) {
+    if (channels != null &&
+        _channelIndex >= 0 &&
+        _channelIndex < channels.length) {
       return channels[_channelIndex].streamId;
     }
     return widget.streamId;
@@ -1806,15 +1848,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// instance unnecessarily.
   Future<void> _startTimeshift(int channelStreamId, Program program) async {
     final acc = await _sessionAccount;
-    if (acc == null ||
-        acc.username == null ||
-        acc.password == null) {
+    if (acc == null || acc.username == null || acc.password == null) {
       // M3U accounts don't expose timeshift; surface a brief notice.
       if (!mounted || _disposing) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(
-                AppLocalizations.of(context)!.catchupUnavailable)),
+          content: Text(AppLocalizations.of(context)!.catchupUnavailable),
+        ),
       );
       return;
     }
@@ -1836,8 +1876,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted && !_disposing) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!
-                .timeshiftReplaying(program.title)),
+            content: Text(
+              AppLocalizations.of(context)!.timeshiftReplaying(program.title),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1847,8 +1888,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted && !_disposing) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  AppLocalizations.of(context)!.catchupOpenFailed)),
+            content: Text(AppLocalizations.of(context)!.catchupOpenFailed),
+          ),
         );
       }
     }
@@ -1914,10 +1955,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       barrierColor: Colors.black87,
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.surfaceElevatedDark,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 360,
@@ -1929,19 +1968,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(children: [
-                    const Icon(Icons.high_quality,
-                        color: AppColors.primary, size: 20),
-                    const SizedBox(width: 10),
-                    Text(l10n.streamQuality,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.high_quality,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        l10n.streamQuality,
                         style: const TextStyle(
                           color: AppColors.textDark,
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
-                        )),
-                  ]),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Flexible(
@@ -1979,9 +2024,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         : _player.state.tracks.subtitle;
 
     // For subtitles, add a "Disabled" option at the top so user can turn them off
-    final displayTracks = isAudio
-        ? tracks
-        : [SubtitleTrack.no(), ...tracks];
+    final displayTracks = isAudio ? tracks : [SubtitleTrack.no(), ...tracks];
 
     if (displayTracks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2011,143 +2054,146 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isAudio ? Icons.audiotrack : Icons.subtitles,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        isAudio ? l10n.audioTrack : l10n.subtitle,
-                        style: const TextStyle(
-                          color: AppColors.textDark,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.5,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: displayTracks.length,
-                    itemBuilder: (_, i) {
-                      final t = displayTracks[i];
-                      final sel = isAudio
-                          ? _player.state.track.audio == t
-                          : _player.state.track.subtitle == t;
-                      // Label: "Kapalı" for SubtitleTrack.no(), else track info
-                      final label = (!isAudio && t.id == 'no')
-                          ? l10n.close // "Kapalı" / "Off"
-                          : t.title ?? t.language ?? 'Track ${i + 1}';
-                      return _FocusableTrackTile(
-                        title: label,
-                        isSelected: sel,
-                        autofocus: sel || i == 0,
-                        onTap: () {
-                          if (isAudio) {
-                            _player.setAudioTrack(t as AudioTrack);
-                            _rememberAudioChoice(t);
-                          } else {
-                            _player.setSubtitleTrack(t as SubtitleTrack);
-                            _applySubtitleStyle();
-                            _rememberSubtitleChoice(t);
-                          }
-                          Navigator.pop(ctx);
-                        },
-                      );
-                    },
-                  ),
-                ),
-                // Subtitle appearance controls (only in subtitle picker).
-                // Full set — size + color + bold + background — via the
-                // shared SubtitleAppearanceControls so this stays in
-                // sync with Settings. Position lives below since it's
-                // player-local state, not in AppSettings.
-                if (!isAudio) ...[
-                  const Divider(color: Colors.white12, height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: Row(
                       children: [
-                        SubtitleAppearanceControls(
-                          compact: true,
-                          // Outer Video widget needs to rebuild so the
-                          // fresh SubtitleViewConfiguration reaches it.
-                          onChanged: () {
-                            if (mounted && !_disposing) setState(() {});
-                          },
+                        Icon(
+                          isAudio ? Icons.audiotrack : Icons.subtitles,
+                          color: AppColors.primary,
+                          size: 20,
                         ),
-                        const SizedBox(height: 8),
-                        StatefulBuilder(
-                          builder: (context, setLocal) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.vertical_align_bottom,
-                                      color: AppColors.textTertiaryDark,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      l10n.subtitlePosition,
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondaryDark,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      '${_subtitleYOffset.round()}',
-                                      style: const TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Slider(
-                                  value: _subtitleYOffset,
-                                  min: 0,
-                                  max: 300,
-                                  divisions: 30,
-                                  onChanged: (v) {
-                                    _subtitleYOffset = v;
-                                    setLocal(() {});
-                                    if (mounted && !_disposing) setState(() {});
-                                    // Push padding through the
-                                    // imperative API — declarative
-                                    // prop changes are no-ops because
-                                    // SubtitleViewState caches padding
-                                    // at init.
-                                    _pushSubtitlePadding();
-                                  },
-                                ),
-                              ],
-                            );
-                          },
+                        const SizedBox(width: 10),
+                        Text(
+                          isAudio ? l10n.audioTrack : l10n.subtitle,
+                          style: const TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: displayTracks.length,
+                      itemBuilder: (_, i) {
+                        final t = displayTracks[i];
+                        final sel = isAudio
+                            ? _player.state.track.audio == t
+                            : _player.state.track.subtitle == t;
+                        // Label: "Kapalı" for SubtitleTrack.no(), else track info
+                        final label = (!isAudio && t.id == 'no')
+                            ? l10n
+                                  .close // "Kapalı" / "Off"
+                            : t.title ?? t.language ?? 'Track ${i + 1}';
+                        return _FocusableTrackTile(
+                          title: label,
+                          isSelected: sel,
+                          autofocus: sel || i == 0,
+                          onTap: () {
+                            if (isAudio) {
+                              _player.setAudioTrack(t as AudioTrack);
+                              _rememberAudioChoice(t);
+                            } else {
+                              _player.setSubtitleTrack(t as SubtitleTrack);
+                              _applySubtitleStyle();
+                              _rememberSubtitleChoice(t);
+                            }
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  // Subtitle appearance controls (only in subtitle picker).
+                  // Full set — size + color + bold + background — via the
+                  // shared SubtitleAppearanceControls so this stays in
+                  // sync with Settings. Position lives below since it's
+                  // player-local state, not in AppSettings.
+                  if (!isAudio) ...[
+                    const Divider(color: Colors.white12, height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SubtitleAppearanceControls(
+                            compact: true,
+                            // Outer Video widget needs to rebuild so the
+                            // fresh SubtitleViewConfiguration reaches it.
+                            onChanged: () {
+                              if (mounted && !_disposing) setState(() {});
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          StatefulBuilder(
+                            builder: (context, setLocal) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.vertical_align_bottom,
+                                        color: AppColors.textTertiaryDark,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        l10n.subtitlePosition,
+                                        style: const TextStyle(
+                                          color: AppColors.textSecondaryDark,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${_subtitleYOffset.round()}',
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Slider(
+                                    value: _subtitleYOffset,
+                                    min: 0,
+                                    max: 300,
+                                    divisions: 30,
+                                    onChanged: (v) {
+                                      _subtitleYOffset = v;
+                                      setLocal(() {});
+                                      if (mounted && !_disposing) {
+                                        setState(() {});
+                                      }
+                                      // Push padding through the
+                                      // imperative API — declarative
+                                      // prop changes are no-ops because
+                                      // SubtitleViewState caches padding
+                                      // at init.
+                                      _pushSubtitlePadding();
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
+              ),
             ),
           ),
         ),
@@ -2212,8 +2258,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         .updateSettings(cur.copyWith(videoFitMode: next));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${AppLocalizations.of(context)!.videoFit}: '
-            '${_fitLabel(next)}'),
+        content: Text(
+          '${AppLocalizations.of(context)!.videoFit}: '
+          '${_fitLabel(next)}',
+        ),
         duration: const Duration(milliseconds: 1200),
         behavior: SnackBarBehavior.floating,
       ),
@@ -2386,8 +2434,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _gestureBrightness <= 0.01
             ? Icons.brightness_low
             : (_gestureBrightness >= 0.99
-                ? Icons.brightness_high
-                : Icons.brightness_6),
+                  ? Icons.brightness_high
+                  : Icons.brightness_6),
         '${(_gestureBrightness * 100).round()}%',
         _gestureBrightness,
       );
@@ -2496,7 +2544,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.bedtime, color: AppColors.primary, size: 20),
+                    const Icon(
+                      Icons.bedtime,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       l10n.sleepTimer,
@@ -2514,10 +2566,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                     title: l10n.minutesShort(m),
                     isSelected:
                         _sleepDeadline != null &&
-                        _sleepDeadline!
-                                .difference(DateTime.now())
-                                .inMinutes ==
-                            m - 1 ||
+                            _sleepDeadline!
+                                    .difference(DateTime.now())
+                                    .inMinutes ==
+                                m - 1 ||
                         (_sleepDeadline != null &&
                             _sleepDeadline!
                                     .difference(DateTime.now())
@@ -2622,18 +2674,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 10),
-                  Text(
-                    l10n.streamStats,
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: AppColors.primary,
+                      size: 20,
                     ),
-                  ),
-                ]),
+                    const SizedBox(width: 10),
+                    Text(
+                      l10n.streamStats,
+                      style: const TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 _statRow(l10n.resolution, res),
                 _statRow(l10n.videoCodec, vCodec ?? '—'),
@@ -2671,7 +2729,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         children: [
           Text(
             label,
-            style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
           ),
           const Spacer(),
           Text(
@@ -2713,13 +2774,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // pops /player from PipOverlay's button.
       if (!mounted || _disposing) return;
       await _pipNotifier.enterPip(
-            player: _player,
-            controller: _controller,
-            title: _currentTitle,
-            logo: _currentLogo,
-            url: _currentUrl,
-            typeName: widget.type.name,
-          );
+        player: _player,
+        controller: _controller,
+        title: _currentTitle,
+        logo: _currentLogo,
+        url: _currentUrl,
+        typeName: widget.type.name,
+      );
     } catch (error) {
       _onWindowError(error);
     } finally {
@@ -2761,8 +2822,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         );
         // TV confirmed PLAYING — tell the user which device has it now.
         if (mounted && !_disposing) {
-          final name =
-              DlnaService.instance.state.device?.displayName ?? '';
+          final name = DlnaService.instance.state.device?.displayName ?? '';
           messenger.showSnackBar(
             SnackBar(
               content: Text(l10n.castConnectedTo(name)),
@@ -2962,7 +3022,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         // 'fill' stretches — for streams whose declared
                         // aspect ratio leaves the picture small.
                         fit: _boxFitFor(
-                            ref.watch(settingsProvider).videoFitMode),
+                          ref.watch(settingsProvider).videoFitMode,
+                        ),
                         controls: NoVideoControls,
                         // media_kit renders subtitles via a Flutter widget by
                         // default — NOT via mpv/libass. So style/position must
@@ -2991,9 +3052,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       top: 0,
                       left: 0,
                       right: 0,
-                      child: SafeArea(
-                        child: _CastingBanner(),
-                      ),
+                      child: SafeArea(child: _CastingBanner()),
                     ),
 
                   // -- Gesture HUD (brightness / volume / seek) --------------
@@ -3012,7 +3071,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_gestureHudIcon, color: Colors.white, size: 36),
+                              Icon(
+                                _gestureHudIcon,
+                                color: Colors.white,
+                                size: 36,
+                              ),
                               const SizedBox(height: 6),
                               Text(
                                 _gestureHudText!,
@@ -3031,8 +3094,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                     child: LinearProgressIndicator(
                                       value: _gestureHudValue!,
                                       minHeight: 3,
-                                      backgroundColor:
-                                          Colors.white.withValues(alpha: 0.2),
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       valueColor: const AlwaysStoppedAnimation(
                                         AppColors.primary,
                                       ),
@@ -3068,7 +3132,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              _playbackFailed ? l10n.error : l10n.connectionTimedOut,
+                              _playbackFailed
+                                  ? l10n.error
+                                  : l10n.connectionTimedOut,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -3087,7 +3153,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             ElevatedButton.icon(
                               onPressed: () => _openMedia(
                                 _currentUrl,
-                                resume: widget.type == VideoType.live ? null : _rawPos,
+                                resume: widget.type == VideoType.live
+                                    ? null
+                                    : _rawPos,
                               ),
                               icon: const Icon(Icons.refresh),
                               label: Text(l10n.retry),
@@ -3727,146 +3795,157 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-              // ─── Direct action buttons (D-pad accessible) ───
+                      // ─── Direct action buttons (D-pad accessible) ───
 
-              // Audio track button
-              _DpadIconBtn(
-                icon: Icons.audiotrack,
-                label: l10n.audioTrack,
-                onTap: () => _showTrackPicker('audio'),
-              ),
-              const SizedBox(width: 6),
+                      // Audio track button
+                      _DpadIconBtn(
+                        icon: Icons.audiotrack,
+                        label: l10n.audioTrack,
+                        onTap: () => _showTrackPicker('audio'),
+                      ),
+                      const SizedBox(width: 6),
 
-              // Quality / bitrate selector. Only rendered when the
-              // stream actually exposes multiple video tracks (HLS
-              // ABR ladders typically do, progressive single-file
-              // VOD doesn't). Hiding the button when there's nothing
-              // to pick avoids a dead control on the overlay.
-              if (_player.state.tracks.video
-                      .where((t) => t.id != 'no')
-                      .length >
-                  1) ...[
-                _DpadIconBtn(
-                  icon: Icons.high_quality_outlined,
-                  label: l10n.streamQuality,
-                  onTap: _showQualityPicker,
-                ),
-                const SizedBox(width: 6),
-              ],
+                      // Quality / bitrate selector. Only rendered when the
+                      // stream actually exposes multiple video tracks (HLS
+                      // ABR ladders typically do, progressive single-file
+                      // VOD doesn't). Hiding the button when there's nothing
+                      // to pick avoids a dead control on the overlay.
+                      if (_player.state.tracks.video
+                              .where((t) => t.id != 'no')
+                              .length >
+                          1) ...[
+                        _DpadIconBtn(
+                          icon: Icons.high_quality_outlined,
+                          label: l10n.streamQuality,
+                          onTap: _showQualityPicker,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
 
-              // Subtitle button
-              _DpadIconBtn(
-                icon: Icons.subtitles_outlined,
-                label: l10n.subtitle,
-                onTap: () => _showTrackPicker('subtitle'),
-              ),
-              const SizedBox(width: 6),
+                      // Subtitle button
+                      _DpadIconBtn(
+                        icon: Icons.subtitles_outlined,
+                        label: l10n.subtitle,
+                        onTap: () => _showTrackPicker('subtitle'),
+                      ),
+                      const SizedBox(width: 6),
 
-              // Online subtitle search (VOD only, and only when an
-              // OpenSubtitles API key is configured — otherwise the
-              // button just popped a snackbar telling the user to go
-              // configure it, which read like an "error" out of
-              // nowhere).
-              if (widget.type != VideoType.live &&
-                  (ref.watch(settingsProvider).opensubtitlesApiKey ?? '')
-                      .isNotEmpty) ...[
-                _DpadIconBtn(
-                  icon: Icons.closed_caption_outlined,
-                  onTap: () => setState(
-                    () => _showSubtitleSearch = !_showSubtitleSearch,
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
+                      // Online subtitle search (VOD only, and only when an
+                      // OpenSubtitles API key is configured — otherwise the
+                      // button just popped a snackbar telling the user to go
+                      // configure it, which read like an "error" out of
+                      // nowhere).
+                      if (widget.type != VideoType.live &&
+                          (ref.watch(settingsProvider).opensubtitlesApiKey ??
+                                  '')
+                              .isNotEmpty) ...[
+                        _DpadIconBtn(
+                          icon: Icons.closed_caption_outlined,
+                          onTap: () => setState(
+                            () => _showSubtitleSearch = !_showSubtitleSearch,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
 
-              // Speed button (only for VOD)
-              if (widget.type != VideoType.live) ...[
-                _DpadIconBtn(icon: Icons.speed, onTap: _showSpeedPicker),
-                const SizedBox(width: 6),
-              ],
+                      // Speed button (only for VOD)
+                      if (widget.type != VideoType.live) ...[
+                        _DpadIconBtn(
+                          icon: Icons.speed,
+                          onTap: _showSpeedPicker,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
 
-              // Stream stats (codec / resolution / bitrate / dropped frames)
-              _DpadIconBtn(icon: Icons.info_outline, onTap: _showStreamStatsDialog),
-              const SizedBox(width: 6),
+                      // Stream stats (codec / resolution / bitrate / dropped frames)
+                      _DpadIconBtn(
+                        icon: Icons.info_outline,
+                        onTap: _showStreamStatsDialog,
+                      ),
+                      const SizedBox(width: 6),
 
-              // Video fit / zoom toggle — cycles contain → cover →
-              // fill. Lets the user blow up streams whose declared
-              // aspect ratio leaves the picture small with black bars.
-              _DpadIconBtn(
-                icon: _fitIcon(ref.watch(settingsProvider).videoFitMode),
-                label: l10n.videoFit,
-                onTap: _cycleVideoFit,
-              ),
-              const SizedBox(width: 6),
+                      // Video fit / zoom toggle — cycles contain → cover →
+                      // fill. Lets the user blow up streams whose declared
+                      // aspect ratio leaves the picture small with black bars.
+                      _DpadIconBtn(
+                        icon: _fitIcon(
+                          ref.watch(settingsProvider).videoFitMode,
+                        ),
+                        label: l10n.videoFit,
+                        onTap: _cycleVideoFit,
+                      ),
+                      const SizedBox(width: 6),
 
-              // Channel list button (live TV only)
-              if (widget.type == VideoType.live &&
-                  widget.channels != null &&
-                  widget.channels!.isNotEmpty) ...[
-                _DpadIconBtn(
-                  icon: Icons.list,
-                  onTap: () =>
-                      setState(() => _showChannelList = !_showChannelList),
-                ),
-                const SizedBox(width: 6),
-              ],
+                      // Channel list button (live TV only)
+                      if (widget.type == VideoType.live &&
+                          widget.channels != null &&
+                          widget.channels!.isNotEmpty) ...[
+                        _DpadIconBtn(
+                          icon: Icons.list,
+                          onTap: () => setState(
+                            () => _showChannelList = !_showChannelList,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
 
-              // EPG guide button (live TV only)
-              if (widget.type == VideoType.live) ...[
-                _DpadIconBtn(
-                  icon: Icons.calendar_month,
-                  onTap: () => setState(() => _showEpgGuide = !_showEpgGuide),
-                ),
-                const SizedBox(width: 6),
-              ],
+                      // EPG guide button (live TV only)
+                      if (widget.type == VideoType.live) ...[
+                        _DpadIconBtn(
+                          icon: Icons.calendar_month,
+                          onTap: () =>
+                              setState(() => _showEpgGuide = !_showEpgGuide),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
 
-              // Chromecast button (mobile only — desktop uses HDMI)
-              if (Platform.isAndroid || Platform.isIOS) ...[
-                CastButton(
-                  onCastStarted: _onCastStarted,
-                  onCastStopped: _onCastStopped,
-                ),
-                const SizedBox(width: 2),
-              ],
+                      // Chromecast button (mobile only — desktop uses HDMI)
+                      if (Platform.isAndroid || Platform.isIOS) ...[
+                        CastButton(
+                          onCastStarted: _onCastStarted,
+                          onCastStopped: _onCastStopped,
+                        ),
+                        const SizedBox(width: 2),
+                      ],
 
-              // Volume button
-              _DpadIconBtn(
-                icon: _volume == 0
-                    ? Icons.volume_off
-                    : _volume < 50
-                    ? Icons.volume_down
-                    : Icons.volume_up,
-                onTap: () {
-                  // Toggle mute on click
-                  _player.setVolume(_volume > 0 ? 0 : 100);
-                },
-              ),
+                      // Volume button
+                      _DpadIconBtn(
+                        icon: _volume == 0
+                            ? Icons.volume_off
+                            : _volume < 50
+                            ? Icons.volume_down
+                            : Icons.volume_up,
+                        onTap: () {
+                          // Toggle mute on click
+                          _player.setVolume(_volume > 0 ? 0 : 100);
+                        },
+                      ),
 
-              // Always on top toggle (desktop only)
-              if (Platform.isWindows ||
-                  Platform.isLinux ||
-                  Platform.isMacOS) ...[
-                const SizedBox(width: 6),
-                _DpadIconBtn(
-                  icon: _isAlwaysOnTop
-                      ? Icons.push_pin
-                      : Icons.push_pin_outlined,
-                  onTap: _toggleAlwaysOnTop,
-                ),
-              ],
+                      // Always on top toggle (desktop only)
+                      if (Platform.isWindows ||
+                          Platform.isLinux ||
+                          Platform.isMacOS) ...[
+                        const SizedBox(width: 6),
+                        _DpadIconBtn(
+                          icon: _isAlwaysOnTop
+                              ? Icons.push_pin
+                              : Icons.push_pin_outlined,
+                          onTap: _toggleAlwaysOnTop,
+                        ),
+                      ],
 
-              // Fullscreen toggle (desktop only)
-              if (Platform.isWindows ||
-                  Platform.isLinux ||
-                  Platform.isMacOS) ...[
-                const SizedBox(width: 6),
-                _DpadIconBtn(
-                  icon: _isFullscreen
-                      ? Icons.fullscreen_exit
-                      : Icons.fullscreen,
-                  onTap: _toggleFullscreen,
-                ),
-              ],
+                      // Fullscreen toggle (desktop only)
+                      if (Platform.isWindows ||
+                          Platform.isLinux ||
+                          Platform.isMacOS) ...[
+                        const SizedBox(width: 6),
+                        _DpadIconBtn(
+                          icon: _isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                          onTap: _toggleFullscreen,
+                        ),
+                      ],
                     ], // end inner Row
                   ),
                 ),
@@ -3931,17 +4010,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             child: Slider(
               value: curVal,
               max: maxVal,
-              onChangeStart: _dur > Duration.zero ? (v) {
-                _hideTimer?.cancel();
-                _seek.updatePreview(Duration(milliseconds: (v * 1000).round()));
-              } : null,
-              onChanged: _dur > Duration.zero ? (v) {
-                _seek.updatePreview(Duration(milliseconds: (v * 1000).round()));
-              } : null,
-              onChangeEnd: _dur > Duration.zero ? (_) {
-                unawaited(_seek.commitPreview());
-                _resetHideTimer();
-              } : null,
+              onChangeStart: _dur > Duration.zero
+                  ? (v) {
+                      _hideTimer?.cancel();
+                      _seek.updatePreview(
+                        Duration(milliseconds: (v * 1000).round()),
+                      );
+                    }
+                  : null,
+              onChanged: _dur > Duration.zero
+                  ? (v) {
+                      _seek.updatePreview(
+                        Duration(milliseconds: (v * 1000).round()),
+                      );
+                    }
+                  : null,
+              onChangeEnd: _dur > Duration.zero
+                  ? (_) {
+                      unawaited(_seek.commitPreview());
+                      _resetHideTimer();
+                    }
+                  : null,
             ),
           ),
         ),
@@ -4418,8 +4507,11 @@ class _CastingBanner extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.cast_connected,
-                      color: AppColors.primary, size: 18),
+                  const Icon(
+                    Icons.cast_connected,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(

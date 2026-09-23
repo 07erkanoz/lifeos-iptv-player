@@ -1196,11 +1196,10 @@ Return strict JSON matching the response schema.
       return null;
     }
 
-    // Same query + same candidate-pool size → identical curation.
-    // (Sample length shifts whenever the library changes, so a new
-    // sync naturally invalidates the key.)
+    // Include the actual candidates and metadata. Equal-size catalogues from
+    // different accounts must never share a curation result.
     final cacheKey =
-        '$targetLanguage|${query.trim().toLowerCase()}|${librarySample.length}';
+        jsonEncode([targetLanguage, query.trim().toLowerCase(), librarySample]);
     final cached = _curateCache[cacheKey];
     if (cached != null) return cached;
 

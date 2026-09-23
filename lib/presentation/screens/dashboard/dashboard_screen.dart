@@ -23,9 +23,7 @@ import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart'
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/data/repositories/watchlist_repository.dart';
-import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
-import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/state/navigation_state.dart';
 import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'package:lifeostv/utils/youtube_trailer.dart';
@@ -72,17 +70,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// so register/unregister identity matches across the widget life.
   late final VoidFocusCallback _branchPrimaryCb;
 
+  late final TvFocusRegistry _focusRegistry;
+
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     _branchPrimaryCb = _focusHero;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _triggerSync();
-      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
-            TvBranchIndex.dashboard,
-            _branchPrimaryCb,
-          );
+      _focusRegistry.registerBranchPrimary(
+        TvBranchIndex.dashboard,
+        _branchPrimaryCb,
+      );
       _maybeShowTasteWizard();
     });
   }
@@ -108,15 +109,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (favCount.length >= 3) {
       // Already has favourites — they have a taste profile.
       // Flip the flag so we don't re-check this on every open.
-      ref.read(settingsProvider.notifier).updateSettings(
-          settings.copyWith(tasteWizardCompleted: true));
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(settings.copyWith(tasteWizardCompleted: true));
       return;
     }
-    final histCount =
-        await (db.select(db.playbackProgress)..limit(5)).get();
+    final histCount = await (db.select(db.playbackProgress)..limit(5)).get();
     if (histCount.length >= 5) {
-      ref.read(settingsProvider.notifier).updateSettings(
-          settings.copyWith(tasteWizardCompleted: true));
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(settings.copyWith(tasteWizardCompleted: true));
       return;
     }
 
@@ -127,10 +129,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   void dispose() {
-    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
-          TvBranchIndex.dashboard,
-          _branchPrimaryCb,
-        );
+    _focusRegistry.unregisterBranchPrimary(
+      TvBranchIndex.dashboard,
+      _branchPrimaryCb,
+    );
     _heroFocusNode.dispose();
     _dashScroll.dispose();
     super.dispose();
@@ -150,11 +152,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// [ContentList.onCarouselLeftEdge]. Hands focus back to the main
   /// sidebar through the registry — no findAncestor hack needed.
   void _focusMainSidebar() {
-    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    final ok = _focusRegistry.requestMainSidebar();
     if (!ok) {
       // First-frame fallback before AppSidebar finished registering.
-      FocusManager.instance.primaryFocus
-          ?.focusInDirection(TraversalDirection.left);
+      FocusManager.instance.primaryFocus?.focusInDirection(
+        TraversalDirection.left,
+      );
     }
   }
 
@@ -178,8 +181,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.connectionFailed)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.connectionFailed),
+          ),
+        );
       }
     }
     if (mounted) setState(() => _isSyncing = false);
@@ -190,18 +196,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _onHeroItemChanged(Channel channel) async {
     // Don't fetch for live channels
     if (channel.type == 'live') {
-      setState(() { _heroVodInfo = null; _heroInfoStreamId = channel.streamId; });
+      setState(() {
+        _heroVodInfo = null;
+        _heroInfoStreamId = channel.streamId;
+      });
       return;
     }
 
     // If already fetched for this channel, skip
     if (_heroInfoStreamId == channel.streamId && _heroVodInfo != null) return;
 
-    setState(() { _heroInfoStreamId = channel.streamId; });
+    setState(() {
+      _heroInfoStreamId = channel.streamId;
+    });
 
     // Check if DB already has cached metadata (genre, plot, backdrop)
     // If yes, use it directly - NO API call needed (server-friendly)
-    if (channel.genre != null || channel.plot != null || channel.backdropPath != null) {
+    if (channel.genre != null ||
+        channel.plot != null ||
+        channel.backdropPath != null) {
       setState(() {
         _heroVodInfo = HeroVodInfo(
           plot: channel.plot,
@@ -217,7 +230,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     // No cached data - clear and fetch from API
-    setState(() { _heroVodInfo = null; });
+    setState(() {
+      _heroVodInfo = null;
+    });
 
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
@@ -227,9 +242,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       Map<String, dynamic>? result;
       if (channel.type == 'movie') {
-        result = await api.getVODInfo(account.url, account.username ?? '', account.password ?? '', channel.streamId);
+        result = await api.getVODInfo(
+          account.url,
+          account.username ?? '',
+          account.password ?? '',
+          channel.streamId,
+        );
       } else if (channel.type == 'series') {
-        result = await api.getSeriesInfo(account.url, account.username ?? '', account.password ?? '', channel.streamId);
+        result = await api.getSeriesInfo(
+          account.url,
+          account.username ?? '',
+          account.password ?? '',
+          channel.streamId,
+        );
       }
 
       if (!mounted || _heroInfoStreamId != channel.streamId) return;
@@ -240,16 +265,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (info != null) {
           // Extract backdrop
           String? backdrop;
-          if (info['backdrop_path'] is List && (info['backdrop_path'] as List).isNotEmpty) {
+          if (info['backdrop_path'] is List &&
+              (info['backdrop_path'] as List).isNotEmpty) {
             backdrop = info['backdrop_path'][0]?.toString();
-          } else if (info['movie_image'] != null && info['movie_image'].toString().isNotEmpty) {
+          } else if (info['movie_image'] != null &&
+              info['movie_image'].toString().isNotEmpty) {
             backdrop = info['movie_image'].toString();
-          } else if (info['cover'] != null && info['cover'].toString().isNotEmpty) {
+          } else if (info['cover'] != null &&
+              info['cover'].toString().isNotEmpty) {
             backdrop = info['cover'].toString();
           }
 
           final trailer = info['youtube_trailer']?.toString();
-          final ratingStr = info['rating']?.toString() ?? info['rating_5based']?.toString();
+          final ratingStr =
+              info['rating']?.toString() ?? info['rating_5based']?.toString();
           double? rating = double.tryParse(ratingStr ?? '');
           // Some APIs return rating on 5-based scale
           if (rating != null && rating <= 5 && info['rating_5based'] != null) {
@@ -258,7 +287,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
           // Duration
           String? duration;
-          final dur = info['duration']?.toString() ?? info['episode_run_time']?.toString();
+          final dur =
+              info['duration']?.toString() ??
+              info['episode_run_time']?.toString();
           if (dur != null && dur.isNotEmpty) {
             duration = dur.contains(':') ? dur : '$dur min';
           }
@@ -271,27 +302,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               cast: info['cast']?.toString(),
               rating: rating,
               duration: duration,
-              youtubeTrailer: (trailer != null && trailer.isNotEmpty) ? trailer : null,
+              youtubeTrailer: (trailer != null && trailer.isNotEmpty)
+                  ? trailer
+                  : null,
               backdropUrl: backdrop,
             );
           });
 
           // Cache ALL metadata to DB for future hero banner use (no repeated API calls)
           final genreStr = info['genre']?.toString();
-          final plotStr = info['plot']?.toString() ?? info['description']?.toString();
+          final plotStr =
+              info['plot']?.toString() ?? info['description']?.toString();
           final directorStr = info['director']?.toString();
           final castStr = info['cast']?.toString();
-          if (backdrop != null || (trailer != null && trailer.isNotEmpty) ||
-              (genreStr != null && genreStr.isNotEmpty) || (plotStr != null && plotStr.isNotEmpty)) {
-            ref.read(contentRepositoryProvider).updateChannelMetadata(
-              channel.streamId, channel.type,
-              backdropPath: backdrop,
-              youtubeTrailer: (trailer != null && trailer.isNotEmpty) ? trailer : null,
-              genre: (genreStr != null && genreStr.isNotEmpty) ? genreStr : null,
-              plot: (plotStr != null && plotStr.isNotEmpty) ? plotStr : null,
-              director: (directorStr != null && directorStr.isNotEmpty) ? directorStr : null,
-              castInfo: (castStr != null && castStr.isNotEmpty) ? castStr : null,
-            );
+          if (backdrop != null ||
+              (trailer != null && trailer.isNotEmpty) ||
+              (genreStr != null && genreStr.isNotEmpty) ||
+              (plotStr != null && plotStr.isNotEmpty)) {
+            ref
+                .read(contentRepositoryProvider)
+                .updateChannelMetadata(
+                  channel.streamId,
+                  channel.type,
+                  backdropPath: backdrop,
+                  youtubeTrailer: (trailer != null && trailer.isNotEmpty)
+                      ? trailer
+                      : null,
+                  genre: (genreStr != null && genreStr.isNotEmpty)
+                      ? genreStr
+                      : null,
+                  plot: (plotStr != null && plotStr.isNotEmpty)
+                      ? plotStr
+                      : null,
+                  director: (directorStr != null && directorStr.isNotEmpty)
+                      ? directorStr
+                      : null,
+                  castInfo: (castStr != null && castStr.isNotEmpty)
+                      ? castStr
+                      : null,
+                );
           }
         }
       }
@@ -310,14 +359,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final account = ref.watch(currentAccountProvider);
 
     // Hero items: combine movies + series, prioritize those with backdrop
-    final fallbackHeroItems = [
-      ...?recentMoviesAsync.value?.take(5),
-      ...?recentSeriesAsync.value?.take(5),
-    ]..sort((a, b) {
-      final aHas = a.backdropPath != null ? 0 : 1;
-      final bHas = b.backdropPath != null ? 0 : 1;
-      return aHas.compareTo(bHas);
-    });
+    final fallbackHeroItems =
+        [
+          ...?recentMoviesAsync.value?.take(5),
+          ...?recentSeriesAsync.value?.take(5),
+        ]..sort((a, b) {
+          final aHas = a.backdropPath != null ? 0 : 1;
+          final bHas = b.backdropPath != null ? 0 : 1;
+          return aHas.compareTo(bHas);
+        });
 
     // AI hero billboard — present only when the user has a Gemini
     // key and the provider successfully resolved. Replaces the
@@ -338,8 +388,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // without a key, and a disabled button is a worse signal than no
     // button at all.
     // TV-lite: no AI assistant on Android TV.
-    final hasAiKey = ref.watch(settingsProvider).hasAiKey &&
-        !PlatformHelper.isTV;
+    final hasAiKey =
+        ref.watch(settingsProvider).hasAiKey && !PlatformHelper.isTV;
 
     return Scaffold(
       floatingActionButton: hasAiKey
@@ -396,7 +446,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE5484D),
                               borderRadius: BorderRadius.circular(4),
@@ -452,7 +505,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // Syncing indicator
                   if (_isSyncing)
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding > 12 ? 24 : 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.horizontalPadding > 12 ? 24 : 12,
+                      ),
                       child: Row(
                         children: [
                           SizedBox(
@@ -488,7 +543,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             title: l10n.myFavorites,
                             icon: Icons.favorite,
                             channels: channels,
-                            onChannelTap: (ch) => ch.type == 'live' ? _playChannel(ch) : _openDetail(ch),
+                            onChannelTap: (ch) => ch.type == 'live'
+                                ? _playChannel(ch)
+                                : _openDetail(ch),
                             onChannelFocus: (_) {},
                             onCarouselLeftEdge: _focusMainSidebar,
                           )
@@ -538,7 +595,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               color: AppColors.textTertiary(context),
                               tooltip: l10n.clearHistory,
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -648,35 +708,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final account = ref.read(currentAccountProvider).value;
     if (account == null) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noActiveAccount)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noActiveAccount)));
       return;
     }
 
     _openingChannel = true;
     try {
-      final url = await ref.read(playbackUrlResolverProvider).resolve(
-        account, channel, quality: ref.read(settingsProvider).streamQuality,
-      );
-      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) return;
-      final type = channel.type == 'movie' ? VideoType.movie
-          : channel.type == 'series' ? VideoType.series : VideoType.live;
+      final url = await ref
+          .read(playbackUrlResolverProvider)
+          .resolve(
+            account,
+            channel,
+            quality: ref.read(settingsProvider).streamQuality,
+          );
+      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) {
+        return;
+      }
+      final type = channel.type == 'movie'
+          ? VideoType.movie
+          : channel.type == 'series'
+          ? VideoType.series
+          : VideoType.live;
 
-      context.push('/player', extra: {
-        'url': url,
-        'streamId': channel.streamId,
-        'accountId': channel.accountId,
-        'title': channel.name,
-        'type': type,
-        'logo': channel.streamIcon,
-        'plot': channel.plot,
-        'genre': channel.genre,
-        'year': channel.year,
-        'director': channel.director,
-        'cast': channel.cast,
-        'rating': channel.rating,
-      });
+      context.push(
+        '/player',
+        extra: {
+          'url': url,
+          'streamId': channel.streamId,
+          'accountId': channel.accountId,
+          'title': channel.name,
+          'type': type,
+          'logo': channel.streamIcon,
+          'plot': channel.plot,
+          'genre': channel.genre,
+          'year': channel.year,
+          'director': channel.director,
+          'cast': channel.cast,
+          'rating': channel.rating,
+        },
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -693,13 +765,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceElevated(ctx),
-        title: Text(l10n.clearHistory, style: TextStyle(color: AppColors.text(ctx))),
+        title: Text(
+          l10n.clearHistory,
+          style: TextStyle(color: AppColors.text(ctx)),
+        ),
         content: Text(
           l10n.clearHistoryConfirm,
           style: TextStyle(color: AppColors.textSecondary(ctx)),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () async {
               final repo = ref.read(playerRepositoryProvider);
@@ -708,11 +786,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               if (ctx.mounted) Navigator.pop(ctx);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.historyCleared), duration: const Duration(seconds: 2)),
+                  SnackBar(
+                    content: Text(l10n.historyCleared),
+                    duration: const Duration(seconds: 2),
+                  ),
                 );
               }
             },
-            child: Text(l10n.clearHistory, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              l10n.clearHistory,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -751,18 +835,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: border),
       ),
-      child: Row(children: [
-        Icon(Icons.info_outline, color: AppColors.accent, size: 24),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l10n.noAccountFound, style: TextStyle(color: title, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text(l10n.noAccountWarning, style: TextStyle(color: body, fontSize: 13)),
-          ]),
-        ),
-        TextButton(onPressed: () => c.go('/settings'), child: Text(l10n.goToSettings)),
-      ]),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: AppColors.accent, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.noAccountFound,
+                  style: TextStyle(color: title, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.noAccountWarning,
+                  style: TextStyle(color: body, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => c.go('/settings'),
+            child: Text(l10n.goToSettings),
+          ),
+        ],
+      ),
     );
   }
 
@@ -770,7 +868,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return SizedBox(
       height: 250,
       child: ListView.separated(
-        padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding > 12 ? 24 : 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.horizontalPadding > 12 ? 24 : 12,
+        ),
         scrollDirection: Axis.horizontal,
         itemCount: 6,
         separatorBuilder: (_, _) => const SizedBox(width: 14),
@@ -787,7 +887,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref, type) {
+final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((
+  ref,
+  type,
+) {
   return ref.watch(contentRepositoryProvider).watchRecentChannels(type);
 });
 
@@ -803,8 +906,7 @@ final recentChannelsProvider = StreamProvider.family<List<Channel>, String>((ref
 /// anyway, so the AI reorder is dropped for reliability.)
 final dashboardContinueWatchingProvider = StreamProvider<List<Channel>>((ref) {
   // select() so only THIS flag rebuilds the provider, not every setting.
-  if (!ref.watch(
-      settingsProvider.select((s) => s.continueWatchingEnabled))) {
+  if (!ref.watch(settingsProvider.select((s) => s.continueWatchingEnabled))) {
     return Stream.value(const <Channel>[]);
   }
   return ref.watch(contentRepositoryProvider).watchAllContinueWatching();
@@ -820,10 +922,14 @@ final dashboardWatchlistProvider = StreamProvider<List<Channel>>((ref) {
   return wlRepo.watchAll().asyncMap((items) async {
     if (items.isEmpty) return <Channel>[];
 
-    final movieIds =
-        items.where((w) => w.streamType == 'movie').map((w) => w.streamId).toList();
-    final seriesIds =
-        items.where((w) => w.streamType == 'series').map((w) => w.streamId).toList();
+    final movieIds = items
+        .where((w) => w.streamType == 'movie')
+        .map((w) => w.streamId)
+        .toList();
+    final seriesIds = items
+        .where((w) => w.streamType == 'series')
+        .map((w) => w.streamId)
+        .toList();
 
     final chunks = await Future.wait([
       if (movieIds.isNotEmpty)
@@ -840,7 +946,8 @@ final dashboardWatchlistProvider = StreamProvider<List<Channel>>((ref) {
 
     // Preserve watchlist order (newest-first).
     final order = <String, int>{
-      for (var i = 0; i < items.length; i++) '${items[i].streamType}:${items[i].streamId}': i,
+      for (var i = 0; i < items.length; i++)
+        '${items[i].streamType}:${items[i].streamId}': i,
     };
     channels.sort((a, b) {
       final ai = order['${a.type}:${a.streamId}'] ?? 1 << 20;
@@ -860,12 +967,18 @@ final dashboardFavoritesProvider = StreamProvider<List<Channel>>((ref) {
   return favRepo.watchAllFavorites().asyncMap((favs) async {
     if (favs.isEmpty) return <Channel>[];
 
-    final movieIds =
-        favs.where((f) => f.streamType == 'movie').map((f) => f.streamId).toList();
-    final seriesIds =
-        favs.where((f) => f.streamType == 'series').map((f) => f.streamId).toList();
-    final liveIds =
-        favs.where((f) => f.streamType == 'live').map((f) => f.streamId).toList();
+    final movieIds = favs
+        .where((f) => f.streamType == 'movie')
+        .map((f) => f.streamId)
+        .toList();
+    final seriesIds = favs
+        .where((f) => f.streamType == 'series')
+        .map((f) => f.streamId)
+        .toList();
+    final liveIds = favs
+        .where((f) => f.streamType == 'live')
+        .map((f) => f.streamId)
+        .toList();
 
     final chunks = await Future.wait([
       if (movieIds.isNotEmpty)
@@ -882,15 +995,12 @@ final dashboardFavoritesProvider = StreamProvider<List<Channel>>((ref) {
         Future.value(<Channel>[]),
     ]);
 
-    final channels = <Channel>[
-      ...chunks[0],
-      ...chunks[1],
-      ...chunks[2],
-    ];
+    final channels = <Channel>[...chunks[0], ...chunks[1], ...chunks[2]];
 
     // Keep dashboard order aligned with favorites table (latest first).
     final order = <String, int>{
-      for (var i = 0; i < favs.length; i++) '${favs[i].streamType}:${favs[i].streamId}': i,
+      for (var i = 0; i < favs.length; i++)
+        '${favs[i].streamType}:${favs[i].streamId}': i,
     };
     channels.sort((a, b) {
       final ai = order['${a.type}:${a.streamId}'] ?? 1 << 20;

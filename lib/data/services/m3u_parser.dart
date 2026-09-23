@@ -151,7 +151,11 @@ final _seriesEpisodeRegex = RegExp(
   r'S\d{1,2}\s?E\d{1,2}',
   caseSensitive: false,
 );
-final _seriesAltRegex = RegExp(r'\d{1,2}x\d{1,2}', caseSensitive: false);
+final _seriesAltRegex = RegExp(r'\d{1,3}x\d{1,4}', caseSensitive: false);
+final _seriesTurkishRegex = RegExp(
+  r'\d{1,3}\s*\.?\s*Sezon\s*[-.: ]*\s*\d{1,4}\s*\.?\s*B[öo]l[üu]m',
+  caseSensitive: false,
+);
 
 String classifyStreamType({
   required String url,
@@ -194,7 +198,9 @@ String classifyStreamType({
 
   // 4) Kanal adı — dizi episod pattern (+3)
   if (name != null && name.isNotEmpty) {
-    if (_seriesEpisodeRegex.hasMatch(name) || _seriesAltRegex.hasMatch(name)) {
+    if (_seriesEpisodeRegex.hasMatch(name) ||
+        _seriesAltRegex.hasMatch(name) ||
+        _seriesTurkishRegex.hasMatch(name)) {
       seriesScore += 3;
     }
   }

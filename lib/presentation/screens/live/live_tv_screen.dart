@@ -19,8 +19,8 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
-import 'package:lifeostv/utils/stream_url_builder.dart';
-import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/data/services/epg_request_gate.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
@@ -45,7 +45,7 @@ final _liveChannelsProvider = StreamProvider.family<List<Channel>, String>((
 
 final _allLiveChannelsProvider = StreamProvider<List<Channel>>((ref) {
   final repo = ref.watch(contentRepositoryProvider);
-  return repo.watchRecentChannels('live', limit: 500);
+  return repo.watchAllChannelsByType('live');
 });
 
 final _favLiveIdsProvider = StreamProvider<List<int>>((ref) {
@@ -75,19 +75,21 @@ final _continueWatchingLiveProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(contentRepositoryProvider).watchContinueWatching('live');
 });
 
-final _channelProgramsProvider = StreamProvider.family<List<Program>, int>((
-  ref,
-  channelId,
-) {
-  final repo = ref.watch(contentRepositoryProvider);
-  return repo.watchPrograms(channelId);
+final _epgClockProvider = StreamProvider.autoDispose<DateTime>((ref) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
+});
+final _epgGateProvider = Provider((ref) {
+  ref.watch(appDatabaseProvider);
+  return EpgRequestGate();
 });
 
-/// EPG sync state - tracks if a batch sync is running
-final _epgSyncingNotifier = ValueNotifier<bool>(false);
-
-/// Per-channel EPG sync tracker (to avoid re-fetching same channel repeatedly)
-final _epgSyncedChannels = <int>{};
+final _channelProgramsProvider = StreamProvider.autoDispose
+    .family<List<Program>, int>((ref, channelId) {
+      ref.watch(_epgClockProvider);
+      final repo = ref.watch(contentRepositoryProvider);
+      return repo.watchPrograms(channelId);
+    });
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -121,6 +123,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   String? _selectedCategoryId;
   bool _categoriesCollapsed = isMobilePlatform;
+  final _epgSyncingNotifier = ValueNotifier<bool>(false);
+  bool _openingPlayer = false;
   Timer? _currentTimeTimer;
   DateTime _currentTime = DateTime.now();
 
@@ -153,9 +157,12 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   // The base time for the EPG timeline (start of the current 2-hour window)
   late DateTime _timelineStart;
 
+  late final TvFocusRegistry _focusRegistry;
+
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     final now = DateTime.now();
     // Start timeline 1 hour before current time
     _timelineStart = DateTime(now.year, now.month, now.day, now.hour - 1);
@@ -202,10 +209,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       // Start EPG sync in background
       _triggerEpgSync();
       _registerBackHandler();
-      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
-            TvBranchIndex.liveTv,
-            _branchPrimaryCb,
-          );
+      _focusRegistry.registerBranchPrimary(
+        TvBranchIndex.liveTv,
+        _branchPrimaryCb,
+      );
     });
   }
 
@@ -276,57 +283,67 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// is pure-function unit-tested in
   /// test/core/tv_focus/live_tv_back_resolver_test.dart; this method
   /// only wires the state inputs and dispatches.
+  late final bool Function() _branchBackCb = _handleScreenBack;
+
   void _registerBackHandler() {
-    ref.read(backHandlerProvider.notifier).set(() {
-      final registry = ref.read(tvFocusRegistryProvider);
-      final action = resolveLiveTvBackAction(
-        mainSidebarFocused: registry.isMainSidebarFocused,
-        categoriesCollapsed: _categoriesCollapsed,
-        categoryScopeFocused: _categorySidebarScope.hasFocus,
-        epgFocused: _epgFocusScope.hasFocus,
-        channelListFocused: _channelListFocusNode.hasFocus,
-      );
-      switch (action) {
-        case LiveTvBackAction.focusChannelList:
-          _focusChannelList();
-          return true;
-        case LiveTvBackAction.focusCategorySidebar:
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _categorySidebarScope.requestFocus();
-          });
-          return true;
-        case LiveTvBackAction.handToShell:
-          return false;
-      }
-    });
+    _focusRegistry.registerBranchBack(TvBranchIndex.liveTv, _branchBackCb);
+  }
+
+  bool _handleScreenBack() {
+    final registry = _focusRegistry;
+    final action = resolveLiveTvBackAction(
+      mainSidebarFocused: registry.isMainSidebarFocused,
+      categoriesCollapsed: _categoriesCollapsed,
+      categoryScopeFocused: _categorySidebarScope.hasFocus,
+      epgFocused: _epgFocusScope.hasFocus,
+      channelListFocused: _channelListFocusNode.hasFocus,
+    );
+    switch (action) {
+      case LiveTvBackAction.focusChannelList:
+        _focusChannelList();
+        return true;
+      case LiveTvBackAction.focusCategorySidebar:
+        _openCategorySidebar();
+        return true;
+      case LiveTvBackAction.handToShell:
+        return false;
+    }
   }
 
   /// Trigger batch EPG sync for all live channels (throttled - max once per 2h)
   /// DB-first: existing programs are shown immediately from cache,
   /// this only fetches from server if last sync was >2 hours ago.
-  Future<void> _triggerEpgSync() async {
+  Future<void> _triggerEpgSync({bool force = false}) async {
     if (_epgSyncingNotifier.value) return;
     _epgSyncingNotifier.value = true;
     try {
       final account =
           ref.read(currentAccountProvider).value ??
           await ref.read(currentAccountProvider.future);
-      if (account == null) return;
-      final repo = ref.read(contentRepositoryProvider);
+      if (!mounted ||
+          account == null ||
+          ref.read(currentAccountProvider).value?.id != account.id) {
+        return;
+      }
+      final repo = ref.read(contentRepositoryProvider).forAccount(account.id);
       // Cleanup old programs, then silently sync if needed (throttled in repo)
       await repo.cleanupOldPrograms();
-      await repo.syncAllLiveEpg(account.id);
+      await repo.syncAllLiveEpg(account.id, force: force);
+    } catch (_) {
+      // The next visible-row request may retry after the bounded cooldown.
     } finally {
-      _epgSyncingNotifier.value = false;
+      if (mounted) _epgSyncingNotifier.value = false;
     }
   }
 
   @override
   void dispose() {
-    ref.read(tvFocusRegistryProvider).unregisterBranchPrimary(
-          TvBranchIndex.liveTv,
-          _branchPrimaryCb,
-        );
+    _focusRegistry.unregisterBranchBack(TvBranchIndex.liveTv, _branchBackCb);
+    _focusRegistry.unregisterBranchPrimary(
+      TvBranchIndex.liveTv,
+      _branchPrimaryCb,
+    );
+    _epgSyncingNotifier.dispose();
     _currentTimeTimer?.cancel();
     _channelListScrollController.removeListener(_onChannelListScroll);
     _epgVerticalScrollController.removeListener(_onEpgVerticalScroll);
@@ -457,8 +474,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     );
   }
 
-  Widget _buildMobileTopBar(
-      AppLocalizations l10n, List<Category> categories) {
+  Widget _buildMobileTopBar(AppLocalizations l10n, List<Category> categories) {
     String categoryLabel;
     IconData categoryIcon;
     if (_selectedCategoryId == _kFavoritesId) {
@@ -876,80 +892,92 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     );
   }
 
-  void _playChannel(Channel channel, {List<Channel>? channelList}) {
+  Future<void> _playChannel(
+    Channel channel, {
+    List<Channel>? channelList,
+  }) async {
+    if (_openingPlayer) return;
     final account = ref.read(currentAccountProvider).value;
     if (account == null) return;
-
-    final quality = ref.read(settingsProvider).streamQuality;
-    final user = account.username ?? '';
-    final pass = account.password ?? '';
-    final isM3u = account.type == 'm3u';
-
-    final url =
-        (isM3u && channel.streamUrl != null && channel.streamUrl!.isNotEmpty)
-        ? channel.streamUrl!
-        : StreamUrlBuilder.live(
-            account.url,
-            user,
-            pass,
-            channel.streamId,
-            quality: quality,
-          );
-
-    // Build channel list for live TV channel switching (D-pad up/down)
-    final channels = channelList ?? _getCurrentChannelList();
-    List<PlayerChannel>? playerChannels;
-    int? currentIndex;
-
-    if (channels != null && channels.isNotEmpty) {
-      playerChannels = channels
-          .map(
-            (ch) => PlayerChannel(
+    _openingPlayer = true;
+    try {
+      final quality = ref.read(settingsProvider).streamQuality;
+      final resolver = ref.read(playbackUrlResolverProvider);
+      final url = await resolver.resolve(account, channel, quality: quality);
+      final channels = channelList ?? _getCurrentChannelList() ?? [channel];
+      final playerChannels = <PlayerChannel>[];
+      for (final ch in channels) {
+        if (ch.accountId != 0 && ch.accountId != account.id) continue;
+        try {
+          playerChannels.add(
+            PlayerChannel(
               streamId: ch.streamId,
               name: ch.name,
-              url: (isM3u && ch.streamUrl != null && ch.streamUrl!.isNotEmpty)
-                  ? ch.streamUrl!
-                  : StreamUrlBuilder.live(
-                      account.url,
-                      user,
-                      pass,
-                      ch.streamId,
-                      quality: quality,
-                    ),
+              url: await resolver.resolve(account, ch, quality: quality),
               logo: ch.streamIcon,
               categoryId: ch.categoryId,
             ),
-          )
-          .toList();
-      currentIndex = channels.indexWhere(
+          );
+        } catch (_) {
+          /* Invalid playlist entries cannot be switched to. */
+        }
+      }
+      var currentIndex = playerChannels.indexWhere(
         (ch) => ch.streamId == channel.streamId,
       );
-      if (currentIndex < 0) currentIndex = 0;
-    }
-
-    // Build category name map from loaded categories
-    final categories = ref.read(_liveCategoriesProvider).value;
-    final categoryMap = <String, String>{};
-    if (categories != null) {
-      for (final cat in categories) {
-        categoryMap[cat.id] = cat.name;
+      if (currentIndex < 0) {
+        playerChannels.insert(
+          0,
+          PlayerChannel(
+            streamId: channel.streamId,
+            name: channel.name,
+            url: url,
+            logo: channel.streamIcon,
+            categoryId: channel.categoryId,
+          ),
+        );
+        currentIndex = 0;
       }
-    }
+      if (!mounted ||
+          ref.read(currentAccountProvider).value?.id != account.id) {
+        return;
+      }
 
-    context.push(
-      '/player',
-      extra: {
-        'url': url,
-        'streamId': channel.streamId,
-        'accountId': channel.accountId,
-        'title': channel.name,
-        'type': VideoType.live,
-        'logo': channel.streamIcon,
-        'channels': playerChannels,
-        'currentChannelIndex': currentIndex,
-        'categoryNames': categoryMap,
-      },
-    );
+      // Build category name map from loaded categories
+      final categories = ref.read(_liveCategoriesProvider).value;
+      final categoryMap = <String, String>{};
+      if (categories != null) {
+        for (final cat in categories) {
+          categoryMap[cat.id] = cat.name;
+        }
+      }
+
+      await context.push(
+        '/player',
+        extra: {
+          'url': url,
+          'streamId': channel.streamId,
+          'accountId': account.id,
+          'title': channel.name,
+          'type': VideoType.live,
+          'logo': channel.streamIcon,
+          'channels': playerChannels,
+          'currentChannelIndex': currentIndex,
+          'categoryNames': categoryMap,
+        },
+      );
+      if (mounted) _focusChannelList();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.streamLoadFailed),
+          ),
+        );
+      }
+    } finally {
+      _openingPlayer = false;
+    }
   }
 
   /// Get the currently displayed channel list (for channel switching in player)
@@ -1089,6 +1117,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'EPG',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _triggerEpgSync(force: true),
+          ),
           // EPG sync indicator
           ValueListenableBuilder<bool>(
             valueListenable: _epgSyncingNotifier,
@@ -1157,7 +1190,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   /// Open category sidebar (called from channel list left D-pad)
   void _openCategorySidebar() {
-    if (!_categoriesCollapsed) return;
+    if (!_categoriesCollapsed) {
+      _categorySidebarScope.requestFocus();
+      return;
+    }
     _toggleCategorySidebar();
   }
 
@@ -1165,10 +1201,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// lives in a sibling subtree under StatefulShellRoute.indexedStack
   /// so findAncestorStateOfType would never find it.
   void _focusMainSidebar() {
-    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    final ok = _focusRegistry.requestMainSidebar();
     if (!ok) {
-      FocusManager.instance.primaryFocus
-          ?.focusInDirection(TraversalDirection.left);
+      FocusManager.instance.primaryFocus?.focusInDirection(
+        TraversalDirection.left,
+      );
     }
   }
 
@@ -1464,7 +1501,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         if (ids.isEmpty) {
           return EmptyState.favorites(
             title: l10n.noFavorites,
-            subtitle: 'Bir kanalın yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
+            subtitle:
+                'Bir kanalın yanındaki ♥︎ ikonuna dokunarak favorilere ekleyin.',
           );
         }
         final channelsAsync = ref.watch(_favLiveChannelsProvider(ids));
@@ -2028,77 +2066,77 @@ class _ChannelListItemState extends ConsumerState<_ChannelListItem> {
             ),
           ),
         ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              // Channel logo
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: widget.channel.streamIcon != null
-                      ? CachedNetworkImage(
-                          imageUrl: widget.channel.streamIcon!,
-                          fit: BoxFit.cover,
-                          memCacheWidth: 96,
-                          errorWidget: (_, _, _) => _channelPlaceholder(),
-                        )
-                      : _channelPlaceholder(),
-                ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            // Channel logo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: widget.channel.streamIcon != null
+                    ? CachedNetworkImage(
+                        imageUrl: widget.channel.streamIcon!,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 96,
+                        errorWidget: (_, _, _) => _channelPlaceholder(),
+                      )
+                    : _channelPlaceholder(),
               ),
-              const SizedBox(width: 8),
-              // Channel name + current program
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            ),
+            const SizedBox(width: 8),
+            // Channel name + current program
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.channel.name,
+                    style: TextStyle(
+                      color: isFocused
+                          ? AppColors.textDark
+                          : AppColors.textDark,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (currentProgramTitle != null) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      widget.channel.name,
-                      style: TextStyle(
-                        color: isFocused
-                            ? AppColors.textDark
-                            : AppColors.textDark,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      currentProgramTitle!,
+                      style: const TextStyle(
+                        color: AppColors.textTertiaryDark,
+                        fontSize: 10,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (currentProgramTitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        currentProgramTitle!,
-                        style: const TextStyle(
-                          color: AppColors.textTertiaryDark,
-                          fontSize: 10,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ],
+                ],
+              ),
+            ),
+            InkWell(
+              onTap: _toggleFavorite,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite
+                      ? AppColors.primary
+                      : AppColors.textTertiaryDark,
+                  size: 18,
                 ),
               ),
-              InkWell(
-                onTap: _toggleFavorite,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: isFavorite
-                        ? AppColors.primary
-                        : AppColors.textTertiaryDark,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _channelPlaceholder() {
@@ -2131,7 +2169,7 @@ class _EpgTimelineGrid extends StatelessWidget {
   /// Called when the user presses D-pad up/down on any program. The
   /// screen walks the channel list one step in `direction`.
   final void Function(Channel channel, TraversalDirection direction)?
-      onProgramVerticalNav;
+  onProgramVerticalNav;
 
   // Total timeline hours to render
   static const int _totalHours = 6;
@@ -2185,8 +2223,7 @@ class _EpgTimelineGrid extends StatelessWidget {
                             : () => onProgramLeftEdge!(channel),
                         onProgramVerticalNav: onProgramVerticalNav == null
                             ? null
-                            : (dir) =>
-                                onProgramVerticalNav!(channel, dir),
+                            : (dir) => onProgramVerticalNav!(channel, dir),
                       );
                     },
                   ),
@@ -2384,36 +2421,24 @@ class _EpgChannelRow extends ConsumerStatefulWidget {
 }
 
 class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
-  bool _epgFetchAttempted = false;
-
   /// Lazy-fetch EPG for this channel if not yet synced
-  void _lazyFetchEpg(List<Program> programs) async {
-    if (_epgFetchAttempted) return;
-    if (programs.isNotEmpty) return; // Already have data
-    if (_epgSyncedChannels.contains(widget.channel.streamId)) {
-      _epgFetchAttempted = true;
+  void _lazyFetchEpg(List<Program> programs) {
+    if (programs.any((p) => p.stop.isAfter(DateTime.now()))) return;
+    final account = ref.read(currentAccountProvider).value;
+    final channel = widget.channel;
+    if (account == null ||
+        (channel.accountId != 0 && channel.accountId != account.id)) {
       return;
     }
-
-    final account =
-        ref.read(currentAccountProvider).value ??
-        await ref.read(currentAccountProvider.future);
-    if (!mounted) return;
-    if (account == null) return;
-
-    // Check if this channel was already synced in this session
-    if (_epgSyncedChannels.contains(widget.channel.streamId)) return;
-
-    _epgFetchAttempted = true;
-
-    // Mark as synced
-    _epgSyncedChannels.add(widget.channel.streamId);
-
-    // Fetch EPG in background
+    final repo = ref.read(contentRepositoryProvider).forAccount(account.id);
     unawaited(
       ref
-          .read(contentRepositoryProvider)
-          .syncChannelEpg(account.id, widget.channel.streamId.toString()),
+          .read(_epgGateProvider)
+          .request(
+            account.id,
+            channel.streamId,
+            () => repo.syncChannelEpg(account.id, channel.streamId.toString()),
+          ),
     );
   }
 
@@ -2486,8 +2511,8 @@ class _EpgChannelRowState extends ConsumerState<_EpgChannelRow> {
                 onLeftEdge: index == 0 ? widget.onProgramLeftEdge : null,
                 onArrowUp: () =>
                     widget.onProgramVerticalNav?.call(TraversalDirection.up),
-                onArrowDown: () => widget.onProgramVerticalNav
-                    ?.call(TraversalDirection.down),
+                onArrowDown: () =>
+                    widget.onProgramVerticalNav?.call(TraversalDirection.down),
               );
             }).toList(),
           );
@@ -2802,8 +2827,6 @@ class _MobileChannelTile extends ConsumerStatefulWidget {
 }
 
 class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
-  bool _epgFetchAttempted = false;
-
   Future<void> _toggleFavorite() async {
     final l10n = AppLocalizations.of(context)!;
     final added = await ref
@@ -2826,33 +2849,23 @@ class _MobileChannelTileState extends ConsumerState<_MobileChannelTile> {
   }
 
   /// Lazy-fetch EPG for this channel if not yet synced (same logic as _EpgChannelRow)
-  void _lazyFetchEpg(List<Program> programs) async {
-    if (_epgFetchAttempted) return;
-    if (programs.isNotEmpty) return; // Already have data
-    if (_epgSyncedChannels.contains(widget.channel.streamId)) {
-      _epgFetchAttempted = true;
+  void _lazyFetchEpg(List<Program> programs) {
+    if (programs.any((p) => p.stop.isAfter(DateTime.now()))) return;
+    final account = ref.read(currentAccountProvider).value;
+    final channel = widget.channel;
+    if (account == null ||
+        (channel.accountId != 0 && channel.accountId != account.id)) {
       return;
     }
-
-    final account =
-        ref.read(currentAccountProvider).value ??
-        await ref.read(currentAccountProvider.future);
-    if (!mounted) return;
-    if (account == null) return;
-
-    // Check if this channel was already synced in this session
-    if (_epgSyncedChannels.contains(widget.channel.streamId)) return;
-
-    _epgFetchAttempted = true;
-
-    // Mark as synced
-    _epgSyncedChannels.add(widget.channel.streamId);
-
-    // Fetch EPG in background
+    final repo = ref.read(contentRepositoryProvider).forAccount(account.id);
     unawaited(
       ref
-          .read(contentRepositoryProvider)
-          .syncChannelEpg(account.id, widget.channel.streamId.toString()),
+          .read(_epgGateProvider)
+          .request(
+            account.id,
+            channel.streamId,
+            () => repo.syncChannelEpg(account.id, channel.streamId.toString()),
+          ),
     );
   }
 

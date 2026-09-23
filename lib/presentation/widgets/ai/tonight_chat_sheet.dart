@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/widgets/profile/profile_pin_prompt.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -53,7 +54,11 @@ class TonightChatSheet extends ConsumerStatefulWidget {
 /// trash button in the header, or implicitly on app restart.
 class _ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
   @override
-  List<ChatMessage> build() => const [];
+  List<ChatMessage> build() {
+    ref.watch(appDatabaseProvider);
+    ref.watch(activeProfileIdProvider);
+    return const [];
+  }
 
   void add(ChatMessage message) {
     state = [...state, message];
@@ -66,8 +71,8 @@ class _ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
 
 final tonightChatHistoryProvider =
     NotifierProvider<_ChatHistoryNotifier, List<ChatMessage>>(
-  _ChatHistoryNotifier.new,
-);
+      _ChatHistoryNotifier.new,
+    );
 
 /// Active spoiler-protection context for the chat. When set, every
 /// chat call to Gemini carries a `currentEpisode` field that tells
@@ -94,11 +99,11 @@ class ChatEpisodeContext {
   String get epLabel => 'S${season}E$episode';
 
   Map<String, dynamic> toPromptJson() => {
-        'title': title,
-        'season': season,
-        'episode': episode,
-        'epLabel': epLabel,
-      };
+    'title': title,
+    'season': season,
+    'episode': episode,
+    'epLabel': epLabel,
+  };
 }
 
 class _ChatEpisodeContextNotifier extends Notifier<ChatEpisodeContext?> {
@@ -111,8 +116,8 @@ class _ChatEpisodeContextNotifier extends Notifier<ChatEpisodeContext?> {
 
 final chatEpisodeContextProvider =
     NotifierProvider<_ChatEpisodeContextNotifier, ChatEpisodeContext?>(
-  _ChatEpisodeContextNotifier.new,
-);
+      _ChatEpisodeContextNotifier.new,
+    );
 
 class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   final TextEditingController _input = TextEditingController();
@@ -145,6 +150,17 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     final text = rawText.trim();
     if (text.isEmpty || _waitingForAi) return;
 
+    final turnAccount = ref.read(currentAccountProvider).value?.id;
+    final turnProfile = ref.read(activeProfileIdProvider);
+    bool isCurrent() =>
+        mounted &&
+        ref.read(currentAccountProvider).value?.id == turnAccount &&
+        ref.read(activeProfileIdProvider) == turnProfile;
+    void abandon() {
+      _pendingAgentNav = null;
+      if (mounted) setState(() => _waitingForAi = false);
+    }
+
     final gemini = ref.read(geminiServiceProvider);
     if (gemini == null) {
       // Shouldn't happen — the FAB only renders when hasAiKey, but
@@ -153,9 +169,9 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       return;
     }
 
-    ref.read(tonightChatHistoryProvider.notifier).add(
-          ChatMessage(fromUser: true, text: text),
-        );
+    ref
+        .read(tonightChatHistoryProvider.notifier)
+        .add(ChatMessage(fromUser: true, text: text));
     setState(() {
       _input.clear();
       _waitingForAi = true;
@@ -169,9 +185,9 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     if (ctx == null || ctx.librarySample.isEmpty) {
       // Library hasn't loaded (provider error) or really is empty.
       // Show a helpful bubble instead of a hung spinner.
-      ref.read(tonightChatHistoryProvider.notifier).add(
-            ChatMessage(fromUser: false, text: l10n.aiEmptyLibrary),
-          );
+      ref
+          .read(tonightChatHistoryProvider.notifier)
+          .add(ChatMessage(fromUser: false, text: l10n.aiEmptyLibrary));
       setState(() => _waitingForAi = false);
       _scrollToBottom();
       return;
@@ -187,16 +203,21 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // the AI may want to surface 10+ items, and we want it to have
     // room to pick the best ones from a wider pool rather than be
     // capped at 60. Cost is ~50 ms of bounded DB scan.
-    final queryMatches =
-        await contentRepo.librarySearchByKeywords(text, limit: 120);
+    final queryMatches = await contentRepo.librarySearchByKeywords(
+      text,
+      limit: 120,
+    );
     final categoryOverview = await contentRepo.categoryOverview();
     // Shared weighted taste profile. Hands the chat the same
     // aggregate view the dashboard rails use so the AI can break
     // ties between equally-plausible candidates by reading the
     // actual scores instead of re-deriving them from raw lists.
-    final tasteProfile =
-        await ref.read(tasteProfileProvider.future);
+    final tasteProfile = await ref.read(tasteProfileProvider.future);
 
+    if (!isCurrent()) {
+      abandon();
+      return;
+    }
     // Wrap the AI call with the instrumentation service so the
     // Settings → Debug panel can show latency / success / timeout
     // metrics. Telemetry write is fire-and-forget — the actual
@@ -218,12 +239,12 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         // Compact context blob the agent sees on turn 1. The model can
         // also call searchLibrary to pull in anything beyond this slice.
         Map<String, dynamic> compact(Channel c) => {
-              'streamId': c.streamId,
-              'title': c.name,
-              'type': c.type,
-              if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-              if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-            };
+          'streamId': c.streamId,
+          'title': c.name,
+          'type': c.type,
+          if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+          if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+        };
         final now = DateTime.now();
         final contextBlob = <String, dynamic>{
           // So the agent can compute epochMs for relative reminders
@@ -247,11 +268,20 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
               .toList(),
           contextJson: jsonEncode(contextBlob),
           targetLanguage: lang,
-          onToolCall: _agentToolCall,
+          onToolCall: (name, args) async {
+            if (!isCurrent()) {
+              return {'ok': false, 'error': 'account/profile changed'};
+            }
+            return _agentToolCall(name, args);
+          },
         );
       },
     );
 
+    if (!isCurrent()) {
+      abandon();
+      return;
+    }
     // Resilience: if the agent path failed (transport / tool error),
     // fall back to the plain recommendation call so the chat still
     // answers instead of showing "couldn't reach the assistant".
@@ -275,12 +305,15 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       );
     }
 
-    if (!mounted) return;
+    if (!isCurrent()) {
+      abandon();
+      return;
+    }
 
     if (response == null || response.isEmpty) {
-      ref.read(tonightChatHistoryProvider.notifier).add(
-            ChatMessage(fromUser: false, text: l10n.aiError),
-          );
+      ref
+          .read(tonightChatHistoryProvider.notifier)
+          .add(ChatMessage(fromUser: false, text: l10n.aiError));
       setState(() => _waitingForAi = false);
     } else {
       // Resolve every recommended streamId from the DB directly so
@@ -289,33 +322,26 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       // Without this, AI picks from queryMatches were dropped as
       // "hallucinated" because the card widget only searched the
       // standard pools.
-      final db = ref.read(appDatabaseProvider);
-      final ids = response.recommendations
-          .map((r) => r.streamId)
-          .toSet()
-          .toList();
       final resolved = <int, Channel>{};
-      if (ids.isNotEmpty) {
-        final rows = await (db.select(db.channels)
-              ..where((t) => t.streamId.isIn(ids)))
-            .get();
-        for (final c in rows) {
-          // Composite primary key (streamId, type) — keep the first
-          // we see; subsequent collisions across types are rare and
-          // the chat doesn't disambiguate them anyway.
-          resolved.putIfAbsent(c.streamId, () => c);
-        }
+      for (final rec in response.recommendations) {
+        final channel = await contentRepo.getVisibleChannel(rec.streamId);
+        if (channel != null) resolved[rec.streamId] = channel;
       }
-      if (!mounted) return;
-      ref.read(tonightChatHistoryProvider.notifier).add(
+      if (!isCurrent()) {
+        abandon();
+        return;
+      }
+      ref
+          .read(tonightChatHistoryProvider.notifier)
+          .add(
             ChatMessage(
               fromUser: false,
               text: response.message.isNotEmpty
                   ? response.message
-                  : (response.recommendations.isEmpty
-                      ? l10n.aiNoMatches
-                      : ''),
-              recommendations: response.recommendations,
+                  : (response.recommendations.isEmpty ? l10n.aiNoMatches : ''),
+              recommendations: response.recommendations
+                  .where((r) => resolved.containsKey(r.streamId))
+                  .toList(),
               resolvedChannels: resolved,
               followUps: response.followUps,
             ),
@@ -334,14 +360,12 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// data; favourite/profile run immediately; play/openDetail are
   /// deferred (they pop the sheet) into [_pendingAgentNav].
   Future<Map<String, dynamic>> _agentToolCall(
-      String name, Map<String, dynamic> args) async {
-    final db = ref.read(appDatabaseProvider);
-    Future<Channel?> resolve(int id) async {
-      final rows = await (db.select(db.channels)
-            ..where((t) => t.streamId.equals(id)))
-          .get();
-      return rows.isEmpty ? null : rows.first;
-    }
+    String name,
+    Map<String, dynamic> args,
+  ) async {
+    final content = ref.read(contentRepositoryProvider);
+    Future<Channel?> resolve(int id) =>
+        content.getVisibleChannel(id, type: args['type']?.toString());
 
     switch (name) {
       case 'searchLibrary':
@@ -352,15 +376,13 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
             .search(q, k: 20, restrictType: type);
         var channels = <Channel>[];
         if (hits.isNotEmpty) {
-          final ids = hits.map((h) => h.streamId).toList();
-          final rows = await (db.select(db.channels)
-                ..where((t) => t.streamId.isIn(ids)))
-              .get();
-          final byId = {for (final r in rows) r.streamId: r};
-          channels = [
-            for (final h in hits)
-              if (byId[h.streamId] != null) byId[h.streamId]!
-          ];
+          for (final hit in hits) {
+            final row = await content.getVisibleChannel(
+              hit.streamId,
+              type: hit.type,
+            );
+            if (row != null) channels.add(row);
+          }
         }
         // Fall back to keyword search when nothing's embedded yet.
         if (channels.isEmpty) {
@@ -380,7 +402,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 'type': c.type,
                 if (c.genre != null) 'genre': c.genre,
                 if (c.year != null) 'year': c.year,
-              }
+              },
           ],
         };
 
@@ -392,13 +414,14 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         return {
           'results': [
             for (final c in chans)
-              {'streamId': c.streamId, 'title': c.name, 'type': 'live'}
+              {'streamId': c.streamId, 'title': c.name, 'type': 'live'},
           ],
         };
 
       case 'getLiveNowOnAir':
-        final rows =
-            await ref.read(contentRepositoryProvider).liveNowOnAir(limit: 30);
+        final rows = await ref
+            .read(contentRepositoryProvider)
+            .liveNowOnAir(limit: 30);
         return {
           'results': [
             for (final r in rows)
@@ -408,7 +431,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 'now': r.program.title,
                 'startEpochMs': r.program.start.millisecondsSinceEpoch,
                 'stopEpochMs': r.program.stop.millisecondsSinceEpoch,
-              }
+              },
           ],
         };
 
@@ -426,7 +449,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                 'title': r.program.title,
                 'startEpochMs': r.program.start.millisecondsSinceEpoch,
                 'stopEpochMs': r.program.stop.millisecondsSinceEpoch,
-              }
+              },
           ],
         };
 
@@ -435,9 +458,11 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final type = args['type']?.toString();
         if (id == null || type == null) return {'ok': false};
         final ch = await resolve(id);
-        await ref.read(favoritesRepositoryProvider).addFavorite(
-            id, type, ch?.name ?? '', ch?.streamIcon);
-        return {'ok': true, 'title': ch?.name};
+        if (ch == null) return {'ok': false, 'error': 'not available'};
+        await ref
+            .read(favoritesRepositoryProvider)
+            .addFavorite(id, type, ch.name, ch.streamIcon);
+        return {'ok': true, 'title': ch.name};
 
       case 'removeFavorite':
         final id = (args['streamId'] as num?)?.toInt();
@@ -452,13 +477,17 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final all = await repo.getAll();
         final match = all.where((p) => p.name.toLowerCase() == wanted).toList();
         if (match.isEmpty) {
-          return {
-            'ok': false,
-            'available': all.map((p) => p.name).toList(),
-          };
+          return {'ok': false, 'available': all.map((p) => p.name).toList()};
         }
+        if (!mounted ||
+            !await confirmProfilePin(context, match.first) ||
+            !mounted) {
+          return {'ok': false, 'error': 'profile switch cancelled'};
+        }
+        _pendingAgentNav = null;
         await repo.setActiveProfile(match.first.id);
         ref.invalidate(activeProfileIdProvider);
+        ref.invalidate(activeProfileProvider);
         return {'ok': true};
 
       case 'playContent':
@@ -482,7 +511,9 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final epoch = (args['epochMs'] as num?)?.toInt();
         if (title.isEmpty || epoch == null) return {'ok': false};
         final l10n = AppLocalizations.of(context)!;
-        final ok = await ref.read(notificationServiceProvider).scheduleReminder(
+        final ok = await ref
+            .read(notificationServiceProvider)
+            .scheduleReminder(
               id: (epoch ~/ 1000),
               title: title,
               body: l10n.reminderBody,
@@ -501,20 +532,41 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     if (_openingPlayback) return;
     final acc = ref.read(currentAccountProvider).value;
     if (acc == null) return;
+    final profile = ref.read(activeProfileIdProvider);
     _openingPlayback = true;
     try {
+      if (ch.accountId != 0 && ch.accountId != acc.id) return;
+      final visible = await ref
+          .read(contentRepositoryProvider)
+          .getVisibleChannel(ch.streamId, type: ch.type);
+      if (visible == null ||
+          !mounted ||
+          ref.read(activeProfileIdProvider) != profile) {
+        return;
+      }
+      if (ch.type == 'series') {
+        await _openDetailChannel(visible);
+        return;
+      }
       final url = await ref.read(playbackUrlResolverProvider).resolve(acc, ch);
-      if (!mounted || ref.read(currentAccountProvider).value?.id != acc.id) return;
+      if (!mounted ||
+          ref.read(currentAccountProvider).value?.id != acc.id ||
+          ref.read(activeProfileIdProvider) != profile) {
+        return;
+      }
       if (!mounted) return;
       Navigator.of(context).pop();
-      context.push('/player', extra: {
-        'url': url,
-        'streamId': ch.streamId,
-        'accountId': ch.accountId,
-        'title': ch.name,
-        'type': _videoTypeFromString(ch.type),
-        'logo': ch.streamIcon,
-      });
+      context.push(
+        '/player',
+        extra: {
+          'url': url,
+          'streamId': ch.streamId,
+          'accountId': ch.accountId,
+          'title': ch.name,
+          'type': _videoTypeFromString(ch.type),
+          'logo': ch.streamIcon,
+        },
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -526,7 +578,21 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   }
 
   Future<void> _openDetailChannel(Channel ch) async {
-    ref.read(pendingDetailChannelProvider.notifier).set(ch);
+    final account = ref.read(currentAccountProvider).value;
+    final profile = ref.read(activeProfileIdProvider);
+    if (account == null || (ch.accountId != 0 && ch.accountId != account.id)) {
+      return;
+    }
+    final visible = await ref
+        .read(contentRepositoryProvider)
+        .getVisibleChannel(ch.streamId, type: ch.type);
+    if (!mounted ||
+        visible == null ||
+        ref.read(currentAccountProvider).value?.id != account.id ||
+        ref.read(activeProfileIdProvider) != profile) {
+      return;
+    }
+    ref.read(pendingDetailChannelProvider.notifier).set(visible);
     if (!mounted) return;
     Navigator.of(context).pop();
     switch (ch.type) {
@@ -568,21 +634,23 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // `_lastEpisodeProgress` is computed there). For the chat
     // picker we just need title + a default S/E pair, so we read
     // the latest playback row per series.
-    final rows = await (db.select(db.channels).join([
-      db.accountInnerJoin(
-        db.playbackProgress,
-        db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-            db.playbackProgress.type.equalsExp(db.channels.type),
-      ),
-    ])
-          ..where(db.channels.type.equals('series'))
-          ..orderBy([
-            OrderingTerm(
-                expression: db.playbackProgress.updatedAt,
-                mode: OrderingMode.desc),
-          ])
-          ..limit(20))
-        .get();
+    final rows =
+        await (db.select(db.channels).join([
+                db.accountInnerJoin(
+                  db.playbackProgress,
+                  db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
+                      db.playbackProgress.type.equalsExp(db.channels.type),
+                ),
+              ])
+              ..where(db.channels.type.equals('series'))
+              ..orderBy([
+                OrderingTerm(
+                  expression: db.playbackProgress.updatedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(20))
+            .get();
 
     if (!context.mounted) return;
 
@@ -590,8 +658,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       context: context,
       backgroundColor: AppColors.surfaceDark,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetCtx) => SafeArea(
         child: Padding(
@@ -600,19 +667,24 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                const Icon(Icons.shield_outlined,
-                    color: AppColors.primary, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.aiSpoilerShieldTitle,
-                  style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.shield_outlined,
+                    color: AppColors.primary,
+                    size: 18,
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.aiSpoilerShieldTitle,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 6),
               Text(
                 l10n.aiSpoilerShieldDesc,
@@ -625,18 +697,19 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
               // "Off" tile
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.do_not_disturb_off,
-                    color: AppColors.textSecondaryDark),
-                title: Text(l10n.aiSpoilerShieldOff,
-                    style:
-                        const TextStyle(color: AppColors.textDark)),
+                leading: const Icon(
+                  Icons.do_not_disturb_off,
+                  color: AppColors.textSecondaryDark,
+                ),
+                title: Text(
+                  l10n.aiSpoilerShieldOff,
+                  style: const TextStyle(color: AppColors.textDark),
+                ),
                 trailing: current == null
                     ? const Icon(Icons.check, color: AppColors.primary)
                     : null,
                 onTap: () {
-                  ref
-                      .read(chatEpisodeContextProvider.notifier)
-                      .clear();
+                  ref.read(chatEpisodeContextProvider.notifier).clear();
                   Navigator.of(sheetCtx).pop();
                 },
               ),
@@ -670,12 +743,13 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                       final isSelected = current?.streamId == ch.streamId;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.shield,
-                            color: AppColors.primary),
+                        leading: const Icon(
+                          Icons.shield,
+                          color: AppColors.primary,
+                        ),
                         title: Text(
                           ch.name,
-                          style: const TextStyle(
-                              color: AppColors.textDark),
+                          style: const TextStyle(color: AppColors.textDark),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -689,27 +763,27 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                               )
                             : null,
                         trailing: isSelected
-                            ? const Icon(Icons.check,
-                                color: AppColors.primary)
+                            ? const Icon(Icons.check, color: AppColors.primary)
                             : null,
                         onTap: () {
                           ref
                               .read(chatEpisodeContextProvider.notifier)
-                              .set(ChatEpisodeContext(
-                                streamId: ch.streamId,
-                                title: ch.name,
-                                // We don't yet derive S/E from the
-                                // touched row. Reasonable default
-                                // until we wire the per-series last-
-                                // episode lookup here too:
-                                season: current?.streamId == ch.streamId
-                                    ? current!.season
-                                    : 1,
-                                episode:
-                                    current?.streamId == ch.streamId
-                                        ? current!.episode
-                                        : 1,
-                              ));
+                              .set(
+                                ChatEpisodeContext(
+                                  streamId: ch.streamId,
+                                  title: ch.name,
+                                  // We don't yet derive S/E from the
+                                  // touched row. Reasonable default
+                                  // until we wire the per-series last-
+                                  // episode lookup here too:
+                                  season: current?.streamId == ch.streamId
+                                      ? current!.season
+                                      : 1,
+                                  episode: current?.streamId == ch.streamId
+                                      ? current!.episode
+                                      : 1,
+                                ),
+                              );
                           Navigator.of(sheetCtx).pop();
                         },
                       );
@@ -753,180 +827,194 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.textDisabledDark,
-              borderRadius: BorderRadius.circular(2),
+        child: Column(
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textDisabledDark,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          // Header
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(children: [
-              const Icon(Icons.auto_awesome,
-                  color: AppColors.primary, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                l10n.aiChatTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.textDark : AppColors.textLight,
-                ),
-              ),
-              const Spacer(),
-              // Spoiler-shield toggle. When active, the chip shows
-              // the current "S1E10" cap so the user knows what
-              // they're protected from being spoiled about. Tap to
-              // change or clear via _showSpoilerShieldPicker.
-              _SpoilerShieldBadge(
-                onTap: () => _showSpoilerShieldPicker(context),
-              ),
-              const SizedBox(width: 4),
-              if (messages.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  color: AppColors.textSecondaryDark,
-                  tooltip: l10n.aiChatClear,
-                  onPressed: _waitingForAi
-                      ? null
-                      : () => ref
-                          .read(tonightChatHistoryProvider.notifier)
-                          .clear(),
-                ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                color: AppColors.textSecondaryDark,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ]),
-          ),
-          const Divider(height: 1),
-          // Messages
-          Expanded(
-            child: ctxAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    l10n.aiError,
-                    style:
-                        TextStyle(color: AppColors.textSecondaryDark),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.primary,
+                    size: 20,
                   ),
-                ),
-              ),
-              data: (_) => messages.isEmpty
-                  ? _buildEmptyState(l10n, isDark)
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: messages.length + (_waitingForAi ? 1 : 0),
-                      itemBuilder: (context, i) {
-                        if (i == messages.length && _waitingForAi) {
-                          return _ThinkingBubble(label: l10n.aiThinking);
-                        }
-                        return _MessageBubble(
-                          message: messages[i],
-                          onPlay: _playRecommendation,
-                          onOpenDetails: _openDetails,
-                          onFollowUp: _send,
-                        );
-                      },
+                  const SizedBox(width: 10),
+                  Text(
+                    l10n.aiChatTitle,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.textDark : AppColors.textLight,
                     ),
-            ),
-          ),
-          // Input row
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                  16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 8),
-              child: Row(children: [
-                // Voice input button — only rendered on mobile
-                // (Android / iOS). Desktop and TV builds load the
-                // VoiceChatService but it short-circuits to
-                // isSupported=false, hiding this button.
-                if (PlatformHelper.isMobile) ...[
-                  _VoiceInputButton(
-                    enabled: !_waitingForAi,
-                    onPartial: (text) {
-                      // Show interim transcription as the user
-                      // speaks — same UX as Gboard / Google
-                      // Keyboard's microphone overlay.
-                      setState(() {
-                        _input.text = text;
-                        _input.selection = TextSelection.collapsed(
-                            offset: text.length);
-                      });
-                    },
-                    onFinal: (text) {
-                      // Auto-send on STT completion. The transcript
-                      // is committed text — kullanıcı düzeltmek
-                      // isterse zaten ses tanıma kaba olduğunda
-                      // tekrar dener; otomatik göndermek voice
-                      // chat'in tüm noktasını kazanır.
-                      final t = text.trim();
-                      if (t.isEmpty) return;
-                      _input.text = t;
-                      _send(t);
-                    },
                   ),
-                  const SizedBox(width: 8),
+                  const Spacer(),
+                  // Spoiler-shield toggle. When active, the chip shows
+                  // the current "S1E10" cap so the user knows what
+                  // they're protected from being spoiled about. Tap to
+                  // change or clear via _showSpoilerShieldPicker.
+                  _SpoilerShieldBadge(
+                    onTap: () => _showSpoilerShieldPicker(context),
+                  ),
+                  const SizedBox(width: 4),
+                  if (messages.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: AppColors.textSecondaryDark,
+                      tooltip: l10n.aiChatClear,
+                      onPressed: _waitingForAi
+                          ? null
+                          : () => ref
+                                .read(tonightChatHistoryProvider.notifier)
+                                .clear(),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    color: AppColors.textSecondaryDark,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
-                Expanded(
-                  child: TextField(
-                    controller: _input,
-                    minLines: 1,
-                    maxLines: 4,
-                    enabled: !_waitingForAi,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: _send,
-                    decoration: InputDecoration(
-                      hintText: l10n.aiChatInputHint,
-                      filled: true,
-                      fillColor: isDark
-                          ? AppColors.backgroundDark
-                          : AppColors.backgroundLight,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      isDense: true,
+              ),
+            ),
+            const Divider(height: 1),
+            // Messages
+            Expanded(
+              child: ctxAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+                error: (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      l10n.aiError,
+                      style: TextStyle(color: AppColors.textSecondaryDark),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                FloatingActionButton.small(
-                  // Explicit heroTag — voice mic FAB shares the row
-                  // and already declares 'voice-input-fab'. Without
-                  // a unique tag here Flutter raises a hero conflict
-                  // assertion when both render simultaneously.
-                  heroTag: 'chat-send-fab',
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  onPressed:
-                      _waitingForAi ? null : () => _send(_input.text),
-                  child: const Icon(Icons.send, size: 18),
-                ),
-              ]),
+                data: (_) => messages.isEmpty
+                    ? _buildEmptyState(l10n, isDark)
+                    : ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: messages.length + (_waitingForAi ? 1 : 0),
+                        itemBuilder: (context, i) {
+                          if (i == messages.length && _waitingForAi) {
+                            return _ThinkingBubble(label: l10n.aiThinking);
+                          }
+                          return _MessageBubble(
+                            message: messages[i],
+                            onPlay: _playRecommendation,
+                            onOpenDetails: _openDetails,
+                            onFollowUp: _send,
+                          );
+                        },
+                      ),
+              ),
             ),
-          ),
-        ]),
+            // Input row
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  MediaQuery.of(context).viewInsets.bottom + 8,
+                ),
+                child: Row(
+                  children: [
+                    // Voice input button — only rendered on mobile
+                    // (Android / iOS). Desktop and TV builds load the
+                    // VoiceChatService but it short-circuits to
+                    // isSupported=false, hiding this button.
+                    if (PlatformHelper.isMobile) ...[
+                      _VoiceInputButton(
+                        enabled: !_waitingForAi,
+                        onPartial: (text) {
+                          // Show interim transcription as the user
+                          // speaks — same UX as Gboard / Google
+                          // Keyboard's microphone overlay.
+                          setState(() {
+                            _input.text = text;
+                            _input.selection = TextSelection.collapsed(
+                              offset: text.length,
+                            );
+                          });
+                        },
+                        onFinal: (text) {
+                          // Auto-send on STT completion. The transcript
+                          // is committed text — kullanıcı düzeltmek
+                          // isterse zaten ses tanıma kaba olduğunda
+                          // tekrar dener; otomatik göndermek voice
+                          // chat'in tüm noktasını kazanır.
+                          final t = text.trim();
+                          if (t.isEmpty) return;
+                          _input.text = t;
+                          _send(t);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        minLines: 1,
+                        maxLines: 4,
+                        enabled: !_waitingForAi,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: _send,
+                        decoration: InputDecoration(
+                          hintText: l10n.aiChatInputHint,
+                          filled: true,
+                          fillColor: isDark
+                              ? AppColors.backgroundDark
+                              : AppColors.backgroundLight,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FloatingActionButton.small(
+                      // Explicit heroTag — voice mic FAB shares the row
+                      // and already declares 'voice-input-fab'. Without
+                      // a unique tag here Flutter raises a hero conflict
+                      // assertion when both render simultaneously.
+                      heroTag: 'chat-send-fab',
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      onPressed: _waitingForAi
+                          ? null
+                          : () => _send(_input.text),
+                      child: const Icon(Icons.send, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -950,21 +1038,27 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
             color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.auto_awesome,
-                color: AppColors.primary, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                l10n.aiChatGreeting,
-                style: TextStyle(
-                  color: isDark ? AppColors.textDark : AppColors.textLight,
-                  fontSize: 14,
-                  height: 1.4,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.aiChatGreeting,
+                  style: TextStyle(
+                    color: isDark ? AppColors.textDark : AppColors.textLight,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
         const SizedBox(height: 20),
         Wrap(
@@ -979,7 +1073,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   side: BorderSide(
-                      color: AppColors.primary.withValues(alpha: 0.3)),
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Text(
                   s,
@@ -1011,20 +1106,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// same path the search results use, so behaviour stays consistent.
   Future<void> _openDetails(TonightRecommendation rec) async {
     final ch = await _resolveChannel(rec);
-    if (ch == null) return;
-    ref.read(pendingDetailChannelProvider.notifier).set(ch);
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    switch (ch.type) {
-      case 'movie':
-        context.go('/movies');
-      case 'series':
-        context.go('/series');
-      case 'live':
-        context.go('/live');
-      default:
-        context.go('/dashboard');
-    }
+    if (ch != null && mounted) await _openDetailChannel(ch);
   }
 
   /// Resolve a rec's streamId to a Channel for play / details
@@ -1039,37 +1121,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// Falls back to a direct DB query as a last resort so play and
   /// details survive even on legacy message objects that didn't get
   /// the resolved map populated.
-  Future<Channel?> _resolveChannel(TonightRecommendation rec) async {
-    // 1. Check the resolved map on every AI message in the session —
-    //    walk newest first so the latest answer wins on duplicates.
-    for (var i = _messages.length - 1; i >= 0; i--) {
-      final m = _messages[i];
-      if (m.fromUser) continue;
-      final ch = m.resolvedChannels[rec.streamId];
-      if (ch is Channel) return ch;
-    }
-    // 2. Legacy in-memory context pools (kept for safety).
-    final ctx = ref.read(tonightContextProvider).value;
-    if (ctx != null) {
-      for (final pool in [
-        ctx.librarySample,
-        ctx.favorites,
-        ctx.recentlyWatched,
-      ]) {
-        for (final ch in pool) {
-          if (ch.streamId == rec.streamId) return ch;
-        }
-      }
-    }
-    // 3. Direct DB lookup — last-resort safety net. ~5 ms on this
-    //    catalogue, dwarfed by the navigation transition anyway.
-    final db = ref.read(appDatabaseProvider);
-    final row = await (db.select(db.channels)
-          ..where((t) => t.streamId.equals(rec.streamId))
-          ..limit(1))
-        .getSingleOrNull();
-    return row;
-  }
+  Future<Channel?> _resolveChannel(TonightRecommendation rec) =>
+      ref.read(contentRepositoryProvider).getVisibleChannel(rec.streamId);
 
   VideoType _videoTypeFromString(String type) {
     switch (type) {
@@ -1234,71 +1287,84 @@ class _RecCard extends ConsumerWidget {
         color: Colors.black.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: ch.streamIcon!,
-                  width: 56,
-                  height: 84,
-                  fit: BoxFit.cover,
-                  memCacheWidth: 168,
-                  errorWidget: (_, _, _) => Container(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: ch.streamIcon!,
+                    width: 56,
+                    height: 84,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 168,
+                    errorWidget: (_, _, _) => Container(
+                      width: 56,
+                      height: 84,
+                      color: AppColors.surfaceElevatedDark,
+                      child: const Icon(
+                        Icons.movie_outlined,
+                        color: AppColors.textTertiaryDark,
+                      ),
+                    ),
+                  )
+                : Container(
                     width: 56,
                     height: 84,
                     color: AppColors.surfaceElevatedDark,
-                    child: const Icon(Icons.movie_outlined,
-                        color: AppColors.textTertiaryDark),
+                    child: const Icon(
+                      Icons.movie_outlined,
+                      color: AppColors.textTertiaryDark,
+                    ),
                   ),
-                )
-              : Container(
-                  width: 56,
-                  height: 84,
-                  color: AppColors.surfaceElevatedDark,
-                  child: const Icon(Icons.movie_outlined,
-                      color: AppColors.textTertiaryDark),
-                ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      ch.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ch.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  // Feedback overflow menu — Sevmedim / Bunun gibi
-                  // daha / Neden önerildi?. Discoverable, low-noise,
-                  // sits inside the card's white-on-dark text region.
-                  IconButton(
-                    icon: const Icon(Icons.more_horiz,
-                        color: Colors.white70, size: 18),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                        minWidth: 28, minHeight: 28),
-                    tooltip: AppLocalizations.of(context)!.aiFeedbackWhy,
-                    onPressed: () => AiFeedbackSheet.show(
-                      context,
-                      streamId: channel.streamId,
-                      type: channel.type,
-                      title: channel.name,
-                      reason: rec.reason,
-                      feature: 'chat',
+                    // Feedback overflow menu — Sevmedim / Bunun gibi
+                    // daha / Neden önerildi?. Discoverable, low-noise,
+                    // sits inside the card's white-on-dark text region.
+                    IconButton(
+                      icon: const Icon(
+                        Icons.more_horiz,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                      tooltip: AppLocalizations.of(context)!.aiFeedbackWhy,
+                      onPressed: () => AiFeedbackSheet.show(
+                        context,
+                        streamId: channel.streamId,
+                        type: channel.type,
+                        title: channel.name,
+                        reason: rec.reason,
+                        feature: 'chat',
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 if ([
                   ch.year ?? '',
                   ch.genre ?? '',
@@ -1328,36 +1394,48 @@ class _RecCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  FilledButton.icon(
-                    onPressed: () => onPlay(rec),
-                    icon: const Icon(Icons.play_arrow, size: 14),
-                    label: Text(l10n.aiPlay),
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      textStyle: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => onPlay(rec),
+                      icon: const Icon(Icons.play_arrow, size: 14),
+                      label: Text(l10n.aiPlay),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => onOpenDetails(rec),
-                    icon: const Icon(Icons.info_outline, size: 14),
-                    label: Text(l10n.aiOpenDetails),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      textStyle: const TextStyle(fontSize: 11),
+                    TextButton.icon(
+                      onPressed: () => onOpenDetails(rec),
+                      icon: const Icon(Icons.info_outline, size: 14),
+                      label: Text(l10n.aiOpenDetails),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
                     ),
-                  ),
-                ]),
-              ]),
-        ),
-      ]),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1387,22 +1465,27 @@ class _ThinkingBubble extends StatelessWidget {
             bottomRight: Radius.circular(16),
           ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: AppColors.primary),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(
-              color: isDark ? AppColors.textDark : AppColors.textLight,
-              fontSize: 13,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
             ),
-          ),
-        ]),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1438,8 +1521,7 @@ class _FollowUpChipState extends State<_FollowUpChip> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: isActive
                   ? AppColors.primary.withValues(alpha: 0.22)
@@ -1452,19 +1534,25 @@ class _FollowUpChipState extends State<_FollowUpChip> {
                 width: _focused ? 1.5 : 1.0,
               ),
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.chevron_right,
-                  size: 14, color: AppColors.primary),
-              const SizedBox(width: 4),
-              Text(
-                widget.label,
-                style: const TextStyle(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.chevron_right,
+                  size: 14,
                   color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 4),
+                Text(
+                  widget.label,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1485,8 +1573,7 @@ class _SpoilerShieldBadge extends ConsumerStatefulWidget {
       _SpoilerShieldBadgeState();
 }
 
-class _SpoilerShieldBadgeState
-    extends ConsumerState<_SpoilerShieldBadge> {
+class _SpoilerShieldBadgeState extends ConsumerState<_SpoilerShieldBadge> {
   bool _focused = false;
 
   @override
@@ -1517,8 +1604,7 @@ class _SpoilerShieldBadgeState
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: active
                   ? AppColors.primary.withValues(alpha: 0.15)
@@ -1528,8 +1614,8 @@ class _SpoilerShieldBadgeState
                 color: _focused
                     ? AppColors.primary
                     : (active
-                        ? AppColors.primary.withValues(alpha: 0.45)
-                        : Colors.transparent),
+                          ? AppColors.primary.withValues(alpha: 0.45)
+                          : Colors.transparent),
                 width: _focused ? 2 : 1,
               ),
             ),
@@ -1585,8 +1671,7 @@ class _VoiceInputButton extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_VoiceInputButton> createState() =>
-      _VoiceInputButtonState();
+  ConsumerState<_VoiceInputButton> createState() => _VoiceInputButtonState();
 }
 
 class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
@@ -1631,8 +1716,9 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
       return;
     }
     final lang = ref.read(settingsProvider).language;
-    final localeId =
-        lang == AppLanguage.system ? null : _mapLanguageToLocale(lang);
+    final localeId = lang == AppLanguage.system
+        ? null
+        : _mapLanguageToLocale(lang);
     final ok = await svc.startListening(
       localeId: localeId,
       onPartial: widget.onPartial,
@@ -1646,9 +1732,9 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
     if (!mounted) return;
     if (!ok) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.voiceUnavailable)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.voiceUnavailable)));
       return;
     }
     setState(() => _listening = true);
@@ -1698,8 +1784,7 @@ class _VoiceInputButtonState extends ConsumerState<_VoiceInputButton>
           backgroundColor: _listening
               ? Colors.red.withValues(alpha: glow)
               : AppColors.surfaceElevatedDark,
-          foregroundColor:
-              _listening ? Colors.white : AppColors.primary,
+          foregroundColor: _listening ? Colors.white : AppColors.primary,
           elevation: _listening ? 4 : 0,
           onPressed: widget.enabled ? _toggle : null,
           child: Icon(

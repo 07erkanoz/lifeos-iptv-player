@@ -22,7 +22,8 @@ class AppSidebar extends ConsumerStatefulWidget {
   ConsumerState<AppSidebar> createState() => AppSidebarState();
 }
 
-class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProviderStateMixin {
+class AppSidebarState extends ConsumerState<AppSidebar>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   bool _isMouseInside = false;
   late AnimationController _animController;
@@ -50,17 +51,30 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
   // Collapse: longer delay to prevent flickering
   static const _collapseDelay = Duration(milliseconds: 300);
 
-  List<({IconData icon, IconData activeIcon, String label})> _getMenuItems(AppLocalizations l10n) => [
+  List<({IconData icon, IconData activeIcon, String label})> _getMenuItems(
+    AppLocalizations l10n,
+  ) => [
     (icon: Icons.home_outlined, activeIcon: Icons.home, label: l10n.home),
-    (icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv, label: l10n.liveTV),
+    (
+      icon: Icons.live_tv_outlined,
+      activeIcon: Icons.live_tv,
+      label: l10n.liveTV,
+    ),
     (icon: Icons.movie_outlined, activeIcon: Icons.movie, label: l10n.movies),
     (icon: Icons.tv_outlined, activeIcon: Icons.tv, label: l10n.series),
-    (icon: Icons.settings_outlined, activeIcon: Icons.settings, label: l10n.settings),
+    (
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings,
+      label: l10n.settings,
+    ),
   ];
+
+  late final TvFocusRegistry _focusRegistry;
 
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     _animController = AnimationController(
       vsync: this,
       // Snap the sidebar width on TV (zero duration) — it expands/collapses
@@ -68,9 +82,10 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
       // whole shell on each D-pad nav is a needless cost on weak TV GPUs.
       duration: PlatformHelper.anim(const Duration(milliseconds: 200)),
     );
-    _widthAnimation = Tween<double>(begin: _collapsedWidth, end: _expandedWidth).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
-    );
+    _widthAnimation = Tween<double>(begin: _collapsedWidth, end: _expandedWidth)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
     for (int i = 0; i < 5; i++) {
       _itemFocusNodes.add(FocusNode());
     }
@@ -84,26 +99,17 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     _registryFocusProbe = () => hasFocus;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref
-          .read(tvFocusRegistryProvider)
-          .registerMainSidebar(_registrySidebarCallback);
-      ref
-          .read(tvFocusRegistryProvider)
-          .registerMainSidebarFocusProbe(_registryFocusProbe);
+      _focusRegistry.registerMainSidebar(_registrySidebarCallback);
+      _focusRegistry.registerMainSidebarFocusProbe(_registryFocusProbe);
     });
   }
 
   @override
   void dispose() {
-    // De-register before the first super.dispose call so `ref` is still
-    // valid. Identity-matched: a stale unregister can't wipe a sibling
-    // sidebar registered later during hot reload.
-    ref
-        .read(tvFocusRegistryProvider)
-        .unregisterMainSidebar(_registrySidebarCallback);
-    ref
-        .read(tvFocusRegistryProvider)
-        .unregisterMainSidebarFocusProbe(_registryFocusProbe);
+    // Use the cached registry: Riverpod disallows ref reads during unmount.
+    // Identity checks preserve any newer sidebar registration.
+    _focusRegistry.unregisterMainSidebar(_registrySidebarCallback);
+    _focusRegistry.unregisterMainSidebarFocusProbe(_registryFocusProbe);
     _expandTimer?.cancel();
     _collapseTimer?.cancel();
     _animController.dispose();
@@ -183,7 +189,10 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
 
   /// Request focus on the currently selected menu item
   void requestFocus() {
-    final idx = widget.navigationShell.currentIndex.clamp(0, _itemFocusNodes.length - 1);
+    final idx = widget.navigationShell.currentIndex.clamp(
+      0,
+      _itemFocusNodes.length - 1,
+    );
     _itemFocusNodes[idx].requestFocus();
   }
 
@@ -206,11 +215,14 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
   /// falling back to directional traversal if no screen has registered
   /// yet (cold first frame).
   void _moveFocusToActiveContent() {
-    final registry = ref.read(tvFocusRegistryProvider);
-    final ok = registry.requestActivePrimary(widget.navigationShell.currentIndex);
+    final registry = _focusRegistry;
+    final ok = registry.requestActivePrimary(
+      widget.navigationShell.currentIndex,
+    );
     if (!ok) {
-      FocusManager.instance.primaryFocus
-          ?.focusInDirection(TraversalDirection.right);
+      FocusManager.instance.primaryFocus?.focusInDirection(
+        TraversalDirection.right,
+      );
     }
   }
 
@@ -228,75 +240,80 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
       canRequestFocus: false,
       skipTraversal: true,
       child: FocusTraversalGroup(
-      child: MouseRegion(
-        // On TV the sidebar expands via focus (see _onAnyItemFocusChanged);
-        // mouse hover is a desktop-only duplicate path.
-        onEnter: PlatformHelper.useHoverEffects
-            ? (_) => _onMouseEnter()
-            : null,
-        onExit: PlatformHelper.useHoverEffects
-            ? (_) => _onMouseExit()
-            : null,
-        child: AnimatedBuilder(
-          animation: _widthAnimation,
-          builder: (context, _) {
-            return Container(
-              width: _widthAnimation.value,
-              decoration: BoxDecoration(
-                color: AppColors.sidebarBg(context),
-                border: Border(
-                  right: BorderSide(color: AppColors.sidebarBorder(context), width: 1),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 24),
-                  _buildLogo(context),
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(color: AppColors.border(context), height: 1),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      itemCount: menuItems.length,
-                      itemBuilder: (context, index) {
-                        final item = menuItems[index];
-                        final isSelected = widget.navigationShell.currentIndex == index;
-
-                        return _SidebarItem(
-                          icon: isSelected ? item.activeIcon : item.icon,
-                          label: item.label,
-                          isSelected: isSelected,
-                          isExpanded: _isExpanded,
-                          focusNode: _itemFocusNodes[index],
-                          onTap: () => _onItemTapped(index),
-                          onRightPressed: _moveFocusToActiveContent,
-                        );
-                      },
+        child: MouseRegion(
+          // On TV the sidebar expands via focus (see _onAnyItemFocusChanged);
+          // mouse hover is a desktop-only duplicate path.
+          onEnter: PlatformHelper.useHoverEffects
+              ? (_) => _onMouseEnter()
+              : null,
+          onExit: PlatformHelper.useHoverEffects ? (_) => _onMouseExit() : null,
+          child: AnimatedBuilder(
+            animation: _widthAnimation,
+            builder: (context, _) {
+              return Container(
+                width: _widthAnimation.value,
+                decoration: BoxDecoration(
+                  color: AppColors.sidebarBg(context),
+                  border: Border(
+                    right: BorderSide(
+                      color: AppColors.sidebarBorder(context),
+                      width: 1,
                     ),
                   ),
-                  // Search button (pushes /search route)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                    child: SidebarSearchButton(isExpanded: _isExpanded),
-                  ),
-                  // Profile avatar button — tap to open the
-                  // "Kim izliyor?" picker sheet. Sits below the
-                  // search button so it's the very last item before
-                  // the safe-area gap, mirroring Netflix's TV layout.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                    child: _SidebarProfileButton(isExpanded: _isExpanded),
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 24),
+                    _buildLogo(context),
+                    const SizedBox(height: 32),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(
+                        color: AppColors.border(context),
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemCount: menuItems.length,
+                        itemBuilder: (context, index) {
+                          final item = menuItems[index];
+                          final isSelected =
+                              widget.navigationShell.currentIndex == index;
+
+                          return _SidebarItem(
+                            icon: isSelected ? item.activeIcon : item.icon,
+                            label: item.label,
+                            isSelected: isSelected,
+                            isExpanded: _isExpanded,
+                            focusNode: _itemFocusNodes[index],
+                            onTap: () => _onItemTapped(index),
+                            onRightPressed: _moveFocusToActiveContent,
+                          );
+                        },
+                      ),
+                    ),
+                    // Search button (pushes /search route)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                      child: SidebarSearchButton(isExpanded: _isExpanded),
+                    ),
+                    // Profile avatar button — tap to open the
+                    // "Kim izliyor?" picker sheet. Sits below the
+                    // search button so it's the very last item before
+                    // the safe-area gap, mirroring Netflix's TV layout.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                      child: _SidebarProfileButton(isExpanded: _isExpanded),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-      ),
       ),
     );
   }
@@ -305,7 +322,9 @@ class AppSidebarState extends ConsumerState<AppSidebar> with SingleTickerProvide
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        mainAxisAlignment: _isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+        mainAxisAlignment: _isExpanded
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.center,
         children: [
           if (_isExpanded) ...[
             Text(
@@ -433,25 +452,30 @@ class _SidebarItemState extends State<_SidebarItem> {
               color: widget.isSelected
                   ? AppColors.primary.withValues(alpha: 0.12)
                   : isActive
-                      ? hoverWash
-                      : Colors.transparent,
+                  ? hoverWash
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: _isFocused
                   ? Border.all(color: AppColors.primary, width: 2)
                   : widget.isSelected
-                      ? Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1)
-                      : null,
+                  ? Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      width: 1,
+                    )
+                  : null,
             ),
             child: Row(
-              mainAxisAlignment: widget.isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+              mainAxisAlignment: widget.isExpanded
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
               children: [
                 Icon(
                   widget.icon,
                   color: widget.isSelected
                       ? AppColors.primary
                       : isActive
-                          ? activeText
-                          : inactiveText,
+                      ? activeText
+                      : inactiveText,
                   size: 22,
                 ),
                 if (widget.isExpanded) ...[
@@ -463,9 +487,11 @@ class _SidebarItemState extends State<_SidebarItem> {
                         color: widget.isSelected
                             ? AppColors.primary
                             : isActive
-                                ? activeText
-                                : inactiveText,
-                        fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
+                            ? activeText
+                            : inactiveText,
+                        fontWeight: widget.isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         fontSize: 14,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -499,8 +525,7 @@ class _SidebarProfileButton extends ConsumerStatefulWidget {
       _SidebarProfileButtonState();
 }
 
-class _SidebarProfileButtonState
-    extends ConsumerState<_SidebarProfileButton> {
+class _SidebarProfileButtonState extends ConsumerState<_SidebarProfileButton> {
   bool _focused = false;
 
   void _open() {
@@ -512,8 +537,7 @@ class _SidebarProfileButtonState
     final active = ref.watch(activeProfileProvider);
     final profile = active.value;
     final avatarKey = profile?.avatarKey ?? 'default';
-    final name = profile?.name ??
-        AppLocalizations.of(context)!.profileDefault;
+    final name = profile?.name ?? AppLocalizations.of(context)!.profileDefault;
     return Focus(
       onFocusChange: (f) => setState(() => _focused = f),
       onKeyEvent: (_, event) {
@@ -531,8 +555,9 @@ class _SidebarProfileButtonState
         child: AnimatedContainer(
           duration: PlatformHelper.anim(const Duration(milliseconds: 120)),
           padding: EdgeInsets.symmetric(
-              horizontal: widget.isExpanded ? 10 : 0,
-              vertical: 8),
+            horizontal: widget.isExpanded ? 10 : 0,
+            vertical: 8,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             color: _focused
@@ -563,8 +588,11 @@ class _SidebarProfileButtonState
                     ),
                   ),
                 ),
-                const Icon(Icons.unfold_more,
-                    color: AppColors.textTertiaryDark, size: 16),
+                const Icon(
+                  Icons.unfold_more,
+                  color: AppColors.textTertiaryDark,
+                  size: 16,
+                ),
               ],
             ],
           ),
@@ -582,8 +610,7 @@ class _SidebarProfileButtonState
 class _SidebarAvatarGlyph extends StatelessWidget {
   final String avatarKey;
   final double size;
-  const _SidebarAvatarGlyph(
-      {required this.avatarKey, required this.size});
+  const _SidebarAvatarGlyph({required this.avatarKey, required this.size});
 
   static const _avatars = <String, (IconData, Color)>{
     'default': (Icons.person, Color(0xFF6B7280)),

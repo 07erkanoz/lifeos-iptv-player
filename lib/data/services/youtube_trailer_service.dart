@@ -170,7 +170,7 @@ class YouTubeTrailerService {
         fetchedAt: DateTime.now(),
       );
       if (videoId == null) return null;
-      return _extractStreamUrlImpl(videoId);
+      return await _extractStreamUrlImpl(videoId);
     } catch (_) {
       _searchCache[query] = _CachedSearch(
         videoId: null,

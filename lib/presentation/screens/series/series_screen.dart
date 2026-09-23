@@ -1,5 +1,7 @@
-import 'package:lifeostv/utils/stream_url_builder.dart';
+import 'package:lifeostv/data/services/series_episode.dart';
+import 'package:lifeostv/presentation/state/m3u_series_provider.dart';
 import 'dart:async';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -69,6 +71,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   Channel? _detailChannel;
   Map<String, dynamic>? _seriesInfo;
   bool _loadingDetail = false;
+  int _detailRequest = 0;
+  Account? _detailAccount;
   int _activeSeason = 1;
 
   /// How many episodes of the active season are rendered at once. The
@@ -121,8 +125,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   // entering the sidebar focuses a real, focusable item rather than the
   // bare scope (which, with no focusable child yet, traps focus → "no
   // key works").
-  final FocusNode _selectedCatFocusNode =
-      FocusNode(debugLabel: 'SeriesSelectedCat');
+  final FocusNode _selectedCatFocusNode = FocusNode(
+    debugLabel: 'SeriesSelectedCat',
+  );
   // Node on the always-visible "Favorites" row — focus fallback when the
   // selected category is scrolled off-screen (its node isn't mounted), so
   // entering the panel never lands on the bare scope.
@@ -130,7 +135,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   // Focus node for detail view back button
   final FocusNode _detailBackFocusNode = FocusNode();
   // Focus node for detail view play button (primary action)
-  final FocusNode _detailPlayFocusNode = FocusNode();
+  final FocusNode _detailPlayFocusNode = FocusNode(
+    debugLabel: 'SeriesDetailPlay',
+  );
 
   /// Index-based D-pad navigation + lazy-mount-safe focus restore for
   /// the series poster grid. Outlives detail open/close so the
@@ -145,9 +152,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// [_onCategoryScopeFocusChange].
   Timer? _categoryCollapseTimer;
 
+  late final TvFocusRegistry _focusRegistry;
+
   @override
   void initState() {
     super.initState();
+    _focusRegistry = ref.read(tvFocusRegistryProvider);
     _branchPrimaryCb = _focusGrid;
     // Collapse the category panel when D-pad focus leaves it (TV), the
     // same focus-driven way the main sidebar collapses.
@@ -155,10 +165,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _registerBackHandler();
-      ref.read(tvFocusRegistryProvider).registerBranchPrimary(
-            TvBranchIndex.series,
-            _branchPrimaryCb,
-          );
+      _focusRegistry.registerBranchPrimary(
+        TvBranchIndex.series,
+        _branchPrimaryCb,
+      );
     });
   }
 
@@ -180,11 +190,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
   @override
   void dispose() {
-    ref.read(tvFocusRegistryProvider)
-        .unregisterBranchPrimary(TvBranchIndex.series, _branchPrimaryCb);
+    _focusRegistry.unregisterBranchBack(TvBranchIndex.series, _branchBackCb);
+    _focusRegistry.unregisterBranchPrimary(
+      TvBranchIndex.series,
+      _branchPrimaryCb,
+    );
     final overlay = _detailOverlayCb;
     if (overlay != null) {
-      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _focusRegistry.popOverlayPrimary(TvBranchIndex.series, overlay);
     }
     _categoryCollapseTimer?.cancel();
     _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
@@ -200,29 +213,32 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   ///
   /// detail → close
   /// grid → category panel (when open) → main sidebar → Dashboard / exit
+  late final bool Function() _branchBackCb = _handleScreenBack;
+
   void _registerBackHandler() {
-    ref.read(backHandlerProvider.notifier).set(() {
-      final action = resolveGridScreenBackAction(
-        detailOpen: _detailChannel != null,
-        mainSidebarFocused:
-            ref.read(tvFocusRegistryProvider).isMainSidebarFocused,
-        categoriesCollapsed: _categoriesCollapsed,
-        categoryScopeFocused: _categorySidebarScope.hasFocus,
-        categoryPanelAvailable: !isMobilePlatform,
-      );
-      switch (action) {
-        case GridScreenBackAction.closeDetail:
-          _closeDetail();
-          return true;
-        case GridScreenBackAction.bounceToCategory:
-          // Opens the panel first if it's collapsed, then lands focus on
-          // a real category item (never the bare scope).
-          _openCategorySidebar();
-          return true;
-        case GridScreenBackAction.handToShell:
-          return false;
-      }
-    });
+    _focusRegistry.registerBranchBack(TvBranchIndex.series, _branchBackCb);
+  }
+
+  bool _handleScreenBack() {
+    final action = resolveGridScreenBackAction(
+      detailOpen: _detailChannel != null,
+      mainSidebarFocused: _focusRegistry.isMainSidebarFocused,
+      categoriesCollapsed: _categoriesCollapsed,
+      categoryScopeFocused: _categorySidebarScope.hasFocus,
+      categoryPanelAvailable: !isMobilePlatform,
+    );
+    switch (action) {
+      case GridScreenBackAction.closeDetail:
+        _closeDetail();
+        return true;
+      case GridScreenBackAction.bounceToCategory:
+        // Opens the panel first if it's collapsed, then lands focus on
+        // a real category item (never the bare scope).
+        _openCategorySidebar();
+        return true;
+      case GridScreenBackAction.handToShell:
+        return false;
+    }
   }
 
   void _openSearch(AppLocalizations l10n) async {
@@ -287,6 +303,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   Future<Map<String, dynamic>?> _fetchSeriesInfoWithFallback(
     Account acc,
     Channel base,
+    int request,
   ) async {
     final api = ref.read(xtreamApiServiceProvider);
     final primary = await api.getSeriesInfo(
@@ -295,6 +312,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       acc.password ?? '',
       base.streamId,
     );
+    if (request != _detailRequest || !mounted) return null;
     if (_hasSeriesDetailPayload(primary)) return primary;
 
     // Dashboard kaynaklı yanlış/boş streamId vakaları için isimden eşleşip tekrar dene.
@@ -311,14 +329,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         break;
       }
     }
-    if (best == null) {
-      for (final c in candidates) {
-        if (c.streamId != base.streamId) {
-          best = c;
-          break;
-        }
-      }
-    }
     if (best == null) return primary;
 
     final secondary = await api.getSeriesInfo(
@@ -328,7 +338,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       best.streamId,
     );
     if (_hasSeriesDetailPayload(secondary)) {
-      if (mounted) {
+      if (mounted &&
+          request == _detailRequest &&
+          _detailChannel?.streamId == base.streamId &&
+          _detailAccount?.id == acc.id) {
         setState(() => _detailChannel = best);
       }
       return secondary;
@@ -345,47 +358,22 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   void _openDetail(Channel ch) async {
-    // Push the detail's primary action as the active overlay focus
-    // target in the registry. Takes precedence over the grid for any
-    // sidebar/back jump while the detail panel is open.
-    final cb = _focusDetailPlayCallback;
-    _detailOverlayCb = cb;
-    ref.read(tvFocusRegistryProvider).pushOverlayPrimary(cb);
-    _categorySidebarScope.canRequestFocus = false;
-    final hasCachedInfo =
-        ch.genre != null ||
-        ch.plot != null ||
-        ch.backdropPath != null ||
-        ch.youtubeTrailer != null ||
-        ch.director != null ||
-        ch.cast != null;
-    if (hasCachedInfo) {
-      final cachedInfo = _buildBasicSeriesInfo(ch);
-      setState(() {
-        _detailChannel = ch;
-        _loadingDetail = false;
-        _seriesInfo = cachedInfo;
-        _activeSeason = 1;
-        _episodeLimit = _kEpisodeWindow;
-        _lastEpisodeProgress = null;
-        _lastEpisodeId = null;
-        _lastEpisodeExt = null;
-        _lastEpisodeLabel = '';
-        _lastEpisodeResumeFromMs = 0;
-        _episodeAiSummaries.clear();
-        _episodeSummaryRequestedSeasons.clear();
-      });
-      _focusDetailBackButton();
-      _fetchLastEpisodeProgress(cachedInfo);
-      _refreshDetailInBackground(ch);
-      return;
+    final request = ++_detailRequest;
+    if (_detailOverlayCb == null) {
+      _detailOverlayCb = _focusDetailPlayCallback;
+      _focusRegistry.pushOverlayPrimary(
+        TvBranchIndex.series,
+        _detailOverlayCb!,
+      );
     }
-
+    _categorySidebarScope.canRequestFocus = false;
     setState(() {
       _detailChannel = ch;
+      _detailAccount = null;
       _loadingDetail = true;
       _seriesInfo = null;
       _activeSeason = 1;
+      _episodeLimit = _kEpisodeWindow;
       _lastEpisodeProgress = null;
       _lastEpisodeId = null;
       _lastEpisodeExt = null;
@@ -395,52 +383,72 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _episodeSummaryRequestedSeasons.clear();
     });
     _focusDetailBackButton();
-
-    final acc =
-        ref.read(currentAccountProvider).value ??
-        await ref.read(currentAccountProvider.future);
-    if (acc == null) {
-      if (mounted) {
-        setState(() {
-          _seriesInfo = _buildBasicSeriesInfo(ch);
-          _loadingDetail = false;
-        });
-      }
-      return;
-    }
-    if (acc.type == 'm3u') {
-      // M3U accounts don't have series API — show basic info
-      if (mounted) {
-        setState(() {
-          _seriesInfo = _buildBasicSeriesInfo(ch);
-          _loadingDetail = false;
-        });
-      }
-      return;
-    }
     try {
-      final info = await _fetchSeriesInfoWithFallback(acc, ch);
-      final resolvedInfo = info ?? _buildBasicSeriesInfo(ch);
-      if (mounted) {
-        final resolvedChannel = _detailChannel ?? ch;
-        setState(() {
-          _seriesInfo = resolvedInfo;
-          _loadingDetail = false;
-        });
-        _cacheMetadata(resolvedChannel, resolvedInfo);
-        _fetchLastEpisodeProgress(resolvedInfo);
-        // Mark new episodes as seen now that user opened the series
-        ref
-            .read(contentRepositoryProvider)
-            .markNewEpisodesSeen(resolvedChannel.streamId);
+      final acc =
+          ref.read(currentAccountProvider).value ??
+          await ref.read(currentAccountProvider.future);
+      if (!mounted ||
+          request != _detailRequest ||
+          acc == null ||
+          (ch.accountId != 0 && ch.accountId != acc.id)) {
+        if (mounted && request == _detailRequest) _closeDetail();
+        return;
       }
+      _detailAccount = acc;
+      Map<String, dynamic>? info;
+      Channel resolved = ch;
+      if (acc.type == 'm3u') {
+        final catalog = await ref.read(m3uSeriesCatalogProvider.future);
+        if (!mounted ||
+            request != _detailRequest ||
+            ref.read(currentAccountProvider).value?.id != acc.id) {
+          return;
+        }
+        final series = catalog.forChannel(ch);
+        if (series == null) throw StateError('Series is no longer available');
+        resolved = series.card;
+        info = series.toSeriesInfo();
+      } else {
+        if (ch.plot != null || ch.genre != null || ch.backdropPath != null) {
+          setState(() {
+            _seriesInfo = _buildBasicSeriesInfo(ch);
+            _loadingDetail = false;
+          });
+        }
+        info = await _fetchSeriesInfoWithFallback(acc, ch, request);
+        resolved = _detailChannel ?? ch;
+      }
+      if (!mounted ||
+          request != _detailRequest ||
+          ref.read(currentAccountProvider).value?.id != acc.id) {
+        return;
+      }
+      final resolvedInfo = info ?? _buildBasicSeriesInfo(resolved);
+      // Both providers expose the same sorted, validated episode maps to UI.
+      final episodes = <String, List<Map<String, dynamic>>>{};
+      for (final ep in sortedSeriesEpisodes(resolvedInfo)) {
+        episodes.putIfAbsent(ep['_season'] as String, () => []).add(ep);
+      }
+      setState(() {
+        _detailChannel = resolved;
+        _seriesInfo = {...resolvedInfo, 'episodes': episodes};
+        _loadingDetail = false;
+      });
+      if (acc.type != 'm3u') _cacheMetadata(resolved, resolvedInfo);
+      _fetchLastEpisodeProgress(_seriesInfo);
+      ref
+          .read(contentRepositoryProvider)
+          .forAccount(acc.id)
+          .markNewEpisodesSeen(resolved.streamId);
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _seriesInfo ??= _buildBasicSeriesInfo(ch);
-          _loadingDetail = false;
-        });
-      }
+      if (!mounted || request != _detailRequest) return;
+      setState(() {
+        _seriesInfo = _buildBasicSeriesInfo(ch);
+        _loadingDetail = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.connectionFailed)),
+      );
     }
   }
 
@@ -465,33 +473,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     };
   }
 
-  /// Silently refresh detail from API and update cache (no loading indicator)
-  void _refreshDetailInBackground(Channel ch) async {
-    final acc =
-        ref.read(currentAccountProvider).value ??
-        await ref.read(currentAccountProvider.future);
-    if (acc == null || acc.type == 'm3u') return;
-    try {
-      final info = await _fetchSeriesInfoWithFallback(acc, ch);
-      if (!mounted || info == null || _detailChannel == null) {
-        return;
-      }
-      final current = _detailChannel!;
-      final sameRequest =
-          current.streamId == ch.streamId ||
-          current.name.trim().toLowerCase() == ch.name.trim().toLowerCase();
-      if (!sameRequest) return;
-      setState(() => _seriesInfo = info);
-      _cacheMetadata(current, info);
-      _fetchLastEpisodeProgress(info);
-      // First-open AI episode summaries for whichever season the
-      // UI is parking on (initially S1, or whatever the season
-      // resolver picked).
-      _fetchEpisodeAiSummariesForActiveSeason();
-      ref.read(contentRepositoryProvider).markNewEpisodesSeen(current.streamId);
-    } catch (_) {}
-  }
-
   /// Fetch progress for the "Devam Et" button.
   ///
   /// Strategy: ask the player repo for the most-recently-touched
@@ -509,6 +490,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     Map<String, dynamic>? seriesInfo,
   ) async {
     if (seriesInfo == null) return;
+    final request = _detailRequest;
 
     // Use the same sort order as next/prev episode navigation so the
     // "play next" advance is consistent with what auto-advance does.
@@ -520,7 +502,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final allEpisodes = <({int id, String season, String epNum, String ext})>[];
     for (final epMap in allEpsSorted) {
       final id = _episodeIdOf(epMap);
-      if (id <= 0) continue;
+      if (id < 0) continue;
       allEpisodes.add((
         id: id,
         season: epMap['_season']?.toString() ?? '1',
@@ -534,11 +516,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       final progress = await ref
           .read(playerRepositoryProvider)
           .getLatestSeriesProgress(allEpisodes.map((e) => e.id).toList());
-      if (progress == null || !mounted) return;
+      if (progress == null || !mounted || request != _detailRequest) return;
 
       // Where does this progress sit in the sorted list?
       final lastIdx = allEpisodes.indexWhere((e) => e.id == progress.streamId);
-      if (lastIdx == -1) return; // progress row is for an episode we no longer see
+      if (lastIdx == -1) {
+        return; // progress row is for an episode we no longer see
+      }
 
       final last = allEpisodes[lastIdx];
 
@@ -612,9 +596,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     for (final raw in seasonList) {
       final epMap = _asStringKeyMap(raw);
       if (epMap == null) continue;
-      final epPlot =
-          (_asStringKeyMap(epMap['info'])?['plot']?.toString() ?? '')
-              .trim();
+      final epPlot = (_asStringKeyMap(epMap['info'])?['plot']?.toString() ?? '')
+          .trim();
       if (epPlot.isNotEmpty) continue; // Xtream gave us real text — skip
       final epNum = int.tryParse(epMap['episode_num']?.toString() ?? '');
       if (epNum != null) missing.add(epNum);
@@ -703,30 +686,30 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   /// Build a flat list of all episodes across all seasons (sorted by season → episode)
-  List<Map<String, dynamic>> _getAllEpisodesSorted() {
-    final epsRaw2 = _seriesInfo?['episodes'];
-    final eps = _asStringKeyMap(epsRaw2);
-    if (eps == null) return [];
+  List<Map<String, dynamic>> _getAllEpisodesSorted() =>
+      sortedSeriesEpisodes(_seriesInfo);
 
-    final allEps = <Map<String, dynamic>>[];
-    final seasonNums = eps.keys.toList()
-      ..sort((a, b) => (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0));
-
-    for (final season in seasonNums) {
-      final seasonEpsRaw = eps[season];
-      final seasonEps = seasonEpsRaw is List ? seasonEpsRaw : <dynamic>[];
-      for (final ep in seasonEps) {
-        final epMap = _asStringKeyMap(ep);
-        if (epMap != null) {
-          allEps.add({...epMap, '_season': season});
-        }
+  bool _openingEpisode = false;
+  Future<void> _playEpisode(
+    int epId,
+    String ext, {
+    Duration? startPosition,
+  }) async {
+    if (_openingEpisode) return;
+    _openingEpisode = true;
+    try {
+      await _playEpisodeInternal(epId, ext, startPosition: startPosition);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.streamLoadFailed),
+          ),
+        );
       }
+    } finally {
+      _openingEpisode = false;
     }
-    return allEps;
-  }
-
-  void _playEpisode(int epId, String ext, {Duration? startPosition}) {
-    _playEpisodeInternal(epId, ext, startPosition: startPosition);
   }
 
   Future<void> _playEpisodeInternal(
@@ -734,11 +717,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     String ext, {
     Duration? startPosition,
   }) async {
-    final acc =
-        ref.read(currentAccountProvider).value ??
-        await ref.read(currentAccountProvider.future);
-    if (acc == null) return;
-    if (!mounted) return;
+    final acc = _detailAccount;
+    final request = _detailRequest;
+    if (acc == null ||
+        !mounted ||
+        ref.read(currentAccountProvider).value?.id != acc.id) {
+      return;
+    }
 
     // Extract series metadata for pause info badge
     final infoRaw2 = _seriesInfo?['info'];
@@ -755,6 +740,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       return id == epId;
     });
 
+    if (currentIdx < 0) return;
+
     // Derive an "S1E5 • Episode title" label for the player chrome so
     // the user can actually tell which episode they're watching. Falls
     // back to just the series name if we can't locate the episode
@@ -766,8 +753,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       final curSeason = curEp['_season']?.toString() ?? '';
       final curEpNum = curEp['episode_num']?.toString() ?? '';
       final curEpName = curEp['title']?.toString().trim() ?? '';
-      final sxe =
-          (curSeason.isNotEmpty && curEpNum.isNotEmpty) ? 'S${curSeason}E$curEpNum' : '';
+      final sxe = (curSeason.isNotEmpty && curEpNum.isNotEmpty)
+          ? 'S${curSeason}E$curEpNum'
+          : '';
       final parts = <String>[
         if (seriesName.isNotEmpty) seriesName,
         if (sxe.isNotEmpty) sxe,
@@ -796,7 +784,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           // leave two live Players contending for GPU/decoder slots.
           if (context.canPop()) context.pop();
           await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (!mounted) return;
+          if (!mounted || request != _detailRequest) return;
           _playEpisode(nextId, nextExt);
         };
       }
@@ -804,29 +792,27 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
     // Find previous episode callback — same guard.
     VoidCallback? onPrevEp;
+    String? previousEpTitle;
     if (currentIdx > 0) {
       final prevEp = allEpisodes[currentIdx - 1];
       final prevId = _episodeIdOf(prevEp);
+      previousEpTitle =
+          'S${prevEp['_season']}E${prevEp['episode_num']} ${prevEp['title'] ?? ''}';
       if (prevId != -1) {
         final prevExt = prevEp['container_extension']?.toString() ?? 'mp4';
         onPrevEp = () async {
           if (context.canPop()) context.pop();
           await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (!mounted) return;
+          if (!mounted || request != _detailRequest) return;
           _playEpisode(prevId, prevExt);
         };
       }
     }
 
-    context.push(
+    await context.push(
       '/player',
       extra: {
-        'url': StreamUrlBuilder.series(
-          acc.url, acc.username ?? '', acc.password ?? '', epId,
-          extension: ext.isNotEmpty ? ext : 'mp4',
-          directUrl: currentIdx >= 0
-              ? allEpisodes[currentIdx]['direct_source']?.toString() : null,
-        ),
+        'url': seriesEpisodeUrl(acc, allEpisodes[currentIdx]),
         'streamId': epId,
         'accountId': acc.id,
         'title': fullTitle,
@@ -834,8 +820,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         'logo': _detailChannel?.streamIcon,
         'startPosition': startPosition,
         'parentStreamId': _detailChannel?.streamId,
-        'introDefaultSeconds':
-            ref.read(settingsProvider).introSkipDefaultSeconds,
+        'saveSeriesSummary': acc.type != 'm3u',
+        'introDefaultSeconds': ref
+            .read(settingsProvider)
+            .introSkipDefaultSeconds,
         'plot': info?['plot'] ?? _detailChannel?.plot,
         'genre': info?['genre'] ?? _detailChannel?.genre,
         'year':
@@ -847,11 +835,23 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         'nextEpisodeTitle': nextEpTitle,
         'onNextEpisode': onNextEp,
         'onPrevEpisode': onPrevEp,
+        'previousEpisodeTitle': previousEpTitle,
       },
     );
+
+    if (mounted && request == _detailRequest) {
+      setState(() {
+        _lastEpisodeId = null;
+        _lastEpisodeProgress = null;
+      });
+      await _fetchLastEpisodeProgress(_seriesInfo);
+      if (mounted && request == _detailRequest) _focusDetailBackButton();
+    }
   }
 
   void _closeDetail() {
+    ++_detailRequest;
+    _detailAccount = null;
     _similarCacheKey = null;
     _similarCache = const [];
     setState(() {
@@ -860,7 +860,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     });
     final overlay = _detailOverlayCb;
     if (overlay != null) {
-      ref.read(tvFocusRegistryProvider).popOverlayPrimary(overlay);
+      _focusRegistry.popOverlayPrimary(TvBranchIndex.series, overlay);
       _detailOverlayCb = null;
     }
     _categorySidebarScope.canRequestFocus = true;
@@ -952,7 +952,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: isDark ? AppColors.text(context) : AppColors.textLight,
+                      color: isDark
+                          ? AppColors.text(context)
+                          : AppColors.textLight,
                     ),
                   ),
                 ],
@@ -1110,16 +1112,27 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// lives in a sibling subtree under StatefulShellRoute.indexedStack
   /// so findAncestorStateOfType could not reach it.
   void _focusMainSidebar() {
-    final ok = ref.read(tvFocusRegistryProvider).requestMainSidebar();
+    final ok = _focusRegistry.requestMainSidebar();
     if (!ok) {
       // First-frame fallback before the sidebar finished registering.
-      FocusManager.instance.primaryFocus
-          ?.focusInDirection(TraversalDirection.left);
+      FocusManager.instance.primaryFocus?.focusInDirection(
+        TraversalDirection.left,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentAccountProvider, (previous, next) {
+      if (previous?.value?.id != next.value?.id && _detailChannel != null) {
+        _closeDetail();
+      }
+    });
+    ref.listen(activeProfileIdProvider, (previous, next) {
+      if (previous?.value != next.value && _detailChannel != null) {
+        _closeDetail();
+      }
+    });
     // Watch for pending detail from dashboard navigation
     final pendingChannel = ref.watch(pendingDetailChannelProvider);
     if (pendingChannel != null &&
@@ -1142,16 +1155,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       body: Stack(
         children: [
           // Keep the list alive behind detail view so scroll position is preserved
-          Offstage(
-            offstage: showDetail,
-            child: isMobilePlatform
-                ? _buildContentArea(isDark, l10n)
-                : Row(
-                    children: [
-                      _buildCategoriesPanel(categoriesAsync, isDark, l10n),
-                      Expanded(child: _buildContentArea(isDark, l10n)),
-                    ],
-                  ),
+          ExcludeFocus(
+            excluding: showDetail,
+            child: Offstage(
+              offstage: showDetail,
+              child: isMobilePlatform
+                  ? _buildContentArea(isDark, l10n)
+                  : Row(
+                      children: [
+                        _buildCategoriesPanel(categoriesAsync, isDark, l10n),
+                        Expanded(child: _buildContentArea(isDark, l10n)),
+                      ],
+                    ),
+            ),
           ),
           if (showDetail)
             PopScope(
@@ -1184,7 +1200,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       child: Container(
         width: 220,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.background(context) : AppColors.backgroundLight,
+          color: isDark
+              ? AppColors.background(context)
+              : AppColors.backgroundLight,
           border: Border(
             right: BorderSide(
               color: isDark ? AppColors.border(context) : AppColors.borderLight,
@@ -1205,7 +1223,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: isDark ? AppColors.text(context) : AppColors.textLight,
+                      color: isDark
+                          ? AppColors.text(context)
+                          : AppColors.textLight,
                     ),
                   ),
                 ],
@@ -1298,68 +1318,68 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     // FocusNodes via TvPosterGrid. A parent Focus would intercept D-pad
     // before the items could handle row/column math.
     return Column(
-        children: [
-          // Hero banner (Tauri style: backdrop + info)
-          if (_hoveredChannel != null &&
-              (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) !=
-                  null)
-            _buildHeroBanner(_hoveredChannel!, isDark, l10n)
-          else
-            const SizedBox(height: 8),
-          // Search bar + back-to-categories button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              children: [
-                // Toggle category sidebar open/close
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _FocusableIconButton(
-                    icon: _categoriesCollapsed ? Icons.menu : Icons.menu_open,
-                    tooltip: l10n.categories,
-                    onTap: _toggleCategorySidebar,
-                  ),
+      children: [
+        // Hero banner (Tauri style: backdrop + info)
+        if (_hoveredChannel != null &&
+            (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) !=
+                null)
+          _buildHeroBanner(_hoveredChannel!, isDark, l10n)
+        else
+          const SizedBox(height: 8),
+        // Search bar + back-to-categories button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Row(
+            children: [
+              // Toggle category sidebar open/close
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _FocusableIconButton(
+                  icon: _categoriesCollapsed ? Icons.menu : Icons.menu_open,
+                  tooltip: l10n.categories,
+                  onTap: _toggleCategorySidebar,
                 ),
-                Expanded(
-                  child: _SearchButton(
-                    hintText: _searchQuery.isNotEmpty
-                        ? _searchQuery
-                        : l10n.searchSeries,
-                    isActive: _searchQuery.isNotEmpty,
-                    onTap: () => _openSearch(l10n),
-                    onClear: _searchQuery.isNotEmpty
-                        ? () => setState(() => _searchQuery = '')
-                        : null,
-                  ),
+              ),
+              Expanded(
+                child: _SearchButton(
+                  hintText: _searchQuery.isNotEmpty
+                      ? _searchQuery
+                      : l10n.searchSeries,
+                  isActive: _searchQuery.isNotEmpty,
+                  onTap: () => _openSearch(l10n),
+                  onClear: _searchQuery.isNotEmpty
+                      ? () => setState(() => _searchQuery = '')
+                      : null,
                 ),
-                const SizedBox(width: 8),
-                // Genre filter (only renders when there are genres in DB)
-                Consumer(
-                  builder: (context, ref, _) {
-                    return GenreDropdown(
-                      value: ref.watch(seriesGenreFilterProvider),
-                      genres: ref.watch(_seriesGenresProvider),
-                      onChanged: (g) =>
-                          ref.read(seriesGenreFilterProvider.notifier).set(g),
-                    );
-                  },
+              ),
+              const SizedBox(width: 8),
+              // Genre filter (only renders when there are genres in DB)
+              Consumer(
+                builder: (context, ref, _) {
+                  return GenreDropdown(
+                    value: ref.watch(seriesGenreFilterProvider),
+                    genres: ref.watch(_seriesGenresProvider),
+                    onChanged: (g) =>
+                        ref.read(seriesGenreFilterProvider.notifier).set(g),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+              // Sort picker (newest / rating / name)
+              Consumer(
+                builder: (context, ref, _) => SortDropdown(
+                  value: ref.watch(seriesSortModeProvider),
+                  onChanged: (m) =>
+                      ref.read(seriesSortModeProvider.notifier).set(m),
                 ),
-                const SizedBox(width: 8),
-                // Sort picker (newest / rating / name)
-                Consumer(
-                  builder: (context, ref, _) => SortDropdown(
-                    value: ref.watch(seriesSortModeProvider),
-                    onChanged: (m) =>
-                        ref.read(seriesSortModeProvider.notifier).set(m),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // Grid
-          Expanded(child: _buildGrid(l10n)),
-        ],
-      );
+        ),
+        // Grid
+        Expanded(child: _buildGrid(l10n)),
+      ],
+    );
   }
 
   Widget _buildGrid(AppLocalizations l10n) {
@@ -1684,7 +1704,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final rating = info?['rating'] ?? ch.rating?.toStringAsFixed(1) ?? '';
     // Server / DB cache first; if neither has a real URL fall back to a
     // YouTube search query so every series has a working trailer button.
-    final trailerUrl = _extractTrailerUrl(
+    final trailerUrl =
+        _extractTrailerUrl(
           info,
           fallback: ch.youtubeTrailer,
           raw: _seriesInfo,
@@ -1731,22 +1752,21 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final allSeriesAsync = ref.watch(_allSeriesProvider);
     final embSimilar =
         ref.watch(_embeddingSimilarSeriesProvider(ch.streamId)).value ??
-            const <Channel>[];
+        const <Channel>[];
     final similarSeries = embSimilar.isNotEmpty
         ? embSimilar
         : allSeriesAsync.when(
             data: (all) => _memoSimilarSeries(
               ch,
               all,
-              genreText:
-                  genre.toString().isNotEmpty ? genre.toString() : ch.genre,
+              genreText: genre.toString().isNotEmpty
+                  ? genre.toString()
+                  : ch.genre,
               baseDirector: director.toString().isNotEmpty
                   ? director.toString()
                   : ch.director,
-              baseCast:
-                  cast.toString().isNotEmpty ? cast.toString() : ch.cast,
-              basePlot:
-                  plot.toString().isNotEmpty ? plot.toString() : ch.plot,
+              baseCast: cast.toString().isNotEmpty ? cast.toString() : ch.cast,
+              basePlot: plot.toString().isNotEmpty ? plot.toString() : ch.plot,
               personalizationSeed: [...favoriteSeries, ...historySeries],
             ),
             loading: () => _similarCacheKey == ch.streamId
@@ -1853,31 +1873,49 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 children: [
                   // On narrow/portrait screens stack poster on top of info.
                   // On wider screens keep the side-by-side layout.
-                  Builder(builder: (context) {
-                    Widget buildPoster(double w, double h) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: PlatformHelper.isTV
-                              ? const <BoxShadow>[]
-                              : [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.5),
-                                    blurRadius: 40,
-                                    offset: const Offset(0, 12),
-                                  ),
-                                ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: ch.streamIcon != null
-                              ? CachedNetworkImage(
-                                  imageUrl: ch.streamIcon!,
-                                  width: w,
-                                  height: h,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 360,
-                                  errorWidget: (_, _, _) => Container(
+                  Builder(
+                    builder: (context) {
+                      Widget buildPoster(double w, double h) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: PlatformHelper.isTV
+                                ? const <BoxShadow>[]
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 12),
+                                    ),
+                                  ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: ch.streamIcon != null
+                                ? CachedNetworkImage(
+                                    imageUrl: ch.streamIcon!,
+                                    width: w,
+                                    height: h,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 360,
+                                    errorWidget: (_, _, _) => Container(
+                                      width: w,
+                                      height: h,
+                                      color: AppColors.surface(context),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.tv,
+                                          color: AppColors.textTertiary(
+                                            context,
+                                          ),
+                                          size: 48,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
                                     width: w,
                                     height: h,
                                     color: AppColors.surface(context),
@@ -1889,429 +1927,393 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       ),
                                     ),
                                   ),
-                                )
-                              : Container(
-                                  width: w,
-                                  height: h,
-                                  color: AppColors.surface(context),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.tv,
-                                      color: AppColors.textTertiary(context),
-                                      size: 48,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      );
-                    }
-
-                    Widget buildInfoBody() {
-                      if (_loadingDetail) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 60),
-                            child: CircularProgressIndicator(),
                           ),
                         );
                       }
-                      return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 20),
-                                  // Badges row (pill shaped)
-                                  Row(
+
+                      Widget buildInfoBody() {
+                        if (_loadingDetail) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 60),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            // Badges row (pill shaped)
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.shade700,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.purple.shade700,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.tv,
-                                              color: Colors.white,
-                                              size: 12,
-                                            ),
-                                            const SizedBox(width: 5),
-                                            Text(
-                                              l10n.seriesLabel,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 11,
-                                                letterSpacing: 0.3,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      const Icon(
+                                        Icons.tv,
+                                        color: Colors.white,
+                                        size: 12,
                                       ),
-                                      if (rating.toString().isNotEmpty) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.gold.withValues(
-                                              alpha: 0.15,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.star,
-                                                color: AppColors.gold,
-                                                size: 12,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                rating.toString(),
-                                                style: const TextStyle(
-                                                  color: AppColors.gold,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        l10n.seriesLabel,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                          letterSpacing: 0.3,
                                         ),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  // Title
-                                  Text(
-                                    title.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 30,
-                                      letterSpacing: -0.5,
-                                      height: 1.15,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black,
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  // Meta row with dot separators
-                                  _buildMetaRow(
-                                    genre.toString(),
-                                    seasonNums.isNotEmpty
-                                        ? l10n.seasonCount(seasonNums.length)
-                                        : '',
-                                  ),
-                                  const SizedBox(height: 20),
-                                  // Action buttons (D-pad focusable)
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 8,
-                                    children: [
-                                      if (_lastEpisodeProgress != null &&
-                                          _lastEpisodeId != null)
-                                        _FocusableActionButton(
-                                          icon: Icons.play_arrow,
-                                          // Two phrasings:
-                                          //  * `_lastEpisodeResumeFromMs > 0`
-                                          //    means mid-episode resume —
-                                          //    show "Devam Et 48:57 S1E5"
-                                          //  * otherwise the previous episode
-                                          //    is finished and the button
-                                          //    advances to the next one —
-                                          //    show "Sonraki Bölüm S1E10".
-                                          label: _lastEpisodeResumeFromMs > 0
-                                              ? '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeResumeFromMs)))} $_lastEpisodeLabel'
-                                              // Finished previous episode → button advances to the next.
-                                              // Reuse existing localised "Play" verb + the SxxExx label
-                                              // (e.g. "İzle S1E10") instead of inventing a new key.
-                                              : '${l10n.play} $_lastEpisodeLabel',
-                                          isPrimary: true,
-                                          focusNode: _detailPlayFocusNode,
-                                          maxWidth: isMobilePlatform
-                                              ? 200
-                                              : null,
-                                          onTap: () => _playEpisode(
-                                            _lastEpisodeId!,
-                                            _lastEpisodeExt ?? 'mp4',
-                                            startPosition:
-                                                _lastEpisodeResumeFromMs > 0
-                                                    ? Duration(
-                                                        milliseconds:
-                                                            _lastEpisodeResumeFromMs,
-                                                      )
-                                                    : null,
-                                          ),
-                                        )
-                                      else if (activeEpisodes.isNotEmpty)
-                                        _FocusableActionButton(
-                                          icon: Icons.play_arrow,
-                                          label: l10n.play,
-                                          isPrimary: true,
-                                          focusNode: _detailPlayFocusNode,
-                                          onTap: () {
-                                            final ep = activeEpisodes.first;
-                                            final epId = ep['id'] is int
-                                                ? ep['id'] as int
-                                                : int.parse(
-                                                    ep['id'].toString(),
-                                                  );
-                                            final ext =
-                                                ep['container_extension']
-                                                    ?.toString() ??
-                                                'mp4';
-                                            _playEpisode(epId, ext);
-                                          },
-                                        ),
-                                      _FocusableActionButton(
-                                        icon: Icons.play_circle_outline,
-                                        label: l10n.watchTrailer,
-                                        isPrimary: false,
-                                        backgroundColor: Colors.red.shade900
-                                            .withValues(alpha: 0.3),
-                                        // Mobile: skip the external launch
-                                        // and open the in-app fullscreen
-                                        // trailer dialog — the floating PiP
-                                        // is hidden on mobile so this is
-                                        // the only path to the trailer.
-                                        // Desktop/TV keeps the existing
-                                        // `_openTrailer` (external) so this
-                                        // change is mobile-only.
-                                        onTap: () => isMobilePlatform
-                                            ? showExpandedTrailer(
-                                                context,
-                                                directTrailerRef:
-                                                    ch.youtubeTrailer,
-                                                searchTitle: ch.name,
-                                                searchYear: ch.year,
-                                                channelType: ch.type,
-                                              )
-                                            : _openTrailer(trailerUrl),
-                                      ),
-                                      _FocusableActionButton(
-                                        icon: Icons.open_in_new,
-                                        label: 'IMDB',
-                                        isPrimary: false,
-                                        onTap: () =>
-                                            _openImdb(title.toString(), ''),
                                       ),
                                     ],
                                   ),
-                                  // Inline AI series recap — only renders
-                                  // when an AI key is set AND the user has
-                                  // a "next episode" target from
-                                  // continue-watching state. Sits between
-                                  // the action buttons and the plot so
-                                  // it's discoverable without screaming.
-                                  if (_lastEpisodeProgress != null &&
-                                      _lastEpisodeLabel.isNotEmpty) ...[
-                                    // Auto-expand the recap when the
-                                    // user has been away from this
-                                    // series for a week or more — the
-                                    // "Episode summary auto-pause"
-                                    // surface from Sprint 1c. The
-                                    // user sees a refreshed catch-up
-                                    // automatically rather than
-                                    // having to hunt for the link.
-                                    Builder(builder: (_) {
-                                      final daysAway = DateTime.now()
-                                          .difference(_lastEpisodeProgress!
-                                              .updatedAt)
-                                          .inDays;
-                                      final isStale = daysAway >= 7;
-                                      return SeriesRecapInline(
-                                        series: ch,
-                                        nextEpisodeLabel:
-                                            _lastEpisodeLabel,
-                                        autoExpand: isStale,
-                                        autoExpandHint: isStale
-                                            ? 'Son izlemenden $daysAway gün geçti — kaldığın yeri hatırlatayım.'
-                                            : null,
-                                      );
-                                    }),
-                                  ],
-                                  const SizedBox(height: 24),
-                                  // Plot (max-width constrained for readability).
-                                  // AI-aware wrapper — pixel-identical to
-                                  // a plain Text when no Gemini key is
-                                  // configured, but gains inline
-                                  // translate / spoiler-free-summary /
-                                  // fill-in links when the user opts in.
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 600,
+                                ),
+                                if (rating.toString().isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
                                     ),
-                                    child: PlotEnrichedView(
-                                      channel: ch,
-                                      plotText: plot.toString(),
-                                      textStyle: TextStyle(
-                                        color: AppColors.textSecondary(context),
-                                        fontSize: 14,
-                                        height: 1.6,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.gold.withValues(
+                                        alpha: 0.15,
                                       ),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  // Credits (label-value pairs)
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 600,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (director.toString().isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 8,
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                SizedBox(
-                                                  width: 80,
-                                                  child: Text(
-                                                    l10n.director,
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textTertiaryDark,
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Text(
-                                                    director.toString(),
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textSecondaryDark,
-                                                      fontSize: 13,
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                        const Icon(
+                                          Icons.star,
+                                          color: AppColors.gold,
+                                          size: 12,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          rating.toString(),
+                                          style: const TextStyle(
+                                            color: AppColors.gold,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 11,
                                           ),
-                                        if (cast.toString().isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 8,
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                SizedBox(
-                                                  width: 80,
-                                                  child: Text(
-                                                    l10n.cast,
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textTertiaryDark,
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: CastChipRow(
-                                                    raw: cast.toString(),
-                                                    currentTitle: ch.name,
-                                                    onChannelTap: (c) {
-                                                      setState(() =>
-                                                          _hoveredChannel = c);
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if (genre.toString().isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 8,
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                SizedBox(
-                                                  width: 80,
-                                                  child: Text(
-                                                    l10n.genre,
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textTertiaryDark,
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Text(
-                                                    genre.toString(),
-                                                    style: const TextStyle(
-                                                      color: AppColors
-                                                          .textSecondaryDark,
-                                                      fontSize: 13,
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ],
-                              );
-                    }
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            // Title
+                            Text(
+                              title.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 30,
+                                letterSpacing: -0.5,
+                                height: 1.15,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 8),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // Meta row with dot separators
+                            _buildMetaRow(
+                              genre.toString(),
+                              seasonNums.isNotEmpty
+                                  ? l10n.seasonCount(seasonNums.length)
+                                  : '',
+                            ),
+                            const SizedBox(height: 20),
+                            // Action buttons (D-pad focusable)
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                if (_lastEpisodeProgress != null &&
+                                    _lastEpisodeId != null)
+                                  _FocusableActionButton(
+                                    icon: Icons.play_arrow,
+                                    // Two phrasings:
+                                    //  * `_lastEpisodeResumeFromMs > 0`
+                                    //    means mid-episode resume —
+                                    //    show "Devam Et 48:57 S1E5"
+                                    //  * otherwise the previous episode
+                                    //    is finished and the button
+                                    //    advances to the next one —
+                                    //    show "Sonraki Bölüm S1E10".
+                                    label: _lastEpisodeResumeFromMs > 0
+                                        ? '${l10n.continueFrom(_formatDuration(Duration(milliseconds: _lastEpisodeResumeFromMs)))} $_lastEpisodeLabel'
+                                        // Finished previous episode → button advances to the next.
+                                        // Reuse existing localised "Play" verb + the SxxExx label
+                                        // (e.g. "İzle S1E10") instead of inventing a new key.
+                                        : '${l10n.play} $_lastEpisodeLabel',
+                                    isPrimary: true,
+                                    focusNode: _detailPlayFocusNode,
+                                    maxWidth: isMobilePlatform ? 200 : null,
+                                    onTap: () => _playEpisode(
+                                      _lastEpisodeId!,
+                                      _lastEpisodeExt ?? 'mp4',
+                                      startPosition:
+                                          _lastEpisodeResumeFromMs > 0
+                                          ? Duration(
+                                              milliseconds:
+                                                  _lastEpisodeResumeFromMs,
+                                            )
+                                          : null,
+                                    ),
+                                  )
+                                else if (activeEpisodes.isNotEmpty)
+                                  _FocusableActionButton(
+                                    icon: Icons.play_arrow,
+                                    label: l10n.play,
+                                    isPrimary: true,
+                                    focusNode: _detailPlayFocusNode,
+                                    onTap: () {
+                                      final ep = activeEpisodes.first;
+                                      final epId = ep['id'] is int
+                                          ? ep['id'] as int
+                                          : int.parse(ep['id'].toString());
+                                      final ext =
+                                          ep['container_extension']
+                                              ?.toString() ??
+                                          'mp4';
+                                      _playEpisode(epId, ext);
+                                    },
+                                  ),
+                                _FocusableActionButton(
+                                  icon: Icons.play_circle_outline,
+                                  label: l10n.watchTrailer,
+                                  isPrimary: false,
+                                  backgroundColor: Colors.red.shade900
+                                      .withValues(alpha: 0.3),
+                                  // Mobile: skip the external launch
+                                  // and open the in-app fullscreen
+                                  // trailer dialog — the floating PiP
+                                  // is hidden on mobile so this is
+                                  // the only path to the trailer.
+                                  // Desktop/TV keeps the existing
+                                  // `_openTrailer` (external) so this
+                                  // change is mobile-only.
+                                  onTap: () => isMobilePlatform
+                                      ? showExpandedTrailer(
+                                          context,
+                                          directTrailerRef: ch.youtubeTrailer,
+                                          searchTitle: ch.name,
+                                          searchYear: ch.year,
+                                          channelType: ch.type,
+                                        )
+                                      : _openTrailer(trailerUrl),
+                                ),
+                                _FocusableActionButton(
+                                  icon: Icons.open_in_new,
+                                  label: 'IMDB',
+                                  isPrimary: false,
+                                  onTap: () => _openImdb(title.toString(), ''),
+                                ),
+                              ],
+                            ),
+                            // Inline AI series recap — only renders
+                            // when an AI key is set AND the user has
+                            // a "next episode" target from
+                            // continue-watching state. Sits between
+                            // the action buttons and the plot so
+                            // it's discoverable without screaming.
+                            if (_lastEpisodeProgress != null &&
+                                _lastEpisodeLabel.isNotEmpty) ...[
+                              // Auto-expand the recap when the
+                              // user has been away from this
+                              // series for a week or more — the
+                              // "Episode summary auto-pause"
+                              // surface from Sprint 1c. The
+                              // user sees a refreshed catch-up
+                              // automatically rather than
+                              // having to hunt for the link.
+                              Builder(
+                                builder: (_) {
+                                  final daysAway = DateTime.now()
+                                      .difference(
+                                        _lastEpisodeProgress!.updatedAt,
+                                      )
+                                      .inDays;
+                                  final isStale = daysAway >= 7;
+                                  return SeriesRecapInline(
+                                    series: ch,
+                                    nextEpisodeLabel: _lastEpisodeLabel,
+                                    autoExpand: isStale,
+                                    autoExpandHint: isStale
+                                        ? 'Son izlemenden $daysAway gün geçti — kaldığın yeri hatırlatayım.'
+                                        : null,
+                                  );
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            // Plot (max-width constrained for readability).
+                            // AI-aware wrapper — pixel-identical to
+                            // a plain Text when no Gemini key is
+                            // configured, but gains inline
+                            // translate / spoiler-free-summary /
+                            // fill-in links when the user opts in.
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 600),
+                              child: PlotEnrichedView(
+                                channel: ch,
+                                plotText: plot.toString(),
+                                textStyle: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                  fontSize: 14,
+                                  height: 1.6,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // Credits (label-value pairs)
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 600),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (director.toString().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                              l10n.director,
+                                              style: const TextStyle(
+                                                color:
+                                                    AppColors.textTertiaryDark,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              director.toString(),
+                                              style: const TextStyle(
+                                                color:
+                                                    AppColors.textSecondaryDark,
+                                                fontSize: 13,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (cast.toString().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                              l10n.cast,
+                                              style: const TextStyle(
+                                                color:
+                                                    AppColors.textTertiaryDark,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: CastChipRow(
+                                              raw: cast.toString(),
+                                              currentTitle: ch.name,
+                                              onChannelTap: (c) {
+                                                setState(
+                                                  () => _hoveredChannel = c,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (genre.toString().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                              l10n.genre,
+                                              style: const TextStyle(
+                                                color:
+                                                    AppColors.textTertiaryDark,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              genre.toString(),
+                                              style: const TextStyle(
+                                                color:
+                                                    AppColors.textSecondaryDark,
+                                                fontSize: 13,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }
 
-                    if (isMobilePlatform) {
-                      return Column(
+                      if (isMobilePlatform) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Center(child: buildPoster(140, 210)),
+                            const SizedBox(height: 12),
+                            buildInfoBody(),
+                          ],
+                        );
+                      }
+
+                      return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 8),
-                          Center(child: buildPoster(140, 210)),
-                          const SizedBox(height: 12),
-                          buildInfoBody(),
+                          buildPoster(180, 270),
+                          const SizedBox(width: 32),
+                          Expanded(child: buildInfoBody()),
                         ],
                       );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildPoster(180, 270),
-                        const SizedBox(width: 32),
-                        Expanded(child: buildInfoBody()),
-                      ],
-                    );
-                  }),
+                    },
+                  ),
 
                   // Season tabs + Episode list (shown for both mobile & desktop)
                   if (seasonNums.isNotEmpty) ...[
@@ -2372,8 +2374,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                           label:
                               '${l10n.showMoreEpisodes} (+${activeEpisodes.length - _episodeLimit})',
                           isPrimary: false,
-                          onTap: () => setState(
-                              () => _episodeLimit += _kEpisodeWindow),
+                          onTap: () =>
+                              setState(() => _episodeLimit += _kEpisodeWindow),
                         ),
                       ),
                   ],
@@ -2681,8 +2683,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     // Plot keyword set — drives thematic-overlap scoring so series
     // with related premise float up even when genre/cast don't
     // overlap. See `_plotTokens` for stopword handling.
-    final basePlotTokens =
-        _plotTokens(basePlot ?? current.plot ?? '');
+    final basePlotTokens = _plotTokens(basePlot ?? current.plot ?? '');
     final seedItems = personalizationSeed
         .where((c) => c.streamId != current.streamId)
         .toList();
@@ -2732,8 +2733,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       if (basePlotTokens.isNotEmpty) {
         final itemPlotTokens = _plotTokens(channel.plot ?? '');
         if (itemPlotTokens.isNotEmpty) {
-          final plotOverlap =
-              itemPlotTokens.where(basePlotTokens.contains).length;
+          final plotOverlap = itemPlotTokens
+              .where(basePlotTokens.contains)
+              .length;
           score += plotOverlap.clamp(0, 5);
         }
       }
@@ -2780,8 +2782,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     scored.sort((a, b) {
       final byScore = b.value.compareTo(a.value);
       if (byScore != 0) return byScore;
-      return (tieOrder[a.key.streamId] ?? 0)
-          .compareTo(tieOrder[b.key.streamId] ?? 0);
+      return (tieOrder[a.key.streamId] ?? 0).compareTo(
+        tieOrder[b.key.streamId] ?? 0,
+      );
     });
 
     // Diversity cap — keep no more than half the slots for any
@@ -3083,8 +3086,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                             // AI-generated text from real metadata.
                             const SizedBox(height: 4),
                             Row(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(
                                   Icons.auto_awesome,
@@ -3201,7 +3203,6 @@ class _FocusableActionButton extends StatefulWidget {
   final String label;
   final bool isPrimary;
   final VoidCallback? onTap;
-  final bool autofocus;
   final Color? backgroundColor;
   final FocusNode? focusNode;
   final double? maxWidth;
@@ -3211,7 +3212,6 @@ class _FocusableActionButton extends StatefulWidget {
     required this.label,
     required this.isPrimary,
     this.onTap,
-    this.autofocus = false,
     this.backgroundColor,
     this.focusNode,
     this.maxWidth,
@@ -3228,7 +3228,6 @@ class _FocusableActionButtonState extends State<_FocusableActionButton> {
   Widget build(BuildContext context) {
     return Focus(
       focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
       onFocusChange: (f) => setState(() => _isFocused = f),
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
@@ -3340,8 +3339,7 @@ class _SeasonMarkWatchedButtonState
   /// don't have a PlaybackProgress row to update.
   List<int> get _ids => widget.episodes
       .map((e) => (e is Map ? e['id'] : null))
-      .map((v) =>
-          v is int ? v : (v is String ? int.tryParse(v) : null))
+      .map((v) => v is int ? v : (v is String ? int.tryParse(v) : null))
       .whereType<int>()
       .toList();
 
@@ -3354,8 +3352,7 @@ class _SeasonMarkWatchedButtonState
       });
       return;
     }
-    final count =
-        await ref.read(playerRepositoryProvider).finishedCount(ids);
+    final count = await ref.read(playerRepositoryProvider).finishedCount(ids);
     if (!mounted) return;
     setState(() {
       _finishedCount = count;
@@ -3384,9 +3381,7 @@ class _SeasonMarkWatchedButtonState
     return _FocusableTextAction(
       icon: allDone ? Icons.replay_rounded : Icons.done_all_rounded,
       label: allDone ? 'İşareti kaldır' : 'Sezonu izlendi işaretle',
-      tone: allDone
-          ? AppColors.textSecondaryDark
-          : AppColors.primary,
+      tone: allDone ? AppColors.textSecondaryDark : AppColors.primary,
       onTap: _toggle,
     );
   }
@@ -3506,7 +3501,9 @@ class _FocusableSeasonTabState extends State<_FocusableSeasonTab> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: widget.isActive ? AppColors.primary : AppColors.surface(context),
+            color: widget.isActive
+                ? AppColors.primary
+                : AppColors.surface(context),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _isFocused
@@ -3520,7 +3517,9 @@ class _FocusableSeasonTabState extends State<_FocusableSeasonTab> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: highlight ? Colors.white : AppColors.textSecondary(context),
+              color: highlight
+                  ? Colors.white
+                  : AppColors.textSecondary(context),
               fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
               fontSize: 13,
             ),
@@ -3785,9 +3784,9 @@ class _FavoritesGridView extends ConsumerWidget {
             return _PosterGrid(
               controller: gridController,
               channels: sortChannels(
-            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
-            ref.watch(seriesSortModeProvider),
-          ),
+                filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+                ref.watch(seriesSortModeProvider),
+              ),
               onHover: onHover,
               onTap: onTap,
               onLeftEdge: onLeftEdge,
@@ -3863,9 +3862,18 @@ class _HistoryGridView extends ConsumerWidget {
     WidgetRef ref,
     Channel channel,
   ) {
-    ref
-        .read(playerRepositoryProvider)
-        .deleteProgress(channel.streamId, 'series');
+    final repo = ref.read(playerRepositoryProvider);
+    if (ref.read(currentAccountProvider).value?.type == 'm3u') {
+      final series = ref
+          .read(m3uSeriesCatalogProvider)
+          .value
+          ?.forChannel(channel);
+      repo.unmarkEpisodes(
+        series?.episodes.map((e) => e.streamId).toList() ?? [channel.streamId],
+      );
+    } else {
+      repo.removeSeriesFromHistory(channel.streamId);
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(l10n.removedFromHistory),
@@ -3937,9 +3945,9 @@ class _HistoryGridView extends ConsumerWidget {
               child: _PosterGrid(
                 controller: gridController,
                 channels: sortChannels(
-            filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
-            ref.watch(seriesSortModeProvider),
-          ),
+                  filterByGenre(filtered, ref.watch(seriesGenreFilterProvider)),
+                  ref.watch(seriesSortModeProvider),
+                ),
                 onHover: onHover,
                 onTap: onTap,
                 onLeftEdge: onLeftEdge,
@@ -4019,7 +4027,11 @@ class _PosterGridState extends ConsumerState<_PosterGrid> {
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
       padding: EdgeInsets.fromLTRB(
-          context.horizontalPadding, 4, context.horizontalPadding, 60),
+        context.horizontalPadding,
+        4,
+        context.horizontalPadding,
+        60,
+      ),
       onActivate: (ch) => widget.onTap(ch),
       onLeftEdge: widget.onLeftEdge,
       onNeedMore: widget.onNeedMore,
@@ -4108,117 +4120,142 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
   Widget build(BuildContext context) {
     final active = widget.isFocused || _isHovered;
     return MouseRegion(
-        // No mouse on TV — drop hover handlers so they don't race
-        // the focus state. Focus alone drives the active look.
-        cursor: PlatformHelper.useHoverEffects
-            ? SystemMouseCursors.click
-            : MouseCursor.defer,
-        onEnter: PlatformHelper.useHoverEffects
-            ? (_) {
-                if (!mounted) return;
-                setState(() => _isHovered = true);
-                _syncAnim();
-                widget.onHover();
-              }
-            : null,
-        onExit: PlatformHelper.useHoverEffects
-            ? (_) {
-                if (!mounted) return;
-                setState(() => _isHovered = false);
-                _syncAnim();
-              }
-            : null,
-        child: GestureDetector(
-          onTap: () {
-            widget.onHover();
-            widget.onTap();
-          },
-          onLongPress: widget.onLongPress,
-          child: AnimatedBuilder(
-            animation: _scale,
-            builder: (_, child) =>
-                Transform.scale(scale: _scale.value, child: child),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: active ? AppColors.primary : Colors.transparent,
-                  width: active ? PlatformHelper.focusRingWidth : 0,
-                ),
-                // No blurred glow on TV — border alone marks focus.
-                boxShadow: (active && !PlatformHelper.isTV)
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(
-                              alpha: PlatformHelper.focusRingGlowAlpha),
-                          blurRadius: PlatformHelper.focusRingGlowBlur,
-                        ),
-                      ]
-                    : const <BoxShadow>[],
+      // No mouse on TV — drop hover handlers so they don't race
+      // the focus state. Focus alone drives the active look.
+      cursor: PlatformHelper.useHoverEffects
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: PlatformHelper.useHoverEffects
+          ? (_) {
+              if (!mounted) return;
+              setState(() => _isHovered = true);
+              _syncAnim();
+              widget.onHover();
+            }
+          : null,
+      onExit: PlatformHelper.useHoverEffects
+          ? (_) {
+              if (!mounted) return;
+              setState(() => _isHovered = false);
+              _syncAnim();
+            }
+          : null,
+      child: GestureDetector(
+        onTap: () {
+          widget.onHover();
+          widget.onTap();
+        },
+        onLongPress: widget.onLongPress,
+        child: AnimatedBuilder(
+          animation: _scale,
+          builder: (_, child) =>
+              Transform.scale(scale: _scale.value, child: child),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: active ? AppColors.primary : Colors.transparent,
+                width: active ? PlatformHelper.focusRingWidth : 0,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    widget.channel.streamIcon != null
-                        ? CachedNetworkImage(
-                            imageUrl: widget.channel.streamIcon!,
-                            fit: BoxFit.cover,
-                            // Decode posters to ~tile width, not full source
-                            // resolution — a grid of full-res decodes is the
-                            // main OOM/jank source on weak Android TV GPUs.
-                            memCacheWidth: 320,
-                            errorWidget: (_, _, _) => _ph(),
-                          )
-                        : _ph(),
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.85),
-                            ],
-                            stops: const [0.55, 1.0],
-                          ),
+              // No blurred glow on TV — border alone marks focus.
+              boxShadow: (active && !PlatformHelper.isTV)
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(
+                          alpha: PlatformHelper.focusRingGlowAlpha,
+                        ),
+                        blurRadius: PlatformHelper.focusRingGlowBlur,
+                      ),
+                    ]
+                  : const <BoxShadow>[],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  widget.channel.streamIcon != null
+                      ? CachedNetworkImage(
+                          imageUrl: widget.channel.streamIcon!,
+                          fit: BoxFit.cover,
+                          // Decode posters to ~tile width, not full source
+                          // resolution — a grid of full-res decodes is the
+                          // main OOM/jank source on weak Android TV GPUs.
+                          memCacheWidth: 320,
+                          errorWidget: (_, _, _) => _ph(),
+                        )
+                      : _ph(),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.85),
+                          ],
+                          stops: const [0.55, 1.0],
                         ),
                       ),
                     ),
-                    // Play overlay on hover
-                    if (active)
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.85),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 22,
-                          ),
+                  ),
+                  // Play overlay on hover
+                  if (active)
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
-                    // Series badge
+                    ),
+                  // Series badge
+                  Positioned(
+                    top: 5,
+                    left: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context)?.seriesLabel ?? 'SERIES',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // New episodes badge
+                  if (widget.showNewBadge)
                     Positioned(
                       top: 5,
-                      left: 5,
+                      right: 5,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 5,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.8),
+                          color: Colors.red.shade600,
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
-                          AppLocalizations.of(context)?.seriesLabel ?? 'SERIES',
+                          AppLocalizations.of(context)?.newLabel ?? 'NEW',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 8,
@@ -4227,110 +4264,86 @@ class _PosterCardVisualState extends State<_PosterCardVisual>
                         ),
                       ),
                     ),
-                    // New episodes badge
-                    if (widget.showNewBadge)
-                      Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade600,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            AppLocalizations.of(context)?.newLabel ?? 'NEW',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (widget.channel.rating != null &&
-                        widget.channel.rating! > 0 &&
-                        !widget.showNewBadge)
-                      Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                color: AppColors.gold,
-                                size: 10,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                widget.channel.rating!.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (widget.channel.year != null)
-                      Positioned(
-                        bottom: 24,
-                        left: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            widget.channel.year!,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ),
-                      ),
+                  if (widget.channel.rating != null &&
+                      widget.channel.rating! > 0 &&
+                      !widget.showNewBadge)
                     Positioned(
-                      bottom: 6,
-                      left: 6,
-                      right: 6,
-                      child: Text(
-                        widget.channel.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                      top: 5,
+                      right: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: AppColors.gold,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              widget.channel.rating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  if (widget.channel.year != null)
+                    Positioned(
+                      bottom: 24,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          widget.channel.year!,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    right: 6,
+                    child: Text(
+                      widget.channel.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _ph() {
@@ -4383,24 +4396,45 @@ class _GridLimitNotifier extends Notifier<int> {
 
 /// Shared cap for the currently shown series grid (category or "All"),
 /// reset on every category switch.
-final _seriesGridLimitProvider =
-    NotifierProvider<_GridLimitNotifier, int>(_GridLimitNotifier.new);
+final _seriesGridLimitProvider = NotifierProvider<_GridLimitNotifier, int>(
+  _GridLimitNotifier.new,
+);
 
-final _seriesChannelsProvider = StreamProvider.family<List<Channel>, String>((
-  ref,
-  categoryId,
-) {
-  final limit = ref.watch(_seriesGridLimitProvider);
-  return ref
-      .watch(contentRepositoryProvider)
-      .watchChannels(categoryId, type: 'series', limit: limit);
-});
+final _xtreamSeriesChannelsProvider =
+    StreamProvider.family<List<Channel>, String>((ref, categoryId) {
+      final limit = ref.watch(_seriesGridLimitProvider);
+      return ref
+          .watch(contentRepositoryProvider)
+          .watchChannels(categoryId, type: 'series', limit: limit);
+    });
 
-final _allSeriesProvider = StreamProvider<List<Channel>>((ref) {
+final _xtreamAllSeriesProvider = StreamProvider<List<Channel>>((ref) {
   final limit = ref.watch(_seriesGridLimitProvider);
   return ref
       .watch(contentRepositoryProvider)
       .watchAllChannelsByType('series', limit: limit);
+});
+
+final _seriesChannelsProvider =
+    Provider.family<AsyncValue<List<Channel>>, String>((ref, categoryId) {
+      if (ref.watch(currentAccountProvider).value?.type != 'm3u') {
+        return ref.watch(_xtreamSeriesChannelsProvider(categoryId));
+      }
+      final limit = ref.watch(_seriesGridLimitProvider);
+      return ref
+          .watch(m3uSeriesCatalogProvider)
+          .whenData(
+            (catalog) => catalog.cards(categoryId: categoryId, limit: limit),
+          );
+    });
+final _allSeriesProvider = Provider<AsyncValue<List<Channel>>>((ref) {
+  if (ref.watch(currentAccountProvider).value?.type != 'm3u') {
+    return ref.watch(_xtreamAllSeriesProvider);
+  }
+  final limit = ref.watch(_seriesGridLimitProvider);
+  return ref
+      .watch(m3uSeriesCatalogProvider)
+      .whenData((catalog) => catalog.cards(limit: limit));
 });
 
 /// Genre chips derived from the loaded series list, memoized (see movies).
@@ -4412,26 +4446,26 @@ final _seriesGenresProvider = Provider<List<String>>((ref) {
 /// Embedding-based "similar series" — see the movies equivalent.
 final _embeddingSimilarSeriesProvider =
     FutureProvider.family<List<Channel>, int>((ref, streamId) async {
-  // Skip the semantic (embedding) scan on Android TV — see movies.
-  if (PlatformHelper.isTV) return const [];
-  final hits = await ref
-      .watch(semanticSearchServiceProvider)
-      .similarTo(streamId, 'series', k: 30, restrictType: 'series');
-  if (hits.isEmpty) return const [];
-  final db = ref.watch(appDatabaseProvider);
-  final ids = hits.map((h) => h.streamId).toList();
-  final rows = await (db.select(db.channels)
-        ..where((t) => t.streamId.isIn(ids)))
-      .get();
-  final byId = {
-    for (final r in rows)
-      if (r.type == 'series') r.streamId: r
-  };
-  return [
-    for (final h in hits)
-      if (byId[h.streamId] != null) byId[h.streamId]!
-  ];
-});
+      // Skip the semantic (embedding) scan on Android TV — see movies.
+      if (PlatformHelper.isTV) return const [];
+      final hits = await ref
+          .watch(semanticSearchServiceProvider)
+          .similarTo(streamId, 'series', k: 30, restrictType: 'series');
+      if (hits.isEmpty) return const [];
+      final db = ref.watch(appDatabaseProvider);
+      final ids = hits.map((h) => h.streamId).toList();
+      final rows = await (db.select(
+        db.channels,
+      )..where((t) => t.streamId.isIn(ids))).get();
+      final byId = {
+        for (final r in rows)
+          if (r.type == 'series') r.streamId: r,
+      };
+      return [
+        for (final h in hits)
+          if (byId[h.streamId] != null) byId[h.streamId]!,
+      ];
+    });
 
 final _favSeriesIdsProvider = StreamProvider<List<int>>((ref) {
   return ref
@@ -4448,7 +4482,7 @@ final _favChannelsProvider = StreamProvider.family<List<Channel>, List<int>>((
       .watchFavoriteChannels('series', ids);
 });
 
-final _continueWatchingSeriesProvider = StreamProvider<List<Channel>>((ref) {
+final _rawContinueWatchingSeriesProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(contentRepositoryProvider).watchContinueWatching('series');
 });
 
@@ -4624,3 +4658,12 @@ class _SearchButtonState extends State<_SearchButton> {
     );
   }
 }
+
+final _continueWatchingSeriesProvider = Provider<AsyncValue<List<Channel>>>((
+  ref,
+) {
+  final rows = ref.watch(_rawContinueWatchingSeriesProvider);
+  if (ref.watch(currentAccountProvider).value?.type != 'm3u') return rows;
+  final catalog = ref.watch(m3uSeriesCatalogProvider);
+  return catalog.whenData((value) => value.groupCards(rows.value ?? []));
+});

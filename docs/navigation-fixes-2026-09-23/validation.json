@@ -1,0 +1,13 @@
+{
+  "flutterTests": 397,
+  "flutterTestsStatus": "passed",
+  "analyzerErrors": 0,
+  "analyzerWarnings": 0,
+  "analyzerInfos": 16,
+  "linuxRelease": "passed",
+  "linuxIsolatedStartup": "passed",
+  "schema": 27,
+  "realAndroidTvDeviceTest": false,
+  "tivimateParityVerified": false,
+  "otherPlatformDeviceTests": false
+}

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/presentation/widgets/layout/app_shell.dart';
 import 'package:lifeostv/presentation/screens/settings/settings_screen.dart';
@@ -94,6 +95,11 @@ GoRouter router(Ref ref) {
               currentProgramTitle: extras['programTitle'],
               startPosition: extras['startPosition'] as Duration?,
               parentStreamId: extras['parentStreamId'] as int?,
+              saveSeriesSummary: extras['saveSeriesSummary'] as bool? ?? true,
+              onNextEpisode: extras['onNextEpisode'] as VoidCallback?,
+              onPrevEpisode: extras['onPrevEpisode'] as VoidCallback?,
+              nextEpisodeTitle: extras['nextEpisodeTitle'] as String?,
+              previousEpisodeTitle: extras['previousEpisodeTitle'] as String?,
               channels: extras['channels'] as List<PlayerChannel>?,
               currentChannelIndex: extras['currentChannelIndex'] as int?,
             );
@@ -101,7 +107,7 @@ GoRouter router(Ref ref) {
           return VideoPlayerScreen(
             streamUrl: extras['url'],
             streamId: extras['streamId'] as int,
-              accountId: extras['accountId'] as int?,
+            accountId: extras['accountId'] as int?,
             title: extras['title'],
             type: extras['type'] ?? VideoType.live,
             logo: extras['logo'],
@@ -120,8 +126,8 @@ GoRouter router(Ref ref) {
             rating: extras['rating'] as double?,
             startPosition: extras['startPosition'] as Duration?,
             parentStreamId: extras['parentStreamId'] as int?,
-            introDefaultSeconds:
-                (extras['introDefaultSeconds'] as int?) ?? 90,
+            saveSeriesSummary: extras['saveSeriesSummary'] as bool? ?? true,
+            introDefaultSeconds: (extras['introDefaultSeconds'] as int?) ?? 90,
             channels: extras['channels'] as List<PlayerChannel>?,
             currentChannelIndex: extras['currentChannelIndex'] as int?,
             categoryNames: extras['categoryNames'] as Map<String, String>?,
@@ -132,7 +138,7 @@ GoRouter router(Ref ref) {
       // Main App Shell
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-           return AppShell(navigationShell: navigationShell);
+          return AppShell(navigationShell: navigationShell);
         },
         branches: [
           // 0: Home (Dashboard)
@@ -165,7 +171,7 @@ GoRouter router(Ref ref) {
           // 3: Series
           StatefulShellBranch(
             routes: [
-               GoRoute(
+              GoRoute(
                 path: '/series',
                 builder: (context, state) => const SeriesScreen(),
               ),

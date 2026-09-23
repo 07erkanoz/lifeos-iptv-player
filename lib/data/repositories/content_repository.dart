@@ -41,18 +41,49 @@ class ContentRepository {
   }) : _autoHideAdult = (autoHideAdult ?? (() => false));
 
   ContentRepository forAccount(int accountId) => ContentRepository(
-    _db.forAccount(accountId), _syncService, _getActiveProfileId,
+    _db.forAccount(accountId),
+    _syncService,
+    _getActiveProfileId,
     autoHideAdult: _autoHideAdult,
   );
 
   int get _pid => _getActiveProfileId();
 
+  /// Resolve only visible content. Untyped IDs must be unambiguous: Xtream
+  /// may reuse a numeric ID for a movie, series and live channel.
+  Future<Channel?> getVisibleChannel(int streamId, {String? type}) async {
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.channels.streamId.equals(streamId))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories));
+    if (type != null) query.where(_db.channels.type.equals(type));
+    final rows = await (query..limit(2)).get();
+    return rows.length == 1 ? rows.single.readTable(_db.channels) : null;
+  }
+
   /// Adult category-name patterns (matched case-insensitively). When
   /// the "18+/XXX gizle" setting is on, categories whose name contains
   /// any of these are filtered out of browsing surfaces.
   static const _adultPatterns = [
-    'xxx', 'adult', 'erotic', 'erotik', 'porn', '+18', '18+',
-    'dorcel', 'brazzers', 'hardcore', 'yetişkin', 'yetiskin',
+    'xxx',
+    'adult',
+    'erotic',
+    'erotik',
+    'porn',
+    '+18',
+    '18+',
+    'dorcel',
+    'brazzers',
+    'hardcore',
+    'yetişkin',
+    'yetiskin',
   ];
 
   /// SQL predicate on the [Categories] table that is TRUE for non-adult
@@ -69,15 +100,17 @@ class ContentRepository {
 
   Stream<List<Category>> watchCategories(String type) {
     return (_db.select(_db.categories)
-      ..where((tbl) => tbl.type.equals(type))
-      ..where((tbl) => tbl.isHidden.equals(false))
-      ..where((tbl) => _notAdultCategory(tbl))
-    ).watch();
+          ..where((tbl) => tbl.type.equals(type))
+          ..where((tbl) => tbl.isHidden.equals(false))
+          ..where((tbl) => _notAdultCategory(tbl)))
+        .watch();
   }
 
   /// All categories including hidden ones (for editing)
   Stream<List<Category>> watchAllCategories(String type) {
-    return (_db.select(_db.categories)..where((tbl) => tbl.type.equals(type))).watch();
+    return (_db.select(
+      _db.categories,
+    )..where((tbl) => tbl.type.equals(type))).watch();
   }
 
   /// Toggle category visibility. Writes both the live `categories`
@@ -85,18 +118,24 @@ class ContentRepository {
   /// the durable source of truth that survives catalogue refreshes
   /// (which insertOrReplace the categories table and would otherwise
   /// wipe the flag) and is synced across paired devices (LWW).
-  Future<void> toggleCategoryHidden(String categoryId, String type, bool hidden) async {
+  Future<void> toggleCategoryHidden(
+    String categoryId,
+    String type,
+    bool hidden,
+  ) async {
     await (_db.update(_db.categories)
-      ..where((tbl) => tbl.id.equals(categoryId) & tbl.type.equals(type))
-    ).write(CategoriesCompanion(isHidden: Value(hidden)));
-    await _db.into(_db.categoryPrefs).insertOnConflictUpdate(
-      CategoryPrefsCompanion.insert(
-        categoryId: categoryId,
-        type: type,
-        isHidden: Value(hidden),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+          ..where((tbl) => tbl.id.equals(categoryId) & tbl.type.equals(type)))
+        .write(CategoriesCompanion(isHidden: Value(hidden)));
+    await _db
+        .into(_db.categoryPrefs)
+        .insertOnConflictUpdate(
+          CategoryPrefsCompanion.insert(
+            categoryId: categoryId,
+            type: type,
+            isHidden: Value(hidden),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
   }
 
   /// Re-apply saved category-visibility prefs onto the `categories`
@@ -111,8 +150,7 @@ class ContentRepository {
         batch.update(
           _db.categories,
           CategoriesCompanion(isHidden: Value(p.isHidden)),
-          where: (tbl) =>
-              tbl.id.equals(p.categoryId) & tbl.type.equals(p.type),
+          where: (tbl) => tbl.id.equals(p.categoryId) & tbl.type.equals(p.type),
         );
       }
     });
@@ -134,40 +172,48 @@ class ContentRepository {
     if (e.genres == null || e.genres!.isEmpty) return ch;
     return ch.copyWith(
       genre: Value(e.genres),
-      year: Value((ch.year != null && ch.year!.isNotEmpty)
-          ? ch.year
-          : e.year?.toString()),
+      year: Value(
+        (ch.year != null && ch.year!.isNotEmpty) ? ch.year : e.year?.toString(),
+      ),
     );
   }
 
-  Stream<List<Channel>> watchChannels(String categoryId,
-      {String? type, int? limit}) {
+  Stream<List<Channel>> watchChannels(
+    String categoryId, {
+    String? type,
+    int? limit,
+  }) {
     // Enrichment overlay happens in SQL (LEFT JOIN) instead of loading
     // the whole content_enrichment table into Dart per emission.
-    final query = _db.select(_db.channels).join([
-      _db.accountLeftJoin(
-        _db.contentEnrichment,
-        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
-            _db.contentEnrichment.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..where(_db.channels.categoryId.equals(categoryId))
-      // Newest-first + bounded so the grid can page in a huge category
-      // instead of materialising tens of thousands of rows at once.
-      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)]);
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountLeftJoin(
+              _db.contentEnrichment,
+              _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+                  _db.contentEnrichment.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.channels.categoryId.equals(categoryId))
+          // Newest-first + bounded so the grid can page in a huge category
+          // instead of materialising tens of thousands of rows at once.
+          ..orderBy([
+            OrderingTerm(expression: _addedNum, mode: OrderingMode.desc),
+          ]);
     if (type != null) {
       query.where(_db.channels.type.equals(type));
     }
     if (limit != null) {
       query.limit(limit);
     }
-    return query.watch().map((rows) => [
-          for (final row in rows)
-            _overlayEnrichmentRow(
-              row.readTable(_db.channels),
-              row.readTableOrNull(_db.contentEnrichment),
-            ),
-        ]);
+    return query.watch().map(
+      (rows) => [
+        for (final row in rows)
+          _overlayEnrichmentRow(
+            row.readTable(_db.channels),
+            row.readTableOrNull(_db.contentEnrichment),
+          ),
+      ],
+    );
   }
 
   /// All channels of a given type (for "Tüm" grid + search). [limit] bounds
@@ -175,44 +221,58 @@ class ContentRepository {
   /// loading every row at once (null = unbounded, e.g. for search).
   /// Filters out channels from hidden categories.
   Stream<List<Channel>> watchAllChannelsByType(String type, {int? limit}) {
-    final query = _db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-        _db.categories.type.equalsExp(_db.channels.type)),
-      _db.accountLeftJoin(
-        _db.contentEnrichment,
-        _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
-            _db.contentEnrichment.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)]);
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+            _db.accountLeftJoin(
+              _db.contentEnrichment,
+              _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
+                  _db.contentEnrichment.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.channels.type.equals(type))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories))
+          ..orderBy([
+            OrderingTerm(expression: _addedNum, mode: OrderingMode.desc),
+          ]);
     if (limit != null) {
       query.limit(limit);
     }
-    return query.watch().map((rows) => [
-          for (final row in rows)
-            _overlayEnrichmentRow(
-              row.readTable(_db.channels),
-              row.readTableOrNull(_db.contentEnrichment),
-            ),
-        ]);
+    return query.watch().map(
+      (rows) => [
+        for (final row in rows)
+          _overlayEnrichmentRow(
+            row.readTable(_db.channels),
+            row.readTableOrNull(_db.contentEnrichment),
+          ),
+      ],
+    );
   }
 
   /// Recent channels filtered by hidden categories.
   Stream<List<Channel>> watchRecentChannels(String type, {int limit = 20}) {
-    final query = _db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-        _db.categories.type.equalsExp(_db.channels.type)),
-    ])
-      ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..orderBy([OrderingTerm(expression: _addedNum, mode: OrderingMode.desc)])
-      ..limit(limit);
-    return query.watch().map((rows) =>
-      rows.map((row) => row.readTable(_db.channels)).toList(),
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.channels.type.equals(type))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories))
+          ..orderBy([
+            OrderingTerm(expression: _addedNum, mode: OrderingMode.desc),
+          ])
+          ..limit(limit);
+    return query.watch().map(
+      (rows) => rows.map((row) => row.readTable(_db.channels)).toList(),
     );
   }
 
@@ -230,11 +290,17 @@ class ContentRepository {
   Future<List<Channel>> searchChannels(String query, {int limit = 50}) async {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-        _db.categories.type.equalsExp(_db.channels.type)),
-    ])..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))).get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(_db.categories.isHidden.equals(false))
+              ..where(_notAdultCategory(_db.categories)))
+            .get();
     // Preload enrichment once so genre-less items can still match a
     // genre query ("korku") and the returned channel carries the
     // inferred genre.
@@ -284,29 +350,35 @@ class ContentRepository {
   Future<List<Map<String, dynamic>>> tasteSignalsFromHistory({
     int limit = 25,
   }) async {
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.playbackProgress,
-        _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
-            _db.playbackProgress.type.equalsExp(_db.channels.type),
-      ),
-      _db.accountLeftJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-          ..where(_db.playbackProgress.position.isBiggerThanValue(0) &
-              _db.playbackProgress.profileId.equals(_pid) &
-              (_db.categories.isHidden.equals(false) |
-                  _db.categories.id.isNull()))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.playbackProgress.updatedAt,
-                mode: OrderingMode.desc),
-          ])
-          ..limit(limit))
-        .get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.playbackProgress,
+                  _db.playbackProgress.streamId.equalsExp(
+                        _db.channels.streamId,
+                      ) &
+                      _db.playbackProgress.type.equalsExp(_db.channels.type),
+                ),
+                _db.accountLeftJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                _db.playbackProgress.position.isBiggerThanValue(0) &
+                    _db.playbackProgress.profileId.equals(_pid) &
+                    (_db.categories.isHidden.equals(false) |
+                        _db.categories.id.isNull()),
+              )
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.playbackProgress.updatedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(limit))
+            .get();
     return rows.map((r) {
       final ch = r.readTable(_db.channels);
       final cat = r.readTableOrNull(_db.categories);
@@ -319,8 +391,7 @@ class ContentRepository {
         if (cat != null && cat.name.isNotEmpty) 'category': cat.name,
         if (ch.director != null && ch.director!.isNotEmpty)
           'director': ch.director,
-        if (ch.cast != null && ch.cast!.isNotEmpty)
-          'cast': _trimCast(ch.cast!),
+        if (ch.cast != null && ch.cast!.isNotEmpty) 'cast': _trimCast(ch.cast!),
       };
     }).toList();
   }
@@ -333,28 +404,32 @@ class ContentRepository {
   Future<List<Map<String, dynamic>>> tasteSignalsFromFavorites({
     int limit = 25,
   }) async {
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.favorites,
-        _db.favorites.streamId.equalsExp(_db.channels.streamId) &
-            _db.favorites.streamType.equalsExp(_db.channels.type),
-      ),
-      _db.accountLeftJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-          ..where(_db.favorites.profileId.equals(_pid) &
-              (_db.categories.isHidden.equals(false) |
-                  _db.categories.id.isNull()))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.favorites.addedAt,
-                mode: OrderingMode.desc),
-          ])
-          ..limit(limit))
-        .get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.favorites,
+                  _db.favorites.streamId.equalsExp(_db.channels.streamId) &
+                      _db.favorites.streamType.equalsExp(_db.channels.type),
+                ),
+                _db.accountLeftJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                _db.favorites.profileId.equals(_pid) &
+                    (_db.categories.isHidden.equals(false) |
+                        _db.categories.id.isNull()),
+              )
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.favorites.addedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(limit))
+            .get();
     return rows.map((r) {
       final ch = r.readTable(_db.channels);
       final cat = r.readTableOrNull(_db.categories);
@@ -367,8 +442,7 @@ class ContentRepository {
         if (cat != null && cat.name.isNotEmpty) 'category': cat.name,
         if (ch.director != null && ch.director!.isNotEmpty)
           'director': ch.director,
-        if (ch.cast != null && ch.cast!.isNotEmpty)
-          'cast': _trimCast(ch.cast!),
+        if (ch.cast != null && ch.cast!.isNotEmpty) 'cast': _trimCast(ch.cast!),
       };
     }).toList();
   }
@@ -430,14 +504,56 @@ class ContentRepository {
   /// prompt like "en iyi Kore dizilerini listele" lowers to {kore,
   /// dizileri, listele} → {kore, dizi, dizileri, dizisi, series}.
   static const Set<String> _chatStopwords = {
-    'the', 'and', 'for', 'with', 'from', 'best', 'good', 'great',
-    'top', 'list', 'show', 'recommend', 'tell', 'find',
-    've', 'ile', 'için', 'icin', 'bir', 'bana', 'sen', 'ben',
-    'en', 'iyi', 'güzel', 'guzel', 'liste', 'listele', 'göster',
-    'goster', 'öner', 'oner', 'söyle', 'soyle', 'bul', 'getir',
-    'var', 'mi', 'mı', 'mu', 'mü', 'olan', 'olanları', 'olanlari',
-    'uygulamada', 'uygulama', 'kütüphane', 'kutuphane',
-    'kütüphanede', 'kutuphanede',
+    'the',
+    'and',
+    'for',
+    'with',
+    'from',
+    'best',
+    'good',
+    'great',
+    'top',
+    'list',
+    'show',
+    'recommend',
+    'tell',
+    'find',
+    've',
+    'ile',
+    'için',
+    'icin',
+    'bir',
+    'bana',
+    'sen',
+    'ben',
+    'en',
+    'iyi',
+    'güzel',
+    'guzel',
+    'liste',
+    'listele',
+    'göster',
+    'goster',
+    'öner',
+    'oner',
+    'söyle',
+    'soyle',
+    'bul',
+    'getir',
+    'var',
+    'mi',
+    'mı',
+    'mu',
+    'mü',
+    'olan',
+    'olanları',
+    'olanlari',
+    'uygulamada',
+    'uygulama',
+    'kütüphane',
+    'kutuphane',
+    'kütüphanede',
+    'kutuphanede',
   };
 
   /// Free-text library search used by the chat assistant before the
@@ -483,23 +599,27 @@ class ContentRepository {
     // chains across both Channel and Category columns in Drift gets
     // verbose and the bounded 5k-row scan is sub-50 ms on the
     // user's catalogue.
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-          ..where((_db.channels.type.equals('movie') |
-                  _db.channels.type.equals('series')) &
-              _db.categories.isHidden.equals(false))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.channels.rating,
-                mode: OrderingMode.desc),
-          ])
-          ..limit(5000))
-        .get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                (_db.channels.type.equals('movie') |
+                        _db.channels.type.equals('series')) &
+                    _db.categories.isHidden.equals(false),
+              )
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.channels.rating,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(5000))
+            .get();
 
     final out = <Channel>[];
     for (final r in rows) {
@@ -523,26 +643,28 @@ class ContentRepository {
   /// Returns the top [limit] non-hidden categories by item count,
   /// each as `{name, type, count}`. Adult categories are stripped
   /// the same way the rest of the AI surface treats them.
-  Future<List<Map<String, dynamic>>> categoryOverview({
-    int limit = 60,
-  }) async {
+  Future<List<Map<String, dynamic>>> categoryOverview({int limit = 60}) async {
     final countExpr = _db.channels.streamId.count();
-    final rows = await (_db.select(_db.categories).join([
-      _db.accountInnerJoin(
-        _db.channels,
-        _db.channels.categoryId.equalsExp(_db.categories.id) &
-            _db.channels.type.equalsExp(_db.categories.type),
-      ),
-    ])
-          ..addColumns([countExpr])
-          ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-          ..groupBy([_db.categories.id, _db.categories.type])
-          ..orderBy([
-            OrderingTerm(expression: countExpr, mode: OrderingMode.desc),
-          ]))
-        .get();
-    final adultRe = RegExp(r'adult|erotic|xxx|porn|dorcel|brazzers',
-        caseSensitive: false);
+    final rows =
+        await (_db.select(_db.categories).join([
+                _db.accountInnerJoin(
+                  _db.channels,
+                  _db.channels.categoryId.equalsExp(_db.categories.id) &
+                      _db.channels.type.equalsExp(_db.categories.type),
+                ),
+              ])
+              ..addColumns([countExpr])
+              ..where(_db.categories.isHidden.equals(false))
+              ..where(_notAdultCategory(_db.categories))
+              ..groupBy([_db.categories.id, _db.categories.type])
+              ..orderBy([
+                OrderingTerm(expression: countExpr, mode: OrderingMode.desc),
+              ]))
+            .get();
+    final adultRe = RegExp(
+      r'adult|erotic|xxx|porn|dorcel|brazzers',
+      caseSensitive: false,
+    );
     final out = <Map<String, dynamic>>[];
     for (final r in rows) {
       if (out.length >= limit) break;
@@ -576,19 +698,28 @@ class ContentRepository {
     // case-insensitive for ASCII but not for full Unicode; that's
     // acceptable here since person names are ASCII-dominant.
     // Wrap with %…% for substring matching.
-    final pattern = '%${trimmed.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-          _db.categories.id.equalsExp(_db.channels.categoryId) &
-              _db.categories.type.equalsExp(_db.channels.type)),
-    ])
-          ..where(_db.channels.type.equals('movie') |
-              _db.channels.type.equals('series'))
-          ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-          ..where(_db.channels.cast.like(pattern) |
-              _db.channels.director.like(pattern))
-          ..limit(limit))
-        .get();
+    final pattern =
+        '%${trimmed.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                _db.channels.type.equals('movie') |
+                    _db.channels.type.equals('series'),
+              )
+              ..where(_db.categories.isHidden.equals(false))
+              ..where(_notAdultCategory(_db.categories))
+              ..where(
+                _db.channels.cast.like(pattern) |
+                    _db.channels.director.like(pattern),
+              )
+              ..limit(limit))
+            .get();
     return rows.map((row) => row.readTable(_db.channels)).toList();
   }
 
@@ -603,7 +734,11 @@ class ContentRepository {
   /// returns nothing, fall back to a 1-edit Levenshtein fuzzy match
   /// so typos like `tarkovsiy` / `intersttellar` still surface
   /// results without waiting for the AI tier.
-  Future<List<Channel>> searchChannelsByType(String query, String type, {int limit = 100}) async {
+  Future<List<Channel>> searchChannelsByType(
+    String query,
+    String type, {
+    int limit = 100,
+  }) async {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
 
@@ -612,15 +747,18 @@ class ContentRepository {
     // This does NO per-row Dart normalisation: SQLite scans the already-
     // normalised column natively and returns only the matched slice, so a
     // huge catalogue no longer freezes the UI isolate on every keystroke.
-    final fastQ = _db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-          _db.categories.id.equalsExp(_db.channels.categoryId) &
-              _db.categories.type.equalsExp(_db.channels.type)),
-    ])
-      ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))
-      ..where(_notAdultCategory(_db.categories))
-      ..where(_db.channels.searchText.isNotNull());
+    final fastQ =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.channels.type.equals(type))
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories))
+          ..where(_db.channels.searchText.isNotNull());
     for (final t in tokens) {
       final safe = t.replaceAll('%', '').replaceAll('_', '');
       if (safe.isEmpty) continue;
@@ -634,9 +772,22 @@ class ContentRepository {
     final fastRows = await fastQ.get();
     if (fastRows.isNotEmpty) {
       final enrich = await _loadEnrichmentMap();
-      return fastRows
+      final matches = fastRows
           .map((r) => _applyEnrichment(r.readTable(_db.channels), enrich))
           .toList();
+      // A partial index must not hide newly synced or updated rows just
+      // because one older indexed title already matched.
+      if (matches.length < limit) {
+        matches.addAll(
+          await _legacySearchScan(
+            tokens,
+            type,
+            limit - matches.length,
+            unindexedOnly: true,
+          ),
+        );
+      }
+      return matches;
     }
 
     // Fast path found nothing: either the index isn't fully built yet
@@ -650,21 +801,35 @@ class ContentRepository {
   /// SQL fast path returns nothing (un-indexed rows or a typo needing
   /// fuzzy). Tighter cap on TV so even this fallback stays responsive.
   Future<List<Channel>> _legacySearchScan(
-      List<String> tokens, String type, int limit) async {
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-          _db.categories.id.equalsExp(_db.channels.categoryId) &
-              _db.categories.type.equalsExp(_db.channels.type)),
-    ])
-          ..where(_db.channels.type.equals(type))
-          ..where(_db.categories.isHidden.equals(false))
-          ..where(_notAdultCategory(_db.categories))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.channels.rating, mode: OrderingMode.desc),
-          ])
-          ..limit(PlatformHelper.isTV ? 1000 : _kSearchScanCap))
-        .get();
+    List<String> tokens,
+    String type,
+    int limit, {
+    bool unindexedOnly = false,
+  }) async {
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(_db.channels.type.equals(type))
+              ..where(
+                unindexedOnly
+                    ? _db.channels.searchText.isNull()
+                    : const Constant(true),
+              )
+              ..where(_db.categories.isHidden.equals(false))
+              ..where(_notAdultCategory(_db.categories))
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.channels.rating,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(PlatformHelper.isTV ? 1000 : _kSearchScanCap))
+            .get();
 
     final enrich = await _loadEnrichmentMap();
     final pairs = rows.map((row) {
@@ -678,7 +843,7 @@ class ContentRepository {
       if (out.length >= limit) break;
       if (SearchNormalizer.matches(p.haystack, tokens)) out.add(p.ch);
     }
-    if (out.isNotEmpty) return out;
+    if (out.isNotEmpty || unindexedOnly) return out;
     for (final p in pairs) {
       if (out.length >= limit) break;
       if (SearchNormalizer.matchesFuzzy(p.haystack, tokens)) out.add(p.ch);
@@ -696,15 +861,17 @@ class ContentRepository {
     const chunkSize = 1500;
     var guard = 0;
     while (guard++ < 1000) {
-      final rows = await (_db.select(_db.channels).join([
-        _db.accountLeftJoin(
-            _db.categories,
-            _db.categories.id.equalsExp(_db.channels.categoryId) &
-                _db.categories.type.equalsExp(_db.channels.type)),
-      ])
-            ..where(_db.channels.searchText.isNull())
-            ..limit(chunkSize))
-          .get();
+      final rows =
+          await (_db.select(_db.channels).join([
+                  _db.accountLeftJoin(
+                    _db.categories,
+                    _db.categories.id.equalsExp(_db.channels.categoryId) &
+                        _db.categories.type.equalsExp(_db.channels.type),
+                  ),
+                ])
+                ..where(_db.channels.searchText.isNull())
+                ..limit(chunkSize))
+              .get();
       if (rows.isEmpty) break;
 
       // Minimal, sendable payload for the worker isolate.
@@ -745,9 +912,9 @@ class ContentRepository {
           b.update(
             _db.channels,
             ChannelsCompanion(
-                searchText: Value(computed[(r.streamId, r.type)] ?? '')),
-            where: (t) =>
-                t.streamId.equals(r.streamId) & t.type.equals(r.type),
+              searchText: Value(computed[(r.streamId, r.type)] ?? ''),
+            ),
+            where: (t) => t.streamId.equals(r.streamId) & t.type.equals(r.type),
           );
         }
       });
@@ -854,13 +1021,16 @@ class ContentRepository {
     SearchIntent intent, {
     int limit = 100,
   }) async {
-    final query = _db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories));
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(_db.categories.isHidden.equals(false))
+          ..where(_notAdultCategory(_db.categories));
 
     if (intent.contentType != null) {
       query.where(_db.channels.type.equals(intent.contentType!));
@@ -957,7 +1127,9 @@ class ContentRepository {
 
   /// Full sync: categories + all streams
   Future<void> refreshContent(int accountId) async {
-    final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
     if (account != null) {
       await _syncService.syncAll(account);
       // Re-apply saved preferences to categories newly discovered by sync.
@@ -986,31 +1158,35 @@ class ContentRepository {
     // JOIN programs with the channels they reference. Filter to the
     // slot that contains `now`. Limit channels.type to 'live' so we
     // never accidentally surface VOD rows here.
-    final rows = await (_db.select(_db.programs).join([
-      _db.accountInnerJoin(
-        _db.channels,
-        _db.channels.streamId.equalsExp(_db.programs.channelId) &
-            _db.channels.type.equals('live'),
-      ),
-      // Respect hidden categories — a hidden live category shouldn't
-      // leak into the dashboard "on now" rail.
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-          ..where(_db.categories.isHidden.equals(false) &
-              _notAdultCategory(_db.categories) &
-              _db.programs.start.isSmallerOrEqualValue(now) &
-              _db.programs.stop.isBiggerThanValue(now))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.programs.title,
-                mode: OrderingMode.asc),
-          ])
-          ..limit(limit))
-        .get();
+    final rows =
+        await (_db.select(_db.programs).join([
+                _db.accountInnerJoin(
+                  _db.channels,
+                  _db.channels.streamId.equalsExp(_db.programs.channelId) &
+                      _db.channels.type.equals('live'),
+                ),
+                // Respect hidden categories — a hidden live category shouldn't
+                // leak into the dashboard "on now" rail.
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                _db.categories.isHidden.equals(false) &
+                    _notAdultCategory(_db.categories) &
+                    _db.programs.start.isSmallerOrEqualValue(now) &
+                    _db.programs.stop.isBiggerThanValue(now),
+              )
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.programs.title,
+                  mode: OrderingMode.asc,
+                ),
+              ])
+              ..limit(limit))
+            .get();
     final out = <({Channel channel, Program program})>[];
     final seen = <int>{};
     for (final r in rows) {
@@ -1026,17 +1202,24 @@ class ContentRepository {
   /// Keyword search over LIVE channels only — for the agent's
   /// "open the news channel" / "CNN'i aç" style requests. Live
   /// channels carry no embeddings, so this stays plain-text.
-  Future<List<Channel>> searchLiveChannels(String query, {int limit = 20}) async {
+  Future<List<Channel>> searchLiveChannels(
+    String query, {
+    int limit = 20,
+  }) async {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(_db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-        _db.categories.type.equalsExp(_db.channels.type)),
-    ])
-      ..where(_db.channels.type.equals('live'))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-    ).get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(_db.channels.type.equals('live'))
+              ..where(_db.categories.isHidden.equals(false))
+              ..where(_notAdultCategory(_db.categories)))
+            .get();
     final out = <Channel>[];
     for (final r in rows) {
       if (out.length >= limit) break;
@@ -1062,27 +1245,33 @@ class ContentRepository {
     if (tokens.isEmpty) return const [];
     final now = DateTime.now();
     final until = now.add(Duration(hours: withinHours));
-    final rows = await (_db.select(_db.programs).join([
-      _db.accountInnerJoin(
-        _db.channels,
-        _db.channels.streamId.equalsExp(_db.programs.channelId) &
-            _db.channels.type.equals('live'),
-      ),
-    ])
-          ..where(_db.programs.stop.isBiggerThanValue(now) &
-              _db.programs.start.isSmallerThanValue(until))
-          ..orderBy([
-            OrderingTerm(
-                expression: _db.programs.start, mode: OrderingMode.asc),
-          ])
-          ..limit(2000))
-        .get();
+    final rows =
+        await (_db.select(_db.programs).join([
+                _db.accountInnerJoin(
+                  _db.channels,
+                  _db.channels.streamId.equalsExp(_db.programs.channelId) &
+                      _db.channels.type.equals('live'),
+                ),
+              ])
+              ..where(
+                _db.programs.stop.isBiggerThanValue(now) &
+                    _db.programs.start.isSmallerThanValue(until),
+              )
+              ..orderBy([
+                OrderingTerm(
+                  expression: _db.programs.start,
+                  mode: OrderingMode.asc,
+                ),
+              ])
+              ..limit(2000))
+            .get();
     final out = <({Channel channel, Program program})>[];
     for (final r in rows) {
       if (out.length >= limit) break;
       final prog = r.readTable(_db.programs);
       final hay = SearchNormalizer.normalise(
-          '${prog.title} ${prog.description ?? ''}');
+        '${prog.title} ${prog.description ?? ''}',
+      );
       if (SearchNormalizer.matches(hay, tokens)) {
         out.add((channel: r.readTable(_db.channels), program: prog));
       }
@@ -1093,10 +1282,10 @@ class ContentRepository {
   Stream<List<Program>> watchPrograms(int channelId) {
     final now = DateTime.now();
     return (_db.select(_db.programs)
-      ..where((tbl) => tbl.channelId.equals(channelId))
-      ..where((tbl) => tbl.stop.isBiggerThanValue(now))
-      ..orderBy([(tbl) => OrderingTerm(expression: tbl.start)])
-    ).watch();
+          ..where((tbl) => tbl.channelId.equals(channelId))
+          ..where((tbl) => tbl.stop.isBiggerThanValue(now))
+          ..orderBy([(tbl) => OrderingTerm(expression: tbl.start)]))
+        .watch();
   }
 
   /// Check if enough time has passed since last EPG sync.
@@ -1123,6 +1312,7 @@ class ContentRepository {
   Future<void> _markEpgSynced() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      _db.checkAccountWrite();
       await prefs.setInt(_epgSyncKey, DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
       debugPrint('[ContentRepo] _markEpgSynced prefs write failed: $e');
@@ -1132,77 +1322,96 @@ class ContentRepository {
   /// Check if DB has any EPG programs for live channels
   Future<bool> hasEpgData() async {
     final now = DateTime.now();
-    final count = await (_db.select(_db.programs)
-      ..where((tbl) => tbl.stop.isBiggerThanValue(now))
-      ..limit(1)
-    ).get();
+    final count =
+        await (_db.select(_db.programs)
+              ..where((tbl) => tbl.stop.isBiggerThanValue(now))
+              ..limit(1))
+            .get();
     return count.isNotEmpty;
   }
 
   /// Sync single channel EPG - only if no data exists in DB.
   /// Uses Xtream API first, then XMLTV fallback.
-  Future<void> syncChannelEpg(int accountId, String streamId) async {
+  Future<bool> syncChannelEpg(int accountId, String streamId) async {
+    if (_db.accountScope != accountId) {
+      return forAccount(accountId).syncChannelEpg(accountId, streamId);
+    }
     // Check if we already have future programs for this channel
-    final channelId = int.tryParse(streamId) ?? 0;
+    final channelId = int.tryParse(streamId);
+    if (channelId == null || channelId < 0) return false;
     final now = DateTime.now();
-    final existing = await (_db.select(_db.programs)
-      ..where((tbl) => tbl.channelId.equals(channelId))
-      ..where((tbl) => tbl.stop.isBiggerThanValue(now))
-      ..limit(1)
-    ).get();
-    if (existing.isNotEmpty) return; // Already have data, skip API call
+    final existing =
+        await (_db.select(_db.programs)
+              ..where((tbl) => tbl.channelId.equals(channelId))
+              ..where((tbl) => tbl.stop.isBiggerThanValue(now))
+              ..limit(1))
+            .get();
+    if (existing.isNotEmpty) return true; // Already have data, skip API call
 
-    final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
-    if (account == null) return;
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
+    if (account == null) return false;
 
     if (account.type == 'xtream') {
       await _syncService.syncEpg(account, streamId);
 
       // Check if Xtream EPG returned data
-      final afterXtream = await (_db.select(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(channelId))
-        ..where((tbl) => tbl.stop.isBiggerThanValue(now))
-        ..limit(1)
-      ).get();
-      if (afterXtream.isNotEmpty) return; // Xtream worked
+      final afterXtream =
+          await (_db.select(_db.programs)
+                ..where((tbl) => tbl.channelId.equals(channelId))
+                ..where((tbl) => tbl.stop.isBiggerThanValue(now))
+                ..limit(1))
+              .get();
+      if (afterXtream.isNotEmpty) return true; // Xtream worked
     }
 
     // XMLTV fallback
-    await _syncService.syncChannelEpgFromXmltv(accountId, channelId);
+    return _syncService.syncChannelEpgFromXmltv(accountId, channelId);
   }
 
   /// Sync EPG for all live channels - throttled (max once per 2 hours)
   /// If DB already has data, shows that immediately and syncs silently in background.
-  Future<void> syncAllLiveEpg(int accountId) async {
+  Future<void> syncAllLiveEpg(int accountId, {bool force = false}) async {
+    if (_db.accountScope != accountId) {
+      return forAccount(accountId).syncAllLiveEpg(accountId, force: force);
+    }
     // Check if we should sync at all
     final shouldSync = await _shouldSyncEpg();
-    if (!shouldSync) return; // Recently synced, use DB cache
+    if (!force && !shouldSync) return; // Recently synced, use DB cache
 
-    final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
     if (account != null) {
-      await _syncService.syncAllLiveEpg(account);
-      await _markEpgSynced();
+      final saved = await _syncService.syncAllLiveEpg(account, force: force);
+      if (saved > 0) await _markEpgSynced();
     }
   }
 
   /// Sync EPG for specific channel IDs (batch) - throttled
   Future<void> syncEpgBatch(int accountId, List<int> streamIds) async {
+    if (_db.accountScope != accountId) {
+      return forAccount(accountId).syncEpgBatch(accountId, streamIds);
+    }
     final shouldSync = await _shouldSyncEpg();
     if (!shouldSync) return;
 
-    final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
     if (account != null) {
+      // A subset refresh must not suppress the full guide refresh for 2h.
       await _syncService.syncEpgBatch(account, streamIds);
-      await _markEpgSynced();
     }
   }
 
   /// Delete expired program data (cleanup)
   Future<void> cleanupOldPrograms() async {
     final cutoff = DateTime.now().subtract(const Duration(hours: 6));
-    await (_db.delete(_db.programs)
-      ..where((tbl) => tbl.stop.isSmallerThanValue(cutoff))
-    ).go();
+    await (_db.delete(
+      _db.programs,
+    )..where((tbl) => tbl.stop.isSmallerThanValue(cutoff))).go();
   }
 
   /// Update channel metadata (backdrop, trailer, genre, plot, etc.) from detail API
@@ -1216,20 +1425,32 @@ class ContentRepository {
     String? director,
     String? castInfo,
   }) async {
-    if (backdropPath == null && youtubeTrailer == null &&
-        genre == null && plot == null && director == null && castInfo == null) {
+    if (backdropPath == null &&
+        youtubeTrailer == null &&
+        genre == null &&
+        plot == null &&
+        director == null &&
+        castInfo == null) {
       return;
     }
-    await (_db.update(_db.channels)
-      ..where((tbl) => tbl.streamId.equals(streamId) & tbl.type.equals(type))
-    ).write(ChannelsCompanion(
-      backdropPath: backdropPath != null ? Value(backdropPath) : const Value.absent(),
-      youtubeTrailer: youtubeTrailer != null ? Value(youtubeTrailer) : const Value.absent(),
-      genre: genre != null ? Value(genre) : const Value.absent(),
-      plot: plot != null ? Value(plot) : const Value.absent(),
-      director: director != null ? Value(director) : const Value.absent(),
-      cast: castInfo != null ? Value(castInfo) : const Value.absent(),
-    ));
+    await (_db.update(_db.channels)..where(
+          (tbl) => tbl.streamId.equals(streamId) & tbl.type.equals(type),
+        ))
+        .write(
+          ChannelsCompanion(
+            searchText: const Value(null),
+            backdropPath: backdropPath != null
+                ? Value(backdropPath)
+                : const Value.absent(),
+            youtubeTrailer: youtubeTrailer != null
+                ? Value(youtubeTrailer)
+                : const Value.absent(),
+            genre: genre != null ? Value(genre) : const Value.absent(),
+            plot: plot != null ? Value(plot) : const Value.absent(),
+            director: director != null ? Value(director) : const Value.absent(),
+            cast: castInfo != null ? Value(castInfo) : const Value.absent(),
+          ),
+        );
   }
 
   /// Return a small stratified sample of the library for AI context.
@@ -1249,28 +1470,32 @@ class ContentRepository {
     int livePerType = 20,
   }) async {
     Future<List<Channel>> topByType(String type, int limit) async {
-      final rows = await (_db.select(_db.channels).join([
-        _db.accountInnerJoin(
-          _db.categories,
-          _db.categories.id.equalsExp(_db.channels.categoryId) &
-              _db.categories.type.equalsExp(_db.channels.type),
-        ),
-      ])
-            ..where(_db.channels.type.equals(type))
-            ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-            ..orderBy([
-              // Highest-rated first; tie-break on most recently added
-              // (the `added` column is a timestamp string from the
-              // Xtream API).
-              OrderingTerm(
-                  expression: _db.channels.rating,
-                  mode: OrderingMode.desc),
-              OrderingTerm(
-                  expression: _db.channels.added,
-                  mode: OrderingMode.desc),
-            ])
-            ..limit(limit))
-          .get();
+      final rows =
+          await (_db.select(_db.channels).join([
+                  _db.accountInnerJoin(
+                    _db.categories,
+                    _db.categories.id.equalsExp(_db.channels.categoryId) &
+                        _db.categories.type.equalsExp(_db.channels.type),
+                  ),
+                ])
+                ..where(_db.channels.type.equals(type))
+                ..where(_db.categories.isHidden.equals(false))
+                ..where(_notAdultCategory(_db.categories))
+                ..orderBy([
+                  // Highest-rated first; tie-break on most recently added
+                  // (the `added` column is a timestamp string from the
+                  // Xtream API).
+                  OrderingTerm(
+                    expression: _db.channels.rating,
+                    mode: OrderingMode.desc,
+                  ),
+                  OrderingTerm(
+                    expression: _db.channels.added,
+                    mode: OrderingMode.desc,
+                  ),
+                ])
+                ..limit(limit))
+              .get();
       return rows.map((row) => row.readTable(_db.channels)).toList();
     }
 
@@ -1294,8 +1519,7 @@ class ContentRepository {
   /// the id list can run to thousands on a full-library merge, which
   /// would blow past SQLite's bound-variable limit.
   Future<List<Channel>> _mergeEnrichment(List<Channel> channels) async {
-    final needsAny =
-        channels.any((c) => c.genre == null || c.genre!.isEmpty);
+    final needsAny = channels.any((c) => c.genre == null || c.genre!.isEmpty);
     if (!needsAny) return channels;
     final map = await _loadEnrichmentMap();
     if (map.isEmpty) return channels;
@@ -1328,16 +1552,15 @@ class ContentRepository {
   /// Overlay enrichment onto a single channel when its provider
   /// `genre` / `year` are empty. Pure — takes a preloaded map so it's
   /// cheap to call in a tight loop (search) or a list comprehension.
-  Channel _applyEnrichment(
-      Channel c, Map<String, ContentEnrichmentData> map) {
+  Channel _applyEnrichment(Channel c, Map<String, ContentEnrichmentData> map) {
     if (c.genre != null && c.genre!.isNotEmpty) return c;
     final e = map['${c.streamId}|${c.type}'];
     if (e == null) return c;
     return c.copyWith(
       genre: Value(e.genres),
-      year: Value((c.year != null && c.year!.isNotEmpty)
-          ? c.year
-          : e.year?.toString()),
+      year: Value(
+        (c.year != null && c.year!.isNotEmpty) ? c.year : e.year?.toString(),
+      ),
     );
   }
 
@@ -1354,18 +1577,21 @@ class ContentRepository {
   /// We pull a bounded slice and sort numerically in Dart — the same
   /// approach the hero billboard uses.
   Future<List<Channel>> recentAdditionsForAi({int limit = 40}) async {
-    final rows = await (_db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-          ..where((_db.channels.type.equals('movie') |
-                  _db.channels.type.equals('series')) &
-              _db.categories.isHidden.equals(false))
-          ..limit(3000))
-        .get();
+    final rows =
+        await (_db.select(_db.channels).join([
+                _db.accountInnerJoin(
+                  _db.categories,
+                  _db.categories.id.equalsExp(_db.channels.categoryId) &
+                      _db.categories.type.equalsExp(_db.channels.type),
+                ),
+              ])
+              ..where(
+                (_db.channels.type.equals('movie') |
+                        _db.channels.type.equals('series')) &
+                    _db.categories.isHidden.equals(false),
+              )
+              ..limit(3000))
+            .get();
     int parseAdded(Channel c) => int.tryParse(c.added?.trim() ?? '') ?? 0;
     final all = rows.map((r) => r.readTable(_db.channels)).toList()
       ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
@@ -1379,106 +1605,135 @@ class ContentRepository {
   /// Scoped to the active profile so the rail isolates per-person
   /// state — the kids' half-watched cartoons don't leak into the
   /// parent's continue-watching.
-  Stream<List<Channel>> watchContinueWatching(String type) {
-    final pid = _pid;
-    final query = _db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.playbackProgress,
-        _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
-        _db.playbackProgress.type.equalsExp(_db.channels.type),
-      ),
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..where(_db.channels.type.equals(type))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..where(_db.playbackProgress.isFinished.equals(false))
-      ..where(_db.playbackProgress.position.isBiggerThanValue(0))
-      ..where(_db.playbackProgress.profileId.equals(pid))
-      ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
-      ..limit(50);
+  Stream<List<Channel>> watchContinueWatching(String type) =>
+      _watchHistory(type: type, limit: 50);
 
-    return query.watch().map((rows) =>
-      rows.map((row) => row.readTable(_db.channels)).toList(),
+  Stream<List<Channel>> watchAllContinueWatching() => _watchHistory(limit: 20);
+
+  Stream<List<Channel>> _watchHistory({
+    String? type,
+    required int limit,
+  }) async* {
+    final pid = _pid;
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((t) => t.id.equals(_db.accountScope ?? 0))).getSingleOrNull();
+    final parent = _db.alias(_db.playbackProgress, 'series_summary');
+    final hasSummary = existsQuery(
+      _db.selectOnly(parent)
+        ..addColumns([parent.streamId])
+        ..where(
+          parent.streamId.equalsExp(_db.channels.streamId) &
+              parent.type.equals('series_parent') &
+              parent.profileId.equals(pid),
+        ),
     );
-  }
-
-  /// Watch all continue watching items (movies + series combined,
-  /// sorted by updatedAt), scoped to the active profile.
-  Stream<List<Channel>> watchAllContinueWatching() {
-    final pid = _pid;
-    final query = _db.select(_db.channels).join([
-      _db.accountInnerJoin(
-        _db.playbackProgress,
-        _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
-        _db.playbackProgress.type.equalsExp(_db.channels.type),
-      ),
-      _db.accountInnerJoin(
-        _db.categories,
-        _db.categories.id.equalsExp(_db.channels.categoryId) &
-            _db.categories.type.equalsExp(_db.channels.type),
-      ),
-    ])
-      ..where(_db.channels.type.isIn(['movie', 'series']))
-      ..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))
-      ..where(_db.playbackProgress.isFinished.equals(false))
-      ..where(_db.playbackProgress.position.isBiggerThanValue(0))
-      ..where(_db.playbackProgress.profileId.equals(pid))
-      ..orderBy([OrderingTerm(expression: _db.playbackProgress.updatedAt, mode: OrderingMode.desc)])
-      ..limit(20);
-
-    return query.watch().map((rows) =>
-      rows.map((row) => row.readTable(_db.channels)).toList(),
+    final seriesType = account?.type == 'xtream'
+        ? (_db.playbackProgress.type.equals('series_parent') |
+              (_db.playbackProgress.type.equals('series') & hasSummary.not()))
+        : _db.playbackProgress.type.equals('series');
+    final matchingType =
+        (_db.channels.type.equals('series') & seriesType) |
+        (_db.channels.type.equals('series').not() &
+            _db.playbackProgress.type.equalsExp(_db.channels.type));
+    final query =
+        _db.select(_db.channels).join([
+            _db.accountInnerJoin(
+              _db.playbackProgress,
+              _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
+                  matchingType,
+            ),
+            _db.accountInnerJoin(
+              _db.categories,
+              _db.categories.id.equalsExp(_db.channels.categoryId) &
+                  _db.categories.type.equalsExp(_db.channels.type),
+            ),
+          ])
+          ..where(
+            type == null
+                ? _db.channels.type.isIn(['movie', 'series'])
+                : _db.channels.type.equals(type),
+          )
+          ..where(
+            _db.categories.isHidden.equals(false) &
+                _notAdultCategory(_db.categories),
+          )
+          ..where(
+            _db.playbackProgress.isFinished.equals(false) &
+                _db.playbackProgress.position.isBiggerThanValue(0) &
+                _db.playbackProgress.profileId.equals(pid),
+          )
+          ..orderBy([OrderingTerm.desc(_db.playbackProgress.updatedAt)])
+          ..limit(limit);
+    yield* query.watch().map(
+      (rows) => rows.map((r) => r.readTable(_db.channels)).toList(),
     );
   }
 
   /// Watch playback progress for a specific channel
-  Stream<PlaybackProgressData?> watchPlaybackProgress(int streamId, String type) {
-    return (_db.select(_db.playbackProgress)
-      ..where((tbl) => tbl.streamId.equals(streamId) & tbl.type.equals(type))
-    ).watchSingleOrNull();
+  Stream<PlaybackProgressData?> watchPlaybackProgress(
+    int streamId,
+    String type,
+  ) {
+    return (_db.select(_db.playbackProgress)..where(
+          (tbl) =>
+              tbl.streamId.equals(streamId) &
+              tbl.type.equals(type) &
+              tbl.profileId.equals(_pid),
+        ))
+        .watchSingleOrNull();
   }
 
   /// Get playback progress for a specific channel (one-shot)
   Future<PlaybackProgressData?> getPlaybackProgress(int streamId, String type) {
-    return (_db.select(_db.playbackProgress)
-      ..where((tbl) => tbl.streamId.equals(streamId) & tbl.type.equals(type))
-    ).getSingleOrNull();
+    return (_db.select(_db.playbackProgress)..where(
+          (tbl) =>
+              tbl.streamId.equals(streamId) &
+              tbl.type.equals(type) &
+              tbl.profileId.equals(_pid),
+        ))
+        .getSingleOrNull();
   }
 
   /// Watch channels with their playback progress (for history display)
-  Stream<List<Channel>> watchFavoriteChannels(String type, List<int> streamIds) {
+  Stream<List<Channel>> watchFavoriteChannels(
+    String type,
+    List<int> streamIds,
+  ) {
     if (streamIds.isEmpty) return Stream.value([]);
-    return (_db.select(_db.channels)
-      ..where((tbl) => tbl.streamId.isIn(streamIds) & tbl.type.equals(type))
-    ).watch();
+    return (_db.select(
+          _db.channels,
+        )..where((tbl) => tbl.streamId.isIn(streamIds) & tbl.type.equals(type)))
+        .watch();
   }
 
   /// Check if a series has new episodes
   Stream<SeriesTrackingData?> watchSeriesTracking(int seriesId) {
-    return (_db.select(_db.seriesTracking)
-      ..where((tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid))
-    ).watchSingleOrNull();
+    return (_db.select(_db.seriesTracking)..where(
+          (tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid),
+        ))
+        .watchSingleOrNull();
   }
 
   /// Get all series with new episodes (for badges/notifications)
   Stream<List<SeriesTrackingData>> watchSeriesWithNewEpisodes() {
-    return (_db.select(_db.seriesTracking)
-      ..where((tbl) => tbl.hasNewEpisodes.equals(true) & tbl.profileId.equals(_pid))
-    ).watch();
+    return (_db.select(_db.seriesTracking)..where(
+          (tbl) => tbl.hasNewEpisodes.equals(true) & tbl.profileId.equals(_pid),
+        ))
+        .watch();
   }
 
   /// Mark new episodes as seen (user opened the series)
   Future<void> markNewEpisodesSeen(int seriesId) async {
-    await (_db.update(_db.seriesTracking)
-      ..where((tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid))
-    ).write(const SeriesTrackingCompanion(
-      hasNewEpisodes: Value(false),
-      newEpisodeCount: Value(0),
-    ));
+    await (_db.update(_db.seriesTracking)..where(
+          (tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid),
+        ))
+        .write(
+          const SeriesTrackingCompanion(
+            hasNewEpisodes: Value(false),
+            newEpisodeCount: Value(0),
+          ),
+        );
   }
 }
 
@@ -1487,7 +1742,9 @@ ContentRepository contentRepository(Ref ref) {
   // Bump on profile switch so the cached repo gets rebuilt and
   // every per-profile query reflects the new id.
   final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
-  final autoHideAdult = ref.watch(settingsProvider.select((s) => s.autoHideAdult));
+  final autoHideAdult = ref.watch(
+    settingsProvider.select((s) => s.autoHideAdult),
+  );
   return ContentRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(syncServiceProvider),

@@ -34,7 +34,8 @@ class TvFocusRegistry {
   // branch's primary while present. Detail views push their "play button"
   // or "back button" callback here; popping it restores the branch as the
   // default target.
-  VoidFocusCallback? _overlayPrimary;
+  final Map<int, VoidFocusCallback> _overlayPrimary = {};
+  final Map<int, bool Function()> _branchBack = {};
 
   // ── Main sidebar ─────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ class TvFocusRegistry {
   /// (e.g. detail view) when one is pushed, otherwise the branch primary.
   /// Returns false when neither is available.
   bool requestActivePrimary(int branchIndex) {
-    final overlay = _overlayPrimary;
+    final overlay = _overlayPrimary[branchIndex];
     if (overlay != null) {
       overlay();
       return true;
@@ -104,15 +105,28 @@ class TvFocusRegistry {
 
   // ── Overlay (detail / modal layered on top of a branch) ──────────────
 
-  /// Push an overlay focus target. Currently we only need a single slot;
-  /// nested overlays (modal within a detail) can be added later.
-  void pushOverlayPrimary(VoidFocusCallback cb) {
-    _overlayPrimary = cb;
+  /// Overlay targets belong to their branch, including when that branch is
+  /// mounted but offstage in the shell's IndexedStack.
+  void pushOverlayPrimary(int branchIndex, VoidFocusCallback cb) {
+    _overlayPrimary[branchIndex] = cb;
   }
 
-  void popOverlayPrimary(VoidFocusCallback cb) {
-    if (identical(_overlayPrimary, cb)) {
-      _overlayPrimary = null;
+  void popOverlayPrimary(int branchIndex, VoidFocusCallback cb) {
+    if (identical(_overlayPrimary[branchIndex], cb)) {
+      _overlayPrimary.remove(branchIndex);
     }
   }
+
+  void registerBranchBack(int branchIndex, bool Function() cb) {
+    _branchBack[branchIndex] = cb;
+  }
+
+  void unregisterBranchBack(int branchIndex, bool Function() cb) {
+    if (identical(_branchBack[branchIndex], cb)) {
+      _branchBack.remove(branchIndex);
+    }
+  }
+
+  bool handleBranchBack(int branchIndex) =>
+      _branchBack[branchIndex]?.call() ?? false;
 }

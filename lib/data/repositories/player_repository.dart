@@ -14,32 +14,75 @@ class PlayerRepository {
 
   int get _pid => _getActiveProfileId();
 
-  Future<void> saveProgress(int streamId, String type, int position, int duration) async {
+  Future<void> saveProgress(
+    int streamId,
+    String type,
+    int position,
+    int duration,
+  ) async {
     if (duration <= 0 || position < 0) return;
     final boundedPosition = position.clamp(0, duration);
     final isFinished = (boundedPosition / duration) > 0.95;
 
-    await _db.into(_db.playbackProgress).insert(
-      PlaybackProgressCompanion.insert(
-        streamId: streamId,
-        type: type,
-        position: boundedPosition,
-        duration: duration,
-        isFinished: Value(isFinished),
-        updatedAt: Value(DateTime.now()),
-        profileId: Value(_pid),
-      ),
-      mode: InsertMode.insertOrReplace,
-    );
+    await _db
+        .into(_db.playbackProgress)
+        .insert(
+          PlaybackProgressCompanion.insert(
+            streamId: streamId,
+            type: type,
+            position: boundedPosition,
+            duration: duration,
+            isFinished: Value(isFinished),
+            updatedAt: Value(DateTime.now()),
+            profileId: Value(_pid),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+  }
+
+  /// Series channel IDs and episode IDs are different namespaces at Xtream.
+  /// Never mirror a series summary into another episode's resume record.
+  Future<void> saveEpisodeProgress(
+    int episodeId,
+    int position,
+    int duration, {
+    int? parentSeriesId,
+  }) async {
+    if (duration <= 0 || position < 0) return;
+    final pid = _pid, bounded = position.clamp(0, duration);
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      await _db.accountBatch((batch) {
+        for (final identity in [
+          (episodeId, 'series'),
+          if (parentSeriesId != null) (parentSeriesId, 'series_parent'),
+        ]) {
+          batch.insert(
+            _db.playbackProgress,
+            PlaybackProgressCompanion.insert(
+              streamId: identity.$1,
+              type: identity.$2,
+              position: bounded,
+              duration: duration,
+              isFinished: Value(bounded / duration > 0.95),
+              updatedAt: Value(now),
+              profileId: Value(pid),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+    });
   }
 
   Future<PlaybackProgressData?> getProgress(int streamId, String type) async {
-    return await (_db.select(_db.playbackProgress)
-      ..where((tbl) =>
-          tbl.streamId.equals(streamId) &
-          tbl.type.equals(type) &
-          tbl.profileId.equals(_pid))
-    ).getSingleOrNull();
+    return await (_db.select(_db.playbackProgress)..where(
+          (tbl) =>
+              tbl.streamId.equals(streamId) &
+              tbl.type.equals(type) &
+              tbl.profileId.equals(_pid),
+        ))
+        .getSingleOrNull();
   }
 
   /// Get the most recently watched episode from a list of episode IDs,
@@ -52,37 +95,66 @@ class PlayerRepository {
   /// later episodes. Callers can inspect `isFinished` on the returned
   /// row and decide whether to resume mid-episode or advance to the
   /// next one.
-  Future<PlaybackProgressData?> getLatestSeriesProgress(List<int> episodeIds) async {
-    if (episodeIds.isEmpty) return null;
-    return await (_db.select(_db.playbackProgress)
-      ..where((tbl) =>
-          tbl.streamId.isIn(episodeIds) &
-          tbl.type.equals('series') &
-          tbl.profileId.equals(_pid))
-      ..where((tbl) => tbl.position.isBiggerThanValue(0))
-      ..orderBy([(tbl) => OrderingTerm(expression: tbl.updatedAt, mode: OrderingMode.desc)])
-      ..limit(1)
-    ).getSingleOrNull();
+  Future<PlaybackProgressData?> getLatestSeriesProgress(
+    List<int> episodeIds,
+  ) async {
+    final ids = episodeIds.toSet().toList(), pid = _pid;
+    PlaybackProgressData? newest;
+    for (var i = 0; i < ids.length; i += 500) {
+      final row =
+          await (_db.select(_db.playbackProgress)
+                ..where(
+                  (t) =>
+                      t.streamId.isIn(ids.skip(i).take(500)) &
+                      t.type.equals('series') &
+                      t.profileId.equals(pid) &
+                      t.position.isBiggerThanValue(0),
+                )
+                ..orderBy([
+                  (t) => OrderingTerm.desc(t.updatedAt),
+                  (t) => OrderingTerm.desc(t.streamId),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      if (row != null &&
+          (newest == null ||
+              row.updatedAt.isAfter(newest.updatedAt) ||
+              row.updatedAt == newest.updatedAt &&
+                  row.streamId > newest.streamId)) {
+        newest = row;
+      }
+    }
+    return newest;
   }
 
   /// Remove a single item from history
   Future<void> deleteProgress(int streamId, String type) async {
-    await (_db.delete(_db.playbackProgress)
-      ..where((tbl) =>
-          tbl.streamId.equals(streamId) &
-          tbl.type.equals(type) &
-          tbl.profileId.equals(_pid))
-    ).go();
+    await (_db.delete(_db.playbackProgress)..where(
+          (tbl) =>
+              tbl.streamId.equals(streamId) &
+              tbl.type.equals(type) &
+              tbl.profileId.equals(_pid),
+        ))
+        .go();
   }
+
+  /// Hide a series summary without deleting a numerically equal episode.
+  /// The zero-position summary also suppresses an ambiguous legacy mirror.
+  Future<void> removeSeriesFromHistory(int seriesId) =>
+      saveProgress(seriesId, 'series_parent', 0, 1);
 
   /// Clear all history for a given type (movie/series/live) on the
   /// active profile only. The "clear history" UI never crosses
   /// profile boundaries.
   Future<void> clearAllProgress(String type) async {
-    await (_db.delete(_db.playbackProgress)
-      ..where((tbl) =>
-          tbl.type.equals(type) & tbl.profileId.equals(_pid))
-    ).go();
+    await (_db.delete(_db.playbackProgress)..where(
+          (tbl) =>
+              tbl.type.isIn(
+                type == 'series' ? ['series', 'series_parent'] : [type],
+              ) &
+              tbl.profileId.equals(_pid),
+        ))
+        .go();
   }
 
   /// Bulk-mark a batch of episodes as watched (isFinished = true).
@@ -123,35 +195,45 @@ class PlayerRepository {
   /// season the user wants to re-watch from scratch. Scoped to the
   /// active profile.
   Future<void> unmarkEpisodes(List<int> streamIds) async {
-    if (streamIds.isEmpty) return;
-    await (_db.delete(_db.playbackProgress)
-          ..where((tbl) =>
-              tbl.streamId.isIn(streamIds) &
-              tbl.type.equals('series') &
-              tbl.profileId.equals(_pid)))
-        .go();
+    final ids = streamIds.toSet().toList(), pid = _pid;
+    await _db.transaction(() async {
+      for (var i = 0; i < ids.length; i += 500) {
+        await (_db.delete(_db.playbackProgress)..where(
+              (t) =>
+                  t.streamId.isIn(ids.skip(i).take(500)) &
+                  t.type.equals('series') &
+                  t.profileId.equals(pid),
+            ))
+            .go();
+      }
+    });
   }
 
   /// Count how many of the given episode ids are flagged as finished
   /// for the active profile.
   Future<int> finishedCount(List<int> streamIds) async {
-    if (streamIds.isEmpty) return 0;
-    final rows = await (_db.select(_db.playbackProgress)
-          ..where((tbl) =>
-              tbl.streamId.isIn(streamIds) &
-              tbl.type.equals('series') &
-              tbl.isFinished.equals(true) &
-              tbl.profileId.equals(_pid)))
-        .get();
-    return rows.length;
+    final ids = streamIds.toSet().toList(), pid = _pid;
+    var count = 0;
+    for (var i = 0; i < ids.length; i += 500) {
+      final total = _db.playbackProgress.streamId.count();
+      final row =
+          await (_db.selectOnly(_db.playbackProgress)
+                ..addColumns([total])
+                ..where(
+                  _db.playbackProgress.streamId.isIn(ids.skip(i).take(500)) &
+                      _db.playbackProgress.type.equals('series') &
+                      _db.playbackProgress.isFinished.equals(true) &
+                      _db.playbackProgress.profileId.equals(pid),
+                ))
+              .getSingle();
+      count += row.read(total) ?? 0;
+    }
+    return count;
   }
 }
 
 @riverpod
 PlayerRepository playerRepository(Ref ref) {
   final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
-  return PlayerRepository(
-    ref.watch(appDatabaseProvider),
-    () => profileId,
-  );
+  return PlayerRepository(ref.watch(appDatabaseProvider), () => profileId);
 }

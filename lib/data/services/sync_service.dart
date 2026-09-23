@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'sync_budget.dart';
 import 'm3u_identity.dart';
 import 'sync_coordinator.dart';
@@ -56,7 +57,14 @@ class SyncService {
     coordinator: _coordinator,
     loadM3u: _loadM3u,
   );
-  void cancelSync(int accountId) => _coordinator.cancel(accountId);
+  void cancelSync(int accountId) {
+    _coordinator.cancel(accountId);
+    for (final entry in _epgBudgets.entries.toList()) {
+      if (identical(entry.key.$1.root, _db.root) && entry.key.$2 == accountId) {
+        entry.value.cancel();
+      }
+    }
+  }
 
   Future<void> _run(
     Account account,
@@ -305,6 +313,7 @@ class SyncService {
       rows.add(
         ChannelsCompanion.insert(
           streamId: sid,
+          searchText: const Value(null),
           name: item['name']?.toString() ?? 'Unknown',
           type: type,
           categoryId: item['category_id']?.toString() ?? '0',
@@ -317,9 +326,7 @@ class SyncService {
           year: Value.absentIfNull(item['year']?.toString()),
           added: Value.absentIfNull(item['added']?.toString()),
           epgChannelId: Value.absentIfNull(item['epg_channel_id']?.toString()),
-          streamUrl: Value.absentIfNull(
-            type == 'movie' ? item['direct_source']?.toString() : null,
-          ),
+          streamUrl: Value.absentIfNull(item['direct_source']?.toString()),
           containerExtension: Value.absentIfNull(
             item['container_extension']?.toString(),
           ),
@@ -547,6 +554,7 @@ class SyncService {
                 .add(identity.streamId);
             final row = ChannelsCompanion.insert(
               streamId: identity.streamId,
+              searchText: const Value(null),
               name: channel.name,
               type: identity.type,
               categoryId: entry.groupTitle ?? 'Diğer',
@@ -609,11 +617,11 @@ class SyncService {
   }
 
   /// Batch sync EPG for multiple channels at once
-  Future<void> syncEpgBatch(Account account, List<int> streamIds) async {
+  Future<int> syncEpgBatch(Account account, List<int> streamIds) async {
     if (_db.accountScope != account.id) {
       return _bound(account.id).syncEpgBatch(account, streamIds);
     }
-    if (account.type != 'xtream') return;
+    if (account.type != 'xtream') return 0;
 
     final url = account.url.replaceAll(RegExp(r'/+$'), '');
     final username = account.username!;
@@ -624,51 +632,79 @@ class SyncService {
       final allEpg = await _api.getAllEpg(url, username, password);
       final listings = allEpg['epg_listings'] as List<dynamic>?;
       if (listings != null && listings.isNotEmpty) {
-        await _saveBatchEpg(listings, streamIds.toSet());
-        return;
+        final saved = await _saveBatchEpg(listings, streamIds.toSet());
+        if (saved > 0) return saved;
       }
     } catch (_) {
       // Fall back to per-channel fetch
     }
 
     // Fallback: fetch EPG per channel (throttled, max 10 concurrent)
+    var saved = 0;
     const batchSize = 10;
     for (var i = 0; i < streamIds.length; i += batchSize) {
+      _db.checkAccountWrite();
       final batch = streamIds.skip(i).take(batchSize).toList();
-      await Future.wait(
+      final results = await Future.wait(
         batch.map((id) => _syncSingleChannelEpg(url, username, password, id)),
       );
+      saved += results.where((success) => success).length;
       // Small delay to avoid hammering the server
       if (i + batchSize < streamIds.length) {
         await Future.delayed(const Duration(milliseconds: 100));
       }
     }
+    return saved;
   }
 
   /// Sync EPG for all live channels of an account.
   /// For Xtream: uses API first, then XMLTV fallback for channels without EPG.
   /// For M3U: uses XMLTV directly (from url-tvg header).
-  Future<void> syncAllLiveEpg(Account account) async {
+  static final _epgJobs = <(AppDatabase, int), Future<int>>{};
+  static final _epgBudgets = <(AppDatabase, int), SyncBudget>{};
+
+  Future<int> syncAllLiveEpg(Account account, {bool force = false}) {
     if (_db.accountScope != account.id) {
-      return _bound(account.id).syncAllLiveEpg(account);
+      return _bound(account.id).syncAllLiveEpg(account, force: force);
     }
+    final key = (_db, account.id);
+    final existing = _epgJobs[key];
+    if (existing != null) return existing;
+    final budget = SyncBudget(const Duration(minutes: 3));
+    _epgBudgets[key] = budget;
+    late final Future<int> job;
+    job = budget
+        .execute(() => _syncAllLiveEpgImpl(account, force: force))
+        .whenComplete(() {
+          if (identical(_epgJobs[key], job)) {
+            _epgJobs.remove(key);
+            _epgBudgets.remove(key);
+          }
+        });
+    _epgJobs[key] = job;
+    return job;
+  }
+
+  Future<int> _syncAllLiveEpgImpl(
+    Account account, {
+    required bool force,
+  }) async {
     if (account.type == 'm3u') {
       // M3U accounts: use XMLTV directly
-      await syncEpgFromXmltv(account.id);
-      return;
+      return syncEpgFromXmltv(account.id, force: force);
     }
 
-    if (account.type != 'xtream') return;
+    if (account.type != 'xtream') return 0;
 
     // Get all live channel stream IDs from database
     final liveChannels = await (_db.select(
       _db.channels,
     )..where((tbl) => tbl.type.equals('live'))).get();
 
-    if (liveChannels.isEmpty) return;
+    if (liveChannels.isEmpty) return 0;
 
     final streamIds = liveChannels.map((c) => c.streamId).toList();
-    await syncEpgBatch(account, streamIds);
+    var saved = await syncEpgBatch(account, streamIds);
 
     // XMLTV fallback: check how many channels still lack EPG. One
     // aggregate COUNT(DISTINCT channelId) instead of a per-channel SELECT
@@ -689,11 +725,12 @@ class SyncService {
 
     // If >50% channels lack EPG, try XMLTV fallback
     if (channelsWithoutEpg > liveChannels.length * 0.5) {
-      await syncEpgFromXmltv(account.id);
+      saved += await syncEpgFromXmltv(account.id, force: force);
     }
+    return saved;
   }
 
-  Future<void> _syncSingleChannelEpg(
+  Future<bool> _syncSingleChannelEpg(
     String url,
     String username,
     String password,
@@ -708,13 +745,20 @@ class SyncService {
         limit: 20,
       );
       final listings = epgData['epg_listings'] as List<dynamic>?;
-      if (listings == null || listings.isEmpty) return;
+      if (listings == null || listings.isEmpty) return false;
 
-      await _replaceEpg(streamId, _epgRows(streamId, listings));
-    } catch (_) {}
+      final rows = _epgRows(streamId, listings);
+      if (rows.isEmpty) return false;
+      await _replaceEpg(streamId, rows);
+      return true;
+    } on SyncFailure {
+      rethrow;
+    } catch (_) {
+      return false;
+    }
   }
 
-  Future<void> _saveBatchEpg(
+  Future<int> _saveBatchEpg(
     List<dynamic> listings,
     Set<int> targetStreamIds,
   ) async {
@@ -731,9 +775,14 @@ class SyncService {
       grouped.putIfAbsent(channelId, () => []).add(item);
     }
 
+    var saved = 0;
     for (final entry in grouped.entries) {
-      await _replaceEpg(entry.key, _epgRows(entry.key, entry.value));
+      final rows = _epgRows(entry.key, entry.value);
+      if (rows.isEmpty) continue;
+      await _replaceEpg(entry.key, rows);
+      saved++;
     }
+    return saved;
   }
 
   List<ProgramsCompanion> _epgRows(int channelId, List<dynamic> listings) {
@@ -785,16 +834,16 @@ class SyncService {
 
   /// Sync EPG from XMLTV source for all live channels of an account.
   /// Used as fallback when Xtream EPG returns empty, or for M3U accounts.
-  Future<int> syncEpgFromXmltv(int accountId) async {
+  Future<int> syncEpgFromXmltv(int accountId, {bool force = false}) async {
     if (_db.accountScope != accountId) {
-      return _bound(accountId).syncEpgFromXmltv(accountId);
+      return _bound(accountId).syncEpgFromXmltv(accountId, force: force);
     }
     // Get EPG URL for this account
     final epgUrl = await getEpgUrl(accountId);
     if (epgUrl == null || epgUrl.isEmpty) return 0;
 
     // Fetch and parse XMLTV data
-    final xmltv = await XmltvService.fetchAndParse(epgUrl);
+    final xmltv = await XmltvService.fetchAndParse(epgUrl, force: force);
     if (xmltv == null || xmltv.programsByChannel.isEmpty) return 0;
 
     // Get all live channels with their epgChannelId
@@ -1075,7 +1124,11 @@ class SyncService {
   ) async {
     final watched =
         await (_db.select(_db.playbackProgress)
-              ..where((t) => t.type.equals('series'))
+              ..where(
+                (t) =>
+                    t.type.equals('series_parent') &
+                    t.position.isBiggerThanValue(0),
+              )
               ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
               ..limit(20))
             .get();

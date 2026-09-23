@@ -60,6 +60,24 @@ void main() {
       )
       .then((_) {});
 
+  test('failed EPG is retryable and concurrent account requests share a job', () async {
+    await db.into(db.channels).insert(ChannelsCompanion.insert(streamId: 1, name: 'Live', type: 'live', categoryId: '1'));
+    final service = SyncService(db, api);
+    api.epgRelease = Completer<void>();
+    final one = service.syncAllLiveEpg(account);
+    final two = SyncService(db, api).syncAllLiveEpg(account);
+    expect(identical(one, two), true);
+    api.epgRelease!.complete();
+    expect(await one, 0);
+    expect(api.allEpgCalls, 1);
+    api.epgRelease = null;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    api.epg = [{'channel_id': 1, 'title': 'Programme', 'start_timestamp': now, 'stop_timestamp': now + 3600}];
+    expect(await service.syncAllLiveEpg(account), 1);
+    expect(api.allEpgCalls, 2);
+    expect(await db.select(db.programs).get(), hasLength(1));
+  });
+
   test(
     'M3U registry, metadata and history survive backup and absent media types prune',
     () async {
@@ -416,7 +434,7 @@ void main() {
         .insert(
           PlaybackProgressCompanion.insert(
             streamId: 42,
-            type: 'series',
+            type: 'series_parent',
             position: 10,
             duration: 100,
           ),
@@ -445,7 +463,7 @@ void main() {
             .insert(
               PlaybackProgressCompanion.insert(
                 streamId: 42,
-                type: 'series',
+                type: 'series_parent',
                 position: 10,
                 duration: 100,
                 profileId: Value(pid),
@@ -467,6 +485,14 @@ void main() {
 
 class _Api extends XtreamApiService {
   _Api() : super(Dio());
+  Completer<void>? epgRelease;
+  int allEpgCalls = 0;
+  @override
+  Future<Map<String, dynamic>> getAllEpg(String url, String username, String password, {String? streamId}) async {
+    allEpgCalls++;
+    await epgRelease?.future;
+    return {'epg_listings': epg};
+  }
   List<dynamic> epg = [];
   @override
   Future<Map<String, dynamic>> getEpg(

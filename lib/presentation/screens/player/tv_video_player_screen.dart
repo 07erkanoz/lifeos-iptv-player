@@ -1,4 +1,5 @@
-import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
+import 'package:lifeostv/data/repositories/profile_repository.dart'
+    show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
@@ -42,6 +43,11 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String? currentProgramTitle;
   final Duration? startPosition;
   final int? parentStreamId;
+  final bool saveSeriesSummary;
+  final VoidCallback? onNextEpisode;
+  final VoidCallback? onPrevEpisode;
+  final String? nextEpisodeTitle;
+  final String? previousEpisodeTitle;
   final List<PlayerChannel>? channels;
   final int? currentChannelIndex;
 
@@ -56,6 +62,11 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
     this.currentProgramTitle,
     this.startPosition,
     this.parentStreamId,
+    this.saveSeriesSummary = true,
+    this.onNextEpisode,
+    this.onPrevEpisode,
+    this.nextEpisodeTitle,
+    this.previousEpisodeTitle,
     this.channels,
     this.currentChannelIndex,
   });
@@ -68,6 +79,8 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
 class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     with WidgetsBindingObserver {
   late final PlayerRepository _progressRepository;
+  bool _switchingEpisode = false;
+  final _episodePlayFocus = FocusNode();
   VideoPlayerController? _controller;
   final _focusNode = FocusNode();
 
@@ -95,11 +108,16 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   @override
   void initState() {
     super.initState();
-    final profileId = ref.read(activeProfileIdProvider).value ??
-        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
+    final profileId =
+        ref.read(activeProfileIdProvider).value ??
+        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ??
+        1;
     _progressRepository = widget.accountId == null
         ? ref.read(playerRepositoryProvider)
-        : PlayerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!), () => profileId);
+        : PlayerRepository(
+            ref.read(rootDatabaseProvider).forAccount(widget.accountId!),
+            () => profileId,
+          );
 
     WidgetsBinding.instance.addObserver(this);
     playbackActiveNotifier.value = true;
@@ -146,6 +164,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _controller?.removeListener(_onValue);
     _controller?.dispose();
     _focusNode.dispose();
+    _episodePlayFocus.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -240,8 +259,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       }
       var resume = startAt;
       if (!_isLive && resume == null) {
-        final saved = await _progressRepository
-            .getProgress(widget.streamId, widget.type.name);
+        final saved = await _progressRepository.getProgress(
+          widget.streamId,
+          widget.type.name,
+        );
         if (!mounted ||
             _disposed ||
             generation != _openGeneration ||
@@ -299,10 +320,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _bufferingTimeout?.cancel();
       _bufferingTimeout = null;
     }
-    if (!_isLive &&
-        !_savedInitialProgress &&
-        v.position.inSeconds >= 3 &&
-        v.duration.inSeconds >= 10) {
+    if (!_savedInitialProgress &&
+        ((_isLive && v.isPlaying) ||
+            (!_isLive &&
+                v.position.inSeconds >= 3 &&
+                v.duration.inSeconds >= 10))) {
       _savedInitialProgress = true;
       _saveProgress();
     }
@@ -354,6 +376,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     if (!_isLive || chans == null || chans.isEmpty) return;
     final next = (_channelIndex + delta) % chans.length;
     final idx = next < 0 ? next + chans.length : next;
+    unawaited(_saveProgress());
     _channelIndex = idx;
     final ch = chans[idx];
     setState(() {
@@ -367,31 +390,46 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   Future<void> _saveProgress() async {
     final c = _controller;
-    if (c == null || _isLive) return;
+    if (c == null) return;
     final v = c.value;
-    if (!v.isInitialized || v.duration.inSeconds < 10) return;
+    if (!v.isInitialized || (!_isLive && v.duration.inSeconds < 10)) return;
     final posMs = v.position.inMilliseconds;
-    if (posMs <= 0) return;
+    if (posMs <= 0 && !_isLive) return;
     try {
-      final sid = widget.streamId;
+      final channels = widget.channels;
+      final sid =
+          _isLive &&
+              channels != null &&
+              _channelIndex >= 0 &&
+              _channelIndex < channels.length
+          ? channels[_channelIndex].streamId
+          : widget.streamId;
       final repo = _progressRepository;
-      await repo.saveProgress(
-        sid,
-        widget.type.name,
-        posMs,
-        v.duration.inMilliseconds,
-      );
-      if (widget.type == VideoType.series &&
-          widget.parentStreamId != null &&
-          widget.parentStreamId != sid) {
-        await repo.saveProgress(
-          widget.parentStreamId!,
-          widget.type.name,
+      if (widget.type == VideoType.series) {
+        await repo.saveEpisodeProgress(
+          sid,
           posMs,
           v.duration.inMilliseconds,
+          parentSeriesId: widget.saveSeriesSummary
+              ? widget.parentStreamId
+              : null,
+        );
+      } else {
+        await repo.saveProgress(
+          sid,
+          widget.type.name,
+          _isLive ? 1 : posMs,
+          _isLive ? 100 : v.duration.inMilliseconds,
         );
       }
     } catch (_) {}
+  }
+
+  Future<void> _switchEpisode(VoidCallback? callback) async {
+    if (callback == null || _switchingEpisode) return;
+    _switchingEpisode = true;
+    await _saveProgress();
+    if (mounted && !_disposed) callback();
   }
 
   // ── Keys ──────────────────────────────────────────────────────────────
@@ -405,6 +443,26 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         k == LogicalKeyboardKey.browserBack) {
       if (mounted) Navigator.of(context).pop();
       return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.mediaTrackNext &&
+        widget.onNextEpisode != null) {
+      _switchEpisode(widget.onNextEpisode);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.mediaTrackPrevious &&
+        widget.onPrevEpisode != null) {
+      _switchEpisode(widget.onPrevEpisode);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.mediaPlayPause ||
+        k == LogicalKeyboardKey.space) {
+      _togglePlay();
+      return KeyEventResult.handled;
+    }
+    // Let focused episode buttons handle activation and directional traversal.
+    if (!_focusNode.hasPrimaryFocus && _showControls && _error == null) {
+      _resetHideTimer();
+      return KeyEventResult.ignored;
     }
     if (k == LogicalKeyboardKey.select ||
         k == LogicalKeyboardKey.enter ||
@@ -426,6 +484,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(-1);
       } else {
         _showControlsBriefly();
+        if (widget.onNextEpisode != null || widget.onPrevEpisode != null) {
+          _episodePlayFocus.requestFocus();
+        }
       }
       return KeyEventResult.handled;
     }
@@ -434,6 +495,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(1);
       } else {
         _showControlsBriefly();
+        if (widget.onNextEpisode != null || widget.onPrevEpisode != null) {
+          _episodePlayFocus.requestFocus();
+        }
       }
       return KeyEventResult.handled;
     }
@@ -488,7 +552,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   duration: const Duration(milliseconds: 150),
                   child: IgnorePointer(
                     ignoring: !_showControls,
-                    child: _buildControls(v),
+                    child: ExcludeFocus(
+                      excluding: !_showControls || _error != null,
+                      child: _buildControls(v),
+                    ),
                   ),
                 ),
 
@@ -621,11 +688,39 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ],
             ),
             const Spacer(),
-            // Center: play/pause
-            Icon(
-              playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
-              color: Colors.white,
-              size: 64,
+            // Same episode callbacks and stable IDs as the desktop player.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.onPrevEpisode != null)
+                  IconButton(
+                    key: const ValueKey('previous-episode'),
+                    tooltip: widget.previousEpisodeTitle,
+                    onPressed: () => _switchEpisode(widget.onPrevEpisode),
+                    icon: const Icon(Icons.skip_previous, color: Colors.white),
+                  ),
+                IconButton(
+                  focusNode: _episodePlayFocus,
+                  key: const ValueKey('episode-play-pause'),
+                  onPressed: _togglePlay,
+                  icon: Icon(
+                    playing
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                ),
+                if (widget.onNextEpisode != null)
+                  IconButton(
+                    key: const ValueKey('next-episode'),
+                    tooltip:
+                        widget.nextEpisodeTitle ??
+                        AppLocalizations.of(context)!.nextEpisode,
+                    onPressed: () => _switchEpisode(widget.onNextEpisode),
+                    icon: const Icon(Icons.skip_next, color: Colors.white),
+                  ),
+              ],
             ),
             const Spacer(),
             // Bottom: progress (VOD) or hint (live)

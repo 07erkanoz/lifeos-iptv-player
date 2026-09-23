@@ -9,7 +9,7 @@
 ///
 /// The natural back ladder is:
 ///   EPG focused          → focus channel list
-///   channel list focused → focus categories panel (if open)
+///   channel list focused → open/focus categories panel
 ///   categories focused   → AppShell takes over (main sidebar)
 ///   else                 → AppShell takes over
 enum LiveTvBackAction {
@@ -50,11 +50,10 @@ LiveTvBackAction resolveLiveTvBackAction({
 
   // 4. Channel list focused + category panel available → step into
   // the panel.
-  if (channelListFocused && !categoriesCollapsed) {
+  if (channelListFocused) {
     return LiveTvBackAction.focusCategorySidebar;
   }
 
-  // 5. Anything else (channel list with collapsed categories, or
-  // focus elsewhere) → AppShell focuses the main sidebar directly.
+  // 5. Focus elsewhere → AppShell handles navigation.
   return LiveTvBackAction.handToShell;
 }

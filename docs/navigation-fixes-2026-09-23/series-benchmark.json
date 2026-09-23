@@ -1,0 +1,27 @@
+{
+  "note": "Synthetic host test. Timer gaps are not rendered frames; process RSS includes test runner and retained inputs.",
+  "samples": [
+    {
+      "kind": "m3u-series-grouping",
+      "rows": 1000,
+      "bytes": 0,
+      "mode": "main",
+      "wallMs": 349.969,
+      "maxMainTimerGapMs": 360.081,
+      "ticks": 6,
+      "processRssMiB": 200.15625,
+      "episodeCount": 100000
+    },
+    {
+      "kind": "m3u-series-grouping",
+      "rows": 1000,
+      "bytes": 0,
+      "mode": "worker",
+      "wallMs": 403.286,
+      "maxMainTimerGapMs": 48.99,
+      "ticks": 43,
+      "processRssMiB": 227.85546875,
+      "episodeCount": 100000
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/widgets/profile/profile_pin_prompt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,22 +36,22 @@ class ProfilePickerSheet extends ConsumerStatefulWidget {
       backgroundColor: AppColors.surfaceDark,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => const ProfilePickerSheet(),
     );
   }
 
   @override
-  ConsumerState<ProfilePickerSheet> createState() =>
-      _ProfilePickerSheetState();
+  ConsumerState<ProfilePickerSheet> createState() => _ProfilePickerSheetState();
 }
 
 class _ProfilePickerSheetState extends ConsumerState<ProfilePickerSheet> {
   Future<void> _selectProfile(Profile profile) async {
     final repo = await ref.read(profileRepositoryProvider.future);
+    if (!mounted) return;
     final activeId = await ref.read(activeProfileIdProvider.future);
+    if (!mounted) return;
     if (profile.id == activeId) {
       // Already active — just close.
       if (mounted) Navigator.of(context).pop();
@@ -58,81 +59,17 @@ class _ProfilePickerSheetState extends ConsumerState<ProfilePickerSheet> {
     }
     // PIN gate for kids profiles (or any profile that set one).
     if (profile.pin != null && profile.pin!.isNotEmpty) {
-      final ok = await _promptForPin(profile);
+      final ok = await confirmProfilePin(context, profile);
       if (!ok) return; // wrong / cancelled; sheet stays open
     }
+    if (!mounted) return;
     await repo.setActiveProfile(profile.id);
+    if (!mounted) return;
     // Invalidate the active-id provider so every downstream
     // repository rebuilds against the new profile.
     ref.invalidate(activeProfileIdProvider);
     ref.invalidate(activeProfileProvider);
     if (mounted) Navigator.of(context).pop();
-  }
-
-  Future<bool> _promptForPin(Profile profile) async {
-    final controller = TextEditingController();
-    final l10n = AppLocalizations.of(context)!;
-    var wrongAttempt = false;
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setLocalState) {
-        return AlertDialog(
-          title: Row(children: [
-            const Icon(Icons.lock_outline, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(profile.name)),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.profilePinPrompt,
-                  style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: InputDecoration(
-                  errorText: wrongAttempt ? l10n.profilePinWrong : null,
-                  counterText: '',
-                ),
-                onSubmitted: (v) {
-                  if (v.trim() == profile.pin) {
-                    Navigator.of(ctx).pop(true);
-                  } else {
-                    setLocalState(() => wrongAttempt = true);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.trim() == profile.pin) {
-                  Navigator.of(ctx).pop(true);
-                } else {
-                  setLocalState(() => wrongAttempt = true);
-                }
-              },
-              child: Text(l10n.ok),
-            ),
-          ],
-        );
-      }),
-    );
-    return result == true;
   }
 
   @override
@@ -218,12 +155,11 @@ class _ProfilePickerSheetState extends ConsumerState<ProfilePickerSheet> {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textSecondaryDark,
-                  side: BorderSide(
-                    color: AppColors.borderDark,
-                    width: 1,
-                  ),
+                  side: BorderSide(color: AppColors.borderDark, width: 1),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 10),
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ),
@@ -278,8 +214,8 @@ class _PickerTileState extends State<_PickerTile> {
               color: _focused
                   ? AppColors.primary
                   : (widget.isActive
-                      ? AppColors.primary.withValues(alpha: 0.4)
-                      : Colors.transparent),
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : Colors.transparent),
               width: _focused ? 2 : (widget.isActive ? 1.5 : 0),
             ),
             color: widget.isActive
@@ -289,9 +225,10 @@ class _PickerTileState extends State<_PickerTile> {
           child: Column(
             children: [
               _ProfileAvatar(
-                  avatarKey: widget.profile.avatarKey,
-                  size: 56,
-                  highlight: widget.isActive),
+                avatarKey: widget.profile.avatarKey,
+                size: 56,
+                highlight: widget.isActive,
+              ),
               const SizedBox(height: 6),
               Text(
                 widget.profile.name,
@@ -307,12 +244,14 @@ class _PickerTileState extends State<_PickerTile> {
                       : FontWeight.w500,
                 ),
               ),
-              if (widget.profile.pin != null &&
-                  widget.profile.pin!.isNotEmpty)
+              if (widget.profile.pin != null && widget.profile.pin!.isNotEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.lock,
-                      color: AppColors.textTertiaryDark, size: 10),
+                  child: Icon(
+                    Icons.lock,
+                    color: AppColors.textTertiaryDark,
+                    size: 10,
+                  ),
                 ),
             ],
           ),

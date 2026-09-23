@@ -3,6 +3,8 @@ import 'package:drift/native.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
+    show VideoType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +33,7 @@ class _Video extends VideoPlayerPlatform {
   final paused = <int>[];
   final disposed = <int>[];
   bool initializeImmediately = true;
+  Duration duration = const Duration(minutes: 1);
   @override
   Future<void> init() async {}
   @override
@@ -44,7 +47,7 @@ class _Video extends VideoPlayerPlatform {
   void initialize(int id) => events[id]!.add(
     VideoEvent(
       eventType: VideoEventType.initialized,
-      duration: const Duration(minutes: 1),
+      duration: duration,
       size: const Size(1920, 1080),
     ),
   );
@@ -65,6 +68,8 @@ class _Video extends VideoPlayerPlatform {
     paused.add(playerId);
   }
 
+  @override
+  Future<void> seekTo(int playerId, Duration position) async {}
   @override
   Future<void> setLooping(int playerId, bool looping) async {}
   @override
@@ -109,7 +114,7 @@ void main() {
       await events.close();
     }
   });
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(WidgetTester tester, {TvVideoPlayerScreen? player}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -118,21 +123,72 @@ void main() {
           rootDatabaseProvider.overrideWithValue(db),
           appDatabaseProvider.overrideWithValue(db),
         ],
-        child: const MaterialApp(
-          locale: Locale('en'),
+        child: MaterialApp(
+          locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: TvVideoPlayerScreen(
-            streamUrl: 'https://example.invalid/live/secret/password/1.ts',
-            streamId: 1,
-            title: 'Test',
-          ),
+          home:
+              player ??
+              const TvVideoPlayerScreen(
+                streamUrl: 'https://example.invalid/live/secret/password/1.ts',
+                streamId: 1,
+                title: 'Test',
+              ),
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
   }
+
+  testWidgets(
+    'live streams without duration create history under the current channel',
+    (tester) async {
+      native.duration = Duration.zero;
+      await mount(tester);
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      });
+      await tester.pump();
+      final rows = await db.select(db.playbackProgress).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.streamId, 1);
+      expect(rows.single.type, 'live');
+      expect(rows.single.isFinished, false);
+      expect(rows.single.position, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'TV episode controls support D-pad and prevent double navigation',
+    (tester) async {
+      var next = 0;
+      await mount(
+        tester,
+        player: TvVideoPlayerScreen(
+          streamUrl: 'https://example.invalid/episode.mkv',
+          streamId: 9001,
+          title: 'Show',
+          type: VideoType.series,
+          saveSeriesSummary: false,
+          onNextEpisode: () => next++,
+          nextEpisodeTitle: 'S1E2',
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(next, 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.mediaTrackNext);
+      await tester.pump();
+      expect(next, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('stalled playback exposes retry and creates a fresh controller', (
     tester,

@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/widgets/profile/profile_pin_prompt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,7 +100,7 @@ class ProfilesSection extends ConsumerWidget {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: others.length + 1, // +1 for "add"
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const SizedBox(width: 12),
                       itemBuilder: (_, i) {
                         if (i == others.length) {
@@ -135,78 +136,16 @@ class ProfilesSection extends ConsumerWidget {
     // both surfaces stay self-contained and easy to change in
     // isolation.
     if (target.pin != null && target.pin!.isNotEmpty) {
-      final ok = await _promptForPin(context, target);
+      final ok = await confirmProfilePin(context, target);
       if (!ok) return;
     }
+    if (!context.mounted) return;
     final repo = await ref.read(profileRepositoryProvider.future);
+    if (!context.mounted) return;
     await repo.setActiveProfile(target.id);
+    if (!context.mounted) return;
     ref.invalidate(activeProfileIdProvider);
     ref.invalidate(activeProfileProvider);
-  }
-
-  Future<bool> _promptForPin(BuildContext context, Profile profile) async {
-    final controller = TextEditingController();
-    final l10n = AppLocalizations.of(context)!;
-    var wrong = false;
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setLocal) {
-        return AlertDialog(
-          title: Row(children: [
-            const Icon(Icons.lock_outline, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(profile.name)),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.profilePinPrompt,
-                  style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: InputDecoration(
-                  errorText: wrong ? l10n.profilePinWrong : null,
-                  counterText: '',
-                ),
-                onSubmitted: (v) {
-                  if (v.trim() == profile.pin) {
-                    Navigator.of(ctx).pop(true);
-                  } else {
-                    setLocal(() => wrong = true);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(l10n.cancel)),
-            ElevatedButton(
-              onPressed: () {
-                if (controller.text.trim() == profile.pin) {
-                  Navigator.of(ctx).pop(true);
-                } else {
-                  setLocal(() => wrong = true);
-                }
-              },
-              child: Text(l10n.ok),
-            ),
-          ],
-        );
-      }),
-    );
-    return result == true;
   }
 
   Future<void> _openEditor(

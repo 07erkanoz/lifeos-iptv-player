@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
-import 'package:lifeostv/presentation/state/navigation_state.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/presentation/widgets/layout/app_shell_back_resolver.dart';
 import 'package:lifeostv/presentation/widgets/layout/desktop_title_bar.dart';
 import 'package:lifeostv/presentation/widgets/layout/sidebar.dart';
@@ -92,7 +92,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         decoration: BoxDecoration(
           color: AppColors.sidebarBg(context),
           border: Border(
-            top: BorderSide(color: AppColors.sidebarBorder(context), width: 0.5),
+            top: BorderSide(
+              color: AppColors.sidebarBorder(context),
+              width: 0.5,
+            ),
           ),
         ),
         child: SafeArea(
@@ -165,15 +168,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Pure decision (no side effects). Logic stays in
     // [resolveAppShellBackAction] so it's unit-testable end-to-end
     // without standing up a navigation shell.
-    // The grid screens (live=1, movies=2, series=3) register a single
-    // global back handler, but they all stay mounted in the shell's
-    // IndexedStack so the "last to set wins" — a stale handler from a
-    // non-visible tab must not eat the back press on Dashboard/Settings.
-    // Only consult it when a grid branch is actually visible.
     final idx = widget.navigationShell.currentIndex;
-    final onGridBranch = idx == 1 || idx == 2 || idx == 3;
-    final handler = ref.read(backHandlerProvider);
-    final screenHandled = onGridBranch && handler != null && handler();
+    final screenHandled = ref
+        .read(tvFocusRegistryProvider)
+        .handleBranchBack(idx);
     final sidebarState = _sidebarKey.currentState;
     final now = DateTime.now();
 
