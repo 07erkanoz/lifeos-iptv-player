@@ -158,18 +158,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _triggerSync() async {
+  Future<void> _triggerSync({bool manual = false}) async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
-      // initialSyncProvider is throttled - only syncs if 6+ hours passed.
-      // Bound the indicator's lifetime: the sync keeps running in the
-      // background, but the spinner must never outlive a sane window —
-      // if the future is slow or never settles, hide it anyway.
-      await ref
-          .read(initialSyncProvider.future)
-          .timeout(const Duration(seconds: 90));
-    } catch (_) {}
+      // The coordinator bounds the actual operation, including late writes.
+      if (manual) {
+        final account = await ref.read(currentAccountProvider.future);
+        if (!mounted) return;
+        if (account == null) {
+          setState(() => _isSyncing = false);
+          return;
+        }
+        final refresh = forceSyncProvider(account.id);
+        ref.invalidate(refresh);
+        await ref.read(refresh.future);
+      } else {
+        await ref.read(initialSyncProvider.future);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context)!.connectionFailed)));
+      }
+    }
     if (mounted) setState(() => _isSyncing = false);
   }
 
@@ -347,7 +359,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: Stack(
         children: [
           RefreshIndicator(
-            onRefresh: _triggerSync,
+            onRefresh: () => _triggerSync(manual: true),
             color: AppColors.primary,
             child: SingleChildScrollView(
               controller: _dashScroll,
@@ -654,6 +666,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context.push('/player', extra: {
         'url': url,
         'streamId': channel.streamId,
+        'accountId': channel.accountId,
         'title': channel.name,
         'type': type,
         'logo': channel.streamIcon,

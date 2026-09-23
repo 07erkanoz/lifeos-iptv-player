@@ -170,10 +170,10 @@ class AiFeedbackRepository {
 
 @Riverpod(keepAlive: true)
 AiFeedbackRepository aiFeedbackRepository(Ref ref) {
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return AiFeedbackRepository(
     ref.watch(appDatabaseProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }
 

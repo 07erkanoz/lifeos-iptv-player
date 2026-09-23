@@ -83,7 +83,7 @@ class PersonalizedPicksRepository {
         .toList());
     await _db.into(_db.personalizedPicksCache).insert(
           PersonalizedPicksCacheCompanion.insert(
-            id: const Value(0),
+            id: 0,
             picksJson: encoded,
             sourceHash: sourceHash,
             generatedAt: Value(DateTime.now()),

@@ -1,5 +1,22 @@
 import 'package:drift/drift.dart';
 
+/// Provider IDs are only unique inside an account. Zero is reserved for
+/// legacy data created before any account existed, never a real account ID.
+mixin AccountScopedTable on Table {
+  IntColumn get accountId => integer().withDefault(const Constant(0))();
+}
+
+/// Rollback record for preferences changed by a database restore. Written
+/// before the restore transaction and deleted in that same transaction.
+/// If the process exits before commit, startup restores these preferences.
+class BackupRestoreJournal extends Table {
+  IntColumn get id => integer()();
+  TextColumn get preferencesJson => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// User personas — Netflix-style "who's watching" model.
 ///
 /// Multiple profiles per account let a household share one IPTV
@@ -24,11 +41,11 @@ class Profiles extends Table {
   TextColumn get name => text()();
   TextColumn get avatarKey => text().withDefault(const Constant('default'))();
   BoolColumn get isKids => boolean().withDefault(const Constant(false))();
+
   /// Optional 4-digit PIN gating the switch INTO this profile. Set
   /// only on kids profiles by parents; null elsewhere.
   TextColumn get pin => text().nullable()();
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 class Accounts extends Table {
@@ -42,17 +59,17 @@ class Accounts extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-class Categories extends Table {
+class Categories extends Table with AccountScopedTable {
   TextColumn get id => text()(); // category_id from API
   TextColumn get name => text()();
   TextColumn get type => text()(); // 'movie', 'series', 'live'
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
 
   @override
-  Set<Column> get primaryKey => {id, type};
+  Set<Column> get primaryKey => {id, type, accountId};
 }
 
-class Channels extends Table {
+class Channels extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
   TextColumn get name => text()();
   TextColumn get type => text()(); // 'movie', 'series', 'live'
@@ -61,15 +78,20 @@ class Channels extends Table {
   RealColumn get rating => real().nullable()();
   TextColumn get year => text().nullable()();
   TextColumn get added => text().nullable()(); // timestamp from API
-  TextColumn get backdropPath => text().nullable()(); // landscape image from detail API
-  TextColumn get youtubeTrailer => text().nullable()(); // YouTube trailer URL/ID
+  TextColumn get backdropPath =>
+      text().nullable()(); // landscape image from detail API
+  TextColumn get youtubeTrailer =>
+      text().nullable()(); // YouTube trailer URL/ID
   TextColumn get genre => text().nullable()(); // comma-separated genres
   TextColumn get plot => text().nullable()(); // synopsis/description
   TextColumn get director => text().nullable()();
   TextColumn get cast => text().nullable()(); // comma-separated cast
-  TextColumn get streamUrl => text().nullable()(); // Direct playback URL (M3U or provider-supplied Xtream source)
-  TextColumn get containerExtension => text().nullable()(); // Xtream media container
-  TextColumn get epgChannelId => text().nullable()(); // EPG channel ID for XMLTV matching (tvg-id from M3U, epg_channel_id from Xtream)
+  TextColumn get streamUrl => text()
+      .nullable()(); // Direct playback URL (M3U or provider-supplied Xtream source)
+  TextColumn get containerExtension =>
+      text().nullable()(); // Xtream media container
+  TextColumn get epgChannelId => text()
+      .nullable()(); // EPG channel ID for XMLTV matching (tvg-id from M3U, epg_channel_id from Xtream)
   // Precomputed normalised search haystack (name + category + genre + cast +
   // director + year + plot). Built once (migration/backfill + post-sync) so
   // search filters in SQL via LIKE instead of re-normalising thousands of
@@ -77,87 +99,93 @@ class Channels extends Table {
   TextColumn get searchText => text().nullable()();
 
   @override
-  Set<Column> get primaryKey => {streamId, type};
+  Set<Column> get primaryKey => {streamId, type, accountId};
 }
 
-class Programs extends Table {
+class Programs extends Table with AccountScopedTable {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get channelId => integer().references(Channels, #streamId)();
   TextColumn get title => text()();
   TextColumn get description => text().nullable()();
   DateTimeColumn get start => dateTime()();
   DateTimeColumn get stop => dateTime()();
-  
+
   @override
   List<String> get customConstraints => [
-    'FOREIGN KEY (channel_id) REFERENCES channels (stream_id)'
+    'FOREIGN KEY (channel_id) REFERENCES channels (stream_id)',
   ];
 }
 
-class Favorites extends Table {
+class Favorites extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
   TextColumn get streamType => text()(); // 'movie', 'series', 'live'
   TextColumn get name => text()();
   TextColumn get thumbnail => text().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
   /// Owning profile. Drift v18 migration backfills every existing row
   /// to profileId=1 (the seeded "Varsayılan" profile) so single-user
   /// installs upgrade in place. Added to the primary key so the same
   /// title can independently appear in two profiles' favourites.
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, streamType, profileId};
+  Set<Column> get primaryKey => {streamId, streamType, profileId, accountId};
 }
 
-class PlaybackProgress extends Table {
+class PlaybackProgress extends Table with AccountScopedTable {
   IntColumn get streamId => integer()(); // References Channels.streamId
   TextColumn get type => text()(); // 'movie' or 'series'
   IntColumn get position => integer()(); // in milliseconds
   IntColumn get duration => integer()(); // in milliseconds
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isFinished => boolean().withDefault(const Constant(false))();
+
   /// Owning profile. See [Favorites.profileId] for rationale.
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, type, profileId};
+  Set<Column> get primaryKey => {streamId, type, profileId, accountId};
 }
 
 /// "Save for later" list — distinct from Favorites which is "things I love
 /// and want quick access to". Watchlist is "things I plan to watch but
 /// haven't yet". Mirrors Favorites' shape so the UI can reuse PosterCard.
-class Watchlist extends Table {
+class Watchlist extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
-  TextColumn get streamType => text()(); // 'movie' or 'series' (live makes no sense here)
+  TextColumn get streamType =>
+      text()(); // 'movie' or 'series' (live makes no sense here)
   TextColumn get name => text()();
   TextColumn get thumbnail => text().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
   /// Owning profile. See [Favorites.profileId].
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, streamType, profileId};
+  Set<Column> get primaryKey => {streamId, streamType, profileId, accountId};
 }
 
 /// Tracks episode counts for watched series to detect new episodes
-class SeriesTracking extends Table {
+class SeriesTracking extends Table with AccountScopedTable {
   IntColumn get seriesId => integer()(); // References Channels.streamId
-  IntColumn get knownEpisodeCount => integer()(); // Last known total episode count
-  IntColumn get newEpisodeCount => integer().withDefault(const Constant(0))(); // New episodes since last check
-  BoolColumn get hasNewEpisodes => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get lastCheckedAt => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get knownEpisodeCount =>
+      integer()(); // Last known total episode count
+  IntColumn get newEpisodeCount => integer().withDefault(
+    const Constant(0),
+  )(); // New episodes since last check
+  BoolColumn get hasNewEpisodes =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastCheckedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
   /// Owning profile. Different profiles can be at different episode
   /// counts on the same series — kids may finish a season faster
   /// than the parent.
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {seriesId, profileId};
+  Set<Column> get primaryKey => {seriesId, profileId, accountId};
 }
 
 /// Dashboard "Sana Özel" AI pick cache.
@@ -172,7 +200,7 @@ class SeriesTracking extends Table {
 ///   * `generatedAt` is older than the TTL the provider enforces
 ///     (default 12 h), or
 ///   * `sourceHash` no longer matches the current user-state.
-class PersonalizedPicksCache extends Table {
+class PersonalizedPicksCache extends Table with AccountScopedTable {
   /// Singleton row — always 0. Avoids accidental multi-row state.
   IntColumn get id => integer()();
 
@@ -189,7 +217,7 @@ class PersonalizedPicksCache extends Table {
       dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column> get primaryKey => {id, accountId};
 }
 
 /// AI-enriched plot text cache.
@@ -218,7 +246,7 @@ class PersonalizedPicksCache extends Table {
 ///
 /// TTL is enforced at read time (7 days). The table is small enough
 /// that we don't bother with proactive eviction.
-class AiSimilarCache extends Table {
+class AiSimilarCache extends Table with AccountScopedTable {
   /// `Channel.streamId` of the title the user opened.
   IntColumn get streamId => integer()();
 
@@ -240,7 +268,7 @@ class AiSimilarCache extends Table {
       dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {streamId, type};
+  Set<Column> get primaryKey => {streamId, type, accountId};
 }
 
 /// AI-derived metadata for catalogue items whose provider fields are
@@ -248,7 +276,7 @@ class AiSimilarCache extends Table {
 /// titles). Filled once in the background by Gemini and read as a
 /// fallback by search / similar / dashboard rails when the channel's
 /// own columns are empty.
-class ContentEnrichment extends Table {
+class ContentEnrichment extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
   TextColumn get type => text()(); // movie / series
 
@@ -275,18 +303,17 @@ class ContentEnrichment extends Table {
   /// How it was produced: 'text' (title-only) or 'vision' (poster).
   TextColumn get source => text().nullable()();
 
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {streamId, type};
+  Set<Column> get primaryKey => {streamId, type, accountId};
 }
 
 /// Semantic vector for a catalogue item, derived from its enriched
 /// text (title + genre + themes + mood). Powers offline semantic
 /// search and the "similar content" rail via local cosine similarity
 /// — no per-query LLM call. One row per (streamId, type).
-class ContentEmbeddings extends Table {
+class ContentEmbeddings extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
   TextColumn get type => text()(); // movie / series
 
@@ -295,14 +322,13 @@ class ContentEmbeddings extends Table {
   BlobColumn get vector => blob()();
   IntColumn get dims => integer()();
 
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {streamId, type};
+  Set<Column> get primaryKey => {streamId, type, accountId};
 }
 
-class PlotAiCache extends Table {
+class PlotAiCache extends Table with AccountScopedTable {
   /// `Channel.streamId` of the title this enrichment was generated for.
   IntColumn get streamId => integer()();
 
@@ -323,11 +349,10 @@ class PlotAiCache extends Table {
   /// those changes the hash, invalidating the row on next read.
   TextColumn get sourceHash => text()();
 
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {streamId, mode, targetLanguage};
+  Set<Column> get primaryKey => {streamId, mode, targetLanguage, accountId};
 }
 
 /// Append-only ring buffer of AI call telemetry — every Gemini
@@ -338,19 +363,17 @@ class PlotAiCache extends Table {
 ///
 /// Privacy: stays local, never leaves the device. Prompts and
 /// responses are NOT stored — only timings + counts + error codes.
-class AiCallLogs extends Table {
+class AiCallLogs extends Table with AccountScopedTable {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get feature => text()();
   TextColumn get model => text()();
   IntColumn get latencyMs => integer()();
   BoolColumn get success => boolean()();
   BoolColumn get timedOut => boolean().withDefault(const Constant(false))();
-  IntColumn get candidateCount =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get candidateCount => integer().withDefault(const Constant(0))();
   IntColumn get outputCount => integer().withDefault(const Constant(0))();
   TextColumn get errorCode => text().nullable()();
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 /// User feedback on AI-surfaced items.
@@ -371,7 +394,7 @@ class AiCallLogs extends Table {
 ///
 /// Stays local; never leaves the device. Privacy-sensitive (a
 /// dislike list is a preference fingerprint).
-class AiFeedback extends Table {
+class AiFeedback extends Table with AccountScopedTable {
   IntColumn get streamId => integer()();
   TextColumn get type => text()(); // 'movie' / 'series' / 'live'
 
@@ -388,16 +411,15 @@ class AiFeedback extends Table {
   /// generic surfaces. Not used in filtering.
   TextColumn get feature => text().nullable()();
 
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
   /// Owning profile. Feedback (dislike / moreLike) is per-person —
   /// the father saying "show me less of this" must not affect the
   /// child's rail.
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {streamId, type, action, profileId};
+  Set<Column> get primaryKey => {streamId, type, action, profileId, accountId};
 }
 
 /// Per-series intro position markers used to drive the "Skip Intro"
@@ -424,14 +446,13 @@ class AiFeedback extends Table {
 /// We cap the table at ~200 rows via repository-side cleanup; this
 /// is cheap to query for a chip row and short-lived in practice
 /// because users repeat queries.
-class SearchHistory extends Table {
+class SearchHistory extends Table with AccountScopedTable {
   /// Normalised search query — lower-cased, trimmed, multi-space
   /// collapsed. Display layer re-cases for the chip label.
   TextColumn get query => text()();
 
   /// Last time this query was submitted. Drives the "recent" sort.
-  DateTimeColumn get lastUsedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUsedAt => dateTime().withDefault(currentDateAndTime)();
 
   /// How many times this query has been submitted. Drives the
   /// "trending" sort within the rolling 7-day window.
@@ -440,25 +461,23 @@ class SearchHistory extends Table {
   /// Owning profile. Search history is private to each profile — a
   /// kid's chip rail shouldn't show the parent's "korku gerilim"
   /// queries.
-  IntColumn get profileId =>
-      integer().withDefault(const Constant(1))();
+  IntColumn get profileId => integer().withDefault(const Constant(1))();
 
   @override
-  Set<Column> get primaryKey => {query, profileId};
+  Set<Column> get primaryKey => {query, profileId, accountId};
 }
 
-class IntroMarkers extends Table {
+class IntroMarkers extends Table with AccountScopedTable {
   /// References [Channels.streamId] for the *parent series*, not an
   /// individual episode. Comes from `widget.parentStreamId` in the
   /// player route.
   IntColumn get seriesId => integer()();
   IntColumn get introStartMs => integer()();
   IntColumn get introEndMs => integer()();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {seriesId};
+  Set<Column> get primaryKey => {seriesId, accountId};
 }
 
 /// Soft-delete log for LAN sync. When the user removes a favourite we
@@ -466,16 +485,21 @@ class IntroMarkers extends Table {
 /// can propagate to paired devices (otherwise the peer re-adds it on
 /// the next additive sync). [deletedAt] lets the receiver ignore a
 /// tombstone that's older than a re-add.
-class SyncTombstones extends Table {
+class SyncTombstones extends Table with AccountScopedTable {
   TextColumn get entity => text()(); // 'favorite' (room for more later)
   IntColumn get streamId => integer()();
   TextColumn get streamType => text()();
   IntColumn get profileId => integer().withDefault(const Constant(1))();
-  DateTimeColumn get deletedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {entity, streamId, streamType, profileId};
+  Set<Column> get primaryKey => {
+    entity,
+    streamId,
+    streamType,
+    profileId,
+    accountId,
+  };
 }
 
 /// Source-of-truth for per-category visibility choices.
@@ -486,13 +510,26 @@ class SyncTombstones extends Table {
 /// re-applied onto `categories` after each refresh AND merged across
 /// devices (last-write-wins by [updatedAt]) so hidden categories
 /// travel between paired devices.
-class CategoryPrefs extends Table {
+class CategoryPrefs extends Table with AccountScopedTable {
   TextColumn get categoryId => text()();
   TextColumn get type => text()(); // 'movie' | 'series' | 'live'
   BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {categoryId, type};
+  Set<Column> get primaryKey => {categoryId, type, accountId};
+}
+
+/// Durable identity registry, retained when a source temporarily removes a stream.
+class M3uIdentities extends Table with AccountScopedTable {
+  IntColumn get streamId => integer()();
+  TextColumn get type => text()();
+  TextColumn get sourceKey => text()();
+  TextColumn get sourceUrl => text()();
+  @override
+  Set<Column> get primaryKey => {streamId, type, accountId};
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {sourceKey, type, accountId},
+  ];
 }

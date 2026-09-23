@@ -55,7 +55,7 @@ final class TasteProfileRepositoryProvider
 }
 
 String _$tasteProfileRepositoryHash() =>
-    r'580fb699db4594f3785135416b14ec0c75f70347';
+    r'71e0041afd6a523550eb3e3342dfc23d263a0ddd';
 
 /// One-shot async profile. AI rail providers `ref.watch` this so
 /// the profile is computed once per dashboard mount instead of

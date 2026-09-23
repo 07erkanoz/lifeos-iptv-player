@@ -81,7 +81,10 @@ class _AccountEditScreenState extends ConsumerState<AccountEditScreen> with Sing
     );
     if (confirmed == true) {
       await ref.read(authRepositoryProvider).deleteAccount(widget.account.id);
+      if (!mounted) return;
       ref.invalidate(savedAccountsProvider);
+      ref.invalidate(currentAccountProvider);
+      ref.invalidate(initialSyncProvider);
       if (mounted) context.pop();
     }
   }

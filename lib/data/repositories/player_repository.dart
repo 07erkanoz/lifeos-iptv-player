@@ -100,7 +100,7 @@ class PlayerRepository {
     if (streamIds.isEmpty) return;
     final now = DateTime.now();
     final pid = _pid;
-    await _db.batch((batch) {
+    await _db.accountBatch((batch) {
       for (final id in streamIds) {
         batch.insert(
           _db.playbackProgress,
@@ -149,9 +149,9 @@ class PlayerRepository {
 
 @riverpod
 PlayerRepository playerRepository(Ref ref) {
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return PlayerRepository(
     ref.watch(appDatabaseProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }

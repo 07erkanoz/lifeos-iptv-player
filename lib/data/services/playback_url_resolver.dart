@@ -22,6 +22,9 @@ class PlaybackUrlResolver {
     StreamQuality quality = StreamQuality.auto,
     Map<String, dynamic>? vodInfo,
   }) async {
+    if (channel.accountId != 0 && channel.accountId != account.id) {
+      throw StateError('Content belongs to another account');
+    }
     final stored = channel.streamUrl;
     if (account.type == 'm3u') {
       if (stored == null || stored.trim().isEmpty) {

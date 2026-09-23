@@ -654,6 +654,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     context.push('/player', extra: {
       'url': url,
       'streamId': channel.streamId,
+        'accountId': channel.accountId,
       'title': channel.name,
       'type': VideoType.live,
       'logo': channel.streamIcon,

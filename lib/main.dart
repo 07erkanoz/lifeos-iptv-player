@@ -16,6 +16,8 @@ import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/core/system_ui.dart';
 import 'package:lifeostv/core/playback_signal.dart';
 import 'package:lifeostv/data/services/lan_sync_service.dart';
+import 'package:lifeostv/data/services/backup_service.dart';
+import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/catalog_enrichment_runner.dart';
 import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
@@ -110,9 +112,38 @@ void main() async {
     }
   }
 
+  await _startWithRecoveredBackup(AppDatabase(), prefs, isTV);
+}
+
+Future<void> _startWithRecoveredBackup(
+    AppDatabase db, SharedPreferences prefs, bool isTV) async {
+  try {
+    await BackupService(db, preferences: prefs).recoverPendingRestore();
+  } catch (_) {
+    // Keep all normal providers/background jobs stopped until recovery succeeds.
+    runApp(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return Scaffold(body: Center(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.backupFailed),
+            TextButton(
+              onPressed: () => _startWithRecoveredBackup(db, prefs, isTV),
+              child: Text(l10n.retry),
+            ),
+          ],
+        )));
+      }),
+    ));
+    return;
+  }
   runApp(
     ProviderScope(
       overrides: [
+        rootDatabaseProvider.overrideWithValue(db),
         sharedPreferencesProvider.overrideWithValue(prefs),
         isTvDeviceProvider.overrideWithValue(isTV),
       ],

@@ -55,4 +55,4 @@ final class AiRailCacheRepositoryProvider
 }
 
 String _$aiRailCacheRepositoryHash() =>
-    r'13e7cb489f1cf1a683aca750b0b32ef1ce757391';
+    r'30ec771bdde6e67b18705674371feb45ff4d3b3a';

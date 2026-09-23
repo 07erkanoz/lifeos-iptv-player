@@ -352,6 +352,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       context.push('/player', extra: {
         'url': url,
         'streamId': channel.streamId,
+        'accountId': channel.accountId,
         'title': channel.name,
         'type': VideoType.movie,
         'logo': channel.streamIcon,

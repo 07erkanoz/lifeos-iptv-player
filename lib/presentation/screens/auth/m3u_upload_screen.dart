@@ -22,6 +22,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
   final _loadButtonFocusNode = FocusNode();
   bool _isLoading = false;
   bool _isSyncing = false;
+  int? _syncAccountId;
   String? _errorMessage;
   SyncProgress _syncProgress = const SyncProgress();
 
@@ -66,12 +67,6 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
         _isSyncing = true;
       });
 
-      // Clear old account data (cache, favorites, history)
-      final authRepo = ref.read(authRepositoryProvider);
-      if (authRepo is AuthRepositoryImpl) {
-        await authRepo.clearUserDataForNewAccount();
-      }
-
       // Get the newly created account
       final account = await ref.read(authRepositoryProvider).getCurrentAccount();
       if (account == null) {
@@ -85,6 +80,7 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
       }
 
       // Sync data for both Xtream and M3U accounts
+      _syncAccountId = account.id;
       await ref.read(syncServiceProvider).syncAllWithProgress(account, (progress) {
         if (mounted) {
           setState(() => _syncProgress = progress);
@@ -131,6 +127,13 @@ class _M3UUploadScreenState extends ConsumerState<M3UUploadScreen> {
                   ),
                   const SizedBox(height: 24),
                   _buildSyncStats(l10n),
+                  TextButton(
+                    onPressed: () {
+                      final id = _syncAccountId;
+                      if (id != null) ref.read(syncServiceProvider).cancelSync(id);
+                    },
+                    child: Text(l10n.cancel),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     l10n.pleaseWaitDoNotClose,

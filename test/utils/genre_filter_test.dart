@@ -4,7 +4,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/utils/genre_filter.dart';
 
 Channel _ch({required int id, required String name, String? genre}) {
-  return Channel(
+  return Channel(accountId: 0,
     streamId: id,
     name: name,
     type: 'movie',

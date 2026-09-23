@@ -49,7 +49,7 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
     String? resumeTitle;
     try {
       final recentRow = await (db.select(db.channels).join([
-        innerJoin(
+        db.accountInnerJoin(
           db.playbackProgress,
           db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
               db.playbackProgress.type.equalsExp(db.channels.type),
@@ -73,7 +73,7 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
     final recentTitles = <String>[];
     try {
       final rows = await (db.select(db.channels).join([
-        innerJoin(
+        db.accountInnerJoin(
           db.playbackProgress,
           db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
               db.playbackProgress.type.equalsExp(db.channels.type),

@@ -49,7 +49,7 @@ class IntroMarkerRepository {
   }) async {
     await _db.into(_db.introMarkers).insert(
           IntroMarkersCompanion.insert(
-            seriesId: Value(seriesId),
+            seriesId: seriesId,
             introStartMs: introStartMs,
             introEndMs: introEndMs,
             updatedAt: Value(DateTime.now()),

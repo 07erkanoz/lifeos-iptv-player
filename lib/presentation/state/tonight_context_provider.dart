@@ -58,7 +58,7 @@ final tonightContextProvider = FutureProvider<TonightContext>((ref) async {
   // stream-based `watchContinueWatching` because we want a single
   // synchronous snapshot, not a subscription.
   final recentRows = await (db.select(db.channels).join([
-    innerJoin(
+    db.accountInnerJoin(
       db.playbackProgress,
       db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
           db.playbackProgress.type.equalsExp(db.channels.type),
@@ -77,7 +77,7 @@ final tonightContextProvider = FutureProvider<TonightContext>((ref) async {
 
   // Favourites — same shape, joined against the favorites table.
   final favRows = await (db.select(db.channels).join([
-    innerJoin(
+    db.accountInnerJoin(
       db.favorites,
       db.favorites.streamId.equalsExp(db.channels.streamId) &
           db.favorites.streamType.equalsExp(db.channels.type),

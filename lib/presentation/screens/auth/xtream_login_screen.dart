@@ -27,6 +27,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
   final _loginButtonFocusNode = FocusNode();
   bool _isLoading = false;
   bool _isSyncing = false;
+  int? _syncAccountId;
   bool _obscurePassword = true;
   String? _errorMessage;
   SyncProgress _syncProgress = const SyncProgress();
@@ -78,12 +79,6 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
         _isSyncing = true;
       });
 
-      // Clear old account data (cache, favorites, history)
-      final authRepo = ref.read(authRepositoryProvider);
-      if (authRepo is AuthRepositoryImpl) {
-        await authRepo.clearUserDataForNewAccount();
-      }
-
       // Get the newly created account
       final account = await ref.read(authRepositoryProvider).getCurrentAccount();
       if (account == null) {
@@ -95,6 +90,7 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
       }
 
       // Sync with progress
+      _syncAccountId = account.id;
       await ref.read(syncServiceProvider).syncAllWithProgress(account, (progress) {
         if (mounted) {
           setState(() => _syncProgress = progress);
@@ -142,6 +138,13 @@ class _XtreamLoginScreenState extends ConsumerState<XtreamLoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   _buildSyncStats(l10n),
+                  TextButton(
+                    onPressed: () {
+                      final id = _syncAccountId;
+                      if (id != null) ref.read(syncServiceProvider).cancelSync(id);
+                    },
+                    child: Text(l10n.cancel),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     l10n.pleaseWaitDoNotClose,

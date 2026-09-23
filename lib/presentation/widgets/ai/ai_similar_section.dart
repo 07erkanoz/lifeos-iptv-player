@@ -257,7 +257,7 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       // join, single query, runs in parallel with the sample fetch
       // semantically.
       final favRows = await (db.select(db.channels).join([
-        innerJoin(
+        db.accountInnerJoin(
           db.favorites,
           db.favorites.streamId.equalsExp(db.channels.streamId) &
               db.favorites.streamType.equalsExp(db.channels.type),

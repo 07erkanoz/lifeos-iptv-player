@@ -1,3 +1,6 @@
+import 'sync_budget.dart';
+import 'm3u_identity.dart';
+import 'sync_coordinator.dart';
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -13,11 +16,11 @@ part 'sync_service.g.dart';
 
 /// Progress data for sync operations
 class SyncProgress {
-  final String step;      // Current step description
-  final int liveCount;    // Number of live channels synced
-  final int movieCount;   // Number of movies synced
-  final int seriesCount;  // Number of series synced
-  final int categoryCount;// Number of categories synced
+  final String step; // Current step description
+  final int liveCount; // Number of live channels synced
+  final int movieCount; // Number of movies synced
+  final int seriesCount; // Number of series synced
+  final int categoryCount; // Number of categories synced
   final bool isDone;
 
   const SyncProgress({
@@ -33,35 +36,112 @@ class SyncProgress {
 class SyncService {
   final AppDatabase _db;
   final XtreamApiService _api;
+  final Future<M3URawResult> Function(String) _loadM3u;
 
-  SyncService(this._db, this._api);
+  static final _coordinators = Expando<SyncCoordinator<SyncProgress>>();
+  final SyncCoordinator<SyncProgress>? _providedCoordinator;
+  SyncService(
+    this._db,
+    this._api, {
+    SyncCoordinator<SyncProgress>? coordinator,
+    Future<M3URawResult> Function(String)? loadM3u,
+  }) : _providedCoordinator = coordinator,
+       _loadM3u = loadM3u ?? parseM3UFromUrlRaw;
+  SyncCoordinator<SyncProgress> get _coordinator =>
+      _providedCoordinator ??
+      (_coordinators[_db.root] ??= SyncCoordinator<SyncProgress>());
+  SyncService _bound(int id) => SyncService(
+    _db.forAccount(id),
+    _api,
+    coordinator: _coordinator,
+    loadM3u: _loadM3u,
+  );
+  void cancelSync(int accountId) => _coordinator.cancel(accountId);
 
-  Future<void> syncAll(Account account) async {
-    if (account.type == 'm3u') {
-      await _syncM3U(account);
-      return;
+  Future<void> _run(
+    Account account,
+    SyncKind kind,
+    Future<void> Function(void Function(SyncProgress)) action, {
+    void Function(SyncProgress)? onProgress,
+  }) async {
+    try {
+      await _coordinator.run(
+        accountId: account.id,
+        scope: _db,
+        kind: kind,
+        onProgress: onProgress,
+        action: (report) async {
+          _db.checkAccountWrite();
+          var latest = const SyncProgress();
+          await action((progress) {
+            latest = progress;
+            if (!progress.isDone) report(progress);
+          });
+          _db.checkAccountWrite();
+          report(
+            SyncProgress(
+              step: 'Done',
+              isDone: true,
+              liveCount: latest.liveCount,
+              movieCount: latest.movieCount,
+              seriesCount: latest.seriesCount,
+              categoryCount: latest.categoryCount,
+            ),
+          );
+        },
+      );
+    } on SyncFailure {
+      rethrow;
+    } catch (_) {
+      throw const SyncFailure(
+        'Senkronizasyon tamamlanamadı. Bağlantıyı kontrol edip yeniden deneyin.',
+      );
     }
-    if (account.type != 'xtream') return;
+  }
 
-    final url = account.url.replaceAll(RegExp(r'/+$'), '');
-    final username = account.username!;
-    final password = account.password!;
+  Future<void> syncAll(Account account) => syncAllWithProgress(account, (_) {});
 
-    await syncCategories(account);
-    await _syncStreams(url, username, password, 'get_live_streams', 'live');
-    await _syncStreams(url, username, password, 'get_vod_streams', 'movie');
-    await _syncStreams(url, username, password, 'get_series', 'series');
+  Future<void> syncAllWithProgress(
+    Account account,
+    void Function(SyncProgress) onProgress,
+  ) {
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).syncAllWithProgress(account, onProgress);
+    }
+    return _run(account, SyncKind.full, (report) async {
+      if (account.type == 'xtream' && account.username != null) {
+        ApiCache.instance.invalidateForAccount(
+          '${account.username}@${account.url.replaceAll(RegExp(r'/+$'), '')}',
+        );
+      }
+      await _syncAllWithProgress(account, report);
+      final meta = SyncMetadata(
+        await SharedPreferences.getInstance(),
+        accountId: account.id,
+      );
+      _db.checkAccountWrite();
+      await meta.markTierSynced(3);
+      if (account.type == 'xtream') {
+        _db.checkAccountWrite();
+        await meta.markTierSynced(1);
+        _db.checkAccountWrite();
+        await meta.markTierSynced(2);
+        await meta.incrementApiCalls(6);
+      }
+    }, onProgress: onProgress);
   }
 
   /// Sync all data with progress callback
-  Future<void> syncAllWithProgress(Account account, void Function(SyncProgress) onProgress) async {
+  Future<void> _syncAllWithProgress(
+    Account account,
+    void Function(SyncProgress) onProgress,
+  ) async {
     if (account.type == 'm3u') {
       await _syncM3UWithProgress(account, onProgress);
       return;
     }
     if (account.type != 'xtream') {
-      onProgress(const SyncProgress(step: 'Done', isDone: true));
-      return;
+      throw const SyncFailure('Desteklenmeyen hesap türü.');
     }
 
     final url = account.url.replaceAll(RegExp(r'/+$'), '');
@@ -76,255 +156,357 @@ class SyncService {
     // Step 1: Categories
     onProgress(SyncProgress(step: 'Loading categories...'));
     catCount = await _syncCategoriesCount(url, username, password);
-    onProgress(SyncProgress(step: 'Categories loaded', categoryCount: catCount));
+    onProgress(
+      SyncProgress(step: 'Categories loaded', categoryCount: catCount),
+    );
 
     // Step 2: Live channels
-    onProgress(SyncProgress(step: 'Loading live channels...', categoryCount: catCount));
-    liveCount = await _syncStreamsCount(url, username, password, 'get_live_streams', 'live');
-    onProgress(SyncProgress(step: 'Live channels loaded', categoryCount: catCount, liveCount: liveCount));
+    onProgress(
+      SyncProgress(step: 'Loading live channels...', categoryCount: catCount),
+    );
+    liveCount = await _syncStreamsCount(
+      url,
+      username,
+      password,
+      'get_live_streams',
+      'live',
+    );
+    onProgress(
+      SyncProgress(
+        step: 'Live channels loaded',
+        categoryCount: catCount,
+        liveCount: liveCount,
+      ),
+    );
 
     // Step 3: Movies
-    onProgress(SyncProgress(step: 'Loading movies...', categoryCount: catCount, liveCount: liveCount));
-    movieCount = await _syncStreamsCount(url, username, password, 'get_vod_streams', 'movie');
-    onProgress(SyncProgress(step: 'Movies loaded', categoryCount: catCount, liveCount: liveCount, movieCount: movieCount));
+    onProgress(
+      SyncProgress(
+        step: 'Loading movies...',
+        categoryCount: catCount,
+        liveCount: liveCount,
+      ),
+    );
+    movieCount = await _syncStreamsCount(
+      url,
+      username,
+      password,
+      'get_vod_streams',
+      'movie',
+    );
+    onProgress(
+      SyncProgress(
+        step: 'Movies loaded',
+        categoryCount: catCount,
+        liveCount: liveCount,
+        movieCount: movieCount,
+      ),
+    );
 
     // Step 4: Series
-    onProgress(SyncProgress(step: 'Loading series...', categoryCount: catCount, liveCount: liveCount, movieCount: movieCount));
-    seriesCount = await _syncStreamsCount(url, username, password, 'get_series', 'series');
-    onProgress(SyncProgress(
-      step: 'Done',
-      categoryCount: catCount,
-      liveCount: liveCount,
-      movieCount: movieCount,
-      seriesCount: seriesCount,
-      isDone: true,
-    ));
+    onProgress(
+      SyncProgress(
+        step: 'Loading series...',
+        categoryCount: catCount,
+        liveCount: liveCount,
+        movieCount: movieCount,
+      ),
+    );
+    seriesCount = await _syncStreamsCount(
+      url,
+      username,
+      password,
+      'get_series',
+      'series',
+    );
+    onProgress(
+      SyncProgress(
+        step: 'Done',
+        categoryCount: catCount,
+        liveCount: liveCount,
+        movieCount: movieCount,
+        seriesCount: seriesCount,
+        isDone: true,
+      ),
+    );
   }
 
   /// Sync categories and return count
-  Future<int> _syncCategoriesCount(String url, String username, String password) async {
+  Future<int> _syncCategoriesCount(
+    String url,
+    String username,
+    String password,
+  ) async {
     int total = 0;
-    try {
-      final liveCats = await _api.getCategories(url, username, password, 'get_live_categories');
-      await _saveCategories(liveCats, 'live');
-      total += liveCats.length;
+    final liveCats = await _api.getCategories(
+      url,
+      username,
+      password,
+      'get_live_categories',
+    );
+    await _saveCategories(liveCats, 'live');
+    total += liveCats.length;
 
-      final vodCats = await _api.getCategories(url, username, password, 'get_vod_categories');
-      await _saveCategories(vodCats, 'movie');
-      total += vodCats.length;
+    final vodCats = await _api.getCategories(
+      url,
+      username,
+      password,
+      'get_vod_categories',
+    );
+    await _saveCategories(vodCats, 'movie');
+    total += vodCats.length;
 
-      final seriesCats = await _api.getCategories(url, username, password, 'get_series_categories');
-      await _saveCategories(seriesCats, 'series');
-      total += seriesCats.length;
-    } catch (_) {}
+    final seriesCats = await _api.getCategories(
+      url,
+      username,
+      password,
+      'get_series_categories',
+    );
+    await _saveCategories(seriesCats, 'series');
+    total += seriesCats.length;
     return total;
   }
 
-  /// Sync streams and return count
-  Future<int> _syncStreamsCount(String url, String username, String password, String action, String type) async {
-    try {
-      final streams = await _api.getStreams(url, username, password, action);
-      if (streams.isEmpty) return 0;
-
-      // Track which stream ids we actually upserted so we can purge
-      // anything in the local table under this type that the server
-      // no longer ships. Without this the local DB grew monotonically
-      // — channels the provider removed remained visible forever.
-      final keepIds = <int>{};
-
-      for (var i = 0; i < streams.length; i += 500) {
-        final chunk = streams.skip(i).take(500).toList();
-        await _db.batch((batch) {
-          for (final item in chunk) {
-            final streamId = item['stream_id'] ?? item['series_id'];
-            if (streamId == null) continue;
-            final sid = int.tryParse(streamId.toString()) ?? 0;
-            if (sid == 0) continue;
-            keepIds.add(sid);
-
-            batch.insert(
-              _db.channels,
-              ChannelsCompanion.insert(
-                streamId: sid,
-                name: item['name']?.toString() ?? 'Unknown',
-                type: type,
-                categoryId: item['category_id']?.toString() ?? '0',
-                streamIcon: Value(item['stream_icon']?.toString() ?? item['cover']?.toString()),
-                rating: Value(double.tryParse(item['rating']?.toString() ?? '')),
-                year: Value(item['year']?.toString()),
-                added: Value(item['added']?.toString()),
-                epgChannelId: Value(item['epg_channel_id']?.toString()),
-                streamUrl: Value(type == 'movie' ? item['direct_source']?.toString() : null),
-                containerExtension: Value(item['container_extension']?.toString()),
-              ),
-              mode: InsertMode.insertOrReplace,
-            );
+  /// Validate before touching a type, then atomically upsert and prune it.
+  Future<int> _syncStreamsCount(
+    String url,
+    String username,
+    String password,
+    String action,
+    String type, {
+    bool deltaOnly = false,
+  }) async {
+    final streams = await _api.getStreams(url, username, password, action);
+    _db.checkAccountWrite();
+    // A valid empty list is distinct from malformed/failed HTTP. Preserve the
+    // old catalogue on empty responses, as some panels temporarily return [].
+    if (streams.isEmpty) {
+      final previous =
+          await (_db.select(_db.channels)
+                ..where((t) => t.type.equals(type))
+                ..limit(1))
+              .getSingleOrNull();
+      if (previous != null) {
+        throw const SyncFailure(
+          'Sunucu boş katalog döndürdü. Önceki kayıtlar korundu.',
+        );
+      }
+      return 0;
+    }
+    final keepIds = <int>{};
+    final rows = <ChannelsCompanion>[];
+    for (final item in streams) {
+      if (item is! Map) throw const FormatException('Invalid catalogue row');
+      final sid = int.tryParse('${item['stream_id'] ?? item['series_id']}');
+      if (sid == null || sid <= 0) {
+        throw const FormatException('Invalid stream ID');
+      }
+      keepIds.add(sid);
+      rows.add(
+        ChannelsCompanion.insert(
+          streamId: sid,
+          name: item['name']?.toString() ?? 'Unknown',
+          type: type,
+          categoryId: item['category_id']?.toString() ?? '0',
+          streamIcon: Value.absentIfNull(
+            item['stream_icon']?.toString() ?? item['cover']?.toString(),
+          ),
+          rating: Value.absentIfNull(
+            double.tryParse(item['rating']?.toString() ?? ''),
+          ),
+          year: Value.absentIfNull(item['year']?.toString()),
+          added: Value.absentIfNull(item['added']?.toString()),
+          epgChannelId: Value.absentIfNull(item['epg_channel_id']?.toString()),
+          streamUrl: Value.absentIfNull(
+            type == 'movie' ? item['direct_source']?.toString() : null,
+          ),
+          containerExtension: Value.absentIfNull(
+            item['container_extension']?.toString(),
+          ),
+        ),
+      );
+    }
+    await _db.transaction(() async {
+      final existing = deltaOnly
+          ? (await (_db.select(
+                  _db.channels,
+                )..where((t) => t.type.equals(type))).get())
+                .map((c) => c.streamId)
+                .toSet()
+          : <int>{};
+      for (var i = 0; i < rows.length; i += 500) {
+        await _db.accountBatch((batch) {
+          for (final row in rows.skip(i).take(500)) {
+            if (existing.contains(row.streamId.value)) continue;
+            batch.insert(_db.channels, row, onConflict: DoUpdate((_) => row));
           }
         });
       }
-
       await _pruneRemovedChannels(type, keepIds);
-      return streams.length;
-    } catch (_) {}
-    return 0;
+      _db.checkAccountWrite();
+    });
+    return keepIds.length;
   }
 
-  /// Delete rows in `channels` of the given [type] whose `streamId`
-  /// isn't in [keepIds]. Called from each sync path after a *successful*
-  /// upsert pass — never on an empty/errored API response (so a
-  /// transient server outage can't wipe the local cache).
+  // Never bind the entire catalogue into one NOT IN query (SQLite variable
+  // limits differ across platforms). Read IDs, then delete only stale chunks.
   Future<void> _pruneRemovedChannels(String type, Set<int> keepIds) async {
-    if (keepIds.isEmpty) return;
-    await (_db.delete(_db.channels)
-          ..where((tbl) => tbl.type.equals(type) & tbl.streamId.isNotIn(keepIds)))
-        .go();
-  }
-
-  /// Delete rows in `categories` of the given [type] whose `id` isn't
-  /// in [keepIds]. Same guarantees as [_pruneRemovedChannels].
-  Future<void> _pruneRemovedCategories(String type, Set<String> keepIds) async {
-    if (keepIds.isEmpty) return;
-    await (_db.delete(_db.categories)
-          ..where((tbl) => tbl.type.equals(type) & tbl.id.isNotIn(keepIds)))
-        .go();
-  }
-
-  Future<void> syncCategories(Account account) async {
-    if (account.type != 'xtream') return;
-
-    final url = account.url.replaceAll(RegExp(r'/+$'), '');
-    final username = account.username!;
-    final password = account.password!;
-
-    final liveCats = await _api.getCategories(url, username, password, 'get_live_categories');
-    await _saveCategories(liveCats, 'live');
-
-    final vodCats = await _api.getCategories(url, username, password, 'get_vod_categories');
-    await _saveCategories(vodCats, 'movie');
-
-    final seriesCats = await _api.getCategories(url, username, password, 'get_series_categories');
-    await _saveCategories(seriesCats, 'series');
-  }
-
-  /// Sync the full stream list for [type].
-  ///
-  /// The Xtream API always returns the WHOLE catalogue (no "since"
-  /// param), so the download + parse is unavoidable. But re-writing
-  /// every row (insertOrReplace) is what fires the `channels` watch
-  /// streams over and over and makes the UI thrash during a sync.
-  ///
-  /// [deltaOnly] = true (the frequent path): only INSERT stream ids we
-  /// don't already have, skip the rest → on a routine sync with no new
-  /// titles this writes ZERO rows, so grids/dashboard aren't disturbed.
-  /// [deltaOnly] = false (rare full refresh): insertOrReplace all, to
-  /// pick up in-place edits (renames, recategorisation, new metadata).
-  /// Both paths still prune removed ids.
-  Future<void> _syncStreams(String url, String username, String password, String action, String type,
-      {bool deltaOnly = false}) async {
-    try {
-      final streams = await _api.getStreams(url, username, password, action);
-      if (streams.isEmpty) return;
-
-      final keepIds = <int>{};
-
-      // Delta path: which ids already exist (skip re-writing them).
-      Set<int> existing = const {};
-      if (deltaOnly) {
-        final rows = await (_db.selectOnly(_db.channels)
+    final rows =
+        await (_db.selectOnly(_db.channels)
               ..addColumns([_db.channels.streamId])
               ..where(_db.channels.type.equals(type)))
             .get();
-        existing = {for (final r in rows) r.read(_db.channels.streamId)!};
-      }
+    final stale = rows
+        .map((r) => r.read(_db.channels.streamId)!)
+        .where((id) => !keepIds.contains(id))
+        .toList();
+    for (var i = 0; i < stale.length; i += 500) {
+      final chunk = stale.skip(i).take(500);
+      await (_db.delete(
+        _db.channels,
+      )..where((t) => t.type.equals(type) & t.streamId.isIn(chunk))).go();
+    }
+  }
 
-      for (var i = 0; i < streams.length; i += 500) {
-        final chunk = streams.skip(i).take(500).toList();
-        await _db.batch((batch) {
-          for (final item in chunk) {
-            final streamId = item['stream_id'] ?? item['series_id'];
-            if (streamId == null) continue;
-            final sid = int.tryParse(streamId.toString()) ?? 0;
-            if (sid == 0) continue;
-            keepIds.add(sid);
-            // Delta: already have it → don't rewrite (no watch churn).
-            if (deltaOnly && existing.contains(sid)) continue;
+  Future<void> _pruneRemovedCategories(String type, Set<String> keepIds) async {
+    final rows =
+        await (_db.selectOnly(_db.categories)
+              ..addColumns([_db.categories.id])
+              ..where(_db.categories.type.equals(type)))
+            .get();
+    final stale = rows
+        .map((r) => r.read(_db.categories.id)!)
+        .where((id) => !keepIds.contains(id))
+        .toList();
+    for (var i = 0; i < stale.length; i += 500) {
+      final chunk = stale.skip(i).take(500);
+      await (_db.delete(
+        _db.categories,
+      )..where((t) => t.type.equals(type) & t.id.isIn(chunk))).go();
+    }
+  }
 
-            batch.insert(
-              _db.channels,
-              ChannelsCompanion.insert(
-                streamId: sid,
-                name: item['name']?.toString() ?? 'Unknown',
-                type: type,
-                categoryId: item['category_id']?.toString() ?? '0',
-                streamIcon: Value(item['stream_icon']?.toString() ?? item['cover']?.toString()),
-                rating: Value(double.tryParse(item['rating']?.toString() ?? '')),
-                year: Value(item['year']?.toString()),
-                added: Value(item['added']?.toString()),
-                epgChannelId: Value(item['epg_channel_id']?.toString()),
-                streamUrl: Value(type == 'movie' ? item['direct_source']?.toString() : null),
-                containerExtension: Value(item['container_extension']?.toString()),
-              ),
-              mode: InsertMode.insertOrReplace,
-            );
-          }
-        });
-      }
+  Future<void> syncCategories(Account account) {
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).syncCategories(account);
+    }
+    return _run(account, SyncKind.categories, (_) async {
+      if (account.type != 'xtream') return;
+      await _syncCategoriesCount(
+        account.url.replaceAll(RegExp(r'/+$'), ''),
+        account.username!,
+        account.password!,
+      );
+    });
+  }
 
-      await _pruneRemovedChannels(type, keepIds);
-    } catch (_) {}
+  Future<void> _syncStreams(
+    String url,
+    String username,
+    String password,
+    String action,
+    String type, {
+    bool deltaOnly = false,
+  }) async {
+    await _syncStreamsCount(
+      url,
+      username,
+      password,
+      action,
+      type,
+      deltaOnly: deltaOnly,
+    );
   }
 
   Future<void> _saveCategories(List<dynamic> data, String type) async {
-    if (data.isEmpty) return; // don't wipe local cache on an empty API response
-    final keepIds = <String>{};
-    await _db.batch((batch) {
-      for (final item in data) {
-        final id = item['category_id']?.toString() ?? '';
-        if (id.isEmpty) continue;
-        keepIds.add(id);
-        batch.insert(
-          _db.categories,
-          CategoriesCompanion.insert(
-            id: id,
-            name: item['category_name']?.toString() ?? 'Unknown',
-            type: type,
-          ),
-          mode: InsertMode.insertOrReplace,
+    _db.checkAccountWrite();
+    if (data.isEmpty) {
+      final previous =
+          await (_db.select(_db.categories)
+                ..where((t) => t.type.equals(type))
+                ..limit(1))
+              .getSingleOrNull();
+      if (previous != null) {
+        throw const SyncFailure(
+          'Sunucu boş kategori listesi döndürdü. Önceki kayıtlar korundu.',
         );
       }
+      return;
+    }
+    final rows = <CategoriesCompanion>[];
+    final keepIds = <String>{};
+    for (final item in data) {
+      if (item is! Map ||
+          item['category_id'] == null ||
+          '${item['category_id']}'.isEmpty) {
+        throw const FormatException('Invalid category row');
+      }
+      final id = '${item['category_id']}';
+      keepIds.add(id);
+      rows.add(
+        CategoriesCompanion.insert(
+          id: id,
+          name: item['category_name']?.toString() ?? 'Unknown',
+          type: type,
+        ),
+      );
+    }
+    await _db.transaction(() async {
+      await _db.accountBatch((batch) {
+        for (final row in rows) {
+          batch.insert(_db.categories, row, onConflict: DoUpdate((_) => row));
+        }
+      });
+      await _pruneRemovedCategories(type, keepIds);
+      _db.checkAccountWrite();
     });
-    await _pruneRemovedCategories(type, keepIds);
   }
 
   // ─── M3U Sync ───────────────────────────────────────────────────────────
 
   /// Sync M3U playlist with progress callback
-  Future<void> _syncM3UWithProgress(Account account, void Function(SyncProgress) onProgress) async {
+  Future<void> _syncM3UWithProgress(
+    Account account,
+    void Function(SyncProgress) onProgress,
+  ) async {
     onProgress(const SyncProgress(step: 'Downloading M3U playlist...'));
 
     M3URawResult rawResult;
     try {
-      rawResult = await parseM3UFromUrlRaw(account.url);
+      rawResult = await _loadM3u(account.url);
     } catch (e) {
       throw Exception('M3U indirilemedi: $e');
     }
 
+    _db.checkAccountWrite();
     final entries = rawResult.entries;
-
-    // Save EPG URL from M3U header if available
-    if (rawResult.epgUrl != null) {
-      _saveEpgUrl(account.id, rawResult.epgUrl!);
-    }
+    if (entries.isEmpty) throw const FormatException('Empty M3U playlist');
 
     onProgress(SyncProgress(step: 'Parsing channels (${entries.length})...'));
 
-    final result = buildParseResult(entries, epgUrl: rawResult.epgUrl);
+    final prepared = await prepareM3uAsync(
+      entries,
+      await _db.select(_db.m3uIdentities).get(),
+      await _db.select(_db.channels).get(),
+      legacyReferences: {
+        for (final row in await _db.select(_db.favorites).get())
+          (row.streamType, row.streamId),
+        for (final row in await _db.select(_db.playbackProgress).get())
+          (row.type, row.streamId),
+        for (final row in await _db.select(_db.watchlist).get())
+          (row.streamType, row.streamId),
+      },
+    );
+    _db.checkAccountWrite();
+    final result = prepared.summary;
 
     // Save categories
-    onProgress(SyncProgress(
-      step: 'Saving categories...',
-      categoryCount: result.categories.length,
-    ));
+    onProgress(
+      SyncProgress(
+        step: 'Saving categories...',
+        categoryCount: result.categories.length,
+      ),
+    );
 
     // Track keepers per type so we can prune what disappeared from
     // the playlist. Without this, removing a channel from the source
@@ -332,173 +514,89 @@ class SyncService {
     final keepCatsByType = <String, Set<String>>{};
     final keepChannelsByType = <String, Set<int>>{};
 
-    await _db.batch((batch) {
-      for (final cat in result.categories) {
-        keepCatsByType.putIfAbsent(cat.type, () => <String>{}).add(cat.id);
-        batch.insert(
-          _db.categories,
-          CategoriesCompanion.insert(
+    await _db.transaction(() async {
+      await _db.accountBatch((batch) {
+        for (final cat in result.categories) {
+          keepCatsByType.putIfAbsent(cat.type, () => <String>{}).add(cat.id);
+          final row = CategoriesCompanion.insert(
             id: cat.id,
             name: cat.name,
             type: cat.type,
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-      }
-    });
-
-    // Save channels in 500-item batches
-    onProgress(SyncProgress(
-      step: 'Saving channels...',
-      categoryCount: result.categories.length,
-    ));
-
-    for (var i = 0; i < entries.length; i += 500) {
-      final chunk = entries.skip(i).take(500).toList();
-      await _db.batch((batch) {
-        for (var idx = 0; idx < chunk.length; idx++) {
-          final entry = chunk[idx];
-          final globalIdx = i + idx;
-          final streamType = classifyStreamType(
-            url: entry.url,
-            name: entry.name,
-            tvgType: entry.tvgType,
-            groupTitle: entry.groupTitle,
           );
-
-          // Channel name priority
-          var channelName = entry.name;
-          if (channelName.isEmpty) channelName = entry.tvgName ?? '';
-          if (channelName.isEmpty) {
-            try {
-              final urlPath = Uri.parse(entry.url).pathSegments.lastOrNull ?? '';
-              channelName = Uri.decodeComponent(urlPath)
-                  .replaceAll(RegExp(r'\.\w{2,4}$'), '')
-                  .replaceAll(RegExp(r'[_-]'), ' ')
-                  .trim();
-            } catch (_) {}
+          batch.insert(_db.categories, row, onConflict: DoUpdate((_) => row));
+        }
+      });
+      for (var i = 0; i < prepared.channels.length; i += 500) {
+        final chunk = prepared.channels.skip(i).take(500);
+        await _db.accountBatch((batch) {
+          for (final channel in chunk) {
+            final entry = channel.entry, identity = channel.identity;
+            final mapping = M3uIdentitiesCompanion.insert(
+              streamId: identity.streamId,
+              type: identity.type,
+              sourceKey: identity.sourceKey,
+              sourceUrl: identity.sourceUrl,
+            );
+            batch.insert(
+              _db.m3uIdentities,
+              mapping,
+              onConflict: DoUpdate((_) => mapping),
+            );
+            keepChannelsByType
+                .putIfAbsent(identity.type, () => <int>{})
+                .add(identity.streamId);
+            final row = ChannelsCompanion.insert(
+              streamId: identity.streamId,
+              name: channel.name,
+              type: identity.type,
+              categoryId: entry.groupTitle ?? 'Diğer',
+              streamIcon: Value(entry.tvgLogo),
+              streamUrl: Value(entry.url),
+              epgChannelId: Value(entry.tvgId),
+            );
+            batch.insert(_db.channels, row, onConflict: DoUpdate((_) => row));
           }
-          if (channelName.isEmpty) channelName = 'Kanal ${globalIdx + 1}';
-
-          // Deterministic id derived from url+name so re-syncing the playlist
-          // (or reordering entries) keeps history / favorites references valid.
-          final streamId = stableM3uChannelId(url: entry.url, name: channelName);
-          keepChannelsByType.putIfAbsent(streamType, () => <int>{}).add(streamId);
-
-          batch.insert(
-            _db.channels,
-            ChannelsCompanion.insert(
-              streamId: streamId,
-              name: channelName,
-              type: streamType,
-              categoryId: entry.groupTitle ?? 'Diğer',
-              streamIcon: Value(entry.tvgLogo),
-              streamUrl: Value(entry.url),
-              epgChannelId: Value(entry.tvgId),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-        }
-      });
-    }
-
-    // Prune rows the new playlist no longer contains. Only runs if
-    // the playlist actually shipped at least one entry of that type
-    // (the keep set is non-empty) — a transient empty parse can't
-    // wipe the local cache.
-    for (final e in keepChannelsByType.entries) {
-      await _pruneRemovedChannels(e.key, e.value);
-    }
-    for (final e in keepCatsByType.entries) {
-      await _pruneRemovedCategories(e.key, e.value);
-    }
-
-    onProgress(SyncProgress(
-      step: 'Done',
-      categoryCount: result.categories.length,
-      liveCount: result.liveCount,
-      movieCount: result.movieCount,
-      seriesCount: result.seriesCount,
-      isDone: true,
-    ));
-  }
-
-  /// Sync M3U account (no progress callback)
-  Future<void> _syncM3U(Account account) async {
-    final rawResult = await parseM3UFromUrlRaw(account.url);
-    final entries = rawResult.entries;
-    final result = buildParseResult(entries, epgUrl: rawResult.epgUrl);
-
-    // Save EPG URL from M3U header if available
-    if (rawResult.epgUrl != null) {
-      _saveEpgUrl(account.id, rawResult.epgUrl!);
-    }
-
-    // Mirror of _syncM3UWithProgress: track keepers so the prune at
-    // the end actually has something to compare against.
-    final keepCatsByType = <String, Set<String>>{};
-    final keepChannelsByType = <String, Set<int>>{};
-
-    await _db.batch((batch) {
-      for (final cat in result.categories) {
-        keepCatsByType.putIfAbsent(cat.type, () => <String>{}).add(cat.id);
-        batch.insert(
-          _db.categories,
-          CategoriesCompanion.insert(id: cat.id, name: cat.name, type: cat.type),
-          mode: InsertMode.insertOrReplace,
-        );
+        });
       }
+      // A verified nonempty whole playlist is authoritative for all media types.
+      for (final type in ['live', 'movie', 'series']) {
+        await _pruneRemovedChannels(type, keepChannelsByType[type] ?? {});
+        await _pruneRemovedCategories(type, keepCatsByType[type] ?? {});
+      }
+
+      _db.checkAccountWrite();
     });
-
-    for (var i = 0; i < entries.length; i += 500) {
-      final chunk = entries.skip(i).take(500).toList();
-      await _db.batch((batch) {
-        for (var idx = 0; idx < chunk.length; idx++) {
-          final entry = chunk[idx];
-          final globalIdx = i + idx;
-          final streamType = classifyStreamType(
-            url: entry.url, name: entry.name,
-            tvgType: entry.tvgType, groupTitle: entry.groupTitle,
-          );
-          var channelName = entry.name.isNotEmpty ? entry.name : (entry.tvgName ?? 'Kanal ${globalIdx + 1}');
-
-          // See stableM3uChannelId() — keeps history rows valid across re-syncs.
-          final streamId = stableM3uChannelId(url: entry.url, name: channelName);
-          keepChannelsByType.putIfAbsent(streamType, () => <int>{}).add(streamId);
-
-          batch.insert(
-            _db.channels,
-            ChannelsCompanion.insert(
-              streamId: streamId,
-              name: channelName,
-              type: streamType,
-              categoryId: entry.groupTitle ?? 'Diğer',
-              streamIcon: Value(entry.tvgLogo),
-              streamUrl: Value(entry.url),
-              epgChannelId: Value(entry.tvgId),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-        }
-      });
+    if (rawResult.epgUrl != null) {
+      _db.checkAccountWrite();
+      await _saveEpgUrl(account.id, rawResult.epgUrl!);
     }
 
-    for (final e in keepChannelsByType.entries) {
-      await _pruneRemovedChannels(e.key, e.value);
-    }
-    for (final e in keepCatsByType.entries) {
-      await _pruneRemovedCategories(e.key, e.value);
-    }
+    onProgress(
+      SyncProgress(
+        step: 'Done',
+        categoryCount: result.categories.length,
+        liveCount: result.liveCount,
+        movieCount: result.movieCount,
+        seriesCount: result.seriesCount,
+        isDone: true,
+      ),
+    );
   }
 
   // ─── EPG Sync ─────────────────────────────────────────────────────────────
 
   /// Sync EPG for a single channel (short EPG)
   Future<void> syncEpg(Account account, String streamId) async {
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).syncEpg(account, streamId);
+    }
     try {
       final url = account.url.replaceAll(RegExp(r'/+$'), '');
       final epgData = await _api.getEpg(
-        url, account.username!, account.password!, streamId,
+        url,
+        account.username!,
+        account.password!,
+        streamId,
         limit: 20,
       );
       final listings = epgData['epg_listings'] as List<dynamic>?;
@@ -506,38 +604,15 @@ class SyncService {
 
       final channelId = int.tryParse(streamId) ?? 0;
 
-      // Delete old programs for this channel first
-      await (_db.delete(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(channelId))
-      ).go();
-
-      await _db.batch((batch) {
-        for (final item in listings) {
-          final title = _decodeEpgString(item['title']?.toString());
-          final description = _decodeEpgString(item['description']?.toString());
-          final start = _parseEpgTimestamp(item);
-          final end = _parseEpgTimestampEnd(item);
-
-          if (start != null && end != null && title.isNotEmpty) {
-            batch.insert(
-              _db.programs,
-              ProgramsCompanion.insert(
-                channelId: channelId,
-                title: title,
-                description: Value(description.isNotEmpty ? description : null),
-                start: start,
-                stop: end,
-              ),
-              mode: InsertMode.insertOrReplace,
-            );
-          }
-        }
-      });
+      await _replaceEpg(channelId, _epgRows(channelId, listings));
     } catch (_) {}
   }
 
   /// Batch sync EPG for multiple channels at once
   Future<void> syncEpgBatch(Account account, List<int> streamIds) async {
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).syncEpgBatch(account, streamIds);
+    }
     if (account.type != 'xtream') return;
 
     final url = account.url.replaceAll(RegExp(r'/+$'), '');
@@ -574,6 +649,9 @@ class SyncService {
   /// For Xtream: uses API first, then XMLTV fallback for channels without EPG.
   /// For M3U: uses XMLTV directly (from url-tvg header).
   Future<void> syncAllLiveEpg(Account account) async {
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).syncAllLiveEpg(account);
+    }
     if (account.type == 'm3u') {
       // M3U accounts: use XMLTV directly
       await syncEpgFromXmltv(account.id);
@@ -583,9 +661,9 @@ class SyncService {
     if (account.type != 'xtream') return;
 
     // Get all live channel stream IDs from database
-    final liveChannels = await (_db.select(_db.channels)
-      ..where((tbl) => tbl.type.equals('live'))
-    ).get();
+    final liveChannels = await (_db.select(
+      _db.channels,
+    )..where((tbl) => tbl.type.equals('live'))).get();
 
     if (liveChannels.isEmpty) return;
 
@@ -598,13 +676,16 @@ class SyncService {
     // isolate right after sync, a major first-launch slowdown on TV.
     final now = DateTime.now();
     final withEpgExpr = _db.programs.channelId.count(distinct: true);
-    final withEpgRow = await (_db.selectOnly(_db.programs)
-          ..addColumns([withEpgExpr])
-          ..where(_db.programs.stop.isBiggerThanValue(now)))
-        .getSingle();
+    final withEpgRow =
+        await (_db.selectOnly(_db.programs)
+              ..addColumns([withEpgExpr])
+              ..where(_db.programs.stop.isBiggerThanValue(now)))
+            .getSingle();
     final channelsWithEpg = withEpgRow.read(withEpgExpr) ?? 0;
-    final channelsWithoutEpg =
-        (liveChannels.length - channelsWithEpg).clamp(0, liveChannels.length);
+    final channelsWithoutEpg = (liveChannels.length - channelsWithEpg).clamp(
+      0,
+      liveChannels.length,
+    );
 
     // If >50% channels lack EPG, try XMLTV fallback
     if (channelsWithoutEpg > liveChannels.length * 0.5) {
@@ -613,92 +694,91 @@ class SyncService {
   }
 
   Future<void> _syncSingleChannelEpg(
-    String url, String username, String password, int streamId,
+    String url,
+    String username,
+    String password,
+    int streamId,
   ) async {
     try {
       final epgData = await _api.getEpg(
-        url, username, password, streamId.toString(),
+        url,
+        username,
+        password,
+        streamId.toString(),
         limit: 20,
       );
       final listings = epgData['epg_listings'] as List<dynamic>?;
       if (listings == null || listings.isEmpty) return;
 
-      // Delete old programs for this channel
-      await (_db.delete(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(streamId))
-      ).go();
-
-      await _db.batch((batch) {
-        for (final item in listings) {
-          final title = _decodeEpgString(item['title']?.toString());
-          final description = _decodeEpgString(item['description']?.toString());
-          final start = _parseEpgTimestamp(item);
-          final end = _parseEpgTimestampEnd(item);
-
-          if (start != null && end != null && title.isNotEmpty) {
-            batch.insert(
-              _db.programs,
-              ProgramsCompanion.insert(
-                channelId: streamId,
-                title: title,
-                description: Value(description.isNotEmpty ? description : null),
-                start: start,
-                stop: end,
-              ),
-              mode: InsertMode.insertOrReplace,
-            );
-          }
-        }
-      });
+      await _replaceEpg(streamId, _epgRows(streamId, listings));
     } catch (_) {}
   }
 
-  Future<void> _saveBatchEpg(List<dynamic> listings, Set<int> targetStreamIds) async {
+  Future<void> _saveBatchEpg(
+    List<dynamic> listings,
+    Set<int> targetStreamIds,
+  ) async {
     // Group listings by channel_id
     final Map<int, List<dynamic>> grouped = {};
     for (final item in listings) {
+      if (item is! Map<String, dynamic>) continue;
       final channelId = int.tryParse(item['channel_id']?.toString() ?? '');
       if (channelId == null) continue;
       // Only process channels we care about
-      if (targetStreamIds.isNotEmpty && !targetStreamIds.contains(channelId)) continue;
+      if (targetStreamIds.isNotEmpty && !targetStreamIds.contains(channelId)) {
+        continue;
+      }
       grouped.putIfAbsent(channelId, () => []).add(item);
     }
 
-    // Delete old programs for these channels
-    for (final channelId in grouped.keys) {
-      await (_db.delete(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(channelId))
-      ).go();
-    }
-
-    // Insert new programs in batches
     for (final entry in grouped.entries) {
-      final channelId = entry.key;
-      final items = entry.value;
-
-      await _db.batch((batch) {
-        for (final item in items) {
-          final title = _decodeEpgString(item['title']?.toString());
-          final description = _decodeEpgString(item['description']?.toString());
-          final start = _parseEpgTimestamp(item);
-          final end = _parseEpgTimestampEnd(item);
-
-          if (start != null && end != null && title.isNotEmpty) {
-            batch.insert(
-              _db.programs,
-              ProgramsCompanion.insert(
-                channelId: channelId,
-                title: title,
-                description: Value(description.isNotEmpty ? description : null),
-                start: start,
-                stop: end,
-              ),
-              mode: InsertMode.insertOrReplace,
-            );
-          }
-        }
-      });
+      await _replaceEpg(entry.key, _epgRows(entry.key, entry.value));
     }
+  }
+
+  List<ProgramsCompanion> _epgRows(int channelId, List<dynamic> listings) {
+    final rows = <ProgramsCompanion>[];
+    for (final item in listings) {
+      if (item is! Map<String, dynamic>) continue;
+      final title = _decodeEpgString(item['title']?.toString());
+      final description = _decodeEpgString(item['description']?.toString());
+      final start = _parseEpgTimestamp(item), end = _parseEpgTimestampEnd(item);
+      if (start == null ||
+          end == null ||
+          !end.isAfter(start) ||
+          title.isEmpty) {
+        continue;
+      }
+      rows.add(
+        ProgramsCompanion.insert(
+          channelId: channelId,
+          title: title,
+          description: Value(description.isEmpty ? null : description),
+          start: start,
+          stop: end,
+        ),
+      );
+    }
+    return rows;
+  }
+
+  Future<void> _replaceEpg(int channelId, List<ProgramsCompanion> rows) async {
+    // An invalid/empty response must not erase an existing guide. SQL failures
+    // roll the delete and all insertion chunks back together.
+    if (rows.isEmpty) return;
+    await _db.transaction(() async {
+      await (_db.delete(
+        _db.programs,
+      )..where((t) => t.channelId.equals(channelId))).go();
+      for (var i = 0; i < rows.length; i += 500) {
+        await _db.accountBatch((batch) {
+          for (final row in rows.skip(i).take(500)) {
+            batch.insert(_db.programs, row);
+          }
+        });
+      }
+      _db.checkAccountWrite();
+    });
   }
 
   // ─── XMLTV Fallback EPG ──────────────────────────────────────────────────
@@ -706,6 +786,9 @@ class SyncService {
   /// Sync EPG from XMLTV source for all live channels of an account.
   /// Used as fallback when Xtream EPG returns empty, or for M3U accounts.
   Future<int> syncEpgFromXmltv(int accountId) async {
+    if (_db.accountScope != accountId) {
+      return _bound(accountId).syncEpgFromXmltv(accountId);
+    }
     // Get EPG URL for this account
     final epgUrl = await getEpgUrl(accountId);
     if (epgUrl == null || epgUrl.isEmpty) return 0;
@@ -715,9 +798,9 @@ class SyncService {
     if (xmltv == null || xmltv.programsByChannel.isEmpty) return 0;
 
     // Get all live channels with their epgChannelId
-    final liveChannels = await (_db.select(_db.channels)
-      ..where((tbl) => tbl.type.equals('live'))
-    ).get();
+    final liveChannels = await (_db.select(
+      _db.channels,
+    )..where((tbl) => tbl.type.equals('live'))).get();
 
     if (liveChannels.isEmpty) return 0;
 
@@ -743,33 +826,22 @@ class SyncService {
       if (programs == null || programs.isEmpty) continue;
 
       // Filter to relevant programs (not too old, not too far future)
-      final relevant = programs.where(
-        (p) => p.stop.isAfter(cutoffPast),
-      ).toList();
+      final relevant = programs
+          .where((p) => p.stop.isAfter(cutoffPast))
+          .toList();
 
       if (relevant.isEmpty) continue;
 
-      // Delete old programs for this channel
-      await (_db.delete(_db.programs)
-        ..where((tbl) => tbl.channelId.equals(channel.streamId))
-      ).go();
-
-      // Insert XMLTV programs
-      await _db.batch((batch) {
-        for (final program in relevant) {
-          batch.insert(
-            _db.programs,
-            ProgramsCompanion.insert(
-              channelId: channel.streamId,
-              title: program.title,
-              description: Value(program.description),
-              start: program.start,
-              stop: program.stop,
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-        }
-      });
+      await _replaceEpg(channel.streamId, [
+        for (final p in relevant)
+          ProgramsCompanion.insert(
+            channelId: channel.streamId,
+            title: p.title,
+            description: Value(p.description),
+            start: p.start,
+            stop: p.stop,
+          ),
+      ]);
 
       matchedCount++;
     }
@@ -779,15 +851,20 @@ class SyncService {
 
   /// Sync EPG for a single channel using XMLTV fallback
   Future<bool> syncChannelEpgFromXmltv(int accountId, int streamId) async {
+    if (_db.accountScope != accountId) {
+      return _bound(accountId).syncChannelEpgFromXmltv(accountId, streamId);
+    }
     final epgUrl = await getEpgUrl(accountId);
     if (epgUrl == null || epgUrl.isEmpty) return false;
 
     final xmltv = await XmltvService.fetchAndParse(epgUrl);
     if (xmltv == null) return false;
 
-    final channel = await (_db.select(_db.channels)
-      ..where((tbl) => tbl.streamId.equals(streamId) & tbl.type.equals('live'))
-    ).getSingleOrNull();
+    final channel =
+        await (_db.select(_db.channels)..where(
+              (tbl) => tbl.streamId.equals(streamId) & tbl.type.equals('live'),
+            ))
+            .getSingleOrNull();
     if (channel == null) return false;
 
     // Match channel to XMLTV
@@ -805,25 +882,16 @@ class SyncService {
     final relevant = programs.where((p) => p.stop.isAfter(cutoffPast)).toList();
     if (relevant.isEmpty) return false;
 
-    await (_db.delete(_db.programs)
-      ..where((tbl) => tbl.channelId.equals(streamId))
-    ).go();
-
-    await _db.batch((batch) {
-      for (final program in relevant) {
-        batch.insert(
-          _db.programs,
-          ProgramsCompanion.insert(
-            channelId: streamId,
-            title: program.title,
-            description: Value(program.description),
-            start: program.start,
-            stop: program.stop,
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-      }
-    });
+    await _replaceEpg(streamId, [
+      for (final p in relevant)
+        ProgramsCompanion.insert(
+          channelId: streamId,
+          title: p.title,
+          description: Value(p.description),
+          start: p.start,
+          stop: p.stop,
+        ),
+    ]);
 
     return true;
   }
@@ -834,6 +902,7 @@ class SyncService {
   Future<void> _saveEpgUrl(int accountId, String epgUrl) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      _db.checkAccountWrite();
       await prefs.setString('epg_url_$accountId', epgUrl);
     } catch (_) {}
   }
@@ -877,7 +946,10 @@ class SyncService {
     if (startTs != null) {
       final ts = int.tryParse(startTs.toString());
       if (ts != null && ts > 0) {
-        return DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true).toLocal();
+        return DateTime.fromMillisecondsSinceEpoch(
+          ts * 1000,
+          isUtc: true,
+        ).toLocal();
       }
     }
 
@@ -892,12 +964,17 @@ class SyncService {
     if (stopTs != null) {
       final ts = int.tryParse(stopTs.toString());
       if (ts != null && ts > 0) {
-        return DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true).toLocal();
+        return DateTime.fromMillisecondsSinceEpoch(
+          ts * 1000,
+          isUtc: true,
+        ).toLocal();
       }
     }
 
     // Fall back to 'end' or 'stop' string
-    return _parseEpgTimeString(item['end']?.toString() ?? item['stop']?.toString());
+    return _parseEpgTimeString(
+      item['end']?.toString() ?? item['stop']?.toString(),
+    );
   }
 
   /// Parse EPG time string in various formats
@@ -928,154 +1005,154 @@ class SyncService {
 
   // ─── Tiered Sync ─────────────────────────────────────────────────────────
 
-  /// Run tiered sync: checks each tier and syncs only what's due.
-  /// Tier 1 (30m): categories, Tier 2 (2h): channel count delta,
-  /// Tier 3 (6h): full refresh, Tier 4 (1h): watched series episodes
+  /// A full job already includes catalogue tiers 1–3, never episode tier 4.
   Future<void> runTieredSync(Account account, SyncMetadata meta) async {
-    if (!meta.tryAcquireMutex()) return; // Already syncing
-
-    try {
-      if (meta.isDailyLimitExceeded) return;
-
-      if (account.type == 'm3u') {
-        // M3U: only Tier 3 (full refresh)
-        if (meta.isTierDue(3)) {
-          await _syncM3U(account);
-          await meta.markTierSynced(3);
-        }
-        return;
+    if (_db.accountScope != account.id) {
+      return _bound(account.id).runTieredSync(account, meta);
+    }
+    meta = meta.forAccount(account.id);
+    if (meta.isDailyLimitExceeded) {
+      throw const SyncFailure('Günlük senkronizasyon istek sınırına ulaşıldı.');
+    }
+    if (meta.isTierDue(3)) return syncAll(account);
+    return _run(account, SyncKind.tiered, (_) async {
+      if (account.type == 'm3u') return;
+      if (account.type != 'xtream') {
+        throw const SyncFailure('Desteklenmeyen hesap türü.');
       }
-
-      if (account.type != 'xtream') return;
-
       final url = account.url.replaceAll(RegExp(r'/+$'), '');
       final username = account.username!;
       final password = account.password!;
-
-      // Tier 3 (6h) — Full content refresh (most expensive, check first)
-      if (meta.isTierDue(3)) {
-        // Clear account-specific cache
-        final accountId = '$username@$url';
-        ApiCache.instance.invalidateForAccount(accountId);
-
-        await syncCategories(account);
-        await _syncStreams(url, username, password, 'get_live_streams', 'live');
-        await _syncStreams(url, username, password, 'get_vod_streams', 'movie');
-        await _syncStreams(url, username, password, 'get_series', 'series');
-        await meta.markTierSynced(3);
-        // Tier 3 covers tiers 1 and 2 as well
-        await meta.markTierSynced(1);
-        await meta.markTierSynced(2);
-        await meta.incrementApiCalls(4); // 3 stream calls + 3 category calls ≈ 4 effective
-        return;
-      }
-
-      // Tier 1 (30m) — Lightweight category refresh
       if (meta.isTierDue(1)) {
-        await syncCategories(account);
+        await _syncCategoriesCount(url, username, password);
+        _db.checkAccountWrite();
         await meta.markTierSynced(1);
         await meta.incrementApiCalls(3);
       }
-
-      // Tier 2 (2h) — DELTA: fetch the full list (API limitation) but
-      // only write NEW stream ids; existing rows are left untouched so
-      // the grids/dashboard aren't thrashed. This is the "only pull
-      // what's new" path — cheap, runs often.
       if (meta.isTierDue(2)) {
-        await _syncStreams(url, username, password, 'get_live_streams', 'live', deltaOnly: true);
-        await _syncStreams(url, username, password, 'get_vod_streams', 'movie', deltaOnly: true);
-        await _syncStreams(url, username, password, 'get_series', 'series', deltaOnly: true);
+        await _syncStreams(
+          url,
+          username,
+          password,
+          'get_live_streams',
+          'live',
+          deltaOnly: true,
+        );
+        await _syncStreams(
+          url,
+          username,
+          password,
+          'get_vod_streams',
+          'movie',
+          deltaOnly: true,
+        );
+        await _syncStreams(
+          url,
+          username,
+          password,
+          'get_series',
+          'series',
+          deltaOnly: true,
+        );
+        _db.checkAccountWrite();
         await meta.markTierSynced(2);
         await meta.incrementApiCalls(3);
       }
-
-      // Tier 4 (1h) — Watched series episode check
       if (meta.isTierDue(4)) {
         await _syncWatchedSeriesEpisodes(url, username, password);
+        _db.checkAccountWrite();
         await meta.markTierSynced(4);
       }
-    } finally {
-      meta.releaseMutex();
-    }
+    });
   }
 
-  /// Check for new episodes in watched series and update tracking
+  /// A failed episode lookup must not advance tier 4. Keep each profile's
+  /// tracking independent even when both watched the same series.
   Future<void> _syncWatchedSeriesEpisodes(
-    String url, String username, String password,
+    String url,
+    String username,
+    String password,
   ) async {
-    try {
-      // Get series with playback progress (watched)
-      final watchedSeries = await (_db.select(_db.playbackProgress)
-        ..where((tbl) => tbl.type.equals('series'))
-        ..orderBy([(tbl) => OrderingTerm(expression: tbl.updatedAt, mode: OrderingMode.desc)])
-        ..limit(20)
-      ).get();
-
-      if (watchedSeries.isEmpty) return;
-
-      // Get unique series IDs
-      final seriesIds = watchedSeries.map((p) => p.streamId).toSet();
-
-      for (final seriesId in seriesIds) {
-        try {
-          final info = await _api.getSeriesInfo(url, username, password, seriesId);
-          if (info == null) continue;
-
-          // Count total episodes across all seasons
-          final episodes = info['episodes'];
-          int totalEpisodes = 0;
-          if (episodes is Map) {
-            for (final seasonEps in episodes.values) {
-              if (seasonEps is List) {
-                totalEpisodes += seasonEps.length;
-              }
-            }
-          }
-
-          if (totalEpisodes == 0) continue;
-
-          // Check against stored tracking data
-          final existing = await (_db.select(_db.seriesTracking)
-            ..where((tbl) => tbl.seriesId.equals(seriesId))
-          ).getSingleOrNull();
-
-          if (existing == null) {
-            // First time tracking — store current count, no "new" flag
-            await _db.into(_db.seriesTracking).insert(
-              SeriesTrackingCompanion.insert(
-                seriesId: seriesId,
-                knownEpisodeCount: totalEpisodes,
-                lastCheckedAt: Value(DateTime.now()),
-              ),
-            );
-          } else if (totalEpisodes > existing.knownEpisodeCount) {
-            // New episodes found!
-            final newCount = totalEpisodes - existing.knownEpisodeCount;
-            await (_db.update(_db.seriesTracking)
-              ..where((tbl) => tbl.seriesId.equals(seriesId))
-            ).write(SeriesTrackingCompanion(
-              knownEpisodeCount: Value(totalEpisodes),
-              newEpisodeCount: Value(newCount),
-              hasNewEpisodes: const Value(true),
-              lastCheckedAt: Value(DateTime.now()),
-            ));
-          } else {
-            // No change, just update timestamp
-            await (_db.update(_db.seriesTracking)
-              ..where((tbl) => tbl.seriesId.equals(seriesId))
-            ).write(SeriesTrackingCompanion(
-              lastCheckedAt: Value(DateTime.now()),
-            ));
-          }
-        } catch (_) {
-          // Skip failed fetches
+    final watched =
+        await (_db.select(_db.playbackProgress)
+              ..where((t) => t.type.equals('series'))
+              ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+              ..limit(20))
+            .get();
+    final counts = <int, int>{};
+    for (final progress in watched) {
+      final id = progress.streamId;
+      if (!counts.containsKey(id)) {
+        final info = await _api.getSeriesInfo(url, username, password, id);
+        final episodes = info?['episodes'];
+        if (episodes is! Map ||
+            episodes.values.any((value) => value is! List)) {
+          throw const FormatException('Invalid episode response');
+        }
+        counts[id] = episodes.values.fold<int>(
+          0,
+          (n, eps) => n + (eps as List).length,
+        );
+      }
+    }
+    await _db.transaction(() async {
+      for (final progress in watched) {
+        final id = progress.streamId;
+        final count = counts[id]!;
+        final existing =
+            await (_db.select(_db.seriesTracking)..where(
+                  (t) =>
+                      t.seriesId.equals(id) &
+                      t.profileId.equals(progress.profileId),
+                ))
+                .getSingleOrNull();
+        if (existing == null) {
+          await _db
+              .into(_db.seriesTracking)
+              .insert(
+                SeriesTrackingCompanion.insert(
+                  seriesId: id,
+                  profileId: Value(progress.profileId),
+                  knownEpisodeCount: count,
+                  lastCheckedAt: Value(DateTime.now()),
+                ),
+              );
+        } else {
+          final added = count > existing.knownEpisodeCount;
+          await (_db.update(_db.seriesTracking)..where(
+                (t) =>
+                    t.seriesId.equals(id) &
+                    t.profileId.equals(progress.profileId),
+              ))
+              .write(
+                SeriesTrackingCompanion(
+                  knownEpisodeCount: added
+                      ? Value(count)
+                      : const Value.absent(),
+                  newEpisodeCount: added
+                      ? Value(
+                          existing.newEpisodeCount +
+                              count -
+                              existing.knownEpisodeCount,
+                        )
+                      : const Value.absent(),
+                  hasNewEpisodes: added
+                      ? const Value(true)
+                      : const Value.absent(),
+                  lastCheckedAt: Value(DateTime.now()),
+                ),
+              );
         }
       }
-    } catch (_) {}
+      _db.checkAccountWrite();
+    });
   }
 }
 
 @riverpod
 SyncService syncService(Ref ref) {
-  return SyncService(ref.watch(appDatabaseProvider), ref.watch(xtreamApiServiceProvider));
+  return SyncService(
+    ref.watch(appDatabaseProvider),
+    ref.watch(xtreamApiServiceProvider),
+  );
 }

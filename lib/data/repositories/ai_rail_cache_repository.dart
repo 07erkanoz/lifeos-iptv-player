@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
 import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -21,7 +23,9 @@ part 'ai_rail_cache_repository.g.dart';
 class AiRailCacheRepository {
   final SharedPreferences _prefs;
 
-  AiRailCacheRepository(this._prefs);
+  final int accountId;
+  final int profileId;
+  AiRailCacheRepository(this._prefs, {this.accountId = 0, this.profileId = 1});
 
   static const _prefix = 'ai_rail_cache:';
 
@@ -40,7 +44,7 @@ class AiRailCacheRepository {
     required String sourceHash,
     required Duration ttl,
   }) {
-    final raw = _prefs.getString('$_prefix$cacheKey');
+    final raw = _prefs.getString('${_prefix}a${accountId}_p${profileId}_$cacheKey');
     if (raw == null) return null;
     Map<String, dynamic>? row;
     try {
@@ -70,13 +74,13 @@ class AiRailCacheRepository {
       'generatedAt': DateTime.now().millisecondsSinceEpoch,
       'payload': payload,
     });
-    await _prefs.setString('$_prefix$cacheKey', row);
+    await _prefs.setString('${_prefix}a${accountId}_p${profileId}_$cacheKey', row);
   }
 
   /// Drop the cache row for [cacheKey]. Used by per-rail refresh
   /// affordances.
   Future<void> clear(String cacheKey) async {
-    await _prefs.remove('$_prefix$cacheKey');
+    await _prefs.remove('${_prefix}a${accountId}_p${profileId}_$cacheKey');
   }
 
   /// FNV-1a 32-bit hash. Same algorithm the personalised-picks
@@ -93,5 +97,7 @@ class AiRailCacheRepository {
 
 @Riverpod(keepAlive: true)
 AiRailCacheRepository aiRailCacheRepository(Ref ref) {
-  return AiRailCacheRepository(ref.watch(sharedPreferencesProvider));
+  return AiRailCacheRepository(ref.watch(sharedPreferencesProvider),
+    accountId: ref.watch(appDatabaseProvider).accountScope ?? 0,
+    profileId: ref.watch(activeProfileIdProvider).value ?? 1);
 }

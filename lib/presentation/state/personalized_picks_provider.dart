@@ -8,6 +8,7 @@ import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
@@ -45,7 +46,8 @@ class _PersonalizedPicksRefreshSeed extends Notifier<int> {
 /// the rail in the first frame instead of flashing the shimmer
 /// for the duration of the async cache lookup + Channel resolve
 /// chain (~100-300 ms even on a warm Drift cache hit).
-const _personalizedSnapshotKey = 'personalized_picks_snapshot_v1';
+String _personalizedSnapshotKey(int accountId, int profileId) =>
+    'personalized_picks_snapshot_v2_${accountId}_$profileId';
 
 /// Synchronous fallback provider for the rail.
 ///
@@ -67,7 +69,10 @@ final personalizedPicksSnapshotProvider =
   final gemini = ref.watch(geminiServiceProvider);
   if (gemini == null) return null;
   final prefs = ref.watch(sharedPreferencesProvider);
-  final raw = prefs.getString(_personalizedSnapshotKey);
+  final raw = prefs.getString(_personalizedSnapshotKey(
+      ref.watch(appDatabaseProvider).accountScope ?? 0,
+      ref.watch(activeProfileIdProvider).value ??
+          ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ?? 1));
   if (raw == null) return null;
   try {
     final decoded = jsonDecode(raw);
@@ -83,7 +88,7 @@ final personalizedPicksSnapshotProvider =
       // tile and route the onTap callback. Other fields default to
       // null; downstream consumers (detail page) re-fetch the full
       // row by (streamId, type) from Drift.
-      final channel = Channel(
+      final channel = Channel(accountId: ref.read(appDatabaseProvider).accountScope ?? 0,
         streamId: streamId,
         name: name,
         type: type,
@@ -108,6 +113,7 @@ final personalizedPicksSnapshotProvider =
 Future<void> _savePersonalizedSnapshot(
   Ref ref,
   List<PersonalizedPickCard> cards,
+  int profileId,
 ) async {
   try {
     final prefs = ref.read(sharedPreferencesProvider);
@@ -121,7 +127,10 @@ Future<void> _savePersonalizedSnapshot(
           'reason': c.reason,
         },
     ]);
-    await prefs.setString(_personalizedSnapshotKey, json);
+    if (cards.isNotEmpty) {
+      await prefs.setString(_personalizedSnapshotKey(cards.first.channel.accountId,
+          profileId), json);
+    }
   } catch (_) {
     // Snapshot write is best-effort; failure just means the next
     // cold start falls back to the standard shimmer + async fetch.
@@ -166,6 +175,8 @@ final personalizedPicksProvider =
   final cacheRepo = ref.watch(personalizedPicksRepositoryProvider);
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ??
+      ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
   // Watch the dislike list — when the user disikes a title in any
   // surface, this stream fires and the provider re-runs so the
   // dismissed item disappears from the rail without a manual
@@ -233,7 +244,7 @@ final personalizedPicksProvider =
     );
     if (recent != null && recent.isNotEmpty) {
       debugPrint('[picks] cache hit (<24h), no AI call');
-      return _resolveAndSnapshot(recent, db, ref);
+      return _resolveAndSnapshot(recent, db, ref, profileId);
     }
 
     // ── Stale-while-revalidate (24h-7d window) ───────────────────
@@ -255,7 +266,7 @@ final personalizedPicksProvider =
             favSignals: favSignals,
             sourceHash: sourceHash,
           ));
-      return _resolveAndSnapshot(stale, db, ref);
+      return _resolveAndSnapshot(stale, db, ref, profileId);
     }
   }
 
@@ -352,7 +363,7 @@ final personalizedPicksProvider =
 
   if (picks != null && picks.isNotEmpty) {
     await cacheRepo.store(sourceHash: sourceHash, picks: picks);
-    return _resolveAndSnapshot(picks, db, ref);
+    return _resolveAndSnapshot(picks, db, ref, profileId);
   }
 
   // AI returned null (failure) or empty (no good matches). Try
@@ -360,7 +371,7 @@ final personalizedPicksProvider =
   // out-of-date rail beats an empty one.
   final fallback = await cacheRepo.lookupLatest();
   if (fallback != null && fallback.isNotEmpty) {
-    return _resolveAndSnapshot(fallback, db, ref);
+    return _resolveAndSnapshot(fallback, db, ref, profileId);
   }
 
   // Last resort: synthesise a rail from the top-rated sample we
@@ -396,7 +407,7 @@ final personalizedPicksProvider =
         .map((c) => (streamId: c.channel.streamId, reason: c.reason))
         .toList(),
   );
-  unawaited(_savePersonalizedSnapshot(ref, lastResort));
+  unawaited(_savePersonalizedSnapshot(ref, lastResort, profileId));
   debugPrint('[picks] AI unavailable, seeded ${lastResort.length} '
       'top-rated fallback cards into cache + snapshot');
   return lastResort;
@@ -533,6 +544,7 @@ Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
   List<PersonalizedPick> picks,
   AppDatabase db,
   Ref ref,
+  int profileId,
 ) async {
   // Strip disliked stream IDs BEFORE resolving — user said "don't
   // show this", so it never makes the card list, even if the AI
@@ -553,7 +565,7 @@ Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
     // Block on the snapshot write — it's a single tiny prefs.setString
     // (~5 ms), and we'd rather guarantee the next cold start sees the
     // snapshot than save the round-trip here.
-    await _savePersonalizedSnapshot(ref, resolved);
+    await _savePersonalizedSnapshot(ref, resolved, profileId);
     debugPrint('[picks] snapshot written, ${resolved.length} cards');
   }
   return resolved;

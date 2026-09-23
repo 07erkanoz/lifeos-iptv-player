@@ -2,6 +2,12 @@
 
 Bu belge [ilk incelemenin](PROJE_INCELEME_RAPORU_2026-09-23.md) güncel takip listesidir. İlk rapor tarihsel bulguları korur; bütün maddelerin hâlâ açık olduğu anlamına gelmez. GitHub’dan gelen [arayüz ve performans raporu](../duzeltme.md) da aşağıdaki sıraya dahil edilmiştir.
 
+Güncelleme: [1. paket](VERI_BUTUNLUGU_1_2026-09-23.md) aktif hesap otoritesi ve güvenli geri yüklemeyi; [2. paket](VERI_BUTUNLUGU_2_2026-09-23.md) hesap kapsamlı şema 26, veri koruyan hesap geçişi, yedek v3 ve eski arka plan yazıcılarının engellenmesini uyguladı. 325 Flutter testi, Linux release derlemesi ve yalıtılmış release açılış kontrolü geçti. B03’ün kod/otomatik test kısmı tamamlandı; gerçek hesaplarla platform kabul denemeleri açık.
+
+Son ek: [Senkron dayanıklılığı](SENKRON_DAYANIKLILIK_2026-09-23.md) paketiyle sınırlı HTTP tekrarları, 5 dakikalık katalog iş bütçesi, ortak hesap koordinatörü, iptal ve gerçek hata bildirimi uygulandı. **353 Flutter testi, Linux release derlemesi ve ayrı veri dizininde açılış kontrolü geçti.**
+
+Yeni ek: [M3U/XMLTV dayanıklılığı](M3U_XMLTV_DAYANIKLILIK_2026-09-23.md): kalıcı M3U kimlikleri, şema 27/yedek v4, ayrıştırma işçileri, 100 bin kayıt temizliği, atomik EPG değişimi ve XMLTV bellek TTL düzeltmesi. **373 Flutter testi geçti.**
+
 ## Tamamlanan ve doğrulanan bölüm
 
 - Player oturumunda açma/kapatma/yeniden deneme işlemlerinin sıralanması; geciken sonuçların kapanmış player’a uygulanmasının engellenmesi.
@@ -17,20 +23,22 @@ Son doğrulamalar: 279 Flutter testi, 60 Android yerel testi, Linux release ve A
 
 ### 1. Hesap, profil ve veri bütünlüğü
 
-- Hesap değişiminde diğer profillerin favori/geçmiş kayıtlarının silinmesini engelle (B03).
-- Yeni hesap ile varsayılan hesap seçimini tutarlı yap (B04).
-- Yedek geri yüklemede hesap/profil kimliklerini eşle; eksik tabloları ve güvenli geri dönüşü ele al (B05).
-- M3U kimlik çakışmalarını ve dizi/bölüm geçmişi kimlik kapsamını düzelt (B06, B07’nin kalan kısmı).
+- B03 uygulandı: hesap değişiminde katalog, favori ve geçmiş korunur; aynı sağlayıcı ID’leri hesap/profil anahtarıyla ayrılır. Gerçek hesaplarla kabul denemesi açık.
+- Yeni hesap ile varsayılan hesap seçiminde DB otoritesi sağlandı (B04); katalog ve kullanıcı verisinin hesap izolasyonu 2. pakette uygulandı.
+- Yedek v3, profil/hesap kimlikleri, kullanıcı tabloları, ön doğrulama ve kurtarma günlüğü tamamlandı (B05). Restore eski yazıcıları geçersiz kılar; tüm senkron yollarının ortak koordinasyonu B22 ve gerçek cihaz testleri açık.
+- B06 uygulandı: tam kaynak anahtarını doğrulayan kalıcı eşleme, çakışma çözümü ve eski katalog kimliğini koruma. Dizi/bölüm geçmişi kapsamı ve M3U sezon/bölüm modeli açık (B07–08).
 - AI üzerinden oynatmada profil PIN ve görünürlük kurallarını uygula (B20).
 
 Kabul: iki hesap/iki profil arasında geçiş ve yedek geri yükleme veri kaybettirmemeli; 100 bin M3U kaydında kimlik çakışması satır silmemeli; kilitli içerik AI yoluyla açılamamalı.
 
 ### 2. Senkronizasyon doğruluğu ve süresi
 
-- Timeout tekrarlarını toplam deneme/süre bütçesiyle sınırla; başarısız senkronu tamamlandı olarak işaretleme (B01, B02).
-- Manuel/otomatik/ilk giriş senkronunu hesap bazlı ortak koordinatörde birleştir (B22).
-- Tam yenilemede mevcut detay metadatasını koru (B21).
-- Büyük M3U/XMLTV ayrıştırmasını ana isolate dışına taşı; bellek, EPG temizleme ve cache ömrünü sınırla (B23–B25).
+- B01/B02 katalog akışında uygulandı: sınırlı GET tekrarı, toplam iş süresi, iptal, bozuk yanıt reddi ve hata sonrası güncellik koruması. EPG/XMLTV hata/iptal politikası açık.
+- B22 katalog giriş yollarında uygulandı: ilk giriş, manuel ve kademeli yenileme hesap bazlı tek işi paylaşır. EPG/LAN işleri ayrı kapsamda.
+- B21 Xtream liste yenilemesinde uygulandı: eksik detay alanları ve kategori gizliliği korunur. M3U metadata ve kategori gizliliği de yeni pakette korunuyor.
+- B23 kısmen uygulandı: M3U parse/sınıflandırma/kimlik ve XMLTV parse işçide, indirme başına 64 MiB sınır, EPG zaman penceresi. XMLTV streaming parser, gerçek cihaz frame/tepe bellek ölçümü ve çalışan işçiyi iptal etme açık.
+- B24 uygulandı: 500 ID’lik silme grupları, geçerli M3U’da tamamen kaybolan türün temizlenmesi, kanal bazında atomik EPG değişimi.
+- B25 uygulandı: RAM’de altı saat TTL, tam URL eşlemesi, ortak bekleyen istek ve eski isteğin cache’i yeniden doldurmasının önlenmesi. Force API var; EPG manuel yenileme UI bağlantısı açık.
 
 Kabul: ağ kesintisi ve hesap değişiminde eski sonuçlar yeni hesaba yazılmamalı; eşzamanlı çağrılar tek senkron çalıştırmalı. Büyük kataloglarda süre, bellek ve arayüz kare süreleri önce/sonra ölçülmeli.
 
@@ -47,7 +55,7 @@ Kabul: codec/cihaz matrisi ve ölçülen açılış süresi, düşen kare, A/V f
 ### 4. M3U/Xtream sağlayıcı uyumluluğu
 
 - M3U dizi → sezon → bölüm akışını tamamla (B08).
-- M3U etiket/virgül/format varyasyonlarında veri kaybını düzelt (B26).
+- B26 parser kısmı uygulandı: tırnaklı virgül/apostrof, büyük harfli/tırnaksız alan, BOM, URL’siz EXTINF sonrası toparlanma, bağıl URL ve token’lı VOD sınıflandırması. EXTVLCOPT/KODIPROP başlıklarını player’a taşıma açık.
 - Xtream alt dizinli panel adreslerini ve M3U URL’sinin yanlış Xtream hesabına dönüştürülmesini ele al (B10’un kalan kısmı). Oynatma yolundaki özel karakter kodlaması tamamlandı.
 
 ### 5. Mobil ve dar pencere arayüzü
@@ -71,7 +79,7 @@ Kabul: Türkçe sorgu veri setinde tam başlık, yazım hatası, oyuncu/tür ve 
 
 ### 7. LAN eşleme, aktarım ve hatırlatıcılar
 
-- LAN senkronunda hesap/profil sınırlarını ve kimlik eşlemesini koru (B34).
+- LAN senkronunda hesap kimliği doğrulaması uygulandı; profil/cihazlar arası içerik kimliği eşlemesinin kalan kısmını tamamla (B34).
 - Kriptografik rastgele eşleme anahtarı, süre/deneme sınırı ve doğrulanmış şifreli aktarım ekle; sır paylaşımını açık seçime bağla (B35).
 - Hatırlatıcı kaydetme ile gerçek işletim sistemi bildirimi arasındaki eksik akışı tamamla (B37).
 
@@ -82,4 +90,4 @@ Kabul: Türkçe sorgu veri setinde tam başlık, yazım hatası, oyuncu/tür ve 
 - Apple CI ve Android release imzalama yolunu düzelt; kritik akışların platform testlerini genişlet (B40, B41).
 - `ONEMLI.md` içindeki eski/yarım şema geçişleri, şema doğrulaması ve geçiş öncesi yedek teknik borcunu tamamla.
 
-İlk başlanacak paket: veri kaybını engelleyen 1. başlık ve ardından senkronizasyon. Player için gerçek cihaz/uzun oynatma testleri cihaz erişimi oldukça aynı takvimde yürütülebilir.
+Sıradaki paket: M3U dizi/sezon/bölüm oynatma ve geçmiş kimliği (B07–08), sağlayıcı oynatma başlıkları (B26’nın kalanı). Sonrasında AI oynatmada PIN/görünürlük (B20) ve arama doğruluğu (B27–31). Player için gerçek cihaz/uzun oynatma testleri cihaz erişimi oldukça aynı takvimde yürütülebilir.

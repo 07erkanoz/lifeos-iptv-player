@@ -106,12 +106,12 @@ class TasteProfileRepository {
     // code path stays identical regardless of mode.
     final pids = profileIds;
     final favRows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.favorites,
         _db.favorites.streamId.equalsExp(_db.channels.streamId) &
             _db.favorites.streamType.equalsExp(_db.channels.type),
       ),
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -129,12 +129,12 @@ class TasteProfileRepository {
 
     // ── Watch history with completion stats ───────────────────────
     final histRows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.playbackProgress,
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
             _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -179,7 +179,7 @@ class TasteProfileRepository {
     final moreLikeIds = await _feedbackRepo.getMoreLikeStreamIds();
     if (dislikedIds.isNotEmpty) {
       final dislikedRows = await (_db.select(_db.channels).join([
-        leftOuterJoin(
+        _db.accountLeftJoin(
           _db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type),
@@ -194,7 +194,7 @@ class TasteProfileRepository {
     }
     if (moreLikeIds.isNotEmpty) {
       final moreLikeRows = await (_db.select(_db.channels).join([
-        leftOuterJoin(
+        _db.accountLeftJoin(
           _db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type),
@@ -225,11 +225,11 @@ TasteProfileRepository tasteProfileRepository(Ref ref) {
   // Bump on profile switch so dependents re-fetch against the new
   // id. ai_feedback_repository internally watches the same provider
   // and returns disliked/moreLike sets scoped to the active profile.
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return TasteProfileRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(aiFeedbackRepositoryProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }
 

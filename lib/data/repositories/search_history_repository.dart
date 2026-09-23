@@ -144,11 +144,11 @@ class SearchHistoryRepository {
     // instead of the whole household sharing one — otherwise a
     // search-heavy profile starves the others.
     final pid = _pid;
-    final count = await _db.customSelect(
-      'SELECT COUNT(*) AS c FROM search_history WHERE profile_id = ?',
-      variables: [Variable.withInt(pid)],
-    ).getSingle();
-    final total = count.data['c'] as int? ?? 0;
+    final countColumn = _db.searchHistory.query.count();
+    final count = await (_db.selectOnly(_db.searchHistory)
+      ..addColumns([countColumn])
+      ..where(_db.searchHistory.profileId.equals(pid))).getSingle();
+    final total = count.read(countColumn) ?? 0;
     if (total <= _maxRows) return;
     // Delete the oldest (total - _maxRows) rows within this profile.
     final overflow = total - _maxRows;
@@ -171,10 +171,10 @@ class SearchHistoryRepository {
 
 @riverpod
 SearchHistoryRepository searchHistoryRepository(Ref ref) {
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return SearchHistoryRepository(
     ref.watch(appDatabaseProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }
 

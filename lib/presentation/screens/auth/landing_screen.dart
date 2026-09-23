@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/services/backup_service.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart' as profiles;
+import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -41,6 +43,9 @@ class LandingScreen extends ConsumerWidget {
       ref.invalidate(savedAccountsProvider);
       ref.invalidate(currentAccountProvider);
       ref.invalidate(settingsProvider);
+      ref.invalidate(profiles.activeProfileIdProvider);
+      ref.invalidate(profiles.activeProfileProvider);
+      ref.invalidate(initialSyncProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.backupRestored)),
@@ -99,10 +104,12 @@ class LandingScreen extends ConsumerWidget {
                       child: _AuthOptionCard(
                         title: account.name,
                         icon: Icons.person_pin,
-                        onTap: () {
-                          // Persist as the default and let dependent providers
-                          // (currentAccountProvider) refresh before navigating.
+                        onTap: () async {
+                          await ref.read(authRepositoryProvider).setActiveAccount(account.id);
+                          if (!context.mounted) return;
                           ref.read(settingsProvider.notifier).setDefaultAccount(account.id);
+                          ref.invalidate(savedAccountsProvider);
+                          ref.invalidate(initialSyncProvider);
                           ref.invalidate(currentAccountProvider);
                           context.go('/dashboard');
                         },

@@ -1,4 +1,5 @@
 import 'dart:isolate';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:drift/drift.dart';
 // `show debugPrint` only, because `package:flutter/foundation.dart`
@@ -25,7 +26,7 @@ class ContentRepository {
 
   /// Minimum interval between full EPG syncs (server-friendly)
   static const _epgSyncInterval = Duration(hours: 2);
-  static const _epgSyncKey = 'last_epg_sync_timestamp';
+  String get _epgSyncKey => 'last_epg_sync_timestamp_${_db.accountScope ?? 0}';
 
   /// Upper bound on rows materialised + filtered on the main isolate per
   /// type during search. Caps the per-keystroke CPU cost so a huge live
@@ -38,6 +39,11 @@ class ContentRepository {
     this._getActiveProfileId, {
     bool Function()? autoHideAdult,
   }) : _autoHideAdult = (autoHideAdult ?? (() => false));
+
+  ContentRepository forAccount(int accountId) => ContentRepository(
+    _db.forAccount(accountId), _syncService, _getActiveProfileId,
+    autoHideAdult: _autoHideAdult,
+  );
 
   int get _pid => _getActiveProfileId();
 
@@ -100,7 +106,7 @@ class ContentRepository {
   Future<void> reapplyCategoryPrefs() async {
     final prefs = await _db.select(_db.categoryPrefs).get();
     if (prefs.isEmpty) return;
-    await _db.batch((batch) {
+    await _db.accountBatch((batch) {
       for (final p in prefs) {
         batch.update(
           _db.categories,
@@ -139,7 +145,7 @@ class ContentRepository {
     // Enrichment overlay happens in SQL (LEFT JOIN) instead of loading
     // the whole content_enrichment table into Dart per emission.
     final query = _db.select(_db.channels).join([
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.contentEnrichment,
         _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
             _db.contentEnrichment.type.equalsExp(_db.channels.type),
@@ -170,10 +176,10 @@ class ContentRepository {
   /// Filters out channels from hidden categories.
   Stream<List<Channel>> watchAllChannelsByType(String type, {int? limit}) {
     final query = _db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.contentEnrichment,
         _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
             _db.contentEnrichment.type.equalsExp(_db.channels.type),
@@ -197,7 +203,7 @@ class ContentRepository {
   /// Recent channels filtered by hidden categories.
   Stream<List<Channel>> watchRecentChannels(String type, {int limit = 20}) {
     final query = _db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
@@ -225,7 +231,7 @@ class ContentRepository {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
     ])..where(_db.categories.isHidden.equals(false))..where(_notAdultCategory(_db.categories))).get();
@@ -279,12 +285,12 @@ class ContentRepository {
     int limit = 25,
   }) async {
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.playbackProgress,
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
             _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -328,12 +334,12 @@ class ContentRepository {
     int limit = 25,
   }) async {
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.favorites,
         _db.favorites.streamId.equalsExp(_db.channels.streamId) &
             _db.favorites.streamType.equalsExp(_db.channels.type),
       ),
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -478,7 +484,7 @@ class ContentRepository {
     // verbose and the bounded 5k-row scan is sub-50 ms on the
     // user's catalogue.
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -522,7 +528,7 @@ class ContentRepository {
   }) async {
     final countExpr = _db.channels.streamId.count();
     final rows = await (_db.select(_db.categories).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.channels,
         _db.channels.categoryId.equalsExp(_db.categories.id) &
             _db.channels.type.equalsExp(_db.categories.type),
@@ -572,7 +578,7 @@ class ContentRepository {
     // Wrap with %…% for substring matching.
     final pattern = '%${trimmed.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type)),
     ])
@@ -607,7 +613,7 @@ class ContentRepository {
     // normalised column natively and returns only the matched slice, so a
     // huge catalogue no longer freezes the UI isolate on every keystroke.
     final fastQ = _db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type)),
     ])
@@ -646,7 +652,7 @@ class ContentRepository {
   Future<List<Channel>> _legacySearchScan(
       List<String> tokens, String type, int limit) async {
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type)),
     ])
@@ -691,7 +697,7 @@ class ContentRepository {
     var guard = 0;
     while (guard++ < 1000) {
       final rows = await (_db.select(_db.channels).join([
-        leftOuterJoin(
+        _db.accountLeftJoin(
             _db.categories,
             _db.categories.id.equalsExp(_db.channels.categoryId) &
                 _db.categories.type.equalsExp(_db.channels.type)),
@@ -734,7 +740,7 @@ class ContentRepository {
         return m;
       });
 
-      await _db.batch((b) {
+      await _db.accountBatch((b) {
         for (final r in input) {
           b.update(
             _db.channels,
@@ -849,7 +855,7 @@ class ContentRepository {
     int limit = 100,
   }) async {
     final query = _db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -954,9 +960,10 @@ class ContentRepository {
     final account = await (_db.select(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).getSingleOrNull();
     if (account != null) {
       await _syncService.syncAll(account);
-      // syncAll insertOrReplaces categories (resetting isHidden to the
-      // default), so re-apply the user's saved visibility prefs.
-      await reapplyCategoryPrefs();
+      // Re-apply saved preferences to categories newly discovered by sync.
+      await forAccount(accountId).reapplyCategoryPrefs();
+    } else {
+      throw StateError('Account does not exist');
     }
   }
 
@@ -980,14 +987,14 @@ class ContentRepository {
     // slot that contains `now`. Limit channels.type to 'live' so we
     // never accidentally surface VOD rows here.
     final rows = await (_db.select(_db.programs).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.channels,
         _db.channels.streamId.equalsExp(_db.programs.channelId) &
             _db.channels.type.equals('live'),
       ),
       // Respect hidden categories — a hidden live category shouldn't
       // leak into the dashboard "on now" rail.
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -1023,7 +1030,7 @@ class ContentRepository {
     final tokens = SearchNormalizer.tokens(query);
     if (tokens.isEmpty) return const [];
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(_db.categories,
+      _db.accountInnerJoin(_db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
         _db.categories.type.equalsExp(_db.channels.type)),
     ])
@@ -1056,7 +1063,7 @@ class ContentRepository {
     final now = DateTime.now();
     final until = now.add(Duration(hours: withinHours));
     final rows = await (_db.select(_db.programs).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.channels,
         _db.channels.streamId.equalsExp(_db.programs.channelId) &
             _db.channels.type.equals('live'),
@@ -1243,7 +1250,7 @@ class ContentRepository {
   }) async {
     Future<List<Channel>> topByType(String type, int limit) async {
       final rows = await (_db.select(_db.channels).join([
-        innerJoin(
+        _db.accountInnerJoin(
           _db.categories,
           _db.categories.id.equalsExp(_db.channels.categoryId) &
               _db.categories.type.equalsExp(_db.channels.type),
@@ -1348,7 +1355,7 @@ class ContentRepository {
   /// approach the hero billboard uses.
   Future<List<Channel>> recentAdditionsForAi({int limit = 40}) async {
     final rows = await (_db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -1375,12 +1382,12 @@ class ContentRepository {
   Stream<List<Channel>> watchContinueWatching(String type) {
     final pid = _pid;
     final query = _db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.playbackProgress,
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
         _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -1404,12 +1411,12 @@ class ContentRepository {
   Stream<List<Channel>> watchAllContinueWatching() {
     final pid = _pid;
     final query = _db.select(_db.channels).join([
-      innerJoin(
+      _db.accountInnerJoin(
         _db.playbackProgress,
         _db.playbackProgress.streamId.equalsExp(_db.channels.streamId) &
         _db.playbackProgress.type.equalsExp(_db.channels.type),
       ),
-      innerJoin(
+      _db.accountInnerJoin(
         _db.categories,
         _db.categories.id.equalsExp(_db.channels.categoryId) &
             _db.categories.type.equalsExp(_db.channels.type),
@@ -1453,21 +1460,21 @@ class ContentRepository {
   /// Check if a series has new episodes
   Stream<SeriesTrackingData?> watchSeriesTracking(int seriesId) {
     return (_db.select(_db.seriesTracking)
-      ..where((tbl) => tbl.seriesId.equals(seriesId))
+      ..where((tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid))
     ).watchSingleOrNull();
   }
 
   /// Get all series with new episodes (for badges/notifications)
   Stream<List<SeriesTrackingData>> watchSeriesWithNewEpisodes() {
     return (_db.select(_db.seriesTracking)
-      ..where((tbl) => tbl.hasNewEpisodes.equals(true))
+      ..where((tbl) => tbl.hasNewEpisodes.equals(true) & tbl.profileId.equals(_pid))
     ).watch();
   }
 
   /// Mark new episodes as seen (user opened the series)
   Future<void> markNewEpisodesSeen(int seriesId) async {
     await (_db.update(_db.seriesTracking)
-      ..where((tbl) => tbl.seriesId.equals(seriesId))
+      ..where((tbl) => tbl.seriesId.equals(seriesId) & tbl.profileId.equals(_pid))
     ).write(const SeriesTrackingCompanion(
       hasNewEpisodes: Value(false),
       newEpisodeCount: Value(0),
@@ -1479,11 +1486,12 @@ class ContentRepository {
 ContentRepository contentRepository(Ref ref) {
   // Bump on profile switch so the cached repo gets rebuilt and
   // every per-profile query reflects the new id.
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
+  final autoHideAdult = ref.watch(settingsProvider.select((s) => s.autoHideAdult));
   return ContentRepository(
     ref.watch(appDatabaseProvider),
     ref.watch(syncServiceProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
-    autoHideAdult: () => ref.read(settingsProvider).autoHideAdult,
+    () => profileId,
+    autoHideAdult: () => autoHideAdult,
   );
 }

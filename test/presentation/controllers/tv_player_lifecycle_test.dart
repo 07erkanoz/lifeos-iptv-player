@@ -1,3 +1,7 @@
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
+import 'package:drift/native.dart';
+import 'package:lifeostv/data/datasources/local/database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,10 +81,16 @@ class _Video extends VideoPlayerPlatform {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late AppDatabase db;
+  late SharedPreferences prefs;
   late _Video native;
   late VideoPlayerPlatform original;
   late WakelockPlusPlatformInterface wakelock;
-  setUp(() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+    db = AppDatabase.forTesting(NativeDatabase.memory());
+    await db.customSelect('SELECT 1').get();
     original = VideoPlayerPlatform.instance;
     wakelock = WakelockPlusPlatformInterface.instance;
     native = _Video();
@@ -90,6 +100,7 @@ void main() {
         .setMockMethodCallHandler(TvPlaybackConfig.channel, (_) async => null);
   });
   tearDown(() async {
+    await db.close();
     VideoPlayerPlatform.instance = original;
     WakelockPlusPlatformInterface.instance = wakelock;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -101,7 +112,12 @@ void main() {
   Future<void> mount(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [settingsProvider.overrideWith(_Settings.new)],
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          settingsProvider.overrideWith(_Settings.new),
+          rootDatabaseProvider.overrideWithValue(db),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
         child: const MaterialApp(
           locale: Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,

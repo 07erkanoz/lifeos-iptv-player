@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
-import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/domain/models/account_info.dart';
 import 'package:lifeostv/domain/repositories/auth_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -173,7 +172,24 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> deleteAccount(int accountId) async {
-    await (_db.delete(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).go();
+    _db.blockAccount(accountId);
+    try {
+      await _db.transaction(() async {
+        for (final table in _db.allTables) {
+          final column = table.columnsByName['account_id'];
+          if (column == null) continue;
+          await (_db.delete(table)..where((_) => (column as GeneratedColumn<int>).equals(accountId))).go();
+        }
+        await (_db.delete(_db.accounts)..where((tbl) => tbl.id.equals(accountId))).go();
+        if (await getCurrentAccount() == null) {
+          final next = await (_db.select(_db.accounts)..orderBy([(t) => OrderingTerm.desc(t.id)])..limit(1)).getSingleOrNull();
+          if (next != null) await setActiveAccount(next.id);
+        }
+      });
+    } catch (_) {
+      _db.unblockAccount(accountId);
+      rethrow;
+    }
     // Clean up account info
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -212,28 +228,13 @@ class AuthRepositoryImpl implements AuthRepository {
     // "two active" state. After this call the `isActive == true` rows
     // are exactly the one with id == accountId (assuming the row exists).
     await _db.transaction(() async {
+      final target = await (_db.select(_db.accounts)
+            ..where((row) => row.id.equals(accountId))).getSingleOrNull();
+      if (target == null) throw StateError('Account does not exist');
       await _deactivateAllAccounts();
       await (_db.update(_db.accounts)..where((tbl) => tbl.id.equals(accountId)))
           .write(const AccountsCompanion(isActive: Value(true)));
     });
-  }
-
-  /// Clear all user data when switching to a new account:
-  /// cache, favorites, watch history, series tracking, categories, channels, EPG
-  Future<void> clearUserDataForNewAccount() async {
-    // Clear API cache
-    ApiCache.instance.clear();
-
-    // Clear content tables (channels, categories, programs belong to previous account)
-    await _db.delete(_db.channels).go();
-    await _db.delete(_db.categories).go();
-    await _db.delete(_db.programs).go();
-
-    // Clear user data
-    await _db.delete(_db.favorites).go();
-    await _db.delete(_db.watchlist).go();
-    await _db.delete(_db.playbackProgress).go();
-    await _db.delete(_db.seriesTracking).go();
   }
 
   // ─── Account Info Persistence ───────────────────────────────────────────
@@ -271,7 +272,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
 @riverpod
 AuthRepository authRepository(Ref ref) {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(rootDatabaseProvider);
   final api = ref.watch(xtreamApiServiceProvider);
   return AuthRepositoryImpl(db, api);
 }

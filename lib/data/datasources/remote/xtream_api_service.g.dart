@@ -53,4 +53,4 @@ final class XtreamApiServiceProvider
   }
 }
 
-String _$xtreamApiServiceHash() => r'e6a9f431838efea75208f66b47430ae9eaaa5cf3';
+String _$xtreamApiServiceHash() => r'8afda26b21e7510ba9d5c8a4bb1f333dc5f9457c';

@@ -55,7 +55,7 @@ final class AiFeedbackRepositoryProvider
 }
 
 String _$aiFeedbackRepositoryHash() =>
-    r'e3a26cc045f93cf2c2ed9fd795b604d597ac68d9';
+    r'38e0ad20eebb6b410dcb81378e630aec429b17b6';
 
 /// Live-watched set of disliked stream IDs. AI rail providers
 /// `ref.watch` this to filter candidates without a per-call query.

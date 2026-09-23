@@ -10,7 +10,9 @@
 library;
 
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:dio/dio.dart';
+import 'bounded_get_client.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 //  Stable channel id (M3U entries → 32-bit positive int)
@@ -29,8 +31,8 @@ import 'package:dio/dio.dart';
 /// Output is masked to 31 bits so it fits any signed integer column on
 /// every backend (SQLite is 64-bit but some cursors clamp to int32).
 ///
-/// Collision math: ~2.1B distinct ids; for a 100k-channel playlist the
-/// birthday-paradox collision probability is ~0.001%. Acceptable.
+/// Legacy IDs only. At 100k entries collisions are likely; new sync uses the
+/// persistent full-key registry in m3u_identity.dart.
 int stableM3uChannelId({required String url, String? name}) {
   const int fnvOffset = 0x811c9dc5;
   const int fnvPrime = 0x01000193;
@@ -104,13 +106,20 @@ class M3UParseResult {
 // ═══════════════════════════════════════════════════════════════════
 
 const _validProtocols = [
-  'http://', 'https://', 'rtsp://', 'rtmp://', 'udp://', 'rtp://', 'mms://',
+  'http://',
+  'https://',
+  'rtsp://',
+  'rtmp://',
+  'udp://',
+  'rtp://',
+  'mms://',
 ];
 
 bool _isValidStreamUrl(String url) {
   if (url.isEmpty) return false;
   if (url.startsWith('/') && url.length > 1) return true;
-  return url.length > 8 && _validProtocols.any((p) => url.startsWith(p));
+  return url.length > 8 &&
+      _validProtocols.any((p) => url.toLowerCase().startsWith(p));
 }
 
 bool _isDummyUrl(String url) {
@@ -119,7 +128,9 @@ bool _isDummyUrl(String url) {
   if (lower == 'http://localhost' || lower == 'https://localhost') return true;
   if (lower == 'http://0.0.0.0' || lower == 'https://0.0.0.0') return true;
   if (url.length < 20) {
-    if (lower.endsWith('/blank') || lower.endsWith('/null') || lower.endsWith('/none')) {
+    if (lower.endsWith('/blank') ||
+        lower.endsWith('/null') ||
+        lower.endsWith('/none')) {
       return true;
     }
   }
@@ -136,7 +147,10 @@ bool _isSeparatorName(String name) {
 //  Stream Type Sınıflandırma (Score-based)
 // ═══════════════════════════════════════════════════════════════════
 
-final _seriesEpisodeRegex = RegExp(r'S\d{1,2}\s?E\d{1,2}', caseSensitive: false);
+final _seriesEpisodeRegex = RegExp(
+  r'S\d{1,2}\s?E\d{1,2}',
+  caseSensitive: false,
+);
 final _seriesAltRegex = RegExp(r'\d{1,2}x\d{1,2}', caseSensitive: false);
 
 String classifyStreamType({
@@ -161,7 +175,8 @@ String classifyStreamType({
     }
   }
 
-  final lowerUrl = url.toLowerCase();
+  final lowerUrl = (Uri.tryParse(url)?.path ?? url.split('?').first)
+      .toLowerCase();
 
   // 2) URL path — Xtream API pattern (+3)
   if (lowerUrl.contains('/live/')) liveScore += 3;
@@ -169,7 +184,9 @@ String classifyStreamType({
   if (lowerUrl.contains('/series/')) seriesScore += 3;
 
   // 3) Dosya uzantısı (+2)
-  if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mkv') || lowerUrl.endsWith('.avi')) {
+  if (lowerUrl.endsWith('.mp4') ||
+      lowerUrl.endsWith('.mkv') ||
+      lowerUrl.endsWith('.avi')) {
     movieScore += 2;
   } else if (lowerUrl.endsWith('.ts') || lowerUrl.endsWith('.m3u8')) {
     liveScore += 1;
@@ -185,7 +202,9 @@ String classifyStreamType({
   // 5) Group title keyword (+1)
   if (groupTitle != null && groupTitle.isNotEmpty) {
     final g = groupTitle.toLowerCase();
-    if (g.contains('vod') || g.contains('movie') || g.contains('film')) movieScore += 1;
+    if (g.contains('vod') || g.contains('movie') || g.contains('film')) {
+      movieScore += 1;
+    }
     if (g.contains('series') || g.contains('dizi')) seriesScore += 1;
   }
 
@@ -199,8 +218,24 @@ String classifyStreamType({
 // ═══════════════════════════════════════════════════════════════════
 
 final _durationRegex = RegExp(r'#EXTINF:(-?[\d.]+)');
-final _attrRegex = RegExp(r'([\w-]+)=["\x27]([^"\x27]*)["\x27]');
-final _nameRegex = RegExp(r',\s*(.+)$');
+final _attrRegex = RegExp(
+  r'''([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s,]+))''',
+);
+
+int _nameSeparator(String line) {
+  int? quote;
+  for (var i = 0; i < line.length; i++) {
+    final c = line.codeUnitAt(i);
+    if (quote != null) {
+      if (c == quote) quote = null;
+    } else if (c == 34 || c == 39) {
+      quote = c;
+    } else if (c == 44) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 ({
   String name,
@@ -211,21 +246,25 @@ final _nameRegex = RegExp(r',\s*(.+)$');
   String? tvgType,
   String? groupTitle,
   Map<String, String> extras,
-}) _parseExtInf(String line) {
+})
+_parseExtInf(String line) {
   final extras = <String, String>{};
 
   // Duration
   final durationMatch = _durationRegex.firstMatch(line);
-  final duration = durationMatch != null ? int.tryParse(durationMatch.group(1)!) ?? -1 : -1;
+  final duration = durationMatch != null
+      ? int.tryParse(durationMatch.group(1)!) ?? -1
+      : -1;
 
-  // Attributes
-  for (final match in _attrRegex.allMatches(line)) {
-    extras[match.group(1)!] = match.group(2)!;
+  final separator = _nameSeparator(line);
+  final attributes = separator < 0 ? line : line.substring(0, separator);
+  for (final match in _attrRegex.allMatches(attributes)) {
+    extras[match.group(1)!.toLowerCase()] =
+        match.group(2) ?? match.group(3) ?? match.group(4)!;
   }
 
   // Channel name
-  final nameMatch = _nameRegex.firstMatch(line);
-  var name = nameMatch?.group(1)?.trim() ?? '';
+  var name = separator < 0 ? '' : line.substring(separator + 1).trim();
 
   if (name.isEmpty) {
     name = extras['tvg-name'] ?? extras['tvg-Name'] ?? '';
@@ -262,14 +301,42 @@ class M3URawResult {
 
 /// Extract url-tvg from #EXTM3U header line
 String? _extractEpgUrl(String headerLine) {
-  // Match: url-tvg="..." or url-tvg='...'
-  final match = RegExp(r'url-tvg=["\x27]([^"\x27]+)["\x27]').firstMatch(headerLine);
-  return match?.group(1);
+  for (final m in _attrRegex.allMatches(headerLine)) {
+    if ({'url-tvg', 'x-tvg-url'}.contains(m.group(1)!.toLowerCase())) {
+      return m.group(2) ?? m.group(3) ?? m.group(4);
+    }
+  }
+  return null;
 }
 
-M3URawResult parseM3URaw(String content) {
-  final normalizedContent = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  final lines = normalizedContent.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+M3URawResult parseM3URaw(String content, {String? baseUrl}) {
+  String resolve(String value) {
+    // HTTP 200 error pages must never become relative playback URLs.
+    if (value.contains('<') || value.contains('>')) return '';
+    if (baseUrl == null) return value;
+    try {
+      return Uri.tryParse(baseUrl)?.resolve(value).toString() ?? value;
+    } on FormatException {
+      return '';
+    }
+  }
+
+  final prefix = content.replaceFirst('\ufeff', '').trimLeft();
+  if (prefix.startsWith('<') ||
+      prefix.startsWith('{') ||
+      prefix.startsWith('[')) {
+    throw const FormatException('M3U yerine geçersiz sunucu yanıtı alındı');
+  }
+
+  final normalizedContent = content
+      .replaceFirst('\ufeff', '')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
+  final lines = normalizedContent
+      .split('\n')
+      .map((l) => l.trim())
+      .where((l) => l.isNotEmpty)
+      .toList();
   final entries = <M3UEntry>[];
 
   if (lines.isEmpty) return M3URawResult(entries: entries);
@@ -312,7 +379,9 @@ M3URawResult parseM3URaw(String content) {
 
       // Ek # satırlarını tara
       i++;
-      while (i < lines.length && lines[i].startsWith('#')) {
+      while (i < lines.length &&
+          lines[i].startsWith('#') &&
+          !lines[i].startsWith('#EXTINF:')) {
         final extraLine = lines[i];
         if (extraLine.startsWith('#EXTGRP:')) {
           final grp = extraLine.substring(8).trim();
@@ -328,6 +397,8 @@ M3URawResult parseM3URaw(String content) {
         i++;
       }
 
+      if (i < lines.length && lines[i].startsWith('#EXTINF:')) continue;
+
       // Gruplama çözümleme (öncelik sırası)
       if (groupTitle != null && groupTitle.isNotEmpty) {
         lastGroupTitle = groupTitle;
@@ -340,42 +411,50 @@ M3URawResult parseM3URaw(String content) {
 
       // URL satırı
       if (i < lines.length && !lines[i].startsWith('#')) {
-        final url = lines[i].trim();
+        final url = resolve(lines[i].trim());
         if (_isValidStreamUrl(url) &&
             !_isDummyUrl(url) &&
             !(_isSeparatorName(info.name) && url.length < 25)) {
-          entries.add(M3UEntry(
-            name: info.name,
-            duration: info.duration,
-            tvgId: info.tvgId,
-            tvgName: info.tvgName,
-            tvgLogo: info.tvgLogo,
-            tvgType: info.tvgType,
-            groupTitle: groupTitle.isNotEmpty == true ? groupTitle : null,
-            url: url,
-            extras: info.extras,
-          ));
+          entries.add(
+            M3UEntry(
+              name: info.name,
+              duration: info.duration,
+              tvgId: info.tvgId,
+              tvgName: info.tvgName,
+              tvgLogo: info.tvgLogo,
+              tvgType: info.tvgType,
+              groupTitle: groupTitle.isNotEmpty == true ? groupTitle : null,
+              url: url,
+              extras: info.extras,
+            ),
+          );
         }
       }
     } else if (!line.startsWith('#')) {
       // Basit M3U formatı — EXTINF olmadan düz URL
-      final url = line.trim();
+      final url = resolve(line.trim());
       if (_isValidStreamUrl(url) && !_isDummyUrl(url)) {
-        final currentGroup = (groupsFromExtgrpDirective && extgrpDirective.isNotEmpty)
+        final currentGroup =
+            (groupsFromExtgrpDirective && extgrpDirective.isNotEmpty)
             ? extgrpDirective
             : lastGroupTitle;
-        entries.add(M3UEntry(
-          name: url,
-          duration: -1,
-          url: url,
-          groupTitle: currentGroup.isNotEmpty ? currentGroup : null,
-        ));
+        entries.add(
+          M3UEntry(
+            name: url,
+            duration: -1,
+            url: url,
+            groupTitle: currentGroup.isNotEmpty ? currentGroup : null,
+          ),
+        );
       }
     }
     i++;
   }
 
-  return M3URawResult(entries: entries, epgUrl: epgUrl);
+  return M3URawResult(
+    entries: entries,
+    epgUrl: epgUrl == null ? null : resolve(epgUrl),
+  );
 }
 
 /// Backward-compatible wrapper that returns just entries
@@ -389,43 +468,47 @@ List<M3UEntry> parseM3U(String content) {
 
 /// URL'den M3U dosyasını indir ve parse et (raw result with epgUrl)
 Future<M3URawResult> parseM3UFromUrlRaw(String url) async {
-  final dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 60),
-    headers: {'User-Agent': 'LifeOsTV/1.0'},
-    responseType: ResponseType.bytes,
-  ));
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: {'User-Agent': 'LifeOsTV/1.0'},
+      responseType: ResponseType.bytes,
+    ),
+  );
 
-  final response = await dio.get<List<int>>(url);
-
-  if (response.statusCode != 200) {
-    throw Exception('M3U dosyası indirilemedi (HTTP ${response.statusCode})');
-  }
-
-  final bytes = response.data;
-  if (bytes == null || bytes.isEmpty) {
-    throw Exception('M3U dosyası boş');
-  }
-
-  // Body encoding — try UTF-8 first, fallback to latin1
-  String body;
   try {
-    body = utf8.decode(bytes);
-  } catch (_) {
-    body = latin1.decode(bytes);
+    final response = await BoundedGetClient(
+      dio,
+      timeout: const Duration(seconds: 90),
+      maxBytes: 64 * 1024 * 1024,
+    ).get<List<int>>(url);
+    if (response.statusCode != 200 || response.data == null) {
+      throw const FormatException('M3U indirilemedi');
+    }
+    return await parseM3UBytesAsync(
+      response.data!,
+      baseUrl: response.realUri.toString(),
+    );
+  } finally {
+    dio.close();
   }
-
-  if (body.trim().isEmpty) {
-    throw Exception('M3U dosyası boş');
-  }
-
-  final result = parseM3URaw(body);
-  if (result.entries.isEmpty) {
-    throw Exception('M3U dosyasında kanal bulunamadı');
-  }
-
-  return result;
 }
+
+Future<M3URawResult> parseM3UBytesAsync(List<int> bytes, {String? baseUrl}) =>
+    Isolate.run(() {
+      String body;
+      try {
+        body = utf8.decode(bytes);
+      } on FormatException {
+        body = latin1.decode(bytes);
+      }
+      final result = parseM3URaw(body, baseUrl: baseUrl);
+      if (result.entries.isEmpty) {
+        throw const FormatException('M3U dosyasında kanal bulunamadı');
+      }
+      return result;
+    });
 
 /// URL'den M3U dosyasını indir ve parse et (backward-compatible)
 Future<List<M3UEntry>> parseM3UFromUrl(String url) async {
@@ -493,9 +576,12 @@ M3UParseResult buildParseResult(List<M3UEntry> entries, {String? epgUrl}) {
       groupTitle: entry.groupTitle,
     );
     switch (type) {
-      case 'live': liveCount++;
-      case 'movie': movieCount++;
-      case 'series': seriesCount++;
+      case 'live':
+        liveCount++;
+      case 'movie':
+        movieCount++;
+      case 'series':
+        seriesCount++;
     }
   }
 

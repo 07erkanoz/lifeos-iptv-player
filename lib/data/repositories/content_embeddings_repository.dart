@@ -61,7 +61,7 @@ class ContentEmbeddingsRepository {
 
   Future<void> storeBatch(List<ContentEmbeddingsCompanion> rows) async {
     if (rows.isEmpty) return;
-    await _db.batch((batch) {
+    await _db.accountBatch((batch) {
       for (final r in rows) {
         batch.insert(_db.contentEmbeddings, r,
             mode: InsertMode.insertOrReplace);
@@ -100,8 +100,8 @@ class ContentEmbeddingsRepository {
     final e = _db.contentEnrichment;
     final em = _db.contentEmbeddings;
     final rows = await (_db.select(c).join([
-      leftOuterJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
-      leftOuterJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
+      _db.accountLeftJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
+      _db.accountLeftJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
     ])
           ..where((c.type.equals('movie') | c.type.equals('series')) &
               em.streamId.isNull() &
@@ -130,8 +130,8 @@ class ContentEmbeddingsRepository {
     final em = _db.contentEmbeddings;
     final countExpr = c.streamId.count();
     final q = _db.selectOnly(c).join([
-      leftOuterJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
-      leftOuterJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
+      _db.accountLeftJoin(e, e.streamId.equalsExp(c.streamId) & e.type.equalsExp(c.type)),
+      _db.accountLeftJoin(em, em.streamId.equalsExp(c.streamId) & em.type.equalsExp(c.type)),
     ])
       ..addColumns([countExpr])
       ..where((c.type.equals('movie') | c.type.equals('series')) &

@@ -1,0 +1,8 @@
+{
+  "startup": "passed",
+  "seconds": 12,
+  "schema": 27,
+  "profiles": 1,
+  "account_scoped_tables": 19,
+  "isolated_data": "/tmp/iptv-scope-smoke-8t1p8vnu"
+}

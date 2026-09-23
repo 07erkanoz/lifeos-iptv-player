@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:lifeostv/data/services/bounded_get_client.dart';
+import 'package:lifeostv/data/services/sync_budget.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
@@ -18,11 +21,21 @@ String _sanitize(Object? raw) {
 }
 
 class XtreamApiService {
-  final Dio _dio;
+  final BoundedGetClient _client;
   final ApiCache _cache = ApiCache.instance;
   final ApiQueue _queue = ApiQueue.instance;
 
-  XtreamApiService(this._dio);
+  XtreamApiService(Dio dio) : _client = BoundedGetClient(dio);
+
+  Future<T> _enqueue<T>(String key, Future<T> Function() request,
+      {ApiPriority priority = ApiPriority.normal}) {
+    final budget = SyncBudget.current;
+    final bound = Zone.current.bindCallback(() async {
+      budget?.check();
+      return request();
+    });
+    return _queue.enqueue(key, bound, priority: priority);
+  }
 
   /// Account-scoped prefix for cache + queue keys.
   ///
@@ -78,7 +91,7 @@ class XtreamApiService {
     final fullUrl = normalizeUrl(url);
 
     try {
-      final response = await _dio.get(
+      final response = await _client.get(
         '$fullUrl/player_api.php',
         queryParameters: {
           'username': username,
@@ -117,15 +130,15 @@ class XtreamApiService {
     final cached = _cache.get<List<dynamic>>(cacheKey);
     if (cached != null) return cached;
 
-    final result = await _queue.enqueue<List<dynamic>>(
+    final result = await _enqueue<List<dynamic>>(
       cacheKey,
       () async {
-        final response = await _dio.get(
+        final response = await _client.get(
           '$url/player_api.php',
           queryParameters: {'username': username, 'password': password, 'action': action},
         );
         if (response.data is List) return response.data as List<dynamic>;
-        return <dynamic>[];
+        throw const FormatException('Expected a catalogue list');
       },
       priority: ApiPriority.normal,
     );
@@ -140,7 +153,7 @@ class XtreamApiService {
     final cached = _cache.get<List<dynamic>>(cacheKey);
     if (cached != null) return cached;
 
-    final result = await _queue.enqueue<List<dynamic>>(
+    final result = await _enqueue<List<dynamic>>(
       cacheKey,
       () async {
         final Map<String, dynamic> query = {
@@ -150,9 +163,9 @@ class XtreamApiService {
         };
         if (categoryId != null) query['category_id'] = categoryId;
 
-        final response = await _dio.get('$url/player_api.php', queryParameters: query);
+        final response = await _client.get('$url/player_api.php', queryParameters: query);
         if (response.data is List) return response.data as List<dynamic>;
-        return <dynamic>[];
+        throw const FormatException('Expected a catalogue list');
       },
       priority: ApiPriority.normal,
     );
@@ -170,10 +183,10 @@ class XtreamApiService {
     if (cached != null) return cached;
 
     try {
-      final result = await _queue.enqueue<Map<String, dynamic>?>(
+      final result = await _enqueue<Map<String, dynamic>?>(
         cacheKey,
         () async {
-          final response = await _dio.get(
+          final response = await _client.get(
             '$url/player_api.php',
             queryParameters: {
               'username': username,
@@ -205,10 +218,10 @@ class XtreamApiService {
     if (cached != null) return cached;
 
     try {
-      final result = await _queue.enqueue<Map<String, dynamic>?>(
+      final result = await _enqueue<Map<String, dynamic>?>(
         cacheKey,
         () async {
-          final response = await _dio.get(
+          final response = await _client.get(
             '$url/player_api.php',
             queryParameters: {
               'username': username,
@@ -239,10 +252,10 @@ class XtreamApiService {
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 
-    final result = await _queue.enqueue<Map<String, dynamic>>(
+    final result = await _enqueue<Map<String, dynamic>>(
       cacheKey,
       () async {
-        final response = await _dio.get(
+        final response = await _client.get(
           '$url/player_api.php',
           queryParameters: {
             'username': username,
@@ -272,7 +285,7 @@ class XtreamApiService {
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) return cached;
 
-    final result = await _queue.enqueue<Map<String, dynamic>>(
+    final result = await _enqueue<Map<String, dynamic>>(
       cacheKey,
       () async {
         final Map<String, dynamic> query = {
@@ -282,7 +295,7 @@ class XtreamApiService {
         };
         if (streamId != null) query['stream_id'] = streamId;
 
-        final response = await _dio.get(
+        final response = await _client.get(
           '$url/player_api.php',
           queryParameters: query,
           options: Options(receiveTimeout: const Duration(seconds: 60)),
@@ -312,22 +325,6 @@ XtreamApiService xtreamApiService(Ref ref) {
   // / thousands of items) in a background isolate instead of jsonDecode
   // on the UI thread. Keeps the app fluid during a full catalogue sync.
   dio.transformer = BackgroundTransformer();
-
-  dio.interceptors.add(InterceptorsWrapper(
-    onError: (error, handler) async {
-      if (error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout) {
-        try {
-          final response = await dio.fetch(error.requestOptions);
-          return handler.resolve(response);
-        } catch (e) {
-          debugPrint('[XtreamApi] retry after timeout failed: ${_sanitize(e)}');
-          return handler.next(error);
-        }
-      }
-      return handler.next(error);
-    },
-  ));
 
   return XtreamApiService(dio);
 }

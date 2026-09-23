@@ -18,7 +18,8 @@ class TierTtl {
   static const tier4 = Duration(hours: 1);
 }
 
-/// Tracks sync state across tiers, daily API call count, and mutex
+/// Persistent per-account freshness and request counters. In-flight work is
+/// owned exclusively by SyncCoordinator.
 class SyncMetadata {
   static const _keyPrefix = 'sync_meta_';
   static const _keyTier1 = '${_keyPrefix}tier1_last';
@@ -33,11 +34,11 @@ class SyncMetadata {
   /// Max daily API calls
   static const maxDailyRequests = 2000;
 
-  /// In-memory mutex to prevent concurrent sync runs
-  bool _syncing = false;
-  bool get isSyncing => _syncing;
+  final int accountId;
+  SyncMetadata forAccount(int id) => SyncMetadata(_prefs, accountId: id);
+  String _accountKey(String key) => '${key}_account_$accountId';
 
-  SyncMetadata(this._prefs);
+  SyncMetadata(this._prefs, {this.accountId = 0});
 
   /// Check if a specific tier is due for refresh
   bool isTierDue(int tier) {
@@ -45,7 +46,7 @@ class SyncMetadata {
     final ttl = _tierTtl(tier);
     if (key == null || ttl == null) return false;
 
-    final lastSync = _prefs.getInt(key) ?? 0;
+    final lastSync = _prefs.getInt(_accountKey(key)) ?? 0;
     final elapsed = DateTime.now().millisecondsSinceEpoch - lastSync;
     return elapsed > ttl.inMilliseconds;
   }
@@ -54,14 +55,17 @@ class SyncMetadata {
   Future<void> markTierSynced(int tier) async {
     final key = _tierKey(tier);
     if (key != null) {
-      await _prefs.setInt(key, DateTime.now().millisecondsSinceEpoch);
+      await _prefs.setInt(
+        _accountKey(key),
+        DateTime.now().millisecondsSinceEpoch,
+      );
     }
   }
 
   /// Get daily API call count (auto-resets on new day)
   int get dailyApiCalls {
     _resetDailyIfNeeded();
-    return _prefs.getInt(_keyDailyCount) ?? 0;
+    return _prefs.getInt(_accountKey(_keyDailyCount)) ?? 0;
   }
 
   /// Check if daily limit is exceeded
@@ -70,56 +74,54 @@ class SyncMetadata {
   /// Increment daily API call counter
   Future<void> incrementApiCalls([int count = 1]) async {
     _resetDailyIfNeeded();
-    final current = _prefs.getInt(_keyDailyCount) ?? 0;
-    await _prefs.setInt(_keyDailyCount, current + count);
-  }
-
-  /// Try to acquire sync mutex. Returns true if acquired.
-  bool tryAcquireMutex() {
-    if (_syncing) return false;
-    _syncing = true;
-    return true;
-  }
-
-  /// Release sync mutex
-  void releaseMutex() {
-    _syncing = false;
+    final current = _prefs.getInt(_accountKey(_keyDailyCount)) ?? 0;
+    await _prefs.setInt(_accountKey(_keyDailyCount), current + count);
   }
 
   /// Reset all tier timestamps (force re-sync on next check)
   Future<void> resetAllTiers() async {
-    await _prefs.remove(_keyTier1);
-    await _prefs.remove(_keyTier2);
-    await _prefs.remove(_keyTier3);
-    await _prefs.remove(_keyTier4);
+    await _prefs.remove(_accountKey(_keyTier1));
+    await _prefs.remove(_accountKey(_keyTier2));
+    await _prefs.remove(_accountKey(_keyTier3));
+    await _prefs.remove(_accountKey(_keyTier4));
   }
 
   void _resetDailyIfNeeded() {
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    final savedDate = _prefs.getString(_keyDailyDate) ?? '';
+    final savedDate = _prefs.getString(_accountKey(_keyDailyDate)) ?? '';
     if (savedDate != today) {
-      _prefs.setInt(_keyDailyCount, 0);
-      _prefs.setString(_keyDailyDate, today);
+      _prefs.setInt(_accountKey(_keyDailyCount), 0);
+      _prefs.setString(_accountKey(_keyDailyDate), today);
     }
   }
 
   String? _tierKey(int tier) {
     switch (tier) {
-      case 1: return _keyTier1;
-      case 2: return _keyTier2;
-      case 3: return _keyTier3;
-      case 4: return _keyTier4;
-      default: return null;
+      case 1:
+        return _keyTier1;
+      case 2:
+        return _keyTier2;
+      case 3:
+        return _keyTier3;
+      case 4:
+        return _keyTier4;
+      default:
+        return null;
     }
   }
 
   Duration? _tierTtl(int tier) {
     switch (tier) {
-      case 1: return TierTtl.tier1;
-      case 2: return TierTtl.tier2;
-      case 3: return TierTtl.tier3;
-      case 4: return TierTtl.tier4;
-      default: return null;
+      case 1:
+        return TierTtl.tier1;
+      case 2:
+        return TierTtl.tier2;
+      case 3:
+        return TierTtl.tier3;
+      case 4:
+        return TierTtl.tier4;
+      default:
+        return null;
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'm3u_lan_identity.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -36,18 +37,25 @@ import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 //  Sync categories — what the user can opt into transferring
 // ---------------------------------------------------------------------------
 
-enum SyncCategory { account, favorites, progress, settings, profiles, enrichment }
+enum SyncCategory {
+  account,
+  favorites,
+  progress,
+  settings,
+  profiles,
+  enrichment,
+}
 
 extension SyncCategoryWire on SyncCategory {
   /// Stable wire key used in the `/export?cats=` query and payload map.
   String get wire => switch (this) {
-        SyncCategory.account => 'accounts',
-        SyncCategory.favorites => 'favorites',
-        SyncCategory.progress => 'progress',
-        SyncCategory.settings => 'settings',
-        SyncCategory.profiles => 'profiles',
-        SyncCategory.enrichment => 'enrichment',
-      };
+    SyncCategory.account => 'accounts',
+    SyncCategory.favorites => 'favorites',
+    SyncCategory.progress => 'progress',
+    SyncCategory.settings => 'settings',
+    SyncCategory.profiles => 'profiles',
+    SyncCategory.enrichment => 'enrichment',
+  };
 
   static SyncCategory? fromWire(String s) {
     for (final c in SyncCategory.values) {
@@ -107,23 +115,23 @@ class SyncManifest {
   });
 
   factory SyncManifest.fromJson(Map<String, dynamic> j) => SyncManifest(
-        device: (j['device'] ?? '') as String,
-        accounts: (j['accounts'] ?? 0) as int,
-        profiles: (j['profiles'] ?? 0) as int,
-        favorites: (j['favorites'] ?? 0) as int,
-        progress: (j['progress'] ?? 0) as int,
-        hasSettings: (j['hasSettings'] ?? false) as bool,
-        enrichment: (j['enrichment'] ?? 0) as int,
-      );
+    device: (j['device'] ?? '') as String,
+    accounts: (j['accounts'] ?? 0) as int,
+    profiles: (j['profiles'] ?? 0) as int,
+    favorites: (j['favorites'] ?? 0) as int,
+    progress: (j['progress'] ?? 0) as int,
+    hasSettings: (j['hasSettings'] ?? false) as bool,
+    enrichment: (j['enrichment'] ?? 0) as int,
+  );
 
   int countFor(SyncCategory c) => switch (c) {
-        SyncCategory.account => accounts,
-        SyncCategory.profiles => profiles,
-        SyncCategory.favorites => favorites,
-        SyncCategory.progress => progress,
-        SyncCategory.settings => hasSettings ? 1 : 0,
-        SyncCategory.enrichment => enrichment,
-      };
+    SyncCategory.account => accounts,
+    SyncCategory.profiles => profiles,
+    SyncCategory.favorites => favorites,
+    SyncCategory.progress => progress,
+    SyncCategory.settings => hasSettings ? 1 : 0,
+    SyncCategory.enrichment => enrichment,
+  };
 }
 
 /// A device this one has paired with before (PIN entered once). The
@@ -133,16 +141,22 @@ class TrustedPeer {
   final String token;
   final String deviceId;
   final String name;
-  const TrustedPeer(
-      {required this.token, required this.deviceId, required this.name});
+  const TrustedPeer({
+    required this.token,
+    required this.deviceId,
+    required this.name,
+  });
 
-  Map<String, dynamic> toJson() =>
-      {'token': token, 'deviceId': deviceId, 'name': name};
+  Map<String, dynamic> toJson() => {
+    'token': token,
+    'deviceId': deviceId,
+    'name': name,
+  };
   factory TrustedPeer.fromJson(Map<String, dynamic> j) => TrustedPeer(
-        token: (j['token'] ?? '') as String,
-        deviceId: (j['deviceId'] ?? '') as String,
-        name: (j['name'] ?? '') as String,
-      );
+    token: (j['token'] ?? '') as String,
+    deviceId: (j['deviceId'] ?? '') as String,
+    name: (j['name'] ?? '') as String,
+  );
 }
 
 /// Outcome of an import — how many rows of each kind were applied.
@@ -213,7 +227,7 @@ class LanSyncService {
       if (list is! List) return const [];
       return [
         for (final e in list)
-          if (e is Map) TrustedPeer.fromJson(e.cast<String, dynamic>())
+          if (e is Map) TrustedPeer.fromJson(e.cast<String, dynamic>()),
       ];
     } catch (_) {
       return const [];
@@ -223,7 +237,10 @@ class LanSyncService {
   bool get hasTrustedPeers => trustedPeers.isNotEmpty;
 
   void _saveTrusted(List<TrustedPeer> peers) {
-    _prefs.setString(_kTrusted, jsonEncode([for (final p in peers) p.toJson()]));
+    _prefs.setString(
+      _kTrusted,
+      jsonEncode([for (final p in peers) p.toJson()]),
+    );
   }
 
   /// Add / refresh a trusted peer (dedupe by deviceId).
@@ -234,8 +251,7 @@ class LanSyncService {
   }
 
   void removeTrustedPeer(String deviceId) {
-    _saveTrusted(
-        trustedPeers.where((p) => p.deviceId != deviceId).toList());
+    _saveTrusted(trustedPeers.where((p) => p.deviceId != deviceId).toList());
   }
 
   TrustedPeer? _trustedByToken(String token) {
@@ -423,7 +439,8 @@ class LanSyncService {
         final peerName = (m['name'] ?? '') as String;
         if (token.isNotEmpty && peerId.isNotEmpty) {
           addTrustedPeer(
-              TrustedPeer(token: token, deviceId: peerId, name: peerName));
+            TrustedPeer(token: token, deviceId: peerId, name: peerName),
+          );
           // Make pairing symmetric: this (sender) side should now also
           // keep its server up and auto-sync on future launches.
           _autoWanted = true;
@@ -461,6 +478,7 @@ class LanSyncService {
     return {
       'v': _payloadVersion,
       'device': _deviceName,
+      'contentAccountKey': await _contentAccountKey(),
       'accounts': accounts.length,
       'profiles': profiles.length,
       'favorites': favs.length,
@@ -476,12 +494,28 @@ class LanSyncService {
   /// only apply received enrichment when the two devices have at least
   /// one account in common.
   Future<Set<String>> _accountKeys() async {
-    final rows = await _db.select(_db.accounts).get();
+    final rows = await (_db.select(
+      _db.accounts,
+    )..where((a) => a.id.equals(_db.accountScope ?? 0))).get();
     return {for (final a in rows) '${a.type}|${a.url}|${a.username ?? ""}'};
   }
 
+  String _contentIdentity(Account account) => jsonEncode([
+    account.type,
+    account.url.replaceAll(RegExp(r'/+$'), ''),
+    account.username ?? '',
+  ]);
+
+  Future<String?> _contentAccountKey() async {
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((a) => a.id.equals(_db.accountScope ?? 0))).getSingleOrNull();
+    return account == null ? null : _contentIdentity(account);
+  }
+
   List<Map<String, dynamic>> _enrichmentToJson(
-      List<ContentEnrichmentData> rows) {
+    List<ContentEnrichmentData> rows,
+  ) {
     return [
       for (final e in rows)
         {
@@ -495,14 +529,14 @@ class LanSyncService {
           'age': e.ageRating,
           'confidence': e.confidence,
           'source': e.source,
-        }
+        },
     ];
   }
 
   /// Apply received enrichment rows (insert-or-replace). Returns count.
   Future<int> _applyEnrichmentRows(List<dynamic> rows) async {
     var n = 0;
-    await _db.batch((batch) {
+    await _db.accountBatch((batch) {
       for (final raw in rows) {
         if (raw is! Map) continue;
         final m = raw.cast<String, dynamic>();
@@ -532,10 +566,43 @@ class LanSyncService {
     return n;
   }
 
+  Future<Map<String, dynamic>> _withM3uIdentities(
+    Map<String, dynamic> payload,
+  ) async {
+    final referenced = <(String, int)>{};
+    for (final key in ['favorites', 'progress', 'tombstones', 'enrichment']) {
+      final rows = payload[key];
+      if (rows is! List) continue;
+      for (final raw in rows) {
+        if (raw is! Map) continue;
+        final type = raw['streamType'] ?? raw['type'], id = raw['streamId'];
+        if (type is String && id is int) referenced.add((type, id));
+      }
+    }
+    final ids = referenced.map((r) => r.$2).toSet().toList();
+    final identities = <Map<String, dynamic>>[];
+    for (var i = 0; i < ids.length; i += 500) {
+      final rows = await (_db.select(
+        _db.m3uIdentities,
+      )..where((t) => t.streamId.isIn(ids.skip(i).take(500)))).get();
+      for (final row in rows) {
+        if (referenced.contains((row.type, row.streamId))) {
+          identities.add({
+            'streamId': row.streamId,
+            'type': row.type,
+            'sourceKey': row.sourceKey,
+          });
+        }
+      }
+    }
+    return {...payload, 'm3uIdentities': identities};
+  }
+
   Future<Map<String, dynamic>> _buildPayload(Set<SyncCategory> cats) async {
     final out = <String, dynamic>{
       'v': _payloadVersion,
       'device': _deviceName,
+      'contentAccountKey': await _contentAccountKey(),
     };
 
     if (cats.contains(SyncCategory.account)) {
@@ -549,7 +616,7 @@ class LanSyncService {
             'username': a.username,
             'password': a.password,
             'isActive': a.isActive,
-          }
+          },
       ];
     }
 
@@ -563,7 +630,7 @@ class LanSyncService {
             'avatarKey': p.avatarKey,
             'isKids': p.isKids,
             'pin': p.pin,
-          }
+          },
       ];
     }
 
@@ -578,7 +645,7 @@ class LanSyncService {
             'thumbnail': f.thumbnail,
             'addedAt': f.addedAt.millisecondsSinceEpoch,
             'profileId': f.profileId,
-          }
+          },
       ];
     }
 
@@ -594,7 +661,7 @@ class LanSyncService {
             'updatedAt': p.updatedAt.millisecondsSinceEpoch,
             'isFinished': p.isFinished,
             'profileId': p.profileId,
-          }
+          },
       ];
     }
 
@@ -610,7 +677,7 @@ class LanSyncService {
       out['accountKeys'] = (await _accountKeys()).toList();
     }
 
-    return out;
+    return _withM3uIdentities(out);
   }
 
   /// Serialise the device-portable subset of AppSettings. We DELIBERATELY
@@ -685,8 +752,9 @@ class LanSyncService {
               // Never list ourselves — our own broadcast resolves too.
               if (id.isNotEmpty && id == deviceId) break;
               final name = svc.attributes['device'] ?? svc.name;
-              if (found.add(SyncPeer(
-                      name: name, host: host, port: port, deviceId: id)) &&
+              if (found.add(
+                    SyncPeer(name: name, host: host, port: port, deviceId: id),
+                  ) &&
                   !controller.isClosed) {
                 controller.add(found.toList());
               }
@@ -710,12 +778,14 @@ class LanSyncService {
   /// Returns null on wrong PIN / unreachable host.
   Future<SyncManifest?> fetchManifest(SyncPeer peer, String pin) async {
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 10),
-        headers: {_pinHeader: pin},
-        validateStatus: (s) => s != null && s < 500,
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {_pinHeader: pin},
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
       final res = await dio.getUri<dynamic>(
         Uri.parse('${peer.baseUrl}/manifest'),
       );
@@ -740,12 +810,14 @@ class LanSyncService {
     required Set<SyncCategory> cats,
     required int activeProfileId,
   }) async {
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {_pinHeader: pin},
-      validateStatus: (s) => s != null && s < 500,
-    ));
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {_pinHeader: pin},
+        validateStatus: (s) => s != null && s < 500,
+      ),
+    );
     final catsParam = cats.map((c) => c.wire).join(',');
     final res = await dio.getUri<dynamic>(
       Uri.parse('${peer.baseUrl}/export?cats=$catsParam'),
@@ -779,9 +851,9 @@ class LanSyncService {
     //    target loads the same provider's playlist.
     if (cats.contains(SyncCategory.account) && payload['accounts'] is List) {
       final existing = await _db.select(_db.accounts).get();
-      bool existsAlready(String type, String url, String? user) =>
-          existing.any((a) =>
-              a.type == type && a.url == url && a.username == user);
+      bool existsAlready(String type, String url, String? user) => existing.any(
+        (a) => a.type == type && a.url == url && a.username == user,
+      );
       final hadNoAccounts = existing.isEmpty;
       int? activateId;
       for (final raw in (payload['accounts'] as List)) {
@@ -792,7 +864,9 @@ class LanSyncService {
         final user = m['username'] as String?;
         if (url.isEmpty) continue;
         if (existsAlready(type, url, user)) continue;
-        final id = await _db.into(_db.accounts).insert(
+        final id = await _db
+            .into(_db.accounts)
+            .insert(
               AccountsCompanion.insert(
                 name: (m['name'] ?? url) as String,
                 type: type,
@@ -820,6 +894,31 @@ class LanSyncService {
       }
     }
 
+    final sourceKey = payload['contentAccountKey'];
+    final matchingAccounts = await _db.select(_db.accounts).get();
+    final targetAccount = matchingAccounts
+        .where((a) => _contentIdentity(a) == sourceKey)
+        .firstOrNull;
+    final contentDb = targetAccount == null
+        ? null
+        : _db.forAccount(targetAccount.id);
+    if (contentDb == null &&
+        (cats.contains(SyncCategory.favorites) ||
+            cats.contains(SyncCategory.progress) ||
+            cats.contains(SyncCategory.enrichment))) {
+      throw const FormatException(
+        'Content account does not match a saved account',
+      );
+    }
+
+    if (targetAccount?.type == 'm3u') {
+      payload = remapM3uLanPayload(
+        payload,
+        await contentDb!.select(contentDb.m3uIdentities).get(),
+        requireAll: true,
+      );
+    }
+
     // 2) Profiles — dedupe by name; build oldId → newId map. When the
     //    user did NOT opt to sync profiles, everything funnels into the
     //    target's active profile.
@@ -837,7 +936,9 @@ class LanSyncService {
           profileIdMap[oldId] = match.first.id;
           continue;
         }
-        final newId = await _db.into(_db.profiles).insert(
+        final newId = await _db
+            .into(_db.profiles)
+            .insert(
               ProfilesCompanion.insert(
                 name: name,
                 avatarKey: Value((m['avatarKey'] ?? 'default') as String),
@@ -854,19 +955,20 @@ class LanSyncService {
 
     // 3) Favourites — remap profileId, upsert on the composite PK.
     if (cats.contains(SyncCategory.favorites) && payload['favorites'] is List) {
-      await _db.batch((batch) {
+      await contentDb!.accountBatch((batch) {
         for (final raw in (payload['favorites'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
           batch.insert(
-            _db.favorites,
+            contentDb.favorites,
             FavoritesCompanion.insert(
               streamId: (m['streamId'] ?? 0) as int,
               streamType: (m['streamType'] ?? '') as String,
               name: (m['name'] ?? '') as String,
               thumbnail: Value(m['thumbnail'] as String?),
-              addedAt: Value(DateTime.fromMillisecondsSinceEpoch(
-                  (m['addedAt'] ?? 0) as int)),
+              addedAt: Value(
+                DateTime.fromMillisecondsSinceEpoch((m['addedAt'] ?? 0) as int),
+              ),
               profileId: Value(mapProfile((m['profileId'] ?? 1) as int)),
             ),
             mode: InsertMode.insertOrReplace,
@@ -878,19 +980,22 @@ class LanSyncService {
 
     // 4) Continue-watching — same remap + upsert.
     if (cats.contains(SyncCategory.progress) && payload['progress'] is List) {
-      await _db.batch((batch) {
+      await contentDb!.accountBatch((batch) {
         for (final raw in (payload['progress'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
           batch.insert(
-            _db.playbackProgress,
+            contentDb.playbackProgress,
             PlaybackProgressCompanion.insert(
               streamId: (m['streamId'] ?? 0) as int,
               type: (m['type'] ?? 'movie') as String,
               position: (m['position'] ?? 0) as int,
               duration: (m['duration'] ?? 0) as int,
-              updatedAt: Value(DateTime.fromMillisecondsSinceEpoch(
-                  (m['updatedAt'] ?? 0) as int)),
+              updatedAt: Value(
+                DateTime.fromMillisecondsSinceEpoch(
+                  (m['updatedAt'] ?? 0) as int,
+                ),
+              ),
               isFinished: Value((m['isFinished'] ?? false) as bool),
               profileId: Value(mapProfile((m['profileId'] ?? 1) as int)),
             ),
@@ -909,24 +1014,13 @@ class LanSyncService {
       settingsApplied = true;
     }
 
-    // 6) Catalogue enrichment — only when the devices share an account
-    //    (enrichment is keyed by raw streamId, which only lines up on
-    //    the same provider). Saves the receiver from re-paying Gemini
-    //    to re-tag a catalogue the sender already tagged.
     if (cats.contains(SyncCategory.enrichment) &&
-        payload['enrichment'] is List) {
-      final srcKeys = (payload['accountKeys'] is List)
-          ? (payload['accountKeys'] as List).whereType<String>().toSet()
-          : <String>{};
-      final mine = await _accountKeys();
-      final shareAccount =
-          srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty;
-      if (shareAccount) {
-        enrichApplied =
-            await _applyEnrichmentRows(payload['enrichment'] as List);
-      } else if (kDebugMode) {
-        debugPrint('[LanSync] enrichment skipped — no shared account');
-      }
+        payload['enrichment'] is List &&
+        contentDb != null) {
+      enrichApplied = await LanSyncService(
+        contentDb,
+        _prefs,
+      )._applyEnrichmentRows(payload['enrichment'] as List);
     }
 
     return SyncImportResult(
@@ -945,43 +1039,66 @@ class LanSyncService {
     T pick<T>(String k, T fallback) => (m[k] is T) ? m[k] as T : fallback;
 
     final next = cur.copyWith(
-      themeMode: AppThemeMode
-          .values[pick<int>('themeMode', cur.themeMode.index)
-              .clamp(0, AppThemeMode.values.length - 1)],
-      language: AppLanguage.values[pick<int>('language', cur.language.index)
-          .clamp(0, AppLanguage.values.length - 1)],
-      hardwareAcceleration:
-          pick<bool>('hardwareAcceleration', cur.hardwareAcceleration),
+      themeMode:
+          AppThemeMode.values[pick<int>(
+            'themeMode',
+            cur.themeMode.index,
+          ).clamp(0, AppThemeMode.values.length - 1)],
+      language:
+          AppLanguage.values[pick<int>(
+            'language',
+            cur.language.index,
+          ).clamp(0, AppLanguage.values.length - 1)],
+      hardwareAcceleration: pick<bool>(
+        'hardwareAcceleration',
+        cur.hardwareAcceleration,
+      ),
       bufferDuration: pick<int>('bufferDuration', cur.bufferDuration),
-      streamQuality: StreamQuality
-          .values[pick<int>('streamQuality', cur.streamQuality.index)
-              .clamp(0, StreamQuality.values.length - 1)],
+      streamQuality:
+          StreamQuality.values[pick<int>(
+            'streamQuality',
+            cur.streamQuality.index,
+          ).clamp(0, StreamQuality.values.length - 1)],
       autoNextEpisode: pick<bool>('autoNextEpisode', cur.autoNextEpisode),
       epgPastDays: pick<int>('epgPastDays', cur.epgPastDays),
-      parentalControlEnabled:
-          pick<bool>('parentalControlEnabled', cur.parentalControlEnabled),
+      parentalControlEnabled: pick<bool>(
+        'parentalControlEnabled',
+        cur.parentalControlEnabled,
+      ),
       parentalPin: m['parentalPin'] as String? ?? cur.parentalPin,
       autoHideAdult: pick<bool>('autoHideAdult', cur.autoHideAdult),
-      continueWatchingEnabled:
-          pick<bool>('continueWatchingEnabled', cur.continueWatchingEnabled),
-      showSkipIntroButton:
-          pick<bool>('showSkipIntroButton', cur.showSkipIntroButton),
-      introSkipDefaultSeconds:
-          pick<int>('introSkipDefaultSeconds', cur.introSkipDefaultSeconds),
+      continueWatchingEnabled: pick<bool>(
+        'continueWatchingEnabled',
+        cur.continueWatchingEnabled,
+      ),
+      showSkipIntroButton: pick<bool>(
+        'showSkipIntroButton',
+        cur.showSkipIntroButton,
+      ),
+      introSkipDefaultSeconds: pick<int>(
+        'introSkipDefaultSeconds',
+        cur.introSkipDefaultSeconds,
+      ),
       showTrailer: pick<bool>('showTrailer', cur.showTrailer),
       opensubtitlesApiKey:
           m['opensubtitlesApiKey'] as String? ?? cur.opensubtitlesApiKey,
       geminiApiKey: m['geminiApiKey'] as String? ?? cur.geminiApiKey,
       subtitlePreferredLanguage: pick<String>(
-          'subtitlePreferredLanguage', cur.subtitlePreferredLanguage),
+        'subtitlePreferredLanguage',
+        cur.subtitlePreferredLanguage,
+      ),
       subtitleFontSize: pick<int>('subtitleFontSize', cur.subtitleFontSize),
       subtitleColor: pick<String>('subtitleColor', cur.subtitleColor),
       subtitleBold: pick<bool>('subtitleBold', cur.subtitleBold),
-      subtitleBackgroundEnabled:
-          pick<bool>('subtitleBackgroundEnabled', cur.subtitleBackgroundEnabled),
+      subtitleBackgroundEnabled: pick<bool>(
+        'subtitleBackgroundEnabled',
+        cur.subtitleBackgroundEnabled,
+      ),
       fullscreenMode: pick<bool>('fullscreenMode', cur.fullscreenMode),
-      heroTrailerOnMobile:
-          pick<bool>('heroTrailerOnMobile', cur.heroTrailerOnMobile),
+      heroTrailerOnMobile: pick<bool>(
+        'heroTrailerOnMobile',
+        cur.heroTrailerOnMobile,
+      ),
     );
     // Fire-and-forget; saveSettings is async but the prefs write is
     // effectively synchronous for our purposes.
@@ -997,12 +1114,14 @@ class LanSyncService {
   Future<bool> establishTrust(SyncPeer peer, String pin) async {
     try {
       final token = _randomId();
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 10),
-        headers: {_pinHeader: pin},
-        validateStatus: (s) => s != null && s < 500,
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {_pinHeader: pin},
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
       final res = await dio.postUri<dynamic>(
         Uri.parse('${peer.baseUrl}/trust'),
         data: jsonEncode({
@@ -1012,15 +1131,18 @@ class LanSyncService {
         }),
       );
       if (res.statusCode != 200) return false;
-      final data =
-          res.data is String ? jsonDecode(res.data as String) : res.data;
+      final data = res.data is String
+          ? jsonDecode(res.data as String)
+          : res.data;
       if (data is! Map) return false;
       final m = data.cast<String, dynamic>();
-      addTrustedPeer(TrustedPeer(
-        token: token,
-        deviceId: (m['deviceId'] ?? peer.deviceId) as String,
-        name: (m['name'] ?? peer.name) as String,
-      ));
+      addTrustedPeer(
+        TrustedPeer(
+          token: token,
+          deviceId: (m['deviceId'] ?? peer.deviceId) as String,
+          name: (m['name'] ?? peer.name) as String,
+        ),
+      );
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('[LanSync] establishTrust failed: $e');
@@ -1039,8 +1161,9 @@ class LanSyncService {
     final tombstones = await _db.select(_db.syncTombstones).get();
     final catPrefs = await _db.select(_db.categoryPrefs).get();
     final geminiKey = SettingsRepository(_prefs).loadSettings().geminiApiKey;
-    return {
+    return _withM3uIdentities({
       'v': _payloadVersion,
+      'contentAccountKey': await _contentAccountKey(),
       // Delete tombstones so a removal propagates instead of the peer
       // re-adding the favourite on the next additive merge.
       'tombstones': [
@@ -1051,7 +1174,7 @@ class LanSyncService {
             'streamId': t.streamId,
             'streamType': t.streamType,
             'deletedAt': t.deletedAt.millisecondsSinceEpoch,
-          }
+          },
       ],
       // Category-visibility prefs (hidden categories) — account-gated
       // on the receiver since categoryId only aligns within the same
@@ -1063,7 +1186,7 @@ class LanSyncService {
             'type': c.type,
             'isHidden': c.isHidden,
             'updatedAt': c.updatedAt.millisecondsSinceEpoch,
-          }
+          },
       ],
       // Account fingerprints so the peer only applies our enrichment
       // when it shares the same provider (streamIds line up).
@@ -1081,7 +1204,7 @@ class LanSyncService {
             'name': f.name,
             'thumbnail': f.thumbnail,
             'addedAt': f.addedAt.millisecondsSinceEpoch,
-          }
+          },
       ],
       'progress': [
         for (final p in prog)
@@ -1093,9 +1216,9 @@ class LanSyncService {
             'duration': p.duration,
             'updatedAt': p.updatedAt.millisecondsSinceEpoch,
             'isFinished': p.isFinished,
-          }
+          },
       ],
-    };
+    });
   }
 
   /// Merge a peer's snapshot into our DB. Favourites are additive (a
@@ -1104,6 +1227,18 @@ class LanSyncService {
   /// for a profile name that doesn't exist locally are skipped (we
   /// never auto-create profiles here).
   Future<void> _mergeIncoming(Map<String, dynamic> snap) async {
+    final identity = await _contentAccountKey();
+    if (identity == null || snap['contentAccountKey'] != identity) return;
+    final account = await (_db.select(
+      _db.accounts,
+    )..where((a) => a.id.equals(_db.accountScope ?? 0))).getSingleOrNull();
+    if (account?.type == 'm3u') {
+      snap = remapM3uLanPayload(
+        snap,
+        await _db.select(_db.m3uIdentities).get(),
+      );
+    }
+
     final profiles = await _db.select(_db.profiles).get();
     final nameToId = <String, int>{for (final p in profiles) p.name: p.id};
     // Unknown profile name → fall back to the active profile so a
@@ -1139,14 +1274,15 @@ class LanSyncService {
           final key = '$pid|$stype|$sid';
           if ((tombAt[key] ?? 0) >= ts) continue; // local tombstone newer
           tombAt[key] = ts;
-          await _db.into(_db.syncTombstones).insertOnConflictUpdate(
+          await _db
+              .into(_db.syncTombstones)
+              .insertOnConflictUpdate(
                 SyncTombstonesCompanion.insert(
                   entity: 'favorite',
                   streamId: sid,
                   streamType: stype,
                   profileId: Value(pid),
-                  deletedAt:
-                      Value(DateTime.fromMillisecondsSinceEpoch(ts)),
+                  deletedAt: Value(DateTime.fromMillisecondsSinceEpoch(ts)),
                 ),
               );
         }
@@ -1169,9 +1305,10 @@ class LanSyncService {
     if (snap['favorites'] is List) {
       final existing = await _db.select(_db.favorites).get();
       final have = <String>{
-        for (final f in existing) '${f.profileId}|${f.streamType}|${f.streamId}'
+        for (final f in existing)
+          '${f.profileId}|${f.streamType}|${f.streamId}',
       };
-      await _db.batch((batch) {
+      await _db.accountBatch((batch) {
         for (final raw in (snap['favorites'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
@@ -1205,9 +1342,9 @@ class LanSyncService {
       final localUpdated = <String, int>{
         for (final p in existing)
           '${p.profileId}|${p.type}|${p.streamId}':
-              p.updatedAt.millisecondsSinceEpoch
+              p.updatedAt.millisecondsSinceEpoch,
       };
-      await _db.batch((batch) {
+      await _db.accountBatch((batch) {
         for (final raw in (snap['progress'] as List)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, dynamic>();
@@ -1245,8 +1382,7 @@ class LanSyncService {
           : <String>{};
       final mine = await _accountKeys();
       if (srcKeys.isEmpty || srcKeys.intersection(mine).isNotEmpty) {
-        enrichAdded =
-            await _applyEnrichmentRows(snap['enrichment'] as List);
+        enrichAdded = await _applyEnrichmentRows(snap['enrichment'] as List);
       }
     }
     // Category-visibility prefs — LWW by updatedAt, then apply onto
@@ -1262,7 +1398,7 @@ class LanSyncService {
         final localPrefs = await _db.select(_db.categoryPrefs).get();
         final localAt = <String, int>{
           for (final p in localPrefs)
-            '${p.categoryId}|${p.type}': p.updatedAt.millisecondsSinceEpoch
+            '${p.categoryId}|${p.type}': p.updatedAt.millisecondsSinceEpoch,
         };
         for (final raw in (snap['categoryPrefs'] as List)) {
           if (raw is! Map) continue;
@@ -1273,13 +1409,14 @@ class LanSyncService {
           final ts = (m['updatedAt'] ?? 0) as int;
           final hidden = (m['isHidden'] ?? false) as bool;
           if ((localAt['$cid|$type'] ?? 0) >= ts) continue; // local newer
-          await _db.into(_db.categoryPrefs).insertOnConflictUpdate(
+          await _db
+              .into(_db.categoryPrefs)
+              .insertOnConflictUpdate(
                 CategoryPrefsCompanion.insert(
                   categoryId: cid,
                   type: type,
                   isHidden: Value(hidden),
-                  updatedAt:
-                      Value(DateTime.fromMillisecondsSinceEpoch(ts)),
+                  updatedAt: Value(DateTime.fromMillisecondsSinceEpoch(ts)),
                 ),
               );
           await (_db.update(_db.categories)
@@ -1303,8 +1440,10 @@ class LanSyncService {
       }
     }
     if (kDebugMode) {
-      debugPrint('[LanSync] merged: favAdded=$favAdded progAdded=$progAdded '
-          'enrichAdded=$enrichAdded catApplied=$catApplied');
+      debugPrint(
+        '[LanSync] merged: favAdded=$favAdded progAdded=$progAdded '
+        'enrichAdded=$enrichAdded catApplied=$catApplied',
+      );
     }
   }
 
@@ -1341,20 +1480,23 @@ class LanSyncService {
 
   Future<bool> _syncWithPeer(SyncPeer peer, String token) async {
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 30),
-        headers: {_tokenHeader: token},
-        validateStatus: (s) => s != null && s < 500,
-      ));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 30),
+          headers: {_tokenHeader: token},
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
       final mine = await _buildSyncSnapshot();
       final res = await dio.postUri<dynamic>(
         Uri.parse('${peer.baseUrl}/sync'),
         data: jsonEncode(mine),
       );
       if (res.statusCode != 200) return false;
-      final data =
-          res.data is String ? jsonDecode(res.data as String) : res.data;
+      final data = res.data is String
+          ? jsonDecode(res.data as String)
+          : res.data;
       if (data is! Map) return false;
       await _mergeIncoming(data.cast<String, dynamic>());
       return true;
@@ -1368,8 +1510,13 @@ class LanSyncService {
 /// Provider. `keepAlive` so the sender's HTTP server survives brief
 /// widget rebuilds while the pairing screen is open.
 final lanSyncServiceProvider = Provider<LanSyncService>((ref) {
-  return LanSyncService(
+  final service = LanSyncService(
     ref.watch(appDatabaseProvider),
     ref.watch(sharedPreferencesProvider),
   );
+  ref.onDispose(() {
+    service.stopSending();
+    service.stopAutoServer();
+  });
+  return service;
 });

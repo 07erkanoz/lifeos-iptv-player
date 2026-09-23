@@ -121,9 +121,9 @@ FavoritesRepository favoritesRepository(Ref ref) {
   // Watch the active id so when the user switches profiles every
   // FavoritesRepository consumer rebuilds against the new id. The
   // closure read inside the repo always returns the freshest value.
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return FavoritesRepository(
     ref.watch(appDatabaseProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }

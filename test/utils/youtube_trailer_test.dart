@@ -9,7 +9,7 @@ Channel _ch({
   String? year,
   String? trailer,
 }) {
-  return Channel(
+  return Channel(accountId: 0,
     streamId: 1,
     name: name,
     type: type,

@@ -1,11 +1,9 @@
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/auth_repository_impl.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
-import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/data/services/sync_metadata.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:lifeostv/main.dart';
-import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final savedAccountsProvider = FutureProvider<List<Account>>((ref) async {
@@ -14,73 +12,41 @@ final savedAccountsProvider = FutureProvider<List<Account>>((ref) async {
 });
 
 final currentAccountProvider = FutureProvider<Account?>((ref) async {
-  final settings = ref.watch(settingsProvider);
+  ref.watch(databaseAccountIdProvider);
+  ref.watch(databaseEpochProvider);
   final repo = ref.watch(authRepositoryProvider);
-
-  // First try default account from settings
-  if (settings.defaultAccountId != null) {
-    final accounts = await repo.getAccounts();
-    final match = accounts.where((a) => a.id == settings.defaultAccountId);
-    if (match.isNotEmpty) return match.first;
-  }
-
-  // Fallback to first active account
+  // DB activation and the downloaded catalogue share one authority. A stale
+  // default_account_id preference must never override a newly added account.
   return repo.getCurrentAccount();
 });
 
 /// Triggers tiered sync when account is available.
 /// Tier 1 (30m): categories, Tier 2 (2h): channel delta,
-/// Tier 3 (6h): full refresh, Tier 4 (1h): watched series
+/// Tier 3 (24h): full refresh, Tier 4 (1h): watched series
 final initialSyncProvider = FutureProvider<void>((ref) async {
-  // ref.read (NOT watch): a sync is a one-shot side effect, not a
-  // reactive value. Watching currentAccountProvider here meant any
-  // rebuild of it (or settingsProvider underneath it) could restart
-  // this provider mid-flight, so the future the dashboard awaits never
-  // settled — the "İçerik senkronize ediliyor…" spinner spun forever.
-  final account = await ref.read(currentAccountProvider.future);
-  if (account == null) return;
-
-  try {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final meta = SyncMetadata(prefs);
-    final syncService = ref.read(syncServiceProvider);
-    await syncService.runTieredSync(account, meta);
-    // A Tier-3 full refresh insertOrReplaces categories (resetting the
-    // isHidden flag), so re-apply the user's saved visibility choices.
-    await ref.read(contentRepositoryProvider).reapplyCategoryPrefs();
-  } catch (_) {
-    // On error, attempt full sync as fallback
-    try {
-      final syncService = ref.read(syncServiceProvider);
-      await syncService.syncAll(account);
-    } catch (_) {}
-  }
-});
-
-/// Force sync regardless of time interval (for manual refresh)
-final forceSyncProvider = FutureProvider.family<void, int>((ref, accountId) async {
+  // Account changes start the new account’s sync; per-account metadata
+  // keeps repeated triggers from duplicating a tiered run.
   final account = await ref.watch(currentAccountProvider.future);
   if (account == null) return;
 
-  final syncService = ref.read(syncServiceProvider);
+  final prefs = ref.read(sharedPreferencesProvider);
+  final meta = SyncMetadata(prefs, accountId: account.id);
+  final sync = ref.read(syncServiceProvider);
+  final content = ref.read(contentRepositoryProvider).forAccount(account.id);
+  await sync.runTieredSync(account, meta);
+  await content.reapplyCategoryPrefs();
+}, retry: (_, _) => null);
 
-  // Clear account-specific cache before full refresh
-  if (account.type == 'xtream' && account.username != null) {
-    final url = account.url.replaceAll(RegExp(r'/+$'), '');
-    ApiCache.instance.invalidateForAccount('${account.username}@$url');
-  }
-
-  await syncService.syncAll(account);
-
-  // Reset all tier timestamps so tiered sync recognizes the fresh state
-  try {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final meta = SyncMetadata(prefs);
-    await meta.resetAllTiers();
-    // Mark all tiers as synced since we just did a full sync
-    await meta.markTierSynced(1);
-    await meta.markTierSynced(2);
-    await meta.markTierSynced(3);
-    await meta.markTierSynced(4);
-  } catch (_) {}
-});
+/// Manual refresh uses the requested ID, even if the user switches accounts.
+final forceSyncProvider = FutureProvider.family<void, int>((
+  ref,
+  accountId,
+) async {
+  final db = ref.read(rootDatabaseProvider);
+  final account = await (db.select(
+    db.accounts,
+  )..where((a) => a.id.equals(accountId))).getSingleOrNull();
+  if (account == null) throw StateError('Account does not exist');
+  final sync = ref.read(syncServiceProvider);
+  await sync.syncAll(account);
+}, retry: (_, _) => null);

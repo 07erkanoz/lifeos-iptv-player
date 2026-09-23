@@ -55,4 +55,4 @@ final class WatchlistRepositoryProvider
 }
 
 String _$watchlistRepositoryHash() =>
-    r'5001a35159516a579642ea6b959b1ff2fb08bf55';
+    r'32f3c4f6bbfdbc780b0ba0b642c63526f129213f';

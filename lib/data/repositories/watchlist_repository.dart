@@ -94,9 +94,9 @@ class WatchlistRepository {
 
 @riverpod
 WatchlistRepository watchlistRepository(Ref ref) {
-  ref.watch(activeProfileIdProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
   return WatchlistRepository(
     ref.watch(appDatabaseProvider),
-    () => ref.read(activeProfileIdProvider).value ?? 1,
+    () => profileId,
   );
 }

@@ -9,6 +9,8 @@
 library;
 
 import 'dart:convert';
+import 'dart:isolate';
+import 'bounded_get_client.dart';
 import 'package:dio/dio.dart';
 import 'package:xml/xml.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,9 +63,8 @@ DateTime? _parseXmltvDate(String? dateStr) {
   try {
     // Remove whitespace-only parts, take the timestamp
     final parts = dateStr.trim().split(RegExp(r'\s+'));
-    final ts = parts[0].replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (ts.length < 14) return null;
+    final ts = parts[0];
+    if (!RegExp(r'^\d{14}$').hasMatch(ts)) return null;
 
     final year = int.parse(ts.substring(0, 4));
     final month = int.parse(ts.substring(4, 6));
@@ -72,22 +73,39 @@ DateTime? _parseXmltvDate(String? dateStr) {
     final minute = int.parse(ts.substring(10, 12));
     final second = int.parse(ts.substring(12, 14));
 
+    final localFields = DateTime.utc(year, month, day, hour, minute, second);
+    if (localFields.year != year ||
+        localFields.month != month ||
+        localFields.day != day ||
+        localFields.hour != hour ||
+        localFields.minute != minute ||
+        localFields.second != second) {
+      return null;
+    }
+
     // Parse timezone offset if present (e.g. "+0300")
     if (parts.length > 1) {
       final tzStr = parts[1];
-      final tzMatch = RegExp(r'([+-])(\d{2})(\d{2})').firstMatch(tzStr);
+      final tzMatch = RegExp(r'^([+-])(\d{2})(\d{2})$').firstMatch(tzStr);
       if (tzMatch != null) {
         final sign = tzMatch.group(1) == '+' ? 1 : -1;
         final tzHours = int.parse(tzMatch.group(2)!);
         final tzMinutes = int.parse(tzMatch.group(3)!);
+        if (tzHours > 23 || tzMinutes > 59) return null;
         final offset = Duration(hours: tzHours, minutes: tzMinutes) * sign;
         // Create UTC time by subtracting the offset, then convert to local
-        return DateTime.utc(year, month, day, hour, minute, second)
-            .subtract(offset)
-            .toLocal();
+        return DateTime.utc(
+          year,
+          month,
+          day,
+          hour,
+          minute,
+          second,
+        ).subtract(offset).toLocal();
       }
     }
 
+    if (parts.length > 1) return null;
     // No timezone — assume UTC
     return DateTime.utc(year, month, day, hour, minute, second).toLocal();
   } catch (_) {
@@ -113,7 +131,7 @@ class XmltvParseResult {
 }
 
 /// Parse XMLTV XML content into structured program data
-XmltvParseResult parseXmltv(String xmlContent) {
+XmltvParseResult parseXmltv(String xmlContent, {DateTime? now}) {
   final programsByChannel = <String, List<XmltvProgram>>{};
 
   try {
@@ -130,7 +148,12 @@ XmltvParseResult parseXmltv(String xmlContent) {
 
       final start = _parseXmltvDate(startStr);
       final stop = _parseXmltvDate(stopStr);
-      if (start == null || stop == null) continue;
+      if (start == null || stop == null || !stop.isAfter(start)) continue;
+      if (now != null &&
+          (!stop.isAfter(now.subtract(const Duration(hours: 6))) ||
+              !start.isBefore(now.add(const Duration(days: 7))))) {
+        continue;
+      }
 
       // Extract title (first <title> element)
       final titleEl = programme.findElements('title').firstOrNull;
@@ -145,16 +168,18 @@ XmltvParseResult parseXmltv(String xmlContent) {
       final catEl = programme.findElements('category').firstOrNull;
       final category = catEl?.innerText.trim();
 
-      programsByChannel.putIfAbsent(channelId, () => []).add(
-        XmltvProgram(
-          channelId: channelId,
-          title: title,
-          description: description,
-          category: category,
-          start: start,
-          stop: stop,
-        ),
-      );
+      programsByChannel
+          .putIfAbsent(channelId, () => [])
+          .add(
+            XmltvProgram(
+              channelId: channelId,
+              title: title,
+              description: description,
+              category: category,
+              start: start,
+              stop: stop,
+            ),
+          );
     }
 
     // Sort each channel's programs by start time
@@ -189,10 +214,7 @@ XmltvParseResult parseXmltv(String xmlContent) {
 /// 2. Case-insensitive match
 /// 3. Prefix match (bidirectional, with dot/underscore separators)
 /// 4. Normalized match (strip suffixes, remove punctuation)
-String? findXmltvChannelId(
-  String searchId,
-  XmltvParseResult xmltv,
-) {
+String? findXmltvChannelId(String searchId, XmltvParseResult xmltv) {
   if (searchId.isEmpty) return null;
 
   // Phase 1: Exact match
@@ -213,14 +235,14 @@ String? findXmltvChannelId(
     if (lowerKey.startsWith(lowerSearch) &&
         lowerKey.length > lowerSearch.length &&
         (lowerKey[lowerSearch.length] == '.' ||
-         lowerKey[lowerSearch.length] == '_')) {
+            lowerKey[lowerSearch.length] == '_')) {
       return key;
     }
     // XMLTV key is prefix of searchId
     if (lowerSearch.startsWith(lowerKey) &&
         lowerSearch.length > lowerKey.length &&
         (lowerSearch[lowerKey.length] == '.' ||
-         lowerSearch[lowerKey.length] == '_')) {
+            lowerSearch[lowerKey.length] == '_')) {
       return key;
     }
   }
@@ -237,128 +259,115 @@ String? findXmltvChannelId(
 //  XMLTV Service (Download + Cache)
 // ═══════════════════════════════════════════════════════════════════
 
-class XmltvService {
-  static const _ttl = Duration(hours: 6);
-  static const _cachePrefix = 'xmltv_cache_';
-  static const _cacheTimestampPrefix = 'xmltv_ts_';
+/// One cached feed, keyed by its full URL; concurrent loads of that feed share
+/// work. Expiry applies to RAM too. Clear/force prevents older responses from
+/// repopulating the cache. Large raw XML is never stored in preferences.
+class XmltvCache {
+  final Future<XmltvParseResult?> Function(String) load;
+  final DateTime Function() now;
+  final Duration ttl;
+  XmltvCache({
+    required this.load,
+    DateTime Function()? now,
+    this.ttl = const Duration(hours: 6),
+  }) : now = now ?? DateTime.now;
+  String? _url;
+  DateTime? _fetchedAt;
+  XmltvParseResult? _result;
+  final _pending = <String, Future<XmltvParseResult?>>{};
+  int _generation = 0;
 
-  /// In-memory cache
-  static XmltvParseResult? _cachedResult;
-  static String? _cachedUrl;
-
-  /// Derive a stable, prefs-safe slug from the XMLTV URL so each
-  /// distinct EPG source gets its own cache entry instead of clobbering
-  /// the others.
-  ///
-  /// Previously the cache keys were the literals `xmltv_cache_data` /
-  /// `xmltv_ts_hash` — a single global slot. That meant if URL-A was
-  /// cached and the user (or an account switch) later asked for URL-B
-  /// while A's entry was still inside the 6-hour TTL, the parser would
-  /// return A's XML for B's request. Cross-account EPG contamination.
-  ///
-  /// We use FNV-1a-32 (small, dependency-free, good enough for cache
-  /// bucketing — not security-sensitive) over the UTF-8 bytes of the
-  /// URL, rendered as 8 hex chars.
-  static String _urlSlug(String url) {
-    var hash = 0x811c9dc5; // FNV-1a 32-bit offset basis
-    const prime = 0x01000193;
-    for (final b in utf8.encode(url)) {
-      hash = (hash ^ b) & 0xffffffff;
-      hash = (hash * prime) & 0xffffffff;
+  Future<XmltvParseResult?> fetch(String url, {bool force = false}) {
+    final age = _fetchedAt == null ? null : now().difference(_fetchedAt!);
+    if (!force && _url == url && age != null && !age.isNegative && age < ttl) {
+      return Future.value(_result);
     }
-    return hash.toRadixString(16).padLeft(8, '0');
+    if (!force && _pending.containsKey(url)) return _pending[url]!;
+    if (force) clear();
+    final generation = _generation;
+    late final Future<XmltvParseResult?> future;
+    future = Future.sync(() => load(url))
+        .then((value) {
+          if (generation == _generation &&
+              value != null &&
+              value.programsByChannel.isNotEmpty) {
+            _url = url;
+            _result = value;
+            _fetchedAt = now();
+          }
+          return value;
+        })
+        .whenComplete(() {
+          if (identical(_pending[url], future)) _pending.remove(url);
+        });
+    _pending[url] = future;
+    return future;
   }
 
-  /// Fetch and parse XMLTV data from URL.
-  /// Uses in-memory + SharedPreferences cache with 6-hour TTL.
-  static Future<XmltvParseResult?> fetchAndParse(String xmltvUrl) async {
-    // In-memory cache hit
-    if (_cachedResult != null && _cachedUrl == xmltvUrl) {
-      return _cachedResult;
-    }
+  void clear() {
+    _generation++;
+    _url = null;
+    _result = null;
+    _fetchedAt = null;
+    _pending.clear();
+  }
+}
 
-    final slug = _urlSlug(xmltvUrl);
-    final dataKey = '$_cachePrefix$slug';
-    final tsKey = '$_cacheTimestampPrefix$slug';
+Future<XmltvParseResult> parseXmltvBytesAsync(
+  List<int> bytes, {
+  DateTime? now,
+}) => Isolate.run(() {
+  String body;
+  try {
+    body = utf8.decode(bytes);
+  } on FormatException {
+    body = latin1.decode(bytes);
+  }
+  return parseXmltv(body, now: now);
+});
 
-    // Check SharedPreferences cache
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cachedTs = prefs.getInt(tsKey) ?? 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
+class XmltvService {
+  static final _cache = XmltvCache(load: _download);
+  static Future<XmltvParseResult?> fetchAndParse(
+    String url, {
+    bool force = false,
+  }) => _cache.fetch(url, force: force);
 
-      if (now - cachedTs < _ttl.inMilliseconds) {
-        // Try loading from cache
-        final cachedXml = prefs.getString(dataKey);
-        if (cachedXml != null && cachedXml.isNotEmpty) {
-          final result = parseXmltv(cachedXml);
-          if (result.programsByChannel.isNotEmpty) {
-            _cachedResult = result;
-            _cachedUrl = xmltvUrl;
-            return result;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Fetch from URL
-    try {
-      final dio = Dio(BaseOptions(
+  static Future<XmltvParseResult?> _download(String url) async {
+    final dio = Dio(
+      BaseOptions(
         connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 120), // XMLTV can be large
+        receiveTimeout: const Duration(seconds: 60),
         headers: {'User-Agent': 'LifeOsTV/1.0'},
         responseType: ResponseType.bytes,
-      ));
-
-      final response = await dio.get<List<int>>(xmltvUrl);
+      ),
+    );
+    try {
+      final response = await BoundedGetClient(
+        dio,
+        timeout: const Duration(seconds: 120),
+        maxBytes: 64 * 1024 * 1024,
+      ).get<List<int>>(url);
       if (response.statusCode != 200 || response.data == null) return null;
-
-      // Decode body
-      String xmlContent;
-      try {
-        xmlContent = utf8.decode(response.data!);
-      } catch (_) {
-        xmlContent = latin1.decode(response.data!);
-      }
-
-      if (xmlContent.trim().isEmpty) return null;
-
-      final result = parseXmltv(xmlContent);
-      if (result.programsByChannel.isEmpty) return null;
-
-      // Cache to memory
-      _cachedResult = result;
-      _cachedUrl = xmltvUrl;
-
-      // Async save to SharedPreferences (non-blocking)
-      // Only save if reasonably sized (< 5MB)
-      if (xmlContent.length < 5 * 1024 * 1024) {
-        SharedPreferences.getInstance().then((prefs) {
-          prefs.setString(dataKey, xmlContent);
-          prefs.setInt(tsKey, DateTime.now().millisecondsSinceEpoch);
-        });
-      }
-
-      return result;
+      final result = await parseXmltvBytesAsync(
+        response.data!,
+        now: DateTime.now(),
+      );
+      return result.programsByChannel.isEmpty ? null : result;
     } catch (_) {
       return null;
+    } finally {
+      dio.close();
     }
   }
 
-  /// Clear cached XMLTV data across all URL slugs (plus the pre-fix
-  /// global keys that older builds wrote, so an upgrade-and-clear is
-  /// idempotent).
   static Future<void> clearCache() async {
-    _cachedResult = null;
-    _cachedUrl = null;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
-      for (final k in keys) {
-        if (k.startsWith(_cachePrefix) || k.startsWith(_cacheTimestampPrefix)) {
-          await prefs.remove(k);
-        }
+    _cache.clear();
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in prefs.getKeys()) {
+      if (key.startsWith('xmltv_cache_') || key.startsWith('xmltv_ts_')) {
+        await prefs.remove(key);
       }
-    } catch (_) {}
+    }
   }
 }

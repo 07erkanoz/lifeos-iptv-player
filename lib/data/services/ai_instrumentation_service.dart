@@ -121,24 +121,14 @@ class AiInstrumentationService {
   Future<void> _trimToMaxRows() async {
     // Cheap path: count first, only trim when we crossed the
     // ceiling, so we don't run a delete every single call.
-    final countRow = await _db
-        .customSelect('SELECT COUNT(*) AS n FROM ai_call_logs')
-        .getSingle();
-    final n = countRow.read<int>('n');
-    if (n <= _maxRows) return;
-    // Delete the oldest (n - _maxRows) rows.
-    final cutoffRow = await _db
-        .customSelect(
-          'SELECT id FROM ai_call_logs ORDER BY id DESC LIMIT 1 OFFSET ?',
-          variables: [Variable.withInt(_maxRows)],
-        )
-        .getSingleOrNull();
-    if (cutoffRow == null) return;
-    final cutoffId = cutoffRow.read<int>('id');
-    await _db.customStatement(
-      'DELETE FROM ai_call_logs WHERE id <= ?',
-      [cutoffId],
-    );
+    final count = _db.aiCallLogs.id.count();
+    final row = await (_db.selectOnly(_db.aiCallLogs)..addColumns([count])).getSingle();
+    if ((row.read(count) ?? 0) <= _maxRows) return;
+    final cutoff = await (_db.select(_db.aiCallLogs)
+      ..orderBy([(t) => OrderingTerm.desc(t.id)])
+      ..limit(1, offset: _maxRows)).getSingleOrNull();
+    if (cutoff == null) return;
+    await (_db.delete(_db.aiCallLogs)..where((t) => t.id.isSmallerOrEqualValue(cutoff.id))).go();
   }
 
   String _classifyError(Object e) {

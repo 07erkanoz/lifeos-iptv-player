@@ -87,6 +87,7 @@ GoRouter router(Ref ref) {
             return TvVideoPlayerScreen(
               streamUrl: extras['url'],
               streamId: extras['streamId'] as int,
+              accountId: extras['accountId'] as int?,
               title: extras['title'],
               type: extras['type'] ?? VideoType.live,
               logo: extras['logo'],
@@ -100,6 +101,7 @@ GoRouter router(Ref ref) {
           return VideoPlayerScreen(
             streamUrl: extras['url'],
             streamId: extras['streamId'] as int,
+              accountId: extras['accountId'] as int?,
             title: extras['title'],
             type: extras['type'] ?? VideoType.live,
             logo: extras['logo'],

@@ -510,6 +510,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       context.push('/player', extra: {
         'url': url,
         'streamId': ch.streamId,
+        'accountId': ch.accountId,
         'title': ch.name,
         'type': _videoTypeFromString(ch.type),
         'logo': ch.streamIcon,
@@ -568,7 +569,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // picker we just need title + a default S/E pair, so we read
     // the latest playback row per series.
     final rows = await (db.select(db.channels).join([
-      innerJoin(
+      db.accountInnerJoin(
         db.playbackProgress,
         db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
             db.playbackProgress.type.equalsExp(db.channels.type),

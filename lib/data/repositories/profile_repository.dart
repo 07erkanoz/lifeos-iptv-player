@@ -172,7 +172,7 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
 /// are ready.
 final profileRepositoryProvider =
     FutureProvider<ProfileRepository>((ref) async {
-  final db = ref.watch(appDatabaseProvider);
+  final db = ref.watch(rootDatabaseProvider);
   final prefs = await ref.watch(sharedPreferencesProvider.future);
   return ProfileRepository(db, prefs);
 });

@@ -7,7 +7,7 @@ import 'package:lifeostv/utils/sort_mode.dart';
 /// through the constructor; the fields we care about for sort tests are
 /// `name`, `rating` and `added` — everything else is filler.
 Channel _ch({required int id, required String name, double? rating}) {
-  return Channel(
+  return Channel(accountId: 0,
     streamId: id,
     name: name,
     type: 'movie',

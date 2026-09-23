@@ -90,7 +90,7 @@ class _TasteWizardSheetState extends ConsumerState<TasteWizardSheet> {
       // dumped everything into one "other" bucket, defeating the
       // diversity logic. Joining categories fixes that completely.
       final rows = await (db.select(db.channels).join([
-        innerJoin(
+        db.accountInnerJoin(
           db.categories,
           db.categories.id.equalsExp(db.channels.categoryId) &
               db.categories.type.equalsExp(db.channels.type),

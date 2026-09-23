@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -5,6 +6,8 @@ import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final withProgress in [false, true]) {
     test(
       'VOD sync persists provider container and direct URL (progress=$withProgress)',

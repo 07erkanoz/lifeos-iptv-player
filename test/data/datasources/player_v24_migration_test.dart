@@ -63,7 +63,7 @@ void main() {
         final version = await upgraded
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.data['user_version'], 24);
+        expect(version.data['user_version'], upgraded.schemaVersion);
         await (upgraded.update(
           upgraded.channels,
         )).write(const ChannelsCompanion(containerExtension: Value('mp4')));

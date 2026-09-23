@@ -828,6 +828,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               ? allEpisodes[currentIdx]['direct_source']?.toString() : null,
         ),
         'streamId': epId,
+        'accountId': acc.id,
         'title': fullTitle,
         'type': VideoType.series,
         'logo': _detailChannel?.streamIcon,

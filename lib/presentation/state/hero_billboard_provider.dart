@@ -184,7 +184,7 @@ final heroBillboardProvider =
   // Join categories + filter isHidden so a category the user hid in
   // account settings never leaks into the hero billboard.
   final allVodRows = await (db.select(db.channels).join([
-    innerJoin(
+    db.accountInnerJoin(
       db.categories,
       db.categories.id.equalsExp(db.channels.categoryId) &
           db.categories.type.equalsExp(db.channels.type),

@@ -1,3 +1,6 @@
+import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
+import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/core/playback_signal.dart';
@@ -32,6 +35,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final int streamId;
+  final int? accountId;
   final String title;
   final VideoType type;
   final String? logo;
@@ -45,6 +49,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
     super.key,
     required this.streamUrl,
     required this.streamId,
+    this.accountId,
     required this.title,
     this.type = VideoType.live,
     this.logo,
@@ -62,6 +67,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     with WidgetsBindingObserver {
+  late final PlayerRepository _progressRepository;
   VideoPlayerController? _controller;
   final _focusNode = FocusNode();
 
@@ -89,6 +95,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    final profileId = ref.read(activeProfileIdProvider).value ??
+        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
+    _progressRepository = widget.accountId == null
+        ? ref.read(playerRepositoryProvider)
+        : PlayerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!), () => profileId);
+
     WidgetsBinding.instance.addObserver(this);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
@@ -228,8 +240,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       }
       var resume = startAt;
       if (!_isLive && resume == null) {
-        final saved = await ref
-            .read(playerRepositoryProvider)
+        final saved = await _progressRepository
             .getProgress(widget.streamId, widget.type.name);
         if (!mounted ||
             _disposed ||
@@ -363,7 +374,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     if (posMs <= 0) return;
     try {
       final sid = widget.streamId;
-      final repo = ref.read(playerRepositoryProvider);
+      final repo = _progressRepository;
       await repo.saveProgress(
         sid,
         widget.type.name,

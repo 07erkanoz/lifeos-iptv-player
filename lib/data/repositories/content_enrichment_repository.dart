@@ -41,7 +41,7 @@ class ContentEnrichmentRepository {
   /// Write-through upsert for a batch of enrichment results.
   Future<void> storeBatch(List<ContentEnrichmentCompanion> rows) async {
     if (rows.isEmpty) return;
-    await _db.batch((batch) {
+    await _db.accountBatch((batch) {
       for (final r in rows) {
         batch.insert(_db.contentEnrichment, r,
             mode: InsertMode.insertOrReplace);
@@ -55,7 +55,7 @@ class ContentEnrichmentRepository {
   /// users actually browse — get enriched first.
   Future<List<Channel>> pendingItems({int limit = 40}) async {
     final query = _db.select(_db.channels).join([
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.contentEnrichment,
         _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
             _db.contentEnrichment.type.equalsExp(_db.channels.type),
@@ -88,7 +88,7 @@ class ContentEnrichmentRepository {
   Future<int> pendingCount() async {
     final countExpr = _db.channels.streamId.count();
     final query = _db.selectOnly(_db.channels).join([
-      leftOuterJoin(
+      _db.accountLeftJoin(
         _db.contentEnrichment,
         _db.contentEnrichment.streamId.equalsExp(_db.channels.streamId) &
             _db.contentEnrichment.type.equalsExp(_db.channels.type),

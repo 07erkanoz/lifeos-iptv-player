@@ -15,6 +15,7 @@ void main() {
     createdAt: DateTime(2026),
   );
   Channel movie({String? url}) => Channel(
+    accountId: 0,
     streamId: 42,
     name: 'Film',
     type: 'movie',
@@ -33,6 +34,20 @@ void main() {
       };
     });
   });
+
+  test(
+    'refuses another account before reading metadata or direct URL',
+    () async {
+      await expectLater(
+        resolver.resolve(
+          xtream,
+          movie(url: 'https://other.invalid/video').copyWith(accountId: 2),
+        ),
+        throwsStateError,
+      );
+      expect(calls, 0);
+    },
+  );
 
   test('legacy catalogue resolves container from movie_data', () async {
     expect(

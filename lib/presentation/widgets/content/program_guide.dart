@@ -189,6 +189,7 @@ class ProgramGuide extends ConsumerWidget {
     GoRouter.of(context).push('/player', extra: {
       'url': url,
       'streamId': channel.streamId,
+        'accountId': channel.accountId,
       'title': channel.name,
       'logo': channel.streamIcon,
       'type': VideoType.live,

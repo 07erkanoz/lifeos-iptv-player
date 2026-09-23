@@ -309,7 +309,7 @@ Future<List<PersonalizedPickCard>> _dbGenreFallback(
   // Pull VOD joined with its category. Hidden categories filtered
   // out the same way the rest of the search does.
   final rows = await (db.select(db.channels).join([
-    leftOuterJoin(
+    db.accountLeftJoin(
       db.categories,
       db.categories.id.equalsExp(db.channels.categoryId) &
           db.categories.type.equalsExp(db.channels.type),

@@ -1,0 +1,306 @@
+{
+  "runtime": "3.13.2 (stable) (Tue Aug 25 01:01:12 2026 -0700) on \"linux_x64\"",
+  "note": "Flutter test host; same current parser main vs worker; timer gaps are not frame times; RSS includes test harness and GC history.",
+  "samples": [
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "main",
+      "wallMs": 82.278,
+      "maxMainTimerGapMs": 92.32,
+      "ticks": 6,
+      "processRssMiB": 148.33984375
+    },
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "worker",
+      "wallMs": 63.895,
+      "maxMainTimerGapMs": 14.312,
+      "ticks": 12,
+      "processRssMiB": 167.70703125
+    },
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "main",
+      "wallMs": 49.13,
+      "maxMainTimerGapMs": 59.171,
+      "ticks": 6,
+      "processRssMiB": 165.47265625
+    },
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "worker",
+      "wallMs": 72.031,
+      "maxMainTimerGapMs": 13.24,
+      "ticks": 13,
+      "processRssMiB": 161.1875
+    },
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "main",
+      "wallMs": 45.55,
+      "maxMainTimerGapMs": 55.525,
+      "ticks": 6,
+      "processRssMiB": 170.125
+    },
+    {
+      "kind": "m3u",
+      "rows": 10000,
+      "bytes": 944678,
+      "mode": "worker",
+      "wallMs": 69.857,
+      "maxMainTimerGapMs": 10.929,
+      "ticks": 13,
+      "processRssMiB": 165.34375
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "main",
+      "wallMs": 215.964,
+      "maxMainTimerGapMs": 225.981,
+      "ticks": 6,
+      "processRssMiB": 186.7734375
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "worker",
+      "wallMs": 262.191,
+      "maxMainTimerGapMs": 13.69,
+      "ticks": 32,
+      "processRssMiB": 192.97265625
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "main",
+      "wallMs": 244.805,
+      "maxMainTimerGapMs": 254.814,
+      "ticks": 6,
+      "processRssMiB": 186.2265625
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "worker",
+      "wallMs": 238.735,
+      "maxMainTimerGapMs": 12.317,
+      "ticks": 29,
+      "processRssMiB": 179.8515625
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "main",
+      "wallMs": 244.771,
+      "maxMainTimerGapMs": 254.745,
+      "ticks": 6,
+      "processRssMiB": 190.6875
+    },
+    {
+      "kind": "m3u",
+      "rows": 50000,
+      "bytes": 4856678,
+      "mode": "worker",
+      "wallMs": 246.942,
+      "maxMainTimerGapMs": 16.636,
+      "ticks": 30,
+      "processRssMiB": 198.76171875
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "main",
+      "wallMs": 439.344,
+      "maxMainTimerGapMs": 449.28,
+      "ticks": 6,
+      "processRssMiB": 232.44921875
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "worker",
+      "wallMs": 475.573,
+      "maxMainTimerGapMs": 13.283,
+      "ticks": 53,
+      "processRssMiB": 245.40625
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "main",
+      "wallMs": 437.477,
+      "maxMainTimerGapMs": 447.512,
+      "ticks": 6,
+      "processRssMiB": 235.11328125
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "worker",
+      "wallMs": 473.507,
+      "maxMainTimerGapMs": 14.994,
+      "ticks": 53,
+      "processRssMiB": 252.74609375
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "main",
+      "wallMs": 438.956,
+      "maxMainTimerGapMs": 448.964,
+      "ticks": 6,
+      "processRssMiB": 237.2265625
+    },
+    {
+      "kind": "m3u",
+      "rows": 100000,
+      "bytes": 9746678,
+      "mode": "worker",
+      "wallMs": 482.764,
+      "maxMainTimerGapMs": 14.257,
+      "ticks": 54,
+      "processRssMiB": 256.16015625
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "main",
+      "wallMs": 300.04,
+      "maxMainTimerGapMs": 310.064,
+      "ticks": 6,
+      "processRssMiB": 184.046875
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "worker",
+      "wallMs": 195.836,
+      "maxMainTimerGapMs": 11.839,
+      "ticks": 25,
+      "processRssMiB": 197.6171875
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "main",
+      "wallMs": 154.37,
+      "maxMainTimerGapMs": 164.351,
+      "ticks": 6,
+      "processRssMiB": 187.22265625
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "worker",
+      "wallMs": 150.81,
+      "maxMainTimerGapMs": 10.912,
+      "ticks": 21,
+      "processRssMiB": 198.89453125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "main",
+      "wallMs": 131.718,
+      "maxMainTimerGapMs": 141.772,
+      "ticks": 6,
+      "processRssMiB": 189.5859375
+    },
+    {
+      "kind": "xmltv",
+      "rows": 10000,
+      "bytes": 1667799,
+      "mode": "worker",
+      "wallMs": 164.091,
+      "maxMainTimerGapMs": 12.872,
+      "ticks": 22,
+      "processRssMiB": 198.20703125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "main",
+      "wallMs": 659.345,
+      "maxMainTimerGapMs": 669.315,
+      "ticks": 6,
+      "processRssMiB": 264.6953125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "worker",
+      "wallMs": 673.318,
+      "maxMainTimerGapMs": 13.013,
+      "ticks": 73,
+      "processRssMiB": 268.86328125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "main",
+      "wallMs": 704.805,
+      "maxMainTimerGapMs": 714.82,
+      "ticks": 6,
+      "processRssMiB": 264.89453125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "worker",
+      "wallMs": 729.983,
+      "maxMainTimerGapMs": 16.83,
+      "ticks": 79,
+      "processRssMiB": 268.45703125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "main",
+      "wallMs": 770.454,
+      "maxMainTimerGapMs": 780.495,
+      "ticks": 6,
+      "processRssMiB": 267.3125
+    },
+    {
+      "kind": "xmltv",
+      "rows": 50000,
+      "bytes": 8383399,
+      "mode": "worker",
+      "wallMs": 712.482,
+      "maxMainTimerGapMs": 24.603,
+      "ticks": 76,
+      "processRssMiB": 278.97265625
+    }
+  ]
+}

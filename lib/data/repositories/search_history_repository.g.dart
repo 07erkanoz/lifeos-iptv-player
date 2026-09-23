@@ -55,7 +55,7 @@ final class SearchHistoryRepositoryProvider
 }
 
 String _$searchHistoryRepositoryHash() =>
-    r'75353bb313ac5e89627d556b0aa7ad06355efd21';
+    r'29ff5a8d72593e8f915967c9583402691c8e2273';
 
 /// Live recent queries — search screen chip row watches this so a
 /// new entry appears the moment it's recorded.

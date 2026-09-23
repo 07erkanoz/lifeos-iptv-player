@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
+import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/presentation/controllers/playback_seek_controller.dart';
 import 'dart:async';
 import 'dart:io';
@@ -30,7 +32,6 @@ import 'package:lifeostv/core/perf/frosted.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
-import 'package:lifeostv/presentation/widgets/content/program_guide.dart';
 import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/subtitle_search_overlay.dart';
 import 'package:lifeostv/data/services/opensubtitles_service.dart';
@@ -74,6 +75,7 @@ class PlayerChannel {
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final int streamId;
+  final int? accountId;
   final String title;
   final VideoType type;
   final String? logo;
@@ -111,6 +113,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     super.key,
     required this.streamUrl,
     required this.streamId,
+    this.accountId,
     required this.title,
     this.type = VideoType.live,
     this.logo,
@@ -145,6 +148,11 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final PlayerRepository _progressRepository;
+  late final IntroMarkerRepository _introRepository;
+  late final ContentRepository _sessionContentRepository;
+  late final Future<Account?> _sessionAccount;
+  Stream<List<Program>>? _sessionPrograms;
   // -- Player ---------------------------------------------------------------
   late final Player _player;
   late final VideoController _controller;
@@ -304,6 +312,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    final profileId = ref.read(activeProfileIdProvider).value ??
+        ref.read(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
+    _progressRepository = widget.accountId == null
+        ? ref.read(playerRepositoryProvider)
+        : PlayerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!), () => profileId);
+
+    _introRepository = widget.accountId == null
+        ? ref.read(introMarkerRepositoryProvider)
+        : IntroMarkerRepository(ref.read(rootDatabaseProvider).forAccount(widget.accountId!));
+    final content = ref.read(contentRepositoryProvider);
+    _sessionContentRepository = widget.accountId == null
+        ? content : content.forAccount(widget.accountId!);
+    final root = ref.read(rootDatabaseProvider);
+    _sessionAccount = widget.accountId == null
+        ? ref.read(currentAccountProvider.future)
+        : (root.select(root.accounts)..where((a) => a.id.equals(widget.accountId!))).getSingleOrNull();
     WidgetsBinding.instance.addObserver(this);
 
     // Hide status bar & navigation bar on mobile (immersive mode)
@@ -479,11 +503,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!_alive) return;
-      final legacyKey = 'series_intro_$sid';
+      final legacyKey = 'series_intro_${widget.accountId ?? 0}_$sid';
       final legacy = prefs.getInt(legacyKey);
       if (legacy != null && legacy > 0) {
         debugPrint('[intro] migrating legacy key=$legacyKey value=${legacy}s');
-        await ref.read(introMarkerRepositoryProvider).setMarker(
+        await _introRepository.setMarker(
               sid,
               introStartMs: 0,
               introEndMs: legacy * 1000,
@@ -502,8 +526,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // on devices where Drift's stream wakes a tick later than the
     // media_kit player.
     try {
-      final initial = await ref
-          .read(introMarkerRepositoryProvider)
+      final initial = await _introRepository
           .getMarker(sid);
       if (initial != null && mounted && !_disposing) {
         debugPrint('[intro] initial marker loaded: '
@@ -523,8 +546,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Live subscription to the marker. The marking UI writes to the
     // same table, so this picks up edits without an extra reload.
-    _introMarkerSub = ref
-        .read(introMarkerRepositoryProvider)
+    _introMarkerSub = _introRepository
         .watchMarker(sid)
         .listen((m) {
       if (!mounted || _disposing) return;
@@ -568,7 +590,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final sid = widget.parentStreamId;
     if (sid == null) return;
     final l10n = AppLocalizations.of(context)!;
-    final repo = ref.read(introMarkerRepositoryProvider);
+    final repo = _introRepository;
     final messenger = ScaffoldMessenger.of(context);
 
     // Capture an *initial* snapshot of the pending start. The dialog
@@ -1271,8 +1293,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final generation = _openGeneration;
     try {
       final sid = widget.streamId;
-      final p = await ref
-          .read(playerRepositoryProvider)
+      final p = await _progressRepository
           .getProgress(sid, widget.type.name);
       if (p != null &&
           !p.isFinished &&
@@ -1335,7 +1356,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (posMs <= 0) return;
     try {
       final sid = widget.streamId;
-      final repo = ref.read(playerRepositoryProvider);
+      final repo = _progressRepository;
       // Save episode-level progress (for resume)
       await repo.saveProgress(
         sid,
@@ -1362,8 +1383,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _saveLiveHistory() async {
     try {
       final sid = _resolveCurrentLiveStreamId();
-      await ref
-          .read(playerRepositoryProvider)
+      await _progressRepository
           .saveProgress(
             sid,
             'live',
@@ -1441,10 +1461,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// Subscribe to EPG data for a live TV channel
   void _updateEpgForChannel(int streamId) {
     _epgSub?.cancel();
-    _epgSub = ref
-        .read(contentRepositoryProvider)
-        .watchPrograms(streamId)
-        .listen((programs) {
+    _sessionPrograms = _sessionContentRepository.watchPrograms(streamId);
+    _epgSub = _sessionPrograms!.listen((programs) {
           if (!mounted || _disposing) return;
           final now = DateTime.now();
           Program? current;
@@ -1490,8 +1508,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Save history entry for the new channel
     try {
-      ref
-          .read(playerRepositoryProvider)
+      _progressRepository
           .saveProgress(ch.streamId, 'live', 1, 100);
     } catch (_) {}
 
@@ -1788,7 +1805,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// THIS player, so a new push would stack a second media_kit
   /// instance unnecessarily.
   Future<void> _startTimeshift(int channelStreamId, Program program) async {
-    final acc = await ref.read(currentAccountProvider.future);
+    final acc = await _sessionAccount;
     if (acc == null ||
         acc.username == null ||
         acc.password == null) {
@@ -3195,42 +3212,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       _showEpgGuide &&
                       widget.type == VideoType.live)
                     Positioned.fill(
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final currentStreamId =
-                              widget.channels != null &&
-                                  _channelIndex < widget.channels!.length
-                              ? widget.channels![_channelIndex].streamId
-                              : 0;
-                          final programsAsync = ref.watch(
-                            programsProvider(currentStreamId),
-                          );
-                          return programsAsync.when(
-                            data: (programs) => EpgOverlay(
-                              programs: programs,
-                              channelName: _currentTitle,
-                              channelLogo: _currentLogo,
-                              onClose: () =>
-                                  setState(() => _showEpgGuide = false),
-                              onCatchUp: (p) =>
-                                  _startTimeshift(currentStreamId, p),
-                            ),
-                            loading: () => EpgOverlay(
-                              programs: const [],
-                              channelName: _currentTitle,
-                              channelLogo: _currentLogo,
-                              onClose: () =>
-                                  setState(() => _showEpgGuide = false),
-                            ),
-                            error: (_, _) => EpgOverlay(
-                              programs: const [],
-                              channelName: _currentTitle,
-                              channelLogo: _currentLogo,
-                              onClose: () =>
-                                  setState(() => _showEpgGuide = false),
-                            ),
-                          );
-                        },
+                      child: StreamBuilder<List<Program>>(
+                        stream: _sessionPrograms,
+                        builder: (context, snapshot) => EpgOverlay(
+                          programs: snapshot.data ?? const [],
+                          channelName: _currentTitle,
+                          channelLogo: _currentLogo,
+                          onClose: () => setState(() => _showEpgGuide = false),
+                          onCatchUp: (p) => _startTimeshift(p.channelId, p),
+                        ),
                       ),
                     ),
 

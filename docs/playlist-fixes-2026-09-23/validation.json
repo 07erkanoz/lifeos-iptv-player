@@ -1,0 +1,14 @@
+{
+  "flutter_tests": 373,
+  "flutter_tests_status": "passed",
+  "static_analysis": {
+    "errors": 0,
+    "existing_warnings": 6,
+    "existing_info": 17
+  },
+  "linux_release": "passed",
+  "linux_isolated_startup": "passed",
+  "schema": 27,
+  "backup_version": 4,
+  "real_device_playback": "not rerun in this package"
+}
