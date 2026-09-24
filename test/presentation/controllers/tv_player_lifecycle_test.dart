@@ -706,10 +706,23 @@ void main() {
         serviceType: 'urn:schemas-upnp-org:service:AVTransport:1',
       ),
     );
-    await mount(tester);
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/movie.mp4',
+        streamId: 2,
+        title: 'Movie',
+        type: VideoType.movie,
+      ),
+    );
     final castButton = find.byKey(const ValueKey('tv-cast'));
     expect(castButton, findsOneWidget);
-    await tester.tap(castButton);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'TvCast');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(find.byType(BottomSheet), findsOneWidget);
     await tester.binding.handlePopRoute();

@@ -660,7 +660,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _disposed ||
         generation != _remoteGeneration ||
         !identical(_controller, c) ||
-        !(_castingChromecast ? cast.state.isConnected : dlna.state.isConnected)) {
+        !(_castingChromecast
+            ? cast.state.isConnected
+            : dlna.state.isConnected)) {
       return;
     }
     _remoteActive = true;
@@ -1576,16 +1578,23 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                     onPressed: () => _switchEpisode(widget.onPrevEpisode),
                     icon: const Icon(Icons.skip_previous, color: Colors.white),
                   ),
-                IconButton(
-                  focusNode: _episodePlayFocus,
-                  key: const ValueKey('episode-play-pause'),
-                  onPressed: _togglePlay,
-                  icon: Icon(
-                    playing
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_filled,
-                    color: Colors.white,
-                    size: 64,
+                CallbackShortcuts(
+                  bindings: {
+                    const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+                      if (_castFocus.canRequestFocus) _castFocus.requestFocus();
+                    },
+                  },
+                  child: IconButton(
+                    focusNode: _episodePlayFocus,
+                    key: const ValueKey('episode-play-pause'),
+                    onPressed: _togglePlay,
+                    icon: Icon(
+                      playing
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 64,
+                    ),
                   ),
                 ),
                 if (widget.onNextEpisode != null)
