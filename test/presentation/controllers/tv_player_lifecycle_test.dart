@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
+import 'package:lifeostv/data/services/dlna_service.dart';
 import 'package:lifeostv/presentation/screens/player/tv_video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -691,6 +692,32 @@ void main() {
     await tester.pump();
     expect(native.played, contains(1));
     await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('TV Cast sheet closes with Back and restores Cast focus', (
+    tester,
+  ) async {
+    DlnaService.instance.stateNotifier.value = DlnaState(
+      connectionState: DlnaConnectionState.connected,
+      device: DlnaDevice(
+        name: 'Living Room',
+        controlUrl: Uri.parse('http://127.0.0.1:1/avtransport'),
+        serviceType: 'urn:schemas-upnp-org:service:AVTransport:1',
+      ),
+    );
+    await mount(tester);
+    final castButton = find.byKey(const ValueKey('tv-cast'));
+    expect(castButton, findsOneWidget);
+    await tester.tap(castButton);
+    await tester.pump();
+    expect(find.byType(BottomSheet), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'TvCast');
+    await tester.pumpWidget(const SizedBox());
+    DlnaService.instance.stateNotifier.value = const DlnaState();
     await tester.pump(const Duration(milliseconds: 1));
   });
 }

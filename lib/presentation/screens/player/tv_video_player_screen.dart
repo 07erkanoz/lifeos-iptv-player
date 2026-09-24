@@ -9,6 +9,8 @@ import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
+import 'package:lifeostv/data/services/cast_service.dart';
+import 'package:lifeostv/data/services/dlna_service.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
@@ -31,6 +33,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
     show VideoType, PlayerChannel;
+import 'package:lifeostv/presentation/widgets/player/cast_button.dart';
 
 /// Android-TV-only video player backed by ExoPlayer (via `video_player`).
 ///
@@ -42,7 +45,7 @@ import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
 /// platform keeps the full media_kit [VideoPlayerScreen] untouched.
 ///
 /// D-pad controls, live channel/EPG panels, audio/subtitle and quality
-/// selection share this route. Cast integration remains separate work.
+/// selection and Cast/DLNA handoff share this route.
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final Map<String, String> httpHeaders;
@@ -96,6 +99,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   bool _switchingEpisode = false;
   final _episodePlayFocus = FocusNode();
   final _retryFocus = FocusNode(debugLabel: 'TvRetry');
+  final _castFocus = FocusNode(debugLabel: 'TvCast');
   VideoPlayerController? _controller;
   TvSubtitleController? _subtitles;
   bool _subtitleVisible = false;
@@ -142,6 +146,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   final _controllerWork = Expando<Future<void>>();
   Timer? _bufferingTimeout;
   bool _savedInitialProgress = false;
+  bool _remoteActive = false;
+  bool _remoteLoading = false;
+  bool _castingChromecast = false;
+  Duration _remoteStartPosition = Duration.zero;
+  Duration _remoteDuration = Duration.zero;
+  int _remoteGeneration = 0;
 
   // Current stream for the active playback (changes on live channel switch).
   late String _url;
@@ -190,6 +200,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       }
     }, onError: (Object _) {});
     WidgetsBinding.instance.addObserver(this);
+    CastService.instance.stateNotifier.addListener(_onRemoteStateChanged);
+    DlnaService.instance.stateNotifier.addListener(_onRemoteStateChanged);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
     _headers = widget.httpHeaders;
@@ -243,6 +255,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
+    CastService.instance.stateNotifier.removeListener(_onRemoteStateChanged);
+    DlnaService.instance.stateNotifier.removeListener(_onRemoteStateChanged);
     playbackActiveNotifier.value = false;
     _bufferingTimeout?.cancel();
     _bufferingTimeout = null;
@@ -259,6 +273,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _focusNode.dispose();
     _episodePlayFocus.dispose();
     _retryFocus.dispose();
+    _castFocus.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -479,7 +494,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
-    if (_error != null || _modalOpen || _panel != null) return;
+    if (_error != null || _modalOpen || _panel != null || _remoteActive) return;
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         _focusNode.requestFocus();
@@ -496,6 +511,17 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   // ── Playback ops ──────────────────────────────────────────────────────
 
   void _togglePlay() {
+    if (_remoteActive) {
+      if (_remoteLoading) return;
+      if (_castingChromecast) {
+        CastService.instance.playOrPause();
+      } else {
+        final dlna = DlnaService.instance;
+        unawaited(dlna.state.isPlaying ? dlna.pause() : dlna.resume());
+      }
+      _showControlsBriefly();
+      return;
+    }
     if (_error != null) {
       _open(_url, startAt: _controller?.value.position);
       return;
@@ -511,6 +537,22 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   void _seekBy(int seconds) {
+    if (_remoteActive && _canSeek) {
+      if (_remoteLoading) return;
+      final current = _castingChromecast
+          ? CastService.instance.state.position
+          : DlnaService.instance.lastPosition ?? _remoteStartPosition;
+      final target = current + Duration(seconds: seconds);
+      if (_castingChromecast) {
+        CastService.instance.seek(
+          target < Duration.zero ? Duration.zero : target,
+        );
+      } else {
+        unawaited(DlnaService.instance.seek(target));
+      }
+      _showControlsBriefly();
+      return;
+    }
     final c = _controller;
     if (c == null || !c.value.isInitialized || !_canSeek) return;
     _seek.nudge(Duration(seconds: seconds));
@@ -518,6 +560,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   void _channelStep(int delta) {
+    if (_remoteActive) return;
     final chans = widget.channels;
     if (!_isLive || chans == null || chans.isEmpty) return;
     final next = (_channelIndex + delta) % chans.length;
@@ -540,10 +583,19 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   Future<void> _saveProgress() async {
     final c = _controller;
-    if (c == null) return;
-    final v = c.value;
-    if (!v.isInitialized || (!_isLive && v.duration.inSeconds < 10)) return;
-    final posMs = v.position.inMilliseconds;
+    final v = c?.value;
+    if (!_remoteActive && (v == null || !v.isInitialized)) return;
+    final remotePosition = _castingChromecast
+        ? CastService.instance.lastPosition
+        : DlnaService.instance.lastPosition;
+    final position = _remoteActive
+        ? remotePosition != null && remotePosition > Duration.zero
+              ? remotePosition
+              : _remoteStartPosition
+        : v!.position;
+    final duration = _remoteActive ? _remoteDuration : v!.duration;
+    if (!_isLive && duration.inSeconds < 10) return;
+    final posMs = position.inMilliseconds;
     if (posMs <= 0 && !_isLive) return;
     try {
       final channels = widget.channels;
@@ -559,7 +611,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         await repo.saveEpisodeProgress(
           sid,
           posMs,
-          v.duration.inMilliseconds,
+          duration.inMilliseconds,
           parentSeriesId: widget.saveSeriesSummary
               ? widget.parentStreamId
               : null,
@@ -569,10 +621,149 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
           sid,
           widget.type.name,
           _isLive ? 1 : posMs,
-          _isLive ? 100 : v.duration.inMilliseconds,
+          _isLive ? 100 : duration.inMilliseconds,
         );
       }
     } catch (_) {}
+  }
+
+  void _onRemoteStateChanged() {
+    if (!mounted || !_remoteActive || _remoteLoading) return;
+    final failed = _castingChromecast
+        ? CastService.instance.state.isDisconnected ||
+              CastService.instance.state.loadError != null
+        : DlnaService.instance.state.isDisconnected;
+    if (failed) {
+      if (_castingChromecast && CastService.instance.state.loadError != null) {
+        unawaited(CastService.instance.disconnect());
+      }
+      unawaited(_onCastStopped());
+    } else {
+      setState(() {});
+    }
+  }
+
+  Future<void> _onCastStarted() async {
+    final cast = CastService.instance;
+    final dlna = DlnaService.instance;
+    if (!cast.state.isConnected && !dlna.state.isConnected) return;
+    final c = _controller;
+    if (c == null || !c.value.isInitialized || _remoteActive) return;
+    final generation = ++_remoteGeneration;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    _castingChromecast = cast.state.isConnected;
+    _remoteStartPosition = c.value.position;
+    _remoteDuration = c.value.duration;
+    await _saveProgress();
+    if (!mounted ||
+        _disposed ||
+        generation != _remoteGeneration ||
+        !identical(_controller, c) ||
+        !(_castingChromecast ? cast.state.isConnected : dlna.state.isConnected)) {
+      return;
+    }
+    _remoteActive = true;
+    _remoteLoading = true;
+    _hideTimer?.cancel();
+    setState(() {
+      _showControls = true;
+      _buffering = false;
+    });
+
+    try {
+      await _command(c, c.pause);
+      if (!mounted || _disposed || generation != _remoteGeneration) return;
+      // Release the provider connection before LOAD. Some Xtream accounts
+      // reject a second consumer even when ExoPlayer is only paused.
+      c.removeListener(_onValue);
+      _controller = null;
+      _subtitles = null;
+      _subtitleVisible = false;
+      await _retireController(c);
+      if (!mounted || _disposed || generation != _remoteGeneration) return;
+      if (_castingChromecast) {
+        if (!cast.state.isConnected) {
+          await _onCastStopped();
+          return;
+        }
+        cast.loadMedia(
+          url: _url,
+          title: _title,
+          imageUrl: _logo,
+          streamType: _isLive && !_timeshift
+              ? CastStreamType.live
+              : CastStreamType.buffered,
+          startPosition: _remoteStartPosition,
+        );
+      } else {
+        if (!dlna.state.isConnected) {
+          await _onCastStopped();
+          return;
+        }
+        await dlna.loadMedia(
+          url: _url,
+          title: _title,
+          startPosition: _canSeek ? _remoteStartPosition : Duration.zero,
+        );
+      }
+      if (!mounted || _disposed || generation != _remoteGeneration) return;
+      _remoteLoading = false;
+      _onRemoteStateChanged();
+      if (!_remoteActive) return;
+      if (!_castingChromecast) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.castConnectedTo(dlna.state.device?.displayName ?? ''),
+            ),
+          ),
+        );
+      }
+      setState(() {});
+    } catch (_) {
+      if (!mounted || _disposed || generation != _remoteGeneration) return;
+      if (_castingChromecast) {
+        unawaited(cast.disconnect());
+      } else {
+        unawaited(dlna.disconnect());
+      }
+      await _onCastStopped();
+      if (mounted && !_disposed) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              _castingChromecast ? l10n.castFailed : l10n.dlnaConnectFailed,
+            ),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onCastStopped() async {
+    if (!_remoteActive || _disposed) return;
+    unawaited(_saveProgress());
+    final reportedPosition = _castingChromecast
+        ? CastService.instance.lastPosition
+        : DlnaService.instance.lastPosition;
+    final resumeAt = _canSeek
+        ? reportedPosition != null && reportedPosition > Duration.zero
+              ? reportedPosition
+              : _remoteStartPosition
+        : null;
+    _remoteActive = false;
+    _remoteLoading = false;
+    ++_remoteGeneration;
+    if (mounted) {
+      setState(() {});
+      await _open(_url, startAt: resumeAt);
+      if (mounted && !_disposed) {
+        _showControlsBriefly();
+        _castFocus.requestFocus();
+      }
+    }
   }
 
   Future<void> _switchEpisode(VoidCallback? callback) async {
@@ -1000,6 +1191,16 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _togglePlay();
       return KeyEventResult.handled;
     }
+    if (_remoteActive) {
+      if (k == LogicalKeyboardKey.arrowLeft && _canSeek) _seekBy(-10);
+      if (k == LogicalKeyboardKey.arrowRight && _canSeek) _seekBy(10);
+      if (k == LogicalKeyboardKey.arrowUp ||
+          k == LogicalKeyboardKey.arrowDown) {
+        _showControlsBriefly();
+        _castFocus.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
     if (k == LogicalKeyboardKey.arrowLeft) {
       if (_isLive && !_timeshift) {
         _openPanel(_TvPanel.channels);
@@ -1078,7 +1279,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               fit: StackFit.expand,
               children: [
                 // Video
-                if (v != null && v.isInitialized)
+                if (!_remoteActive && v != null && v.isInitialized)
                   Center(
                     child: AspectRatio(
                       aspectRatio: v.aspectRatio > 0 ? v.aspectRatio : 16 / 9,
@@ -1112,7 +1313,34 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   ),
 
                 // Buffering
-                if (_buffering && _error == null)
+                if (_remoteActive)
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.cast_connected,
+                          color: AppColors.primary,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          AppLocalizations.of(context)!.castingBanner(
+                            _castingChromecast
+                                ? CastService.instance.state.device?.name ?? ''
+                                : DlnaService
+                                          .instance
+                                          .state
+                                          .device
+                                          ?.displayName ??
+                                      '',
+                          ),
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_buffering && _error == null && !_remoteActive)
                   const Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
@@ -1215,9 +1443,19 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   Widget _buildControls(VideoPlayerValue? v) {
-    final pos = _seek.preview ?? v?.position ?? Duration.zero;
-    final dur = v?.duration ?? Duration.zero;
-    final playing = v?.isPlaying ?? false;
+    final pos = _remoteActive
+        ? (_castingChromecast
+              ? CastService.instance.state.position
+              : DlnaService.instance.lastPosition ?? _remoteStartPosition)
+        : _seek.preview ?? v?.position ?? Duration.zero;
+    final dur = _remoteActive && _castingChromecast
+        ? CastService.instance.state.duration
+        : v?.duration ?? Duration.zero;
+    final playing = _remoteActive
+        ? (_castingChromecast
+              ? CastService.instance.state.isPlaying
+              : DlnaService.instance.state.isPlaying)
+        : v?.isPlaying ?? false;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1289,6 +1527,22 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                     ],
                   ),
                 ),
+                if (v?.isInitialized == true || _remoteActive)
+                  CastButton(
+                    key: const ValueKey('tv-cast'),
+                    focusNode: _castFocus,
+                    enabled: !_remoteLoading,
+                    onCastStarted: () => unawaited(_onCastStarted()),
+                    onCastStopped: () => unawaited(_onCastStopped()),
+                    onPickerVisibilityChanged: (open) {
+                      _modalOpen = open;
+                      if (open) {
+                        _hideTimer?.cancel();
+                      } else {
+                        _showControlsBriefly();
+                      }
+                    },
+                  ),
                 if (_isLive && !_timeshift)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1349,14 +1603,14 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_isLive)
+                if (_isLive && !_remoteActive)
                   IconButton(
                     key: const ValueKey('tv-channel-list'),
                     tooltip: AppLocalizations.of(context)!.channelList,
                     onPressed: () => _openPanel(_TvPanel.channels),
                     icon: const Icon(Icons.list, color: Colors.white),
                   ),
-                if (_timeshift)
+                if (_timeshift && !_remoteActive)
                   IconButton(
                     key: const ValueKey('tv-return-live'),
                     tooltip: AppLocalizations.of(context)!.liveTV,
@@ -1366,12 +1620,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                 IconButton(
                   key: const ValueKey('tv-audio-tracks'),
                   tooltip: AppLocalizations.of(context)!.audioTrack,
-                  onPressed: v?.isInitialized == true
+                  onPressed: !_remoteActive && v?.isInitialized == true
                       ? _chooseAudioTrack
                       : null,
                   icon: const Icon(Icons.audiotrack, color: Colors.white),
                 ),
-                if (_subtitles != null)
+                if (_subtitles != null && !_remoteActive)
                   IconButton(
                     key: const ValueKey('tv-subtitles'),
                     tooltip: AppLocalizations.of(context)!.subtitle,
@@ -1381,10 +1635,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                 IconButton(
                   key: const ValueKey('tv-quality'),
                   tooltip: AppLocalizations.of(context)!.streamQuality,
-                  onPressed: v?.isInitialized == true ? _chooseQuality : null,
+                  onPressed: !_remoteActive && v?.isInitialized == true
+                      ? _chooseQuality
+                      : null,
                   icon: const Icon(Icons.high_quality, color: Colors.white),
                 ),
-                if (_isLive)
+                if (_isLive && !_remoteActive)
                   IconButton(
                     key: const ValueKey('tv-program-guide'),
                     tooltip: AppLocalizations.of(context)!.programGuide,

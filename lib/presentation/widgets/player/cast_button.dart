@@ -53,10 +53,18 @@ class CastButton extends StatefulWidget {
   /// Called when the remote session ends (local player should resume).
   final VoidCallback? onCastStopped;
 
+  /// Lets TV players keep their controls visible while a route owns focus.
+  final ValueChanged<bool>? onPickerVisibilityChanged;
+  final FocusNode? focusNode;
+  final bool enabled;
+
   const CastButton({
     super.key,
     this.onCastStarted,
     this.onCastStopped,
+    this.onPickerVisibilityChanged,
+    this.focusNode,
+    this.enabled = true,
   });
 
   @override
@@ -115,6 +123,7 @@ class _CastButtonState extends State<CastButton> {
           builder: (context, dlnaState, _) {
             final connected = castState.isConnected || dlnaState.isConnected;
             return IconButton(
+              focusNode: widget.focusNode,
               icon: Icon(
                 connected ? Icons.cast_connected : Icons.cast,
                 color: connected ? AppColors.primary : Colors.white70,
@@ -123,13 +132,15 @@ class _CastButtonState extends State<CastButton> {
               tooltip: AppLocalizations.of(context)!.castDevices,
               padding: const EdgeInsets.all(8),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              onPressed: () {
-                if (connected) {
-                  _showConnectedSheet(context, castState, dlnaState);
-                } else {
-                  _showDevicePicker(context);
-                }
-              },
+              onPressed: widget.enabled
+                  ? () {
+                      if (connected) {
+                        _showConnectedSheet(context, castState, dlnaState);
+                      } else {
+                        _showDevicePicker(context);
+                      }
+                    }
+                  : null,
             );
           },
         );
@@ -137,8 +148,15 @@ class _CastButtonState extends State<CastButton> {
     );
   }
 
+  void _pickerClosed() {
+    if (!mounted) return;
+    widget.onPickerVisibilityChanged?.call(false);
+    widget.focusNode?.requestFocus();
+  }
+
   void _showDevicePicker(BuildContext context) {
-    showModalBottomSheet(
+    widget.onPickerVisibilityChanged?.call(true);
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       shape: const RoundedRectangleBorder(
@@ -197,7 +215,7 @@ class _CastButtonState extends State<CastButton> {
           widget.onCastStarted?.call();
         },
       ),
-    );
+    ).whenComplete(_pickerClosed);
   }
 
   void _showConnectedSheet(
@@ -205,7 +223,8 @@ class _CastButtonState extends State<CastButton> {
     CastState castState,
     DlnaState dlnaState,
   ) {
-    showModalBottomSheet(
+    widget.onPickerVisibilityChanged?.call(true);
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       shape: const RoundedRectangleBorder(
@@ -224,7 +243,11 @@ class _CastButtonState extends State<CastButton> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cast_connected, color: AppColors.primary, size: 40),
+              const Icon(
+                Icons.cast_connected,
+                color: AppColors.primary,
+                size: 40,
+              ),
               const SizedBox(height: 12),
               Text(
                 deviceLabel,
@@ -261,7 +284,7 @@ class _CastButtonState extends State<CastButton> {
           ),
         );
       },
-    );
+    ).whenComplete(_pickerClosed);
   }
 }
 
@@ -285,6 +308,7 @@ class _DevicePickerSheet extends StatefulWidget {
 class _DevicePickerSheetState extends State<_DevicePickerSheet> {
   List<_PickerEntry> _entries = [];
   bool _searching = true;
+  int _searchGeneration = 0;
 
   @override
   void initState() {
@@ -296,25 +320,33 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
   /// different transports so neither blocks the other. We surface results
   /// together as soon as both finish.
   Future<void> _search() async {
+    final generation = ++_searchGeneration;
     setState(() {
       _searching = true;
       _entries = [];
     });
 
-    final results = await Future.wait([
-      CastService.instance.discoverDevices(timeout: const Duration(seconds: 5)),
-      DlnaService.instance.discoverDevices(timeout: const Duration(seconds: 5)),
+    final results = await Future.wait<List<_PickerEntry>>([
+      CastService.instance
+          .discoverDevices(timeout: const Duration(seconds: 5))
+          .then(
+            (devices) =>
+                devices.map<_PickerEntry>(_CastPickerEntry.new).toList(),
+          )
+          .catchError((Object _) => <_PickerEntry>[]),
+      DlnaService.instance
+          .discoverDevices(timeout: const Duration(seconds: 5))
+          .then(
+            (devices) =>
+                devices.map<_PickerEntry>(_DlnaPickerEntry.new).toList(),
+          )
+          .catchError((Object _) => <_PickerEntry>[]),
     ]);
 
-    if (!mounted) return;
-
-    final cast = (results[0] as List<CastDevice>)
-        .map((d) => _CastPickerEntry(d) as _PickerEntry);
-    final dlna = (results[1] as List<DlnaDevice>)
-        .map((d) => _DlnaPickerEntry(d) as _PickerEntry);
+    if (!mounted || generation != _searchGeneration) return;
 
     setState(() {
-      _entries = [...cast, ...dlna];
+      _entries = [...results[0], ...results[1]];
       _searching = false;
     });
   }
@@ -344,7 +376,12 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
               ),
               if (!_searching)
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white54, size: 20),
+                  autofocus: _entries.isEmpty,
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: Colors.white54,
+                    size: 20,
+                  ),
                   onPressed: _search,
                   tooltip: l10n.castSearchAgain,
                 ),
@@ -374,6 +411,7 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
             ),
             const SizedBox(height: 8),
             TextButton.icon(
+              autofocus: true,
               onPressed: _search,
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n.castSearchAgain),
@@ -391,6 +429,7 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
                 itemBuilder: (context, index) {
                   final entry = _entries[index];
                   return ListTile(
+                    autofocus: index == 0,
                     leading: Icon(
                       entry is _DlnaPickerEntry ? Icons.tv : Icons.cast,
                       color: Colors.white54,
@@ -401,10 +440,16 @@ class _DevicePickerSheetState extends State<_DevicePickerSheet> {
                     ),
                     subtitle: Text(
                       entry.subtitle,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
                     ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: entry.badgeColor.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(4),
