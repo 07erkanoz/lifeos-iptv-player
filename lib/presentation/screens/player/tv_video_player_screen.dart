@@ -11,6 +11,7 @@ import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/services/cast_service.dart';
 import 'package:lifeostv/data/services/dlna_service.dart';
+import 'package:lifeostv/data/services/m3u_catchup.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
@@ -163,6 +164,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   bool _timeshift = false;
   String? _replayTitle;
   bool _catchupAvailable = false;
+  M3uCatchup? _m3uCatchup;
+  int _catchupRequest = 0;
   late final Future<Account?> _sessionAccount;
   bool get _isLive => widget.type == VideoType.live;
   bool get _canSeek => !_isLive || _timeshift;
@@ -190,15 +193,6 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         : (_sessionDb.select(
             _sessionDb.accounts,
           )..where((a) => a.id.equals(sessionAccountId))).getSingleOrNull();
-    _sessionAccount.then((account) {
-      if (mounted &&
-          !_disposed &&
-          account?.type == 'xtream' &&
-          account?.username != null &&
-          account?.password != null) {
-        setState(() => _catchupAvailable = true);
-      }
-    }, onError: (Object _) {});
     WidgetsBinding.instance.addObserver(this);
     CastService.instance.stateNotifier.addListener(_onRemoteStateChanged);
     DlnaService.instance.stateNotifier.addListener(_onRemoteStateChanged);
@@ -221,6 +215,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         : 0;
     if (_isLive) {
       _watchEpg();
+      unawaited(_refreshCatchup());
       _epgClock = Timer.periodic(const Duration(seconds: 30), (_) {
         if (mounted && (_showControls || _panel == _TvPanel.epg))
           setState(() {});
@@ -571,6 +566,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     setState(() {
       _timeshift = false;
       _replayTitle = null;
+      _catchupAvailable = false;
+      _m3uCatchup = null;
       _url = ch.url;
       _headers = ch.httpHeaders;
       _title = ch.name;
@@ -578,6 +575,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     });
     _watchEpg();
     _open(ch.url);
+    unawaited(_refreshCatchup());
     _showControlsBriefly();
   }
 
@@ -798,12 +796,49 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             }, onError: (Object _) {});
   }
 
+  Future<void> _refreshCatchup() async {
+    final request = ++_catchupRequest;
+    final channelId = _activeChannelId;
+    try {
+      final account = await _sessionAccount;
+      M3uCatchup? m3u;
+      var available =
+          account?.type == 'xtream' &&
+          account?.username != null &&
+          account?.password != null;
+      if (account?.type == 'm3u') {
+        final row =
+            await (_sessionDb.select(_sessionDb.channels)..where(
+                  (c) => c.streamId.equals(channelId) & c.type.equals('live'),
+                ))
+                .getSingleOrNull();
+        m3u = M3uCatchup.decode(row?.catchupMetadata);
+        available = m3u != null;
+      }
+      if (!mounted ||
+          _disposed ||
+          request != _catchupRequest ||
+          channelId != _activeChannelId)
+        return;
+      setState(() {
+        _m3uCatchup = m3u;
+        _catchupAvailable = available;
+      });
+    } catch (_) {
+      if (mounted && !_disposed && request == _catchupRequest) {
+        setState(() {
+          _m3uCatchup = null;
+          _catchupAvailable = false;
+        });
+      }
+    }
+  }
+
   Future<void> _startTimeshift(Program program) async {
     final now = DateTime.now();
     if (!_isLive ||
         program.channelId != _activeChannelId ||
-        !program.stop.isBefore(now) ||
-        now.difference(program.stop) > const Duration(days: 5))
+        !program.stop.isBefore(now))
       return;
     final channelId = _activeChannelId;
     final generation = _openGeneration;
@@ -813,18 +848,41 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         generation != _openGeneration ||
         channelId != _activeChannelId)
       return;
-    if (account?.type != 'xtream' ||
-        account?.username == null ||
-        account?.password == null)
+    final m3u = _m3uCatchup;
+    final maxDays = account?.type == 'm3u' ? m3u?.days : 5;
+    if (maxDays == null ||
+        now.difference(program.stop) > Duration(days: maxDays))
       return;
-    final url = StreamUrlBuilder.timeshift(
-      account!.url,
-      account.username!,
-      account.password!,
-      channelId,
-      start: program.start,
-      duration: program.stop.difference(program.start),
-    );
+    String url;
+    if (account?.type == 'm3u' && m3u != null) {
+      final channels = widget.channels;
+      final liveUrl =
+          channels != null &&
+              _channelIndex >= 0 &&
+              _channelIndex < channels.length
+          ? channels[_channelIndex].url
+          : widget.streamUrl;
+      final replay = m3u.buildUrl(
+        liveUrl: liveUrl,
+        start: program.start,
+        end: program.stop,
+      );
+      if (replay == null) return;
+      url = replay.toString();
+    } else if (account?.type == 'xtream' &&
+        account?.username != null &&
+        account?.password != null) {
+      url = StreamUrlBuilder.timeshift(
+        account!.url,
+        account.username!,
+        account.password!,
+        channelId,
+        start: program.start,
+        duration: program.stop.difference(program.start),
+      );
+    } else {
+      return;
+    }
     _closePanel();
     setState(() {
       _timeshift = true;

@@ -109,7 +109,7 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
       super(executor);
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration =>
@@ -314,6 +314,11 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
             (row) => row.data['name'] == 'playback_headers',
           )) {
             await Migrator(this).addColumn(channels, channels.playbackHeaders);
+          }
+          if (!channelColumns.any(
+            (row) => row.data['name'] == 'catchup_metadata',
+          )) {
+            await Migrator(this).addColumn(channels, channels.catchupMetadata);
           }
           // Additive table; idempotent for partially applied upgrades too.
           await Migrator(this).createTable(m3uIdentities);

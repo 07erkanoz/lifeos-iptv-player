@@ -88,7 +88,10 @@ class Channels extends Table with AccountScopedTable {
   TextColumn get cast => text().nullable()(); // comma-separated cast
   TextColumn get streamUrl => text()
       .nullable()(); // Direct playback URL (M3U or provider-supplied Xtream source)
-  TextColumn get playbackHeaders => text().nullable()(); // JSON HTTP headers for this media only
+  TextColumn get playbackHeaders =>
+      text().nullable()(); // JSON HTTP headers for this media only
+  TextColumn get catchupMetadata =>
+      text().nullable()(); // M3U catch-up mode, template and window (JSON)
   TextColumn get containerExtension =>
       text().nullable()(); // Xtream media container
   TextColumn get epgChannelId => text()

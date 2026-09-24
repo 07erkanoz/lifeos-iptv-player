@@ -8,6 +8,7 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/datasources/remote/xtream_api_service.dart';
 import 'package:lifeostv/data/services/api_cache.dart';
 import 'package:lifeostv/data/services/m3u_parser.dart';
+import 'package:lifeostv/data/services/m3u_catchup.dart';
 import 'package:lifeostv/data/services/sync_metadata.dart';
 import 'package:lifeostv/data/services/xmltv_parser.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -560,7 +561,14 @@ class SyncService {
               categoryId: entry.groupTitle ?? 'Diğer',
               streamIcon: Value(entry.tvgLogo),
               streamUrl: Value(entry.url),
-              playbackHeaders: Value(entry.httpHeaders.isEmpty ? null : jsonEncode(entry.httpHeaders)),
+              playbackHeaders: Value(
+                entry.httpHeaders.isEmpty
+                    ? null
+                    : jsonEncode(entry.httpHeaders),
+              ),
+              catchupMetadata: Value(
+                M3uCatchup.fromAttributes(entry.extras)?.encode(),
+              ),
               epgChannelId: Value(entry.tvgId),
             );
             batch.insert(_db.channels, row, onConflict: DoUpdate((_) => row));

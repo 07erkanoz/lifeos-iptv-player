@@ -14,11 +14,12 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 | Sağlayıcı başlıkları, alt dizinli Xtream, M3U dönüşümü | [Yeni paket](SAGLAYICI_AI_TV_2026-09-23.md); şema 28. |
 | TV ses seçimi, AI arka plan yükü, embedding, Cast/altyazı sınırları | [Yeni paket](SAGLAYICI_AI_TV_2026-09-23.md); kapsam sınırları raporda. |
 | Android TV Cast/DLNA kumanda akışı | Cast odağı, geri dönüş, uzak oynatma durumu ve tek bağlantı öncesi ExoPlayer kapatma uygulandı; [doğrulama](TV_CAST_2026-09-24.md). |
+| Android TV M3U catch-up | Açık `default`/`append` şablonları, kanal bazlı gün penceresi, şema 29 ve EPG'den canlıya dönüş uygulandı; [doğrulama](TV_M3U_CATCHUP_2026-09-24.md). |
 | Bildirim izin/receiver, iOS izinleri, Apple CI, Android signing | Kod uygulandı. Gerçek OS teslimi, Apple CI sonucu ve mağaza imzaları ayrıca doğrulanmalı. |
 
 ## Henüz tamamlanmayan uygulama işleri
 
-1. **Android TV özellik eşliği:** M3U catch-up şablonları ve fiziksel kumanda kabulü. Cast arayüzü/odak dönüşü [son pakette](TV_CAST_2026-09-24.md), Xtream geçmiş EPG/canlıya dönüş [catch-up paketinde](TV_CATCHUP_2026-09-23.md), kanal/EPG, kalite ve native altyazı [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı.
+1. **Android TV özellik eşliği:** fiziksel kumanda kabulü ve sağlayıcıya özgü örtük M3U catch-up modları (`shift`, `flussonic`, Xtream URL türetme). Açık M3U şablonları [son pakette](TV_M3U_CATCHUP_2026-09-24.md), Cast arayüzü/odak dönüşü [Cast paketinde](TV_CAST_2026-09-24.md), Xtream geçmiş EPG/canlıya dönüş [önceki catch-up paketinde](TV_CATCHUP_2026-09-23.md), kanal/EPG, kalite ve native altyazı [TV panel paketinde](TV_PLAYER_PANELLER_2026-09-23.md) uygulandı.
 2. **LAN aktarımı:** doğrulanmış şifreli eşleme/taşıma ve gerçek eş cihaz kabulü. Sır paylaşımı açık seçime bağlandı, profil birleştirme hatası ve gövde sınırları [son pakette](SENKRON_MEDYA_SON_PAKET_2026-09-23.md) düzeltildi. HTTP hâlâ şifreli değildir.
 3. **Platform özellikleri:** iOS gerçek PiP; masaüstünde planlı bildirim; fiziksel cihazdaki teslim/tıklama akışı.
 4. **Büyük katalog UI:** ekran dışı abonelik/animasyon maliyetinin geniş ölçümü ve XMLTV ağdan veritabanına uçtan uca streaming. XML olay ayrıştırması ve işçi iptali son pakette uygulandı. Lazy bölüm listesi ve tam katalog arama sıralaması [katalog paketinde](KATALOG_PERFORMANSI_2026-09-23.md) uygulandı.
@@ -33,4 +34,4 @@ Bu dosya güncel durumu gösterir; önceki raporların tarihsel açık maddeleri
 - Windows, macOS, iPhone: kurulum/açılış, tam ekran/dönüş, izinler, ses/video, bildirim ve ağ kesintisi.
 - Gerçek Xtream/M3U hesapları, Cast/DLNA alıcısı ve LAN eş cihazlarıyla kabul.
 
-Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [TV Cast paketinde](TV_CAST_2026-09-24.md) tutulur.
+Kod testi, debug APK veya imzasız Apple CI derlemesi bu cihaz testlerinin yerine geçmez. Güncel otomatik doğrulama [M3U catch-up paketinde](TV_M3U_CATCHUP_2026-09-24.md) tutulur.

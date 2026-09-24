@@ -12,6 +12,7 @@ import 'package:lifeostv/data/services/sync_coordinator.dart';
 import 'package:lifeostv/data/services/sync_metadata.dart';
 import 'package:lifeostv/data/services/sync_service.dart';
 import 'package:lifeostv/data/services/m3u_parser.dart';
+import 'package:lifeostv/data/services/m3u_catchup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -60,23 +61,42 @@ void main() {
       )
       .then((_) {});
 
-  test('failed EPG is retryable and concurrent account requests share a job', () async {
-    await db.into(db.channels).insert(ChannelsCompanion.insert(streamId: 1, name: 'Live', type: 'live', categoryId: '1'));
-    final service = SyncService(db, api);
-    api.epgRelease = Completer<void>();
-    final one = service.syncAllLiveEpg(account);
-    final two = SyncService(db, api).syncAllLiveEpg(account);
-    expect(identical(one, two), true);
-    api.epgRelease!.complete();
-    expect(await one, 0);
-    expect(api.allEpgCalls, 1);
-    api.epgRelease = null;
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    api.epg = [{'channel_id': 1, 'title': 'Programme', 'start_timestamp': now, 'stop_timestamp': now + 3600}];
-    expect(await service.syncAllLiveEpg(account), 1);
-    expect(api.allEpgCalls, 2);
-    expect(await db.select(db.programs).get(), hasLength(1));
-  });
+  test(
+    'failed EPG is retryable and concurrent account requests share a job',
+    () async {
+      await db
+          .into(db.channels)
+          .insert(
+            ChannelsCompanion.insert(
+              streamId: 1,
+              name: 'Live',
+              type: 'live',
+              categoryId: '1',
+            ),
+          );
+      final service = SyncService(db, api);
+      api.epgRelease = Completer<void>();
+      final one = service.syncAllLiveEpg(account);
+      final two = SyncService(db, api).syncAllLiveEpg(account);
+      expect(identical(one, two), true);
+      api.epgRelease!.complete();
+      expect(await one, 0);
+      expect(api.allEpgCalls, 1);
+      api.epgRelease = null;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      api.epg = [
+        {
+          'channel_id': 1,
+          'title': 'Programme',
+          'start_timestamp': now,
+          'stop_timestamp': now + 3600,
+        },
+      ];
+      expect(await service.syncAllLiveEpg(account), 1);
+      expect(api.allEpgCalls, 2);
+      expect(await db.select(db.programs).get(), hasLength(1));
+    },
+  );
 
   test(
     'M3U registry, metadata and history survive backup and absent media types prune',
@@ -116,13 +136,14 @@ void main() {
           );
       await oldMovie();
       final parsed = parseM3URaw(
-        '#EXTM3U\n#EXTINF:-1 group-title="Live" tvg-id="live",New\nhttps://example.invalid/live.ts',
+        '#EXTM3U\n#EXTINF:-1 group-title="Live" tvg-id="live" catchup="append" catchup-days="7" catchup-source="&start={utc}&duration={duration}",New\nhttps://example.invalid/live.ts',
       );
       final service = SyncService(db, api, loadM3u: (_) async => parsed);
       await service.syncAll(m3u);
       final channel = await db.select(db.channels).getSingle();
       expect(channel.streamId, 7);
       expect(channel.plot, 'Keep details');
+      expect(M3uCatchup.decode(channel.catchupMetadata)?.days, 7);
       expect((await db.select(db.categories).getSingle()).isHidden, isTrue);
       final backup = BackupService(root);
       final json = await backup.exportToJson();
@@ -131,6 +152,12 @@ void main() {
       db = root.forAccount(1);
       await SyncService(db, api, loadM3u: (_) async => parsed).syncAll(m3u);
       expect((await db.select(db.channels).getSingle()).streamId, 7);
+      expect(
+        M3uCatchup.decode(
+          (await db.select(db.channels).getSingle()).catchupMetadata,
+        )?.mode,
+        'append',
+      );
       expect((await db.select(db.favorites).getSingle()).streamId, 7);
     },
   );
@@ -488,11 +515,17 @@ class _Api extends XtreamApiService {
   Completer<void>? epgRelease;
   int allEpgCalls = 0;
   @override
-  Future<Map<String, dynamic>> getAllEpg(String url, String username, String password, {String? streamId}) async {
+  Future<Map<String, dynamic>> getAllEpg(
+    String url,
+    String username,
+    String password, {
+    String? streamId,
+  }) async {
     allEpgCalls++;
     await epgRelease?.future;
     return {'epg_listings': epg};
   }
+
   List<dynamic> epg = [];
   @override
   Future<Map<String, dynamic>> getEpg(

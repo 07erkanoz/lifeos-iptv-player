@@ -18,6 +18,7 @@ import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
 import 'package:lifeostv/data/services/dlna_service.dart';
+import 'package:lifeostv/data/services/m3u_catchup.dart';
 import 'package:lifeostv/presentation/screens/player/tv_video_player_screen.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -506,6 +507,93 @@ void main() {
       find.byType(ChannelListOverlay),
     );
     expect(panel.currentChannelIndex, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('M3U catch-up template replays EPG and returns to live', (
+    tester,
+  ) async {
+    final start = DateTime.now().subtract(const Duration(hours: 2));
+    final stop = start.add(const Duration(hours: 1));
+    await tester.runAsync(() async {
+      await db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: const Value(1),
+              name: 'Playlist',
+              type: 'm3u',
+              url: 'https://example.invalid/list.m3u',
+            ),
+          );
+      final scope = db.forAccount(1);
+      await scope
+          .into(scope.channels)
+          .insert(
+            ChannelsCompanion.insert(
+              streamId: 1,
+              name: 'M3U live',
+              type: 'live',
+              categoryId: 'news',
+              streamUrl: const Value('https://example.invalid/live.ts?token=x'),
+              catchupMetadata: Value(
+                const M3uCatchup(
+                  mode: 'append',
+                  source: '&start={utc}&duration={duration}',
+                  days: 2,
+                ).encode(),
+              ),
+            ),
+          );
+      await scope
+          .into(scope.programs)
+          .insert(
+            ProgramsCompanion.insert(
+              channelId: 1,
+              title: 'Archive show',
+              start: start,
+              stop: stop,
+            ),
+          );
+    });
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/live.ts?token=x',
+        streamId: 1,
+        accountId: 1,
+        title: 'M3U live',
+        httpHeaders: {'Referer': 'https://example.invalid'},
+      ),
+    );
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('tv-program-guide')));
+    await tester.pump(const Duration(milliseconds: 300));
+    final guide = tester.widget<EpgOverlay>(find.byType(EpgOverlay));
+    expect(guide.onCatchUp, isNotNull);
+    await tester.runAsync(() => guide.onCatchUp!(guide.programs.single));
+    await tester.pump(const Duration(milliseconds: 300));
+    final replay = Uri.parse(native.sources.last.uri!);
+    expect(replay.queryParameters['token'], 'x');
+    expect(
+      replay.queryParameters['start'],
+      '${start.toUtc().millisecondsSinceEpoch ~/ 1000}',
+    );
+    expect(replay.queryParameters['duration'], '3600');
+    expect(
+      native.sources.last.httpHeaders['Referer'],
+      'https://example.invalid',
+    );
+    await tester.tap(find.byKey(const ValueKey('tv-return-live')));
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(native.sources.last.uri, 'https://example.invalid/live.ts?token=x');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });

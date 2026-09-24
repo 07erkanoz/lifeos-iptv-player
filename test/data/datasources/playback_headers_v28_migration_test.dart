@@ -22,6 +22,6 @@ void main() {
     expect(channel.name, 'Keep');
     expect(channel.playbackHeaders, isNull);
     expect((await db.select(db.playbackProgress).getSingle()).position, 1000);
-    expect((await db.customSelect('PRAGMA user_version').getSingle()).data.values.single, 28);
+    expect((await db.customSelect('PRAGMA user_version').getSingle()).data.values.single, 29);
   });
 }

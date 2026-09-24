@@ -1413,6 +1413,17 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _catchupMetadataMeta = const VerificationMeta(
+    'catchupMetadata',
+  );
+  @override
+  late final GeneratedColumn<String> catchupMetadata = GeneratedColumn<String>(
+    'catchup_metadata',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _containerExtensionMeta =
       const VerificationMeta('containerExtension');
   @override
@@ -1465,6 +1476,7 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
     cast,
     streamUrl,
     playbackHeaders,
+    catchupMetadata,
     containerExtension,
     epgChannelId,
     searchText,
@@ -1600,6 +1612,15 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         ),
       );
     }
+    if (data.containsKey('catchup_metadata')) {
+      context.handle(
+        _catchupMetadataMeta,
+        catchupMetadata.isAcceptableOrUnknown(
+          data['catchup_metadata']!,
+          _catchupMetadataMeta,
+        ),
+      );
+    }
     if (data.containsKey('container_extension')) {
       context.handle(
         _containerExtensionMeta,
@@ -1701,6 +1722,10 @@ class $ChannelsTable extends Channels with TableInfo<$ChannelsTable, Channel> {
         DriftSqlType.string,
         data['${effectivePrefix}playback_headers'],
       ),
+      catchupMetadata: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}catchup_metadata'],
+      ),
       containerExtension: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}container_extension'],
@@ -1740,6 +1765,7 @@ class Channel extends DataClass implements Insertable<Channel> {
   final String? cast;
   final String? streamUrl;
   final String? playbackHeaders;
+  final String? catchupMetadata;
   final String? containerExtension;
   final String? epgChannelId;
   final String? searchText;
@@ -1761,6 +1787,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     this.cast,
     this.streamUrl,
     this.playbackHeaders,
+    this.catchupMetadata,
     this.containerExtension,
     this.epgChannelId,
     this.searchText,
@@ -1808,6 +1835,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     }
     if (!nullToAbsent || playbackHeaders != null) {
       map['playback_headers'] = Variable<String>(playbackHeaders);
+    }
+    if (!nullToAbsent || catchupMetadata != null) {
+      map['catchup_metadata'] = Variable<String>(catchupMetadata);
     }
     if (!nullToAbsent || containerExtension != null) {
       map['container_extension'] = Variable<String>(containerExtension);
@@ -1858,6 +1888,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       playbackHeaders: playbackHeaders == null && nullToAbsent
           ? const Value.absent()
           : Value(playbackHeaders),
+      catchupMetadata: catchupMetadata == null && nullToAbsent
+          ? const Value.absent()
+          : Value(catchupMetadata),
       containerExtension: containerExtension == null && nullToAbsent
           ? const Value.absent()
           : Value(containerExtension),
@@ -1893,6 +1926,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       cast: serializer.fromJson<String?>(json['cast']),
       streamUrl: serializer.fromJson<String?>(json['streamUrl']),
       playbackHeaders: serializer.fromJson<String?>(json['playbackHeaders']),
+      catchupMetadata: serializer.fromJson<String?>(json['catchupMetadata']),
       containerExtension: serializer.fromJson<String?>(
         json['containerExtension'],
       ),
@@ -1921,6 +1955,7 @@ class Channel extends DataClass implements Insertable<Channel> {
       'cast': serializer.toJson<String?>(cast),
       'streamUrl': serializer.toJson<String?>(streamUrl),
       'playbackHeaders': serializer.toJson<String?>(playbackHeaders),
+      'catchupMetadata': serializer.toJson<String?>(catchupMetadata),
       'containerExtension': serializer.toJson<String?>(containerExtension),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
       'searchText': serializer.toJson<String?>(searchText),
@@ -1945,6 +1980,7 @@ class Channel extends DataClass implements Insertable<Channel> {
     Value<String?> cast = const Value.absent(),
     Value<String?> streamUrl = const Value.absent(),
     Value<String?> playbackHeaders = const Value.absent(),
+    Value<String?> catchupMetadata = const Value.absent(),
     Value<String?> containerExtension = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
     Value<String?> searchText = const Value.absent(),
@@ -1970,6 +2006,9 @@ class Channel extends DataClass implements Insertable<Channel> {
     playbackHeaders: playbackHeaders.present
         ? playbackHeaders.value
         : this.playbackHeaders,
+    catchupMetadata: catchupMetadata.present
+        ? catchupMetadata.value
+        : this.catchupMetadata,
     containerExtension: containerExtension.present
         ? containerExtension.value
         : this.containerExtension,
@@ -2005,6 +2044,9 @@ class Channel extends DataClass implements Insertable<Channel> {
       playbackHeaders: data.playbackHeaders.present
           ? data.playbackHeaders.value
           : this.playbackHeaders,
+      catchupMetadata: data.catchupMetadata.present
+          ? data.catchupMetadata.value
+          : this.catchupMetadata,
       containerExtension: data.containerExtension.present
           ? data.containerExtension.value
           : this.containerExtension,
@@ -2037,6 +2079,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
           ..write('playbackHeaders: $playbackHeaders, ')
+          ..write('catchupMetadata: $catchupMetadata, ')
           ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText')
@@ -2045,7 +2088,7 @@ class Channel extends DataClass implements Insertable<Channel> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     accountId,
     streamId,
     name,
@@ -2063,10 +2106,11 @@ class Channel extends DataClass implements Insertable<Channel> {
     cast,
     streamUrl,
     playbackHeaders,
+    catchupMetadata,
     containerExtension,
     epgChannelId,
     searchText,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2088,6 +2132,7 @@ class Channel extends DataClass implements Insertable<Channel> {
           other.cast == this.cast &&
           other.streamUrl == this.streamUrl &&
           other.playbackHeaders == this.playbackHeaders &&
+          other.catchupMetadata == this.catchupMetadata &&
           other.containerExtension == this.containerExtension &&
           other.epgChannelId == this.epgChannelId &&
           other.searchText == this.searchText);
@@ -2111,6 +2156,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
   final Value<String?> cast;
   final Value<String?> streamUrl;
   final Value<String?> playbackHeaders;
+  final Value<String?> catchupMetadata;
   final Value<String?> containerExtension;
   final Value<String?> epgChannelId;
   final Value<String?> searchText;
@@ -2133,6 +2179,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
     this.playbackHeaders = const Value.absent(),
+    this.catchupMetadata = const Value.absent(),
     this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
@@ -2156,6 +2203,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     this.cast = const Value.absent(),
     this.streamUrl = const Value.absent(),
     this.playbackHeaders = const Value.absent(),
+    this.catchupMetadata = const Value.absent(),
     this.containerExtension = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.searchText = const Value.absent(),
@@ -2182,6 +2230,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Expression<String>? cast,
     Expression<String>? streamUrl,
     Expression<String>? playbackHeaders,
+    Expression<String>? catchupMetadata,
     Expression<String>? containerExtension,
     Expression<String>? epgChannelId,
     Expression<String>? searchText,
@@ -2205,6 +2254,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       if (cast != null) 'cast': cast,
       if (streamUrl != null) 'stream_url': streamUrl,
       if (playbackHeaders != null) 'playback_headers': playbackHeaders,
+      if (catchupMetadata != null) 'catchup_metadata': catchupMetadata,
       if (containerExtension != null) 'container_extension': containerExtension,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
       if (searchText != null) 'search_text': searchText,
@@ -2230,6 +2280,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     Value<String?>? cast,
     Value<String?>? streamUrl,
     Value<String?>? playbackHeaders,
+    Value<String?>? catchupMetadata,
     Value<String?>? containerExtension,
     Value<String?>? epgChannelId,
     Value<String?>? searchText,
@@ -2253,6 +2304,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
       cast: cast ?? this.cast,
       streamUrl: streamUrl ?? this.streamUrl,
       playbackHeaders: playbackHeaders ?? this.playbackHeaders,
+      catchupMetadata: catchupMetadata ?? this.catchupMetadata,
       containerExtension: containerExtension ?? this.containerExtension,
       epgChannelId: epgChannelId ?? this.epgChannelId,
       searchText: searchText ?? this.searchText,
@@ -2314,6 +2366,9 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
     if (playbackHeaders.present) {
       map['playback_headers'] = Variable<String>(playbackHeaders.value);
     }
+    if (catchupMetadata.present) {
+      map['catchup_metadata'] = Variable<String>(catchupMetadata.value);
+    }
     if (containerExtension.present) {
       map['container_extension'] = Variable<String>(containerExtension.value);
     }
@@ -2349,6 +2404,7 @@ class ChannelsCompanion extends UpdateCompanion<Channel> {
           ..write('cast: $cast, ')
           ..write('streamUrl: $streamUrl, ')
           ..write('playbackHeaders: $playbackHeaders, ')
+          ..write('catchupMetadata: $catchupMetadata, ')
           ..write('containerExtension: $containerExtension, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('searchText: $searchText, ')
@@ -11301,6 +11357,7 @@ typedef $$ChannelsTableCreateCompanionBuilder =
       Value<String?> cast,
       Value<String?> streamUrl,
       Value<String?> playbackHeaders,
+      Value<String?> catchupMetadata,
       Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
@@ -11325,6 +11382,7 @@ typedef $$ChannelsTableUpdateCompanionBuilder =
       Value<String?> cast,
       Value<String?> streamUrl,
       Value<String?> playbackHeaders,
+      Value<String?> catchupMetadata,
       Value<String?> containerExtension,
       Value<String?> epgChannelId,
       Value<String?> searchText,
@@ -11462,6 +11520,11 @@ class $$ChannelsTableFilterComposer
 
   ColumnFilters<String> get playbackHeaders => $composableBuilder(
     column: $table.playbackHeaders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get catchupMetadata => $composableBuilder(
+    column: $table.catchupMetadata,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11618,6 +11681,11 @@ class $$ChannelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get catchupMetadata => $composableBuilder(
+    column: $table.catchupMetadata,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get containerExtension => $composableBuilder(
     column: $table.containerExtension,
     builder: (column) => ColumnOrderings(column),
@@ -11719,6 +11787,11 @@ class $$ChannelsTableAnnotationComposer
 
   GeneratedColumn<String> get playbackHeaders => $composableBuilder(
     column: $table.playbackHeaders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get catchupMetadata => $composableBuilder(
+    column: $table.catchupMetadata,
     builder: (column) => column,
   );
 
@@ -11831,6 +11904,7 @@ class $$ChannelsTableTableManager
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
                 Value<String?> playbackHeaders = const Value.absent(),
+                Value<String?> catchupMetadata = const Value.absent(),
                 Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
@@ -11853,6 +11927,7 @@ class $$ChannelsTableTableManager
                 cast: cast,
                 streamUrl: streamUrl,
                 playbackHeaders: playbackHeaders,
+                catchupMetadata: catchupMetadata,
                 containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,
@@ -11877,6 +11952,7 @@ class $$ChannelsTableTableManager
                 Value<String?> cast = const Value.absent(),
                 Value<String?> streamUrl = const Value.absent(),
                 Value<String?> playbackHeaders = const Value.absent(),
+                Value<String?> catchupMetadata = const Value.absent(),
                 Value<String?> containerExtension = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<String?> searchText = const Value.absent(),
@@ -11899,6 +11975,7 @@ class $$ChannelsTableTableManager
                 cast: cast,
                 streamUrl: streamUrl,
                 playbackHeaders: playbackHeaders,
+                catchupMetadata: catchupMetadata,
                 containerExtension: containerExtension,
                 epgChannelId: epgChannelId,
                 searchText: searchText,
