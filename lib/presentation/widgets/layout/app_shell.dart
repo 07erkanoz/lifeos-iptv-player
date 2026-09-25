@@ -193,6 +193,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         return;
       case AppShellBackAction.goToDashboard:
         widget.navigationShell.goBranch(0);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.navigationShell.currentIndex == 0) {
+            ref.read(tvFocusRegistryProvider).requestActivePrimary(0);
+          }
+        });
         return;
       case AppShellBackAction.exit:
         SystemNavigator.pop();

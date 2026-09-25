@@ -28,9 +28,9 @@ class _Harness {
     required this.controller,
     required this.items,
     required this.columns,
-  })  : activated = <int>[],
-        leftEdgeCount = 0,
-        topEdgeCount = 0;
+  }) : activated = <int>[],
+       leftEdgeCount = 0,
+       topEdgeCount = 0;
 
   Widget build() {
     return MaterialApp(
@@ -98,8 +98,9 @@ void main() {
       expect(_focusedStreamId(), 100);
     });
 
-    testWidgets('items mount their FocusNodes with the controller',
-        (tester) async {
+    testWidgets('items mount their FocusNodes with the controller', (
+      tester,
+    ) async {
       await tester.pumpWidget(h.build());
       await tester.pump();
 
@@ -109,6 +110,49 @@ void main() {
       expect(controller.columns, 4);
       expect(controller.hasScrollController, isTrue);
     });
+
+    testWidgets('new category focuses its first poster after an async gap', (
+      tester,
+    ) async {
+      await tester.pumpWidget(h.build());
+      await tester.pump();
+      controller.focusIndex(5);
+      await tester.pump();
+      expect(_focusedStreamId(), 105);
+
+      // Category changes can temporarily remove the old grid while data
+      // loads. The focus request must wait for the replacement Focus widgets.
+      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+      await tester.pump();
+      expect(controller.focusFirst(), isFalse);
+
+      h = _Harness(
+        controller: controller,
+        columns: 4,
+        items: List.generate(8, (i) => _Item(200 + i, 'New $i')),
+      );
+      await tester.pumpWidget(h.build());
+      await tester.pumpAndSettle();
+      expect(_focusedStreamId(), 200);
+    });
+
+    testWidgets(
+      'detail return restores the previous poster after grid remount',
+      (tester) async {
+        await tester.pumpWidget(h.build());
+        await tester.pump();
+        controller.focusIndex(5);
+        await tester.pump();
+        expect(_focusedStreamId(), 105);
+
+        await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+        await tester.pump();
+        expect(controller.focusCurrentOrFirst(), isFalse);
+        await tester.pumpWidget(h.build());
+        await tester.pumpAndSettle();
+        expect(_focusedStreamId(), 105);
+      },
+    );
   });
 
   group('TvPosterGrid D-pad navigation (row-major, no wrap)', () {
@@ -150,8 +194,9 @@ void main() {
       expect(_focusedStreamId(), 105);
     });
 
-    testWidgets('arrow up moves to same column in previous row',
-        (tester) async {
+    testWidgets('arrow up moves to same column in previous row', (
+      tester,
+    ) async {
       await tester.pumpWidget(h.build());
       await tester.pump();
       controller.focusIndex(5); // row 1, col 1
@@ -221,8 +266,9 @@ void main() {
   });
 
   group('TvPosterGrid activation', () {
-    testWidgets('select/enter fires onActivate with the focused item',
-        (tester) async {
+    testWidgets('select/enter fires onActivate with the focused item', (
+      tester,
+    ) async {
       await tester.pumpWidget(h.build());
       await tester.pump();
       controller.focusIndex(3);
@@ -235,28 +281,27 @@ void main() {
   });
 
   group('TvPosterGridController focus restore', () {
-    testWidgets(
-      'focusByStreamId restores after another item was focused',
-      (tester) async {
-        await tester.pumpWidget(h.build());
-        await tester.pump();
-        controller.focusIndex(0);
-        await tester.pump();
-        controller.focusIndex(7);
-        await tester.pump();
-        expect(controller.lastFocusedStreamId, 107);
+    testWidgets('focusByStreamId restores after another item was focused', (
+      tester,
+    ) async {
+      await tester.pumpWidget(h.build());
+      await tester.pump();
+      controller.focusIndex(0);
+      await tester.pump();
+      controller.focusIndex(7);
+      await tester.pump();
+      expect(controller.lastFocusedStreamId, 107);
 
-        // Move focus away (simulate detail open clobbering focus).
-        FocusManager.instance.primaryFocus?.unfocus();
-        await tester.pump();
-        expect(_focusedStreamId(), isNull);
+      // Move focus away (simulate detail open clobbering focus).
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      expect(_focusedStreamId(), isNull);
 
-        // Restore.
-        expect(controller.focusByStreamId(107), isTrue);
-        await tester.pump();
-        expect(_focusedStreamId(), 107);
-      },
-    );
+      // Restore.
+      expect(controller.focusByStreamId(107), isTrue);
+      await tester.pump();
+      expect(_focusedStreamId(), 107);
+    });
 
     testWidgets('focusCurrentOrFirst returns to lastFocused', (tester) async {
       await tester.pumpWidget(h.build());

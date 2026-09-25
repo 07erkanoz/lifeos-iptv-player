@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 
 /// Search button at the bottom of the sidebar – pushes /search route
 class SidebarSearchButton extends StatefulWidget {
@@ -31,13 +33,16 @@ class _SidebarSearchButtonState extends State<SidebarSearchButton> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter)) {
           _openSearch();
           return KeyEventResult.handled;
         }
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          FocusManager.instance.primaryFocus?.focusInDirection(TraversalDirection.right);
+          final branch = StatefulNavigationShell.of(context).currentIndex;
+          ProviderScope.containerOf(
+            context,
+          ).read(tvFocusRegistryProvider).requestActivePrimary(branch);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -67,7 +72,9 @@ class _SidebarSearchButtonState extends State<SidebarSearchButton> {
               children: [
                 Icon(
                   Icons.search,
-                  color: isActive ? AppColors.primary : AppColors.textSecondary(context),
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors.textSecondary(context),
                   size: 22,
                 ),
                 if (widget.isExpanded) ...[
@@ -75,7 +82,9 @@ class _SidebarSearchButtonState extends State<SidebarSearchButton> {
                   Text(
                     l10n.search,
                     style: TextStyle(
-                      color: isActive ? AppColors.primary : AppColors.textSecondary(context),
+                      color: isActive
+                          ? AppColors.primary
+                          : AppColors.textSecondary(context),
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                     ),

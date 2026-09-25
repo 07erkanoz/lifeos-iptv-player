@@ -42,24 +42,34 @@ class YouTubeTrailerService {
   ///
   /// Prefers muxed audio+video at ≤720p — preview quality is plenty
   /// for a hero billboard and keeps bandwidth low.
-  Future<String?> extractStreamUrl(String videoIdOrUrl) async {
+  Future<String?> extractStreamUrl(
+    String videoIdOrUrl, {
+    bool requireAudio = false,
+  }) async {
     final id = _normalizeId(videoIdOrUrl);
     if (id == null) return null;
+    final cacheKey = requireAudio ? '$id:audio' : id;
 
-    final cached = _cache[id];
+    final cached = _cache[cacheKey];
     if (cached != null && DateTime.now().difference(cached.fetchedAt) < _ttl) {
       return cached.url;
     }
 
     // Serialize through the single-flight gate so we never spawn two
     // YouTube round-trips at once.
-    return _serialize(() => _extractStreamUrlImpl(id));
+    return _serialize(
+      () => _extractStreamUrlImpl(id, requireAudio: requireAudio),
+    );
   }
 
-  Future<String?> _extractStreamUrlImpl(String id) async {
+  Future<String?> _extractStreamUrlImpl(
+    String id, {
+    bool requireAudio = false,
+  }) async {
+    final cacheKey = requireAudio ? '$id:audio' : id;
     // Re-check cache inside the gate — another waiter might have
     // populated it while we were queued.
-    final cachedAgain = _cache[id];
+    final cachedAgain = _cache[cacheKey];
     if (cachedAgain != null &&
         DateTime.now().difference(cachedAgain.fetchedAt) < _ttl) {
       return cachedAgain.url;
@@ -79,7 +89,7 @@ class YouTubeTrailerService {
         // Pick the highest muxed (typically 360p) — preview is small,
         // doesn't need 4k.
         url = muxedSorted.first.url.toString();
-      } else {
+      } else if (!requireAudio) {
         // Video-only at the lowest quality that's still presentable
         // (~480p). Audio doesn't matter — the preview is muted.
         final videoOnly = manifest.videoOnly.sortByVideoQuality();
@@ -89,10 +99,10 @@ class YouTubeTrailerService {
         }
       }
 
-      _cache[id] = _CachedUrl(url: url, fetchedAt: DateTime.now());
+      _cache[cacheKey] = _CachedUrl(url: url, fetchedAt: DateTime.now());
       return url;
     } catch (_) {
-      _cache[id] = _CachedUrl(url: null, fetchedAt: DateTime.now());
+      _cache[cacheKey] = _CachedUrl(url: null, fetchedAt: DateTime.now());
       return null;
     }
   }
@@ -106,7 +116,9 @@ class YouTubeTrailerService {
     _inflight = completer.future;
     try {
       if (previous != null) {
-        try { await previous; } catch (_) {}
+        try {
+          await previous;
+        } catch (_) {}
       }
       return await task();
     } finally {
@@ -128,28 +140,41 @@ class YouTubeTrailerService {
   /// Picks the FIRST search result (YouTube's relevance ranking is
   /// already good enough for "<movie> trailer") and runs it through
   /// the normal extractStreamUrl path.
-  Future<String?> extractStreamUrlForQuery(String title, {String? year}) async {
+  Future<String?> extractStreamUrlForQuery(
+    String title, {
+    String? year,
+    bool requireAudio = false,
+  }) async {
     final yearPart = (year != null && year.isNotEmpty) ? ' $year' : '';
     final query = '$title$yearPart trailer'.trim();
 
     final cached = _searchCache[query];
-    if (cached != null && DateTime.now().difference(cached.fetchedAt) < _searchTtl) {
+    if (cached != null &&
+        DateTime.now().difference(cached.fetchedAt) < _searchTtl) {
       if (cached.videoId == null) return null;
-      return extractStreamUrl(cached.videoId!);
+      return extractStreamUrl(cached.videoId!, requireAudio: requireAudio);
     }
 
     // Serialize search → extract through the single-flight gate.
-    return _serialize(() => _extractStreamUrlForQueryImpl(query));
+    return _serialize(
+      () => _extractStreamUrlForQueryImpl(query, requireAudio: requireAudio),
+    );
   }
 
-  Future<String?> _extractStreamUrlForQueryImpl(String query) async {
+  Future<String?> _extractStreamUrlForQueryImpl(
+    String query, {
+    required bool requireAudio,
+  }) async {
     // Re-check cache inside the gate — another waiter might have
     // populated it while we were queued.
     final cachedAgain = _searchCache[query];
     if (cachedAgain != null &&
         DateTime.now().difference(cachedAgain.fetchedAt) < _searchTtl) {
       if (cachedAgain.videoId == null) return null;
-      return _extractStreamUrlImpl(cachedAgain.videoId!);
+      return _extractStreamUrlImpl(
+        cachedAgain.videoId!,
+        requireAudio: requireAudio,
+      );
     }
 
     try {
@@ -170,7 +195,7 @@ class YouTubeTrailerService {
         fetchedAt: DateTime.now(),
       );
       if (videoId == null) return null;
-      return await _extractStreamUrlImpl(videoId);
+      return await _extractStreamUrlImpl(videoId, requireAudio: requireAudio);
     } catch (_) {
       _searchCache[query] = _CachedSearch(
         videoId: null,

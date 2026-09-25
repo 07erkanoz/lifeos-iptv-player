@@ -186,6 +186,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       if (!mounted) return;
       if (saved != null && saved.isNotEmpty) {
         setState(() => _selectedCategoryId = saved);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _categorySidebarScope.hasFocus) _focusSidebarItem();
+        });
       }
     });
 
@@ -250,6 +253,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   }
 
   void _focusBranchEntry() {
+    if (PlatformHelper.isTV) {
+      _categoryCollapseTimer?.cancel();
+      if (_categoriesCollapsed) setState(() => _categoriesCollapsed = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusSidebarItem();
+      });
+      return;
+    }
     if (!_categoriesCollapsed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_categoriesCollapsed) _focusSidebarItem();
@@ -1348,6 +1359,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                           setState(
                             () => _selectedCategoryId = categories.first.id,
                           );
+                          if (_categorySidebarScope.hasFocus) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) _focusSidebarItem();
+                            });
+                          }
                         }
                       });
                     }

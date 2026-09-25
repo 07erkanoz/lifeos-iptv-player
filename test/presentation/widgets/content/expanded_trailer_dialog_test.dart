@@ -2,8 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
+import 'package:lifeostv/l10n/generated/app_localizations.dart';
 
 void main() {
+  testWidgets('failed trailer has a visible retry target and can close', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () => showExpandedTrailer(
+                  context,
+                  directTrailerRef: null,
+                  searchTitle: 'Example',
+                  searchYear: null,
+                  channelType: 'live',
+                ),
+                child: const Text('Open'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'TrailerRetry');
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.refresh), findsNothing);
+  });
+
   group('computeExpandedTrailerSize — 16:9 letterbox math', () {
     test('wide viewport — height is the limiting axis', () {
       // 1920 × 1080: 0.9× → 1728 × 972.
@@ -32,26 +67,20 @@ void main() {
       expect(s.width / s.height, closeTo(16 / 9, 0.01));
     });
 
-    test(
-      'very wide viewport (ultra-wide monitor) — falls back to '
-      'height-limited so the dialog doesn\'t span the whole desk',
-      () {
-        // 3440 × 1440: 0.9× → 3096 × 1296.
-        // Width-first: 3096 → height 1741, which exceeds 1296.
-        // So heightFirst: 1296 × 16/9 = 2304.
-        final s = computeExpandedTrailerSize(const Size(3440, 1440));
-        expect(s.height, closeTo(1296, 0.5));
-        expect(s.width, closeTo(2304, 0.5));
-        expect(s.width / s.height, closeTo(16 / 9, 0.01));
-      },
-    );
+    test('very wide viewport (ultra-wide monitor) — falls back to '
+        'height-limited so the dialog doesn\'t span the whole desk', () {
+      // 3440 × 1440: 0.9× → 3096 × 1296.
+      // Width-first: 3096 → height 1741, which exceeds 1296.
+      // So heightFirst: 1296 × 16/9 = 2304.
+      final s = computeExpandedTrailerSize(const Size(3440, 1440));
+      expect(s.height, closeTo(1296, 0.5));
+      expect(s.width, closeTo(2304, 0.5));
+      expect(s.width / s.height, closeTo(16 / 9, 0.01));
+    });
 
     test('custom scale parameter is honored', () {
       // 0.5 scale on 1920 × 1080 → max 960 × 540 area.
-      final s = computeExpandedTrailerSize(
-        const Size(1920, 1080),
-        scale: 0.5,
-      );
+      final s = computeExpandedTrailerSize(const Size(1920, 1080), scale: 0.5);
       expect(s.width, closeTo(960, 0.5));
       expect(s.height, closeTo(540, 0.5));
       expect(s.width / s.height, closeTo(16 / 9, 0.01));

@@ -51,6 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     (i) => FocusNode(debugLabel: 'SettingsNav$i'),
   );
   final _contentScope = FocusScopeNode(debugLabel: 'SettingsContent');
+  final ScrollController _navScroll = ScrollController();
   late final bool Function() _branchBackCb = _handleBack;
 
   late final VoidFocusCallback _branchPrimaryCb;
@@ -83,14 +84,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       node.dispose();
     }
     _contentScope.dispose();
+    _navScroll.dispose();
     super.dispose();
   }
 
-  void _focusFirstNav() {
+  void _focusFirstNav({int attemptsLeft = 8}) {
     if (!mounted) return;
     final node = _navNodes[_selectedIndex.clamp(0, _navNodes.length - 1)];
-    node.requestFocus();
-    if (node.context != null) Scrollable.ensureVisible(node.context!);
+    if (node.context?.mounted == true && node.canRequestFocus) {
+      node.requestFocus();
+      Scrollable.ensureVisible(node.context!);
+    } else if (attemptsLeft > 0) {
+      if (_navScroll.hasClients) {
+        final offset = (_selectedIndex.clamp(0, _navNodes.length - 1) * 56.0)
+            .clamp(0.0, _navScroll.position.maxScrollExtent);
+        _navScroll.jumpTo(offset);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusFirstNav(attemptsLeft: attemptsLeft - 1);
+      });
+    }
   }
 
   bool _handleBack() {
@@ -168,6 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 Expanded(
                   child: ListView.builder(
+                    controller: _navScroll,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     itemCount: sections.length,
                     itemBuilder: (context, index) {

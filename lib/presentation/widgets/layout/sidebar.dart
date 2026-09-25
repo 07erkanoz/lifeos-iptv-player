@@ -207,7 +207,7 @@ class AppSidebarState extends ConsumerState<AppSidebar>
     // survives detail overlays.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _moveFocusToActiveContent();
+      _focusBranchAfterNavigation(index);
     });
   }
 
@@ -215,15 +215,22 @@ class AppSidebarState extends ConsumerState<AppSidebar>
   /// falling back to directional traversal if no screen has registered
   /// yet (cold first frame).
   void _moveFocusToActiveContent() {
-    final registry = _focusRegistry;
-    final ok = registry.requestActivePrimary(
-      widget.navigationShell.currentIndex,
-    );
-    if (!ok) {
-      FocusManager.instance.primaryFocus?.focusInDirection(
-        TraversalDirection.right,
-      );
-    }
+    _focusBranchAfterNavigation(widget.navigationShell.currentIndex);
+  }
+
+  void _focusBranchAfterNavigation(int branchIndex, {int attemptsLeft = 8}) {
+    if (!mounted) return;
+    if (widget.navigationShell.currentIndex == branchIndex &&
+        _focusRegistry.requestActivePrimary(branchIndex))
+      return;
+    if (attemptsLeft <= 0) return;
+    // On a cold branch the screen registers its focus callback after the
+    // sidebar's first post-frame request. Keep the currently visible sidebar
+    // item focused until that target exists; geometric traversal can land on
+    // the search bar or an unrelated control above the category panel.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusBranchAfterNavigation(branchIndex, attemptsLeft: attemptsLeft - 1);
+    });
   }
 
   @override

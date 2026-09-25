@@ -103,7 +103,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _textFocus.requestFocus();
+      if (mounted && _textFocus.context?.mounted == true) {
+        _textFocus.requestFocus();
+      }
     });
   }
 
@@ -158,9 +160,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   /// Move focus to the first result card. Called when the user
   /// presses arrow-down (or Enter) from the search input.
-  void _focusFirstResult() {
-    if (_firstResultFocus.canRequestFocus) {
+  void _focusFirstResult({int attemptsLeft = 8}) {
+    if (!mounted || !_hasResults) return;
+    if (_firstResultFocus.context?.mounted == true &&
+        _firstResultFocus.canRequestFocus) {
       _firstResultFocus.requestFocus();
+    } else if (attemptsLeft > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusFirstResult(attemptsLeft: attemptsLeft - 1);
+      });
     }
   }
 

@@ -77,6 +77,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   Channel? _detailChannel;
   Map<String, dynamic>? _seriesInfo;
   bool _loadingDetail = false;
+  bool _detailInitialFocusPending = false;
   int _detailRequest = 0;
   Account? _detailAccount;
   int _activeSeason = 1;
@@ -388,12 +389,16 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// Stable callback used for the registry overlay slot. Captured once
   /// in [_openDetail] so push/pop identity matches.
   void _focusDetailPlayCallback() {
-    if (_detailPlayFocusNode.canRequestFocus) {
+    if (_detailPlayFocusNode.context?.mounted == true &&
+        _detailPlayFocusNode.canRequestFocus) {
       _detailPlayFocusNode.requestFocus();
+    } else if (_detailBackFocusNode.context?.mounted == true) {
+      _detailBackFocusNode.requestFocus();
     }
   }
 
   void _openDetail(Channel ch) async {
+    _detailInitialFocusPending = true;
     final request = ++_detailRequest;
     if (_detailOverlayCb == null) {
       _detailOverlayCb = _focusDetailPlayCallback;
@@ -449,6 +454,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             _seriesInfo = _buildBasicSeriesInfo(ch);
             _loadingDetail = false;
           });
+          _focusDetailWhenReady();
         }
         info = await _fetchSeriesInfoWithFallback(acc, ch, request);
         resolved = _detailChannel ?? ch;
@@ -469,6 +475,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _seriesInfo = {...resolvedInfo, 'episodes': episodes};
         _loadingDetail = false;
       });
+      _focusDetailWhenReady();
       if (acc.type != 'm3u') _cacheMetadata(resolved, resolvedInfo);
       _fetchLastEpisodeProgress(_seriesInfo);
       ref
@@ -481,6 +488,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         _seriesInfo = _buildBasicSeriesInfo(ch);
         _loadingDetail = false;
       });
+      _focusDetailWhenReady();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.connectionFailed)),
       );
@@ -905,6 +913,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   void _closeDetail() {
+    _detailInitialFocusPending = false;
     ++_detailRequest;
     _detailAccount = null;
     _similarCacheKey = null;
@@ -946,7 +955,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     });
     if (!isMobilePlatform) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _gridController.focusCurrentOrFirst();
+        if (mounted) _gridController.focusFirst();
       });
     }
   }
@@ -1120,6 +1129,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   void _focusBranchEntry() {
+    if (PlatformHelper.isTV && _detailChannel == null) {
+      _categoryCollapseTimer?.cancel();
+      if (_categoriesCollapsed || _selectedCategoryId != null) {
+        setState(() {
+          _categoriesCollapsed = false;
+          _selectedCategoryId = null;
+        });
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _detailChannel == null) _focusSidebarItem();
+      });
+      return;
+    }
     if (!_categoriesCollapsed && _detailChannel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_categoriesCollapsed) _focusSidebarItem();
@@ -1156,9 +1178,30 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
   /// Focus the detail view play button (primary action for better TV UX)
   void _focusDetailBackButton() {
+    _detailInitialFocusPending = true;
     FocusManager.instance.primaryFocus?.unfocus();
+    _focusDetailWhenReady(force: true);
+  }
+
+  void _focusDetailWhenReady({bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusDetailPlayCallback();
+      if (!mounted || _detailChannel == null) return;
+      final current = FocusManager.instance.primaryFocus;
+      if (!force &&
+          (!_detailInitialFocusPending ||
+              (current != _detailBackFocusNode &&
+                  current != null &&
+                  current != FocusManager.instance.rootScope))) {
+        return;
+      }
+      if (_detailPlayFocusNode.context?.mounted == true &&
+          _detailPlayFocusNode.canRequestFocus) {
+        _detailPlayFocusNode.requestFocus();
+        _detailInitialFocusPending = false;
+      } else if (_detailBackFocusNode.context?.mounted == true &&
+          _detailBackFocusNode.canRequestFocus) {
+        _detailBackFocusNode.requestFocus();
+      }
     });
   }
 
@@ -2206,7 +2249,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                       // Desktop/TV keeps the existing
                                       // `_openTrailer` (external) so this
                                       // change is mobile-only.
-                                      onTap: () => compactDetail
+                                      onTap: () =>
+                                          compactDetail || PlatformHelper.isTV
                                           ? showExpandedTrailer(
                                               context,
                                               directTrailerRef:

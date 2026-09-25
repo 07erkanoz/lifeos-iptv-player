@@ -142,10 +142,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// Branch-primary target: focus the hero banner so the user lands
   /// on the most prominent action (play / open detail) when they
   /// arrow right out of the sidebar.
-  void _focusHero() {
+  void _focusHero({int attemptsLeft = 8}) {
     if (!mounted) return;
-    if (_heroFocusNode.canRequestFocus) {
+    if (_heroFocusNode.context?.mounted == true &&
+        _heroFocusNode.canRequestFocus) {
       _heroFocusNode.requestFocus();
+    } else if (attemptsLeft > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusHero(attemptsLeft: attemptsLeft - 1);
+      });
     }
   }
 

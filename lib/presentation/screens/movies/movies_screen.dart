@@ -74,6 +74,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Channel? _detailChannel;
   Map<String, dynamic>? _vodInfo;
   bool _loadingDetail = false;
+  bool _detailInitialFocusPending = false;
 
   // Memoised "similar" rail. _selectSimilarContent is an O(N) main-isolate
   // token-scoring pass; the detail view rebuilds many times (it watches ~6
@@ -276,6 +277,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _openDetail(Channel ch) async {
+    _detailInitialFocusPending = true;
     // Push the detail's primary action as the active overlay focus
     // target. While present this takes precedence over the grid in
     // TvFocusRegistry, so any sidebar/back jump lands on the play
@@ -338,6 +340,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           _vodInfo = basicInfo;
           _loadingDetail = false;
         });
+        _focusDetailWhenReady();
       }
       return;
     }
@@ -354,10 +357,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           _vodInfo = info;
           _loadingDetail = false;
         });
+        _focusDetailWhenReady();
         _cacheMetadata(ch, info);
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingDetail = false);
+      if (mounted) {
+        setState(() => _loadingDetail = false);
+        _focusDetailWhenReady();
+      }
     }
   }
 
@@ -523,7 +530,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     });
     if (!isMobilePlatform) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _gridController.focusCurrentOrFirst();
+        if (mounted) _gridController.focusFirst();
       });
     }
   }
@@ -708,6 +715,19 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _focusBranchEntry() {
+    if (PlatformHelper.isTV && _detailChannel == null) {
+      _categoryCollapseTimer?.cancel();
+      if (_categoriesCollapsed || _selectedCategoryId != null) {
+        setState(() {
+          _categoriesCollapsed = false;
+          _selectedCategoryId = null;
+        });
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _detailChannel == null) _focusSidebarItem();
+      });
+      return;
+    }
     if (!_categoriesCollapsed && _detailChannel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_categoriesCollapsed) _focusSidebarItem();
@@ -746,17 +766,41 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   /// Focus the detail view play button (primary action for better TV UX)
   void _focusDetailBackButton() {
+    _detailInitialFocusPending = true;
     FocusManager.instance.primaryFocus?.unfocus();
+    _focusDetailWhenReady(force: true);
+  }
+
+  void _focusDetailWhenReady({bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusDetailPlayCallback();
+      if (!mounted || _detailChannel == null) return;
+      final current = FocusManager.instance.primaryFocus;
+      if (!force &&
+          (!_detailInitialFocusPending ||
+              (current != _detailBackFocusNode &&
+                  current != null &&
+                  current != FocusManager.instance.rootScope))) {
+        return;
+      }
+      if (_detailPlayFocusNode.context?.mounted == true &&
+          _detailPlayFocusNode.canRequestFocus) {
+        _detailPlayFocusNode.requestFocus();
+        _detailInitialFocusPending = false;
+      } else if (_detailBackFocusNode.context?.mounted == true &&
+          _detailBackFocusNode.canRequestFocus) {
+        _detailBackFocusNode.requestFocus();
+      }
     });
   }
 
   /// Stable callback used for the registry overlay slot. Captured once
   /// in [_openDetail] so push/pop identity matches.
   void _focusDetailPlayCallback() {
-    if (_detailPlayFocusNode.canRequestFocus) {
+    if (_detailPlayFocusNode.context?.mounted == true &&
+        _detailPlayFocusNode.canRequestFocus) {
       _detailPlayFocusNode.requestFocus();
+    } else if (_detailBackFocusNode.context?.mounted == true) {
+      _detailBackFocusNode.requestFocus();
     }
   }
 
@@ -775,6 +819,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _closeDetail() {
+    _detailInitialFocusPending = false;
     _similarCacheKey = null;
     _similarCache = const [];
     setState(() {
@@ -1833,7 +1878,16 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                           isPrimary: false,
                                           backgroundColor: Colors.red.shade900
                                               .withValues(alpha: 0.3),
-                                          onTap: () => _openTrailer(trailerUrl),
+                                          onTap: () => PlatformHelper.isTV
+                                              ? showExpandedTrailer(
+                                                  context,
+                                                  directTrailerRef:
+                                                      ch.youtubeTrailer,
+                                                  searchTitle: ch.name,
+                                                  searchYear: ch.year,
+                                                  channelType: ch.type,
+                                                )
+                                              : _openTrailer(trailerUrl),
                                         ),
                                         _FocusableActionButton(
                                           icon: Icons.open_in_new,
@@ -2255,6 +2309,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 !progress.isFinished &&
                 progress.position > 1000)
               ElevatedButton.icon(
+                focusNode: _detailPlayFocusNode,
                 onPressed: () => _playMovie(
                   ch,
                   startPosition: Duration(milliseconds: progress.position),
@@ -2263,6 +2318,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 label: Text(l10n.continueWatching),
               ),
             ElevatedButton.icon(
+              focusNode:
+                  progress != null &&
+                      !progress.isFinished &&
+                      progress.position > 1000
+                  ? null
+                  : _detailPlayFocusNode,
               onPressed: () => _playMovie(ch),
               icon: const Icon(Icons.play_arrow, size: 18),
               label: Text(l10n.play),

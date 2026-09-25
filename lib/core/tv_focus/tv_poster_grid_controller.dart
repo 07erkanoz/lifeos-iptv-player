@@ -85,6 +85,11 @@ class TvPosterGridController {
   void detach(ScrollController scrollController) {
     if (identical(_scrollController, scrollController)) {
       _scrollController = null;
+      // The old category's IDs/nodes are no longer valid focus targets.
+      // A request made while the replacement grid loads must wait for attach.
+      _streamIds = const [];
+      _nodes.clear();
+      _pendingFocusStreamId = -1;
     }
   }
 
@@ -94,16 +99,28 @@ class TvPosterGridController {
     _nodes[streamId] = node;
     // Fulfil a deferred focus the moment its target (or, for a
     // first-item request, the first poster) actually mounts.
-    if (!node.canRequestFocus) return;
-    if (_pendingFocusStreamId == streamId) {
-      _pendingFocusStreamId = -1;
-      _pendingFocusFirst = false;
-      node.requestFocus();
-    } else if (_pendingFocusFirst &&
-        _streamIds.isNotEmpty &&
-        streamId == _streamIds.first) {
-      _pendingFocusFirst = false;
-      node.requestFocus();
+    if (_pendingFocusStreamId == streamId ||
+        (_pendingFocusFirst &&
+            _streamIds.isNotEmpty &&
+            streamId == _streamIds.first)) {
+      // registerItem runs in the tile's initState, before its Focus widget
+      // attaches the node. Requesting focus here can be silently lost.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!identical(_nodes[streamId], node) ||
+            node.context?.mounted != true ||
+            !node.canRequestFocus) {
+          return;
+        }
+        if (_pendingFocusStreamId != streamId &&
+            !(_pendingFocusFirst &&
+                _streamIds.isNotEmpty &&
+                _streamIds.first == streamId)) {
+          return;
+        }
+        _pendingFocusStreamId = -1;
+        _pendingFocusFirst = false;
+        node.requestFocus();
+      });
     }
   }
 
@@ -139,10 +156,12 @@ class TvPosterGridController {
   /// keep the sidebar selection instead of releasing it into the void
   /// (the bug on a genuinely empty / no-results category).
   bool focusFirst() {
-    if (_streamIds.isEmpty) {
+    _pendingFocusStreamId = -1;
+    if (_scrollController == null || _streamIds.isEmpty) {
       _pendingFocusFirst = true;
       return false;
     }
+    _pendingFocusFirst = false;
     return focusIndex(0);
   }
 
@@ -152,8 +171,9 @@ class TvPosterGridController {
   /// streamId was focused, the controller tracks it.
   bool focusCurrentOrFirst() {
     // Nothing loaded yet → defer, but report false (see [focusFirst]).
-    if (_streamIds.isEmpty) {
+    if (_scrollController == null || _streamIds.isEmpty) {
       _pendingFocusFirst = true;
+      _pendingFocusStreamId = _lastFocusedStreamId;
       return false;
     }
     if (_lastFocusedStreamId >= 0 &&
@@ -180,7 +200,7 @@ class TvPosterGridController {
     if (index < 0 || index >= _streamIds.length) return false;
     final streamId = _streamIds[index];
     final mountedNode = _nodes[streamId];
-    if (mountedNode != null && mountedNode.canRequestFocus) {
+    if (mountedNode?.context?.mounted == true && mountedNode!.canRequestFocus) {
       mountedNode.requestFocus();
       return true;
     }
@@ -199,7 +219,7 @@ class TvPosterGridController {
 
   void _retryFocus(int streamId, {required int attemptsLeft}) {
     final node = _nodes[streamId];
-    if (node != null && node.canRequestFocus) {
+    if (node?.context?.mounted == true && node!.canRequestFocus) {
       if (_pendingFocusStreamId == streamId) _pendingFocusStreamId = -1;
       node.requestFocus();
       return;
@@ -210,7 +230,7 @@ class TvPosterGridController {
       // in the sidebar or detail view.
       for (final id in _streamIds) {
         final n = _nodes[id];
-        if (n != null && n.canRequestFocus) {
+        if (n?.context?.mounted == true && n!.canRequestFocus) {
           n.requestFocus();
           return;
         }
@@ -233,12 +253,11 @@ class TvPosterGridController {
     final viewport = scroll.position.viewportDimension;
     // Aim to center the row in the viewport — better TV ergonomics than
     // top-aligning.
-    final targetOffset = _paddingTop +
-        rowIndex * _rowStride -
-        viewport / 2 +
-        _rowStride / 2;
-    final clamped =
-        targetOffset.clamp(0.0, scroll.position.maxScrollExtent).toDouble();
+    final targetOffset =
+        _paddingTop + rowIndex * _rowStride - viewport / 2 + _rowStride / 2;
+    final clamped = targetOffset
+        .clamp(0.0, scroll.position.maxScrollExtent)
+        .toDouble();
     scroll.jumpTo(clamped);
   }
 }
