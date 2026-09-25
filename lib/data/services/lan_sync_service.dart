@@ -747,8 +747,14 @@ class LanSyncService {
     final found = <SyncPeer>{};
     BonsoirDiscovery? discovery;
     Timer? stopTimer;
+    var cleanupStarted = false;
 
     Future<void> cleanup() async {
+      // Closing the controller also invokes onCancel. Stop Avahi only once:
+      // bonsoir_linux releases its browser asynchronously and a second Free
+      // call reports an unhandled DBus UnknownObject error.
+      if (cleanupStarted) return;
+      cleanupStarted = true;
       stopTimer?.cancel();
       try {
         await discovery?.stop();
