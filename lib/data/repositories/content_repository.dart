@@ -1400,6 +1400,8 @@ class ContentRepository {
     int streamId,
     String type, {
     String? backdropPath,
+    String? posterPath,
+    bool clearBackdrop = false,
     String? youtubeTrailer,
     String? genre,
     String? plot,
@@ -1407,6 +1409,8 @@ class ContentRepository {
     String? castInfo,
   }) async {
     if (backdropPath == null &&
+        posterPath == null &&
+        !clearBackdrop &&
         youtubeTrailer == null &&
         genre == null &&
         plot == null &&
@@ -1422,6 +1426,11 @@ class ContentRepository {
             searchText: const Value(null),
             backdropPath: backdropPath != null
                 ? Value(backdropPath)
+                : clearBackdrop
+                ? const Value(null)
+                : const Value.absent(),
+            streamIcon: posterPath != null
+                ? Value(posterPath)
                 : const Value.absent(),
             youtubeTrailer: youtubeTrailer != null
                 ? Value(youtubeTrailer)

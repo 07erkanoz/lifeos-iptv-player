@@ -264,18 +264,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final infoRaw = result['info'];
         final info = infoRaw is Map<String, dynamic> ? infoRaw : null;
         if (info != null) {
-          // Extract backdrop
+          // Keep portrait artwork separate from genuine wide backdrops.
           String? backdrop;
           if (info['backdrop_path'] is List &&
               (info['backdrop_path'] as List).isNotEmpty) {
             backdrop = info['backdrop_path'][0]?.toString();
-          } else if (info['movie_image'] != null &&
-              info['movie_image'].toString().isNotEmpty) {
-            backdrop = info['movie_image'].toString();
-          } else if (info['cover'] != null &&
-              info['cover'].toString().isNotEmpty) {
-            backdrop = info['cover'].toString();
           }
+          final poster =
+              info['movie_image']?.toString().trim().isNotEmpty == true
+              ? info['movie_image'].toString().trim()
+              : info['cover']?.toString().trim().isNotEmpty == true
+              ? info['cover'].toString().trim()
+              : null;
+          final clearBackdrop =
+              backdrop == null &&
+              poster != null &&
+              channel.backdropPath != null;
 
           final trailer = info['youtube_trailer']?.toString();
           final ratingStr =
@@ -306,7 +310,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               youtubeTrailer: (trailer != null && trailer.isNotEmpty)
                   ? trailer
                   : null,
-              backdropUrl: backdrop,
+              backdropUrl: backdrop ?? poster,
             );
           });
 
@@ -317,6 +321,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final directorStr = info['director']?.toString();
           final castStr = info['cast']?.toString();
           if (backdrop != null ||
+              poster != null ||
+              clearBackdrop ||
               (trailer != null && trailer.isNotEmpty) ||
               (genreStr != null && genreStr.isNotEmpty) ||
               (plotStr != null && plotStr.isNotEmpty)) {
@@ -326,6 +332,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   channel.streamId,
                   channel.type,
                   backdropPath: backdrop,
+                  posterPath: poster,
+                  clearBackdrop: clearBackdrop,
                   youtubeTrailer: (trailer != null && trailer.isNotEmpty)
                       ? trailer
                       : null,
@@ -705,7 +713,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _openingChannel = false;
 
   Future<void> _playChannel(Channel channel) async {
-    if (channel.type == 'series') { _openDetail(channel); return; }
+    if (channel.type == 'series') {
+      _openDetail(channel);
+      return;
+    }
     if (_openingChannel) return;
     final account = ref.read(currentAccountProvider).value;
     if (account == null) {
@@ -725,7 +736,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             channel,
             quality: ref.read(settingsProvider).streamQuality,
           );
-      if (!mounted || ref.read(currentAccountProvider).value?.id != account.id) {
+      if (!mounted ||
+          ref.read(currentAccountProvider).value?.id != account.id) {
         return;
       }
       final type = channel.type == 'movie'

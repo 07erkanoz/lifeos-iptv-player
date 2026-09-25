@@ -33,6 +33,7 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/ai/ai_similar_section.dart';
 import 'package:lifeostv/presentation/widgets/ai/plot_enriched_view.dart';
 import 'package:lifeostv/presentation/widgets/content/backdrop_trailer.dart';
+import 'package:lifeostv/presentation/widgets/content/vod_hero_metadata.dart';
 import 'package:lifeostv/presentation/widgets/content/expanded_trailer_dialog.dart';
 import 'package:lifeostv/presentation/widgets/content/favorite_button.dart';
 import 'package:lifeostv/presentation/widgets/content/search_dialog.dart';
@@ -62,8 +63,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   bool _categoriesCollapsed =
       isMobilePlatform; // collapsed by default on mobile
 
-  // Hero: hovered poster shows big hero (NO API call on hover)
+  // The focused poster appears immediately; a stable selection loads its
+  // richer Xtream details once, without issuing a request on every D-pad tap.
   Channel? _hoveredChannel;
+  String? _heroSelectionKey;
+  Timer? _heroInfoTimer;
+  final Map<String, Channel?> _heroInfoCache = {};
 
   // Detail modal
   Channel? _detailChannel;
@@ -165,6 +170,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
       _focusRegistry.popOverlayPrimary(TvBranchIndex.movies, overlay);
     }
     _categoryCollapseTimer?.cancel();
+    _heroInfoTimer?.cancel();
     _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
     _categorySidebarScope.dispose();
     _selectedCatFocusNode.dispose();
@@ -228,8 +234,45 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _onPosterHover(Channel ch) {
-    // Only update hovered channel for hero display - NO API call
-    if (mounted) setState(() => _hoveredChannel = ch);
+    final account = ref.read(currentAccountProvider).value;
+    final key = '${account?.id ?? ch.accountId}:${ch.streamId}';
+    if (!mounted || _heroSelectionKey == key) return;
+    _heroSelectionKey = key;
+    _heroInfoTimer?.cancel();
+    setState(() => _hoveredChannel = _heroInfoCache[key] ?? ch);
+    if (account == null ||
+        account.type != 'xtream' ||
+        (ch.accountId != 0 && ch.accountId != account.id) ||
+        _heroInfoCache.containsKey(key))
+      return;
+    _heroInfoTimer = Timer(const Duration(milliseconds: 450), () async {
+      _heroInfoCache[key] = null;
+      try {
+        final info = await ref
+            .read(xtreamApiServiceProvider)
+            .getVODInfo(
+              account.url,
+              account.username ?? '',
+              account.password ?? '',
+              ch.streamId,
+            );
+        if (info == null || !mounted) {
+          _heroInfoCache.remove(key);
+          return;
+        }
+        final enriched = enrichVodHero(ch, info);
+        _heroInfoCache[key] = enriched;
+        if (_heroInfoCache.length > 64)
+          _heroInfoCache.remove(_heroInfoCache.keys.first);
+        if (_heroSelectionKey == key &&
+            ref.read(currentAccountProvider).value?.id == account.id) {
+          setState(() => _hoveredChannel = enriched);
+        }
+        _cacheMetadata(ch, info);
+      } catch (_) {
+        _heroInfoCache.remove(key);
+      }
+    });
   }
 
   void _openDetail(Channel ch) async {
@@ -346,10 +389,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     if (info['backdrop_path'] is List &&
         (info['backdrop_path'] as List).isNotEmpty) {
       backdrop = info['backdrop_path'][0]?.toString();
-    } else if (info['movie_image'] != null &&
-        info['movie_image'].toString().isNotEmpty) {
-      backdrop = info['movie_image'].toString();
     }
+    final poster = info['movie_image']?.toString().trim().isNotEmpty == true
+        ? info['movie_image'].toString().trim()
+        : info['cover']?.toString().trim().isNotEmpty == true
+        ? info['cover'].toString().trim()
+        : null;
+    final clearBackdrop =
+        backdrop == null && poster != null && ch.backdropPath != null;
     final trailer = _extractTrailerUrl(info, raw: vodInfo);
     final genre = info['genre']?.toString();
     final plot = info['plot']?.toString() ?? info['description']?.toString();
@@ -357,6 +404,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     final castInfo = info['cast']?.toString();
     // Cache all metadata to DB (serve from cache next time, no API call needed)
     if (backdrop != null ||
+        poster != null ||
+        clearBackdrop ||
         (trailer != null && trailer.isNotEmpty) ||
         (genre != null && genre.isNotEmpty) ||
         (plot != null && plot.isNotEmpty) ||
@@ -368,6 +417,8 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             ch.streamId,
             'movie',
             backdropPath: backdrop,
+            posterPath: poster,
+            clearBackdrop: clearBackdrop,
             youtubeTrailer: (trailer != null && trailer.isNotEmpty)
                 ? trailer
                 : null,
@@ -380,6 +431,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 ? castInfo
                 : null,
           );
+    }
+    final key = '${ch.accountId}:${ch.streamId}';
+    final enriched = enrichVodHero(ch, vodInfo);
+    _heroInfoCache[key] = enriched;
+    if (_heroInfoCache.length > 64)
+      _heroInfoCache.remove(_heroInfoCache.keys.first);
+    if (mounted && _heroSelectionKey == key) {
+      setState(() => _hoveredChannel = enriched);
     }
   }
 
@@ -455,8 +514,11 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     // Fresh page-1 cap for the new category so we never re-load the old
     // (possibly grown) row count against a different list.
     ref.read(_movieGridLimitProvider.notifier).reset();
+    _heroInfoTimer?.cancel();
     setState(() {
       _selectedCategoryId = categoryId;
+      _heroSelectionKey = null;
+      _hoveredChannel = null;
       if (!isMobilePlatform) _categoriesCollapsed = true;
     });
     if (!isMobilePlatform) {
@@ -931,9 +993,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     return Column(
       children: [
         // Hero banner (Tauri style: backdrop + info)
-        if (_hoveredChannel != null &&
-            (_hoveredChannel!.backdropPath ?? _hoveredChannel!.streamIcon) !=
-                null)
+        if (_hoveredChannel != null)
           _buildHeroBanner(_hoveredChannel!, isDark, l10n)
         else
           const SizedBox(height: 8),
@@ -1045,6 +1105,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Widget _buildHeroBanner(Channel ch, bool isDark, AppLocalizations l10n) {
     final hasBackdrop = ch.backdropPath?.isNotEmpty ?? false;
     final imgUrl = hasBackdrop ? ch.backdropPath! : ch.streamIcon;
+    final fallbackPoster = hasBackdrop && ch.streamIcon != imgUrl
+        ? ch.streamIcon
+        : null;
     final heroHeight = isMobilePlatform
         ? 200.0
         : PlatformHelper.isTV
@@ -1059,31 +1122,56 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background image (backdrop preferred)
-            if (imgUrl != null && (hasBackdrop || !PlatformHelper.isTV))
+            // Fill behind the text, then show the complete artwork on the
+            // right. A portrait cover must not be cropped into a landscape
+            // banner when the provider has no real backdrop.
+            if (imgUrl != null)
               CachedNetworkImage(
                 imageUrl: imgUrl,
                 fit: BoxFit.cover,
-                memCacheWidth: PlatformHelper.isTV ? 1280 : 960,
+                memCacheWidth: hasBackdrop ? 960 : 420,
                 fadeInDuration: PlatformHelper.isTV
                     ? Duration.zero
                     : const Duration(milliseconds: 500),
                 alignment: const Alignment(0, -0.3),
-                errorWidget: (_, _, _) =>
-                    Container(color: AppColors.surface(context)),
+                errorWidget: (_, _, _) => fallbackPoster == null
+                    ? Container(color: AppColors.surface(context))
+                    : CachedNetworkImage(
+                        imageUrl: fallbackPoster,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 420,
+                        errorWidget: (_, _, _) =>
+                            Container(color: AppColors.surface(context)),
+                      ),
               ),
-            if (!hasBackdrop && PlatformHelper.isTV && imgUrl != null)
+            if (imgUrl != null)
+              Container(color: Colors.black.withValues(alpha: 0.28)),
+            if (!isMobilePlatform && imgUrl != null)
               Positioned(
-                right: 32,
-                top: 12,
-                bottom: 12,
-                width: heroHeight * 0.68,
+                right: PlatformHelper.isTV ? 32 : 20,
+                top: 8,
+                bottom: 8,
+                width: hasBackdrop
+                    ? min(
+                        MediaQuery.sizeOf(context).width * 0.54,
+                        heroHeight * 1.78,
+                      )
+                    : heroHeight * 0.68,
                 child: CachedNetworkImage(
                   imageUrl: imgUrl,
                   fit: BoxFit.contain,
-                  memCacheWidth: 420,
+                  alignment: Alignment.centerRight,
+                  memCacheWidth: hasBackdrop ? 960 : 420,
                   fadeInDuration: Duration.zero,
-                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  errorWidget: (_, _, _) => fallbackPoster == null
+                      ? const SizedBox.shrink()
+                      : CachedNetworkImage(
+                          imageUrl: fallbackPoster,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.centerRight,
+                          memCacheWidth: 420,
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
+                        ),
                 ),
               ),
 
@@ -1122,10 +1210,10 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
             Positioned(
               left: PlatformHelper.isTV ? 32 : 24,
               bottom: PlatformHelper.isTV ? 28 : 20,
-              width: PlatformHelper.isTV
+              width: !isMobilePlatform
                   ? min(MediaQuery.sizeOf(context).width * 0.48, 620)
                   : null,
-              right: PlatformHelper.isTV ? null : 200,
+              right: isMobilePlatform ? 200 : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -1334,24 +1422,6 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                 ],
               ),
             ),
-
-            // Mini poster (bottom right, like Tauri)
-            if (ch.streamIcon != null && hasBackdrop)
-              Positioned(
-                right: 24,
-                bottom: 20,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: ch.streamIcon!,
-                    width: 100,
-                    height: 150,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 300,
-                    errorWidget: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -1904,11 +1974,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                                                         // Defer-pop the bottom sheet,
                                                         // then switch the detail page
                                                         // to the new channel.
-                                                        setState(
-                                                          () =>
-                                                              _hoveredChannel =
-                                                                  c,
-                                                        );
+                                                        _onPosterHover(c);
                                                       },
                                                     ),
                                                   ),
@@ -2284,7 +2350,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               raw: rawCast,
               currentTitle: current.name,
               onChannelTap: (c) {
-                setState(() => _hoveredChannel = c);
+                _onPosterHover(c);
               },
             ),
           ),
@@ -3090,6 +3156,7 @@ class _MovieGridView extends ConsumerWidget {
           ref.watch(movieSortModeProvider),
         );
         return _PosterGrid(
+          key: ValueKey('movie-category-$categoryId'),
           controller: gridController,
           channels: sorted,
           onPlay: (ch) => onPlay(ch),
@@ -3409,6 +3476,7 @@ class _PosterGrid extends StatefulWidget {
   final Function(Channel)? onLongPress;
   final VoidCallback? onNeedMore;
   const _PosterGrid({
+    super.key,
     required this.controller,
     required this.channels,
     required this.onPlay,
@@ -3424,7 +3492,7 @@ class _PosterGrid extends StatefulWidget {
 }
 
 class _PosterGridState extends State<_PosterGrid> {
-  bool _autoHovered = false;
+  String? _autoHoveredListKey;
 
   @override
   void initState() {
@@ -3435,9 +3503,7 @@ class _PosterGridState extends State<_PosterGrid> {
   @override
   void didUpdateWidget(covariant _PosterGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_autoHovered && widget.channels.isNotEmpty) {
-      _maybeAutoHover();
-    }
+    _maybeAutoHover();
   }
 
   /// Auto-select the first channel for hero display on initial load so
@@ -3446,10 +3512,20 @@ class _PosterGridState extends State<_PosterGrid> {
   /// later when the registry fires (or never on mobile).
   void _maybeAutoHover() {
     if (widget.channels.isEmpty) return;
+    final first = widget.channels.first;
+    final last = widget.channels.last;
+    final key =
+        '${first.accountId}:${first.streamId}:${last.streamId}:${widget.channels.length}';
+    if (_autoHoveredListKey == key) return;
+    _autoHoveredListKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _autoHovered) return;
-      _autoHovered = true;
-      widget.onHover(widget.channels.first);
+      if (!mounted || _autoHoveredListKey != key || widget.channels.isEmpty)
+        return;
+      final focusedId = widget.controller.lastFocusedStreamId;
+      final focused = widget.channels.where((ch) => ch.streamId == focusedId);
+      widget.onHover(
+        focused.isNotEmpty ? focused.first : widget.channels.first,
+      );
     });
   }
 
