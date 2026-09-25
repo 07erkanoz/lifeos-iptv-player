@@ -3,6 +3,7 @@ import 'package:lifeostv/data/services/epg_request_gate.dart';
 import 'package:lifeostv/presentation/state/epg_request_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/channel_list_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/epg_overlay.dart';
+import 'package:lifeostv/presentation/widgets/player/tv_player_action_button.dart';
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:drift/native.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -232,8 +233,8 @@ void main() {
       expect(
         FocusManager.instance.primaryFocus,
         tester
-            .widget<IconButton>(
-              find.byKey(const ValueKey('episode-play-pause')),
+            .widget<TvPlayerActionButton>(
+              find.byKey(const ValueKey('tv-subtitles')),
             )
             .focusNode,
       );
@@ -303,6 +304,16 @@ void main() {
                 stop: DateTime.now().add(const Duration(hours: 1)),
               ),
             );
+        await db
+            .into(db.programs)
+            .insert(
+              ProgramsCompanion.insert(
+                channelId: 2,
+                title: 'Next show',
+                start: DateTime.now().add(const Duration(hours: 1)),
+                stop: DateTime.now().add(const Duration(hours: 2)),
+              ),
+            );
       });
       await mount(
         tester,
@@ -343,16 +354,27 @@ void main() {
       expect(find.byType(ChannelListOverlay), findsNothing);
       expect(native.sources.last.uri, 'https://example.invalid/2.ts');
       expect(native.sources.last.httpHeaders['User-Agent'], 'SecondProvider');
+      expect(find.byKey(const ValueKey('tv-channel-info')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('tv-channel-info')),
+          matching: find.textContaining('Second show'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('tv-channel-info')),
+          matching: find.textContaining('Next show'),
+        ),
+        findsOneWidget,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(EpgOverlay), findsOneWidget);
       expect(
-        tester
-            .widget<EpgOverlay>(find.byType(EpgOverlay))
-            .programs
-            .single
-            .title,
+        tester.widget<EpgOverlay>(find.byType(EpgOverlay)).programs.first.title,
         'Second show',
       );
       expect(find.text('Old show'), findsNothing);
@@ -370,6 +392,46 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     },
   );
+
+  testWidgets('live OK opens controls and D-pad reaches audio and subtitles', (
+    tester,
+  ) async {
+    await mount(tester);
+    final pausesBefore = native.paused.length;
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(native.paused.length, pausesBefore);
+    expect(
+      FocusManager.instance.primaryFocus,
+      tester
+          .widget<TvPlayerActionButton>(
+            find.byKey(const ValueKey('episode-play-pause')),
+          )
+          .focusNode,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus,
+      tester
+          .widget<TvPlayerActionButton>(
+            find.byKey(const ValueKey('tv-audio-tracks')),
+          )
+          .focusNode,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(
+      FocusManager.instance.primaryFocus,
+      tester
+          .widget<TvPlayerActionButton>(
+            find.byKey(const ValueKey('tv-subtitles')),
+          )
+          .focusNode,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 
   testWidgets(
     'TV catch-up replays a past programme and returns to the original live URL',
@@ -511,6 +573,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('paused VOD keeps controls and shows the content card', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/movie.mp4',
+        title: 'Featured film',
+        streamId: 7,
+        type: VideoType.movie,
+        plot: 'A short story shown while paused.',
+        year: '2025',
+        rating: 8.2,
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 7));
+    expect(find.text('A short story shown while paused.'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tv-audio-tracks')));
+    await tester.pump();
+    expect(find.text('English'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('M3U catch-up template replays EPG and returns to live', (
     tester,
   ) async {
@@ -624,44 +712,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets(
-    'movie D-pad reaches audio selection and restores playback focus',
-    (tester) async {
-      await mount(
-        tester,
-        player: const TvVideoPlayerScreen(
-          streamUrl: 'https://example.invalid/a.mp4',
-          title: 'Movie',
-          streamId: 2,
-          type: VideoType.movie,
-        ),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('English'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(native.selectedTracks, ['tr']);
-      expect(
-        FocusManager.instance.primaryFocus,
-        tester
-            .widget<IconButton>(
-              find.byKey(const ValueKey('episode-play-pause')),
-            )
-            .focusNode,
-      );
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(milliseconds: 1));
-    },
-  );
+  testWidgets('movie D-pad reaches audio selection and restores audio focus', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/a.mp4',
+        title: 'Movie',
+        streamId: 2,
+        type: VideoType.movie,
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('English'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(native.selectedTracks, ['tr']);
+    expect(
+      FocusManager.instance.primaryFocus,
+      tester
+          .widget<TvPlayerActionButton>(
+            find.byKey(const ValueKey('tv-audio-tracks')),
+          )
+          .focusNode,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
 
   testWidgets(
     'live streams without duration create history under the current channel',
@@ -699,10 +784,20 @@ void main() {
           nextEpisodeTitle: 'S1E2',
         ),
       );
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+      }
+      expect(
+        FocusManager.instance.primaryFocus,
+        tester
+            .widget<TvPlayerActionButton>(
+              find.byKey(const ValueKey('next-episode')),
+            )
+            .focusNode,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(next, 1);

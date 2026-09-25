@@ -27,6 +27,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -35,6 +36,7 @@ import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart'
     show VideoType, PlayerChannel;
 import 'package:lifeostv/presentation/widgets/player/cast_button.dart';
+import 'package:lifeostv/presentation/widgets/player/tv_player_action_button.dart';
 
 /// Android-TV-only video player backed by ExoPlayer (via `video_player`).
 ///
@@ -55,6 +57,10 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String title;
   final VideoType type;
   final String? logo;
+  final String? plot;
+  final String? genre;
+  final String? year;
+  final double? rating;
   final String? currentProgramTitle;
   final Duration? startPosition;
   final int? parentStreamId;
@@ -75,6 +81,10 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
     required this.title,
     this.type = VideoType.live,
     this.logo,
+    this.plot,
+    this.genre,
+    this.year,
+    this.rating,
     this.currentProgramTitle,
     this.startPosition,
     this.parentStreamId,
@@ -101,18 +111,30 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   final _episodePlayFocus = FocusNode();
   final _retryFocus = FocusNode(debugLabel: 'TvRetry');
   final _castFocus = FocusNode(debugLabel: 'TvCast');
+  final _audioFocus = FocusNode(debugLabel: 'TvAudio');
+  final _subtitleFocus = FocusNode(debugLabel: 'TvSubtitle');
+  final _qualityFocus = FocusNode(debugLabel: 'TvQuality');
+  final _speedFocus = FocusNode(debugLabel: 'TvSpeed');
+  final _nextEpisodeFocus = FocusNode(debugLabel: 'TvNextEpisode');
   VideoPlayerController? _controller;
   TvSubtitleController? _subtitles;
   bool _subtitleVisible = false;
   final _focusNode = FocusNode();
 
   bool _showControls = true;
+  bool _hasPlayed = false;
+  bool _isPaused = false;
+  bool _showPauseBadge = false;
+  Timer? _pauseBadgeTimer;
+  int _lastUiPositionSecond = -1;
   bool _modalOpen = false;
   _TvPanel? _panel;
   late final AppDatabase _sessionDb;
   StreamSubscription<List<Program>>? _epgSubscription;
   List<Program> _programs = [];
   Timer? _epgClock;
+  bool _showChannelInfo = false;
+  Timer? _channelInfoTimer;
   int get _activeChannelId {
     final channels = widget.channels;
     return channels != null &&
@@ -242,7 +264,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     );
     _resetHideTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
+      if (mounted) {
+        _focusNode.requestFocus();
+        _resetHideTimer();
+      }
     });
   }
 
@@ -259,7 +284,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _saveProgress();
     _seek.dispose();
     _hideTimer?.cancel();
+    _pauseBadgeTimer?.cancel();
     _epgClock?.cancel();
+    _channelInfoTimer?.cancel();
     _epgSubscription?.cancel();
     _saveTimer?.cancel();
     _controller?.removeListener(_onValue);
@@ -269,6 +296,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _episodePlayFocus.dispose();
     _retryFocus.dispose();
     _castFocus.dispose();
+    _audioFocus.dispose();
+    _subtitleFocus.dispose();
+    _qualityFocus.dispose();
+    _speedFocus.dispose();
+    _nextEpisodeFocus.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -346,6 +378,12 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _seek.cancel();
     _bufferingTimeout?.cancel();
     _bufferingTimeout = null;
+    _pauseBadgeTimer?.cancel();
+    _pauseBadgeTimer = null;
+    _hasPlayed = false;
+    _isPaused = false;
+    _showPauseBadge = false;
+    _lastUiPositionSecond = -1;
     // Tear down any previous controller (channel switch / retry).
     final old = _controller;
     _controller = null;
@@ -434,6 +472,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       }
       if (_error != null) return;
       if (!_backgrounded && autoplay) await _command(c, c.play);
+      if (!autoplay && !_isLive) _hasPlayed = true;
       unawaited(
         _bindSubtitles(c, Uri.parse(request.url).toString(), generation),
       );
@@ -462,6 +501,32 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final v = c.value;
     if (v.hasError && _error == null) _fail();
     if (!v.isInitialized || _error != null) return;
+    if (v.isPlaying) _hasPlayed = true;
+    final paused = _hasPlayed && !v.isPlaying && !_backgrounded;
+    if (paused != _isPaused) {
+      _pauseBadgeTimer?.cancel();
+      _pauseBadgeTimer = null;
+      setState(() {
+        _isPaused = paused;
+        if (paused) _showControls = true;
+        if (!paused) _showPauseBadge = false;
+      });
+      if (paused) {
+        _hideTimer?.cancel();
+        if (!_isLive) {
+          _pauseBadgeTimer = Timer(const Duration(seconds: 2), () {
+            if (mounted && _isPaused) setState(() => _showPauseBadge = true);
+          });
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _focusNode.hasPrimaryFocus) {
+            _episodePlayFocus.requestFocus();
+          }
+        });
+      } else {
+        _resetHideTimer();
+      }
+    }
     if (v.isBuffering != _buffering) setState(() => _buffering = v.isBuffering);
     if (v.isBuffering && v.isPlaying && !_backgrounded) {
       _bufferingTimeout ??= Timer(const Duration(seconds: 20), () {
@@ -481,17 +546,28 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _savedInitialProgress = true;
       _saveProgress();
     }
-    // Keep the bottom-bar position/duration live while controls are shown.
-    if (_showControls) setState(() {});
+    // Controller position events can be much faster than the TV needs to
+    // repaint its controls. Limit whole-screen rebuilds to once per second.
+    if (_showControls && v.position.inSeconds != _lastUiPositionSecond) {
+      _lastUiPositionSecond = v.position.inSeconds;
+      setState(() {});
+    }
   }
 
   // ── Controls visibility ───────────────────────────────────────────────
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
-    if (_error != null || _modalOpen || _panel != null || _remoteActive) return;
+    if (_error != null ||
+        _modalOpen ||
+        _panel != null ||
+        _remoteActive ||
+        _isPaused ||
+        !_focusNode.hasPrimaryFocus) {
+      return;
+    }
     _hideTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) {
+      if (mounted && !_isPaused && _focusNode.hasPrimaryFocus) {
         _focusNode.requestFocus();
         setState(() => _showControls = false);
       }
@@ -499,6 +575,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   void _showControlsBriefly() {
+    if (_showChannelInfo) {
+      _channelInfoTimer?.cancel();
+      setState(() => _showChannelInfo = false);
+    }
     if (!_showControls) setState(() => _showControls = true);
     _resetHideTimer();
   }
@@ -572,11 +652,18 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _headers = ch.httpHeaders;
       _title = ch.name;
       _logo = ch.logo;
+      _showChannelInfo = true;
+      _showControls = false;
     });
+    _hideTimer?.cancel();
+    _channelInfoTimer?.cancel();
+    _channelInfoTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showChannelInfo = false);
+    });
+    _focusNode.requestFocus();
     _watchEpg();
     _open(ch.url);
     unawaited(_refreshCatchup());
-    _showControlsBriefly();
   }
 
   Future<void> _saveProgress() async {
@@ -792,7 +879,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
             .listen((programs) {
               if (!mounted || id != _activeChannelId) return;
               _programs = programs;
-              if (_showControls || _panel == _TvPanel.epg) setState(() {});
+              if (_showControls || _showChannelInfo || _panel == _TvPanel.epg) {
+                setState(() {});
+              }
             }, onError: (Object _) {});
   }
 
@@ -929,11 +1018,15 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     }
   }
 
-  void _closePanel() {
+  void _closePanel({bool showControls = true}) {
     if (!mounted || _panel == null) return;
     setState(() => _panel = null);
-    _showControlsBriefly();
-    _episodePlayFocus.requestFocus();
+    if (showControls) {
+      _showControlsBriefly();
+      _episodePlayFocus.requestFocus();
+    } else {
+      _focusNode.requestFocus();
+    }
   }
 
   Future<void> _bindSubtitles(
@@ -976,11 +1069,31 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   }
 
   Future<void> _chooseSubtitles() async {
-    final subtitles = _subtitles;
-    if (_modalOpen || subtitles == null) return;
+    if (_modalOpen) return;
+    final generation = _openGeneration;
+    var subtitles = _subtitles;
+    if (subtitles == null) {
+      try {
+        final request = MediaRequest.parse(
+          _url,
+          headers: _headers,
+          nativeTv: true,
+        );
+        subtitles = await TvSubtitleController.resolve(request.url);
+      } catch (_) {}
+      if (!mounted || generation != _openGeneration) return;
+      if (subtitles == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.subtitleNotFound),
+          ),
+        );
+        return;
+      }
+      setState(() => _subtitles = subtitles);
+    }
     _modalOpen = true;
     _hideTimer?.cancel();
-    final generation = _openGeneration;
     final l10n = AppLocalizations.of(context)!;
     try {
       final tracks = await subtitles.tracks();
@@ -1045,7 +1158,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _modalOpen = false;
       if (mounted && generation == _openGeneration) {
         _showControlsBriefly();
-        _episodePlayFocus.requestFocus();
+        _subtitleFocus.requestFocus();
       }
     }
   }
@@ -1100,7 +1213,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _modalOpen = false;
       if (mounted && expectedGeneration == _openGeneration) {
         _showControlsBriefly();
-        _episodePlayFocus.requestFocus();
+        _qualityFocus.requestFocus();
       }
     }
   }
@@ -1194,7 +1307,46 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _modalOpen = false;
       if (mounted && generation == _openGeneration) {
         _showControlsBriefly();
-        _episodePlayFocus.requestFocus();
+        _audioFocus.requestFocus();
+      }
+    }
+  }
+
+  Future<void> _chooseSpeed() async {
+    final controller = _controller;
+    if (_modalOpen || controller == null || !controller.value.isInitialized) {
+      return;
+    }
+    _modalOpen = true;
+    _hideTimer?.cancel();
+    final generation = _openGeneration;
+    try {
+      final selected = await showDialog<double>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(AppLocalizations.of(context)!.playbackSpeed),
+          children: [
+            for (final speed in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+              ListTile(
+                autofocus: speed == controller.value.playbackSpeed,
+                selected: speed == controller.value.playbackSpeed,
+                title: Text('${speed}x'),
+                onTap: () => Navigator.of(dialogContext).pop(speed),
+              ),
+          ],
+        ),
+      );
+      if (selected != null &&
+          mounted &&
+          generation == _openGeneration &&
+          controller == _controller) {
+        await _command(controller, () => controller.setPlaybackSpeed(selected));
+      }
+    } finally {
+      _modalOpen = false;
+      if (mounted && generation == _openGeneration) {
+        _showControlsBriefly();
+        _speedFocus.requestFocus();
       }
     }
   }
@@ -1244,11 +1396,15 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _resetHideTimer();
       return KeyEventResult.ignored;
     }
-    if (k == LogicalKeyboardKey.select ||
-        k == LogicalKeyboardKey.enter ||
-        k == LogicalKeyboardKey.space ||
-        k == LogicalKeyboardKey.mediaPlayPause) {
-      _togglePlay();
+    if (k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) {
+      if (_isLive) {
+        _showControlsBriefly();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _episodePlayFocus.requestFocus();
+        });
+      } else {
+        _togglePlay();
+      }
       return KeyEventResult.handled;
     }
     if (_remoteActive) {
@@ -1282,7 +1438,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(-1);
       } else {
         _showControlsBriefly();
-        _episodePlayFocus.requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _episodePlayFocus.requestFocus();
+        });
       }
       return KeyEventResult.handled;
     }
@@ -1291,7 +1449,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         _channelStep(1);
       } else {
         _showControlsBriefly();
-        _episodePlayFocus.requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _audioFocus.requestFocus();
+        });
       }
       return KeyEventResult.handled;
     }
@@ -1419,6 +1579,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   ),
                 ),
 
+                if (_showChannelInfo && _panel == null && !_showControls)
+                  _buildChannelInfoOverlay(),
+
                 // Error
                 if (_error != null)
                   Center(
@@ -1481,8 +1644,11 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                         _returnToLive();
                       } else if (index != _channelIndex) {
                         _channelStep(index - _channelIndex);
+                      } else {
+                        _closePanel();
+                        return;
                       }
-                      _closePanel();
+                      _closePanel(showControls: false);
                     },
                     onClose: _closePanel,
                   ),
@@ -1625,98 +1791,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ],
             ),
             const Spacer(),
-            // Same episode callbacks and stable IDs as the desktop player.
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.onPrevEpisode != null)
-                  IconButton(
-                    key: const ValueKey('previous-episode'),
-                    tooltip: widget.previousEpisodeTitle,
-                    onPressed: () => _switchEpisode(widget.onPrevEpisode),
-                    icon: const Icon(Icons.skip_previous, color: Colors.white),
-                  ),
-                CallbackShortcuts(
-                  bindings: {
-                    const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-                      if (_castFocus.canRequestFocus) _castFocus.requestFocus();
-                    },
-                  },
-                  child: IconButton(
-                    focusNode: _episodePlayFocus,
-                    key: const ValueKey('episode-play-pause'),
-                    onPressed: _togglePlay,
-                    icon: Icon(
-                      playing
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
-                      color: Colors.white,
-                      size: 64,
-                    ),
-                  ),
-                ),
-                if (widget.onNextEpisode != null)
-                  IconButton(
-                    key: const ValueKey('next-episode'),
-                    tooltip:
-                        widget.nextEpisodeTitle ??
-                        AppLocalizations.of(context)!.nextEpisode,
-                    onPressed: () => _switchEpisode(widget.onNextEpisode),
-                    icon: const Icon(Icons.skip_next, color: Colors.white),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isLive && !_remoteActive)
-                  IconButton(
-                    key: const ValueKey('tv-channel-list'),
-                    tooltip: AppLocalizations.of(context)!.channelList,
-                    onPressed: () => _openPanel(_TvPanel.channels),
-                    icon: const Icon(Icons.list, color: Colors.white),
-                  ),
-                if (_timeshift && !_remoteActive)
-                  IconButton(
-                    key: const ValueKey('tv-return-live'),
-                    tooltip: AppLocalizations.of(context)!.liveTV,
-                    onPressed: _returnToLive,
-                    icon: const Icon(Icons.live_tv, color: Colors.white),
-                  ),
-                IconButton(
-                  key: const ValueKey('tv-audio-tracks'),
-                  tooltip: AppLocalizations.of(context)!.audioTrack,
-                  onPressed: !_remoteActive && v?.isInitialized == true
-                      ? _chooseAudioTrack
-                      : null,
-                  icon: const Icon(Icons.audiotrack, color: Colors.white),
-                ),
-                if (_subtitles != null && !_remoteActive)
-                  IconButton(
-                    key: const ValueKey('tv-subtitles'),
-                    tooltip: AppLocalizations.of(context)!.subtitle,
-                    onPressed: _chooseSubtitles,
-                    icon: const Icon(Icons.subtitles, color: Colors.white),
-                  ),
-                IconButton(
-                  key: const ValueKey('tv-quality'),
-                  tooltip: AppLocalizations.of(context)!.streamQuality,
-                  onPressed: !_remoteActive && v?.isInitialized == true
-                      ? _chooseQuality
-                      : null,
-                  icon: const Icon(Icons.high_quality, color: Colors.white),
-                ),
-                if (_isLive && !_remoteActive)
-                  IconButton(
-                    key: const ValueKey('tv-program-guide'),
-                    tooltip: AppLocalizations.of(context)!.programGuide,
-                    onPressed: () => _openPanel(_TvPanel.epg),
-                    icon: const Icon(Icons.view_list, color: Colors.white),
-                  ),
-              ],
-            ),
-            const Spacer(),
+            if (_showPauseBadge && !_isLive) ...[
+              _buildPauseInfoBadge(pos, dur),
+              const SizedBox(height: 12),
+            ],
             // Bottom: progress (VOD) or hint (live)
             if (_canSeek && dur.inSeconds > 0) ...[
               Row(
@@ -1767,10 +1845,380 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ),
             ] else if (_isLive)
               const Text(
-                'OK: oynat/duraklat   ▲▼: kanal   ◀: liste   ▶: rehber   Menü: kontroller',
+                'OK: kontroller   ▲▼: kanal   ◀: liste   ▶: rehber',
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (widget.onPrevEpisode != null)
+                  _actionButton(
+                    key: const ValueKey('previous-episode'),
+                    icon: Icons.skip_previous,
+                    label: widget.previousEpisodeTitle,
+                    onPressed: () => _switchEpisode(widget.onPrevEpisode),
+                  ),
+                CallbackShortcuts(
+                  bindings: {
+                    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                        _castFocus.requestFocus(),
+                    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                        _audioFocus.requestFocus(),
+                  },
+                  child: _actionButton(
+                    key: const ValueKey('episode-play-pause'),
+                    icon: playing ? Icons.pause : Icons.play_arrow,
+                    label: AppLocalizations.of(context)!.play,
+                    focusNode: _episodePlayFocus,
+                    primary: true,
+                    onPressed: _togglePlay,
+                  ),
+                ),
+                if (_canSeek && !_remoteActive) ...[
+                  _actionButton(
+                    key: const ValueKey('tv-rewind'),
+                    icon: Icons.replay_10,
+                    onPressed: () => _seekBy(-10),
+                  ),
+                  _actionButton(
+                    key: const ValueKey('tv-forward'),
+                    icon: Icons.forward_10,
+                    onPressed: () => _seekBy(10),
+                  ),
+                ],
+                if (widget.onNextEpisode != null)
+                  _actionButton(
+                    key: const ValueKey('next-episode'),
+                    icon: Icons.skip_next,
+                    focusNode: _nextEpisodeFocus,
+                    label:
+                        widget.nextEpisodeTitle ??
+                        AppLocalizations.of(context)!.nextEpisode,
+                    onPressed: () => _switchEpisode(widget.onNextEpisode),
+                  ),
+                const Spacer(),
+                if (!_remoteActive) ...[
+                  _actionButton(
+                    key: const ValueKey('tv-audio-tracks'),
+                    icon: Icons.audiotrack,
+                    label: AppLocalizations.of(context)!.audioTrack,
+                    focusNode: _audioFocus,
+                    onPressed: v?.isInitialized == true
+                        ? _chooseAudioTrack
+                        : null,
+                  ),
+                  _actionButton(
+                    key: const ValueKey('tv-subtitles'),
+                    icon: Icons.subtitles_outlined,
+                    label: AppLocalizations.of(context)!.subtitle,
+                    focusNode: _subtitleFocus,
+                    onPressed: v?.isInitialized == true
+                        ? _chooseSubtitles
+                        : null,
+                  ),
+                  _actionButton(
+                    key: const ValueKey('tv-quality'),
+                    icon: Icons.high_quality_outlined,
+                    label: AppLocalizations.of(context)!.streamQuality,
+                    focusNode: _qualityFocus,
+                    onPressed: v?.isInitialized == true ? _chooseQuality : null,
+                  ),
+                  if (!_isLive)
+                    _actionButton(
+                      key: const ValueKey('tv-speed'),
+                      icon: Icons.speed,
+                      label: AppLocalizations.of(context)!.playbackSpeed,
+                      focusNode: _speedFocus,
+                      onPressed: v?.isInitialized == true ? _chooseSpeed : null,
+                    ),
+                  if (_isLive)
+                    _actionButton(
+                      key: const ValueKey('tv-channel-list'),
+                      icon: Icons.list,
+                      label: AppLocalizations.of(context)!.channelList,
+                      onPressed: () => _openPanel(_TvPanel.channels),
+                    ),
+                  if (_timeshift)
+                    _actionButton(
+                      key: const ValueKey('tv-return-live'),
+                      icon: Icons.live_tv,
+                      label: AppLocalizations.of(context)!.liveTV,
+                      onPressed: _returnToLive,
+                    ),
+                  if (_isLive)
+                    _actionButton(
+                      key: const ValueKey('tv-program-guide'),
+                      icon: Icons.calendar_month,
+                      label: AppLocalizations.of(context)!.programGuide,
+                      onPressed: () => _openPanel(_TvPanel.epg),
+                    ),
+                ],
+              ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    Key? key,
+    required IconData icon,
+    String? label,
+    required VoidCallback? onPressed,
+    FocusNode? focusNode,
+    bool primary = false,
+  }) {
+    return TvPlayerActionButton(
+      key: key,
+      icon: icon,
+      label: label,
+      onPressed: onPressed,
+      focusNode: focusNode,
+      primary: primary,
+    );
+  }
+
+  Widget _buildChannelInfoOverlay() {
+    final now = DateTime.now();
+    Program? current;
+    Program? next;
+    for (final program in _programs) {
+      if (!program.start.isAfter(now) && program.stop.isAfter(now)) {
+        current = program;
+      } else if (program.start.isAfter(now) && next == null) {
+        next = program;
+      }
+      if (current != null && next != null) break;
+    }
+    final total = current?.stop.difference(current.start).inSeconds ?? 0;
+    final elapsed = current == null
+        ? 0
+        : now.difference(current.start).inSeconds;
+    final progress = total > 0 ? (elapsed / total).clamp(0.0, 1.0) : 0.0;
+    final channels = widget.channels;
+    final l10n = AppLocalizations.of(context)!;
+    return Positioned(
+      key: const ValueKey('tv-channel-info'),
+      left: 24,
+      right: 24,
+      bottom: 24,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+          decoration: BoxDecoration(
+            color: const Color(0xE6101118),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white24),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 22,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: _logo != null && _logo!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: _logo!,
+                        width: 68,
+                        height: 68,
+                        fit: BoxFit.contain,
+                        memCacheWidth: 204,
+                        errorWidget: (_, _, _) => const Icon(
+                          Icons.tv,
+                          size: 52,
+                          color: Colors.white54,
+                        ),
+                      )
+                    : const SizedBox(
+                        width: 68,
+                        height: 68,
+                        child: Icon(Icons.tv, size: 52, color: Colors.white54),
+                      ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'LIVE${channels == null ? '' : '  ${_channelIndex + 1}/${channels.length}'}',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (current != null) ...[
+                      Text(
+                        '${DateFormat('HH:mm').format(current.start)}–${DateFormat('HH:mm').format(current.stop)}  ${current.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 3,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.primary,
+                        ),
+                      ),
+                    ] else
+                      Text(
+                        l10n.noProgramGuide,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                    if (next != null) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        '${l10n.upNextLabel} ${DateFormat('HH:mm').format(next.start)}  ${next.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Icon(Icons.keyboard_arrow_up, color: Colors.white54),
+              const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPauseInfoBadge(Duration position, Duration duration) {
+    final l10n = AppLocalizations.of(context)!;
+    final remaining = duration - position;
+    return Align(
+      alignment: Alignment.bottomLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xEB101014),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_logo != null && _logo!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: _logo!,
+                    width: 70,
+                    height: 105,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 210,
+                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (widget.year != null ||
+                        widget.rating != null ||
+                        widget.genre != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          widget.year,
+                          if (widget.rating != null && widget.rating! > 0)
+                            '★ ${widget.rating!.toStringAsFixed(1)}',
+                          widget.genre,
+                        ].whereType<String>().join('  ·  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (widget.plot != null && widget.plot!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.plot!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                    if (duration > Duration.zero) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_fmt(position)} / ${_fmt(duration)}'
+                        '${remaining > Duration.zero ? '  (${_fmt(remaining)} ${l10n.remaining})' : ''}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

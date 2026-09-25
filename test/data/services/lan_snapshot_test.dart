@@ -37,8 +37,29 @@ void main() {
     );
   });
   tearDown(() async {
+    await service.stopSending();
     await root.close();
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
+  });
+
+  test('manual pairing is reachable on the server port', () async {
+    service = LanSyncService(db, prefs, serverPort: 0);
+    final pin = await service.startSending();
+    final peer = SyncPeer(
+      name: 'Local sender',
+      host: '127.0.0.1',
+      port: service.listeningPort!,
+    );
+    expect(await service.fetchManifest(peer, '000000'), isNull);
+    expect(await service.fetchManifest(peer, pin), isNotNull);
+  });
+
+  test('unreachable sender is distinct from a rejected PIN', () async {
+    const absent = SyncPeer(name: 'Absent', host: '127.0.0.1', port: 1);
+    await expectLater(
+      service.fetchManifest(absent, '123456'),
+      throwsA(isA<LanSyncPeerUnavailable>()),
+    );
   });
 
   test(

@@ -167,12 +167,33 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
       _connecting = true;
       _error = null;
     });
-    final manifest = await _svc.fetchManifest(peer, pin);
+    var currentPeer = peer;
+    SyncManifest? manifest;
+    var unavailable = false;
+    try {
+      manifest = await _svc.fetchManifest(currentPeer, pin);
+    } on LanSyncPeerUnavailable {
+      unavailable = true;
+      final refreshed = await _svc.rediscoverPeer(peer);
+      if (refreshed != null) {
+        currentPeer = refreshed;
+        try {
+          manifest = await _svc.fetchManifest(currentPeer, pin);
+          unavailable = false;
+        } on LanSyncPeerUnavailable {
+          // Surface a connection error with the refreshed endpoint below.
+        }
+      }
+    }
     if (!mounted) return;
     if (manifest == null) {
       setState(() {
+        _selectedPeer = currentPeer;
         _connecting = false;
-        _error = AppLocalizations.of(context)!.deviceSyncPinError;
+        final l10n = AppLocalizations.of(context)!;
+        _error = unavailable
+            ? '${l10n.connectionFailed} (${currentPeer.host}:${currentPeer.port})'
+            : l10n.deviceSyncPinError;
       });
       return;
     }
@@ -183,6 +204,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
     };
     setState(() {
       _connecting = false;
+      _selectedPeer = currentPeer;
       _manifest = manifest;
       _selected
         ..clear()

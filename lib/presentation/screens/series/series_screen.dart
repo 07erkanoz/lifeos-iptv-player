@@ -1420,24 +1420,46 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 
   Widget _buildHeroBanner(Channel ch, bool isDark, AppLocalizations l10n) {
-    final hasBackdrop = ch.backdropPath != null;
+    final hasBackdrop = ch.backdropPath?.isNotEmpty ?? false;
     final imgUrl = hasBackdrop ? ch.backdropPath! : ch.streamIcon;
+    final heroHeight = isMobilePlatform
+        ? 200.0
+        : PlatformHelper.isTV
+        ? (MediaQuery.sizeOf(context).height * 0.36).clamp(280.0, 380.0)
+        : 280.0;
 
     return GestureDetector(
       onTap: () => _openDetail(ch),
       child: SizedBox(
-        height: isMobilePlatform ? 200 : (PlatformHelper.isTV ? 170 : 280),
+        height: heroHeight,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (imgUrl != null)
+            if (imgUrl != null && (hasBackdrop || !PlatformHelper.isTV))
               CachedNetworkImage(
                 imageUrl: imgUrl,
                 fit: BoxFit.cover,
-                memCacheWidth: 960,
+                memCacheWidth: PlatformHelper.isTV ? 1280 : 960,
+                fadeInDuration: PlatformHelper.isTV
+                    ? Duration.zero
+                    : const Duration(milliseconds: 500),
                 alignment: const Alignment(0, -0.3),
                 errorWidget: (_, _, _) =>
                     Container(color: AppColors.surface(context)),
+              ),
+            if (!hasBackdrop && PlatformHelper.isTV && imgUrl != null)
+              Positioned(
+                right: 32,
+                top: 12,
+                bottom: 12,
+                width: heroHeight * 0.68,
+                child: CachedNetworkImage(
+                  imageUrl: imgUrl,
+                  fit: BoxFit.contain,
+                  memCacheWidth: 420,
+                  fadeInDuration: Duration.zero,
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             // Left gradient (lighter to show more poster)
             Container(
@@ -1471,9 +1493,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             ),
             // Content
             Positioned(
-              left: 24,
-              bottom: 20,
-              right: 200,
+              left: PlatformHelper.isTV ? 32 : 24,
+              bottom: PlatformHelper.isTV ? 28 : 20,
+              width: PlatformHelper.isTV
+                  ? min(MediaQuery.sizeOf(context).width * 0.48, 620)
+                  : null,
+              right: PlatformHelper.isTV ? null : 200,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -1555,10 +1580,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   const SizedBox(height: 10),
                   Text(
                     ch.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
-                      fontSize: 24,
+                      fontSize: PlatformHelper.isTV ? 30 : 24,
                       height: 1.2,
                     ),
                     maxLines: 2,

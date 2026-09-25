@@ -94,6 +94,10 @@ GoRouter router(Ref ref) {
               title: extras['title'],
               type: extras['type'] ?? VideoType.live,
               logo: extras['logo'],
+              plot: extras['plot'] as String?,
+              genre: extras['genre'] as String?,
+              year: extras['year'] as String?,
+              rating: extras['rating'] as double?,
               currentProgramTitle: extras['programTitle'],
               startPosition: extras['startPosition'] as Duration?,
               parentStreamId: extras['parentStreamId'] as int?,
@@ -108,7 +112,7 @@ GoRouter router(Ref ref) {
           }
           return VideoPlayerScreen(
             streamUrl: extras['url'],
-              httpHeaders: MediaRequest.sanitize(extras['httpHeaders']),
+            httpHeaders: MediaRequest.sanitize(extras['httpHeaders']),
             streamId: extras['streamId'] as int,
             accountId: extras['accountId'] as int?,
             title: extras['title'],

@@ -21,7 +21,7 @@ import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 
 /// Same-network device-to-device sync — NO cloud, NO database server.
 ///
-/// One device (the SENDER) opens an ephemeral HTTP server, advertises
+/// One device (the SENDER) opens an HTTP server, advertises
 /// itself over mDNS (`_lifeostv-sync._tcp`) and shows a 6-digit PIN.
 /// The other device (the RECEIVER) discovers it over mDNS, the user
 /// types the PIN, then the receiver pulls a JSON snapshot and applies
@@ -90,6 +90,12 @@ class SyncPeer {
       other is SyncPeer && other.host == host && other.port == port;
   @override
   int get hashCode => Object.hash(host, port);
+}
+
+/// The sender was advertised but its HTTP endpoint could not be reached.
+/// A wrong PIN is reported separately by a 403 response.
+class LanSyncPeerUnavailable implements Exception {
+  const LanSyncPeerUnavailable();
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +195,9 @@ class SyncImportResult {
 
 class LanSyncService {
   static const String _serviceType = '_lifeostv-sync._tcp';
+  // A predictable port lets desktop firewalls allow pairing on the local
+  // network. The mDNS record still advertises the actual listening port.
+  static const int lanSyncPort = 48741;
   static const int _payloadVersion = 1;
   static const String _pinHeader = 'x-sync-pin';
   static const String _tokenHeader = 'x-sync-token';
@@ -197,8 +206,10 @@ class LanSyncService {
 
   final AppDatabase _db;
   final SharedPreferences _prefs;
+  final int _serverPort;
 
-  LanSyncService(this._db, this._prefs);
+  LanSyncService(this._db, this._prefs, {int serverPort = lanSyncPort})
+    : _serverPort = serverPort;
 
   // ── Server state ─────────────────────────────────────────────────────────
   HttpServer? _server;
@@ -211,6 +222,9 @@ class LanSyncService {
 
   /// True while this device is offering its data to peers.
   bool get isBroadcasting => _server != null;
+
+  /// Actual bound port, useful when exercising the server in tests.
+  int? get listeningPort => _server?.port;
 
   /// Stable per-install id, advertised over mDNS so trusted peers can
   /// recognise this device across sessions / IP changes.
@@ -322,7 +336,7 @@ class LanSyncService {
   Future<void> _ensureServerAndBroadcast() async {
     if (_server != null) return;
     await _ensureNearbyPermission();
-    final server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
+    final server = await HttpServer.bind(InternetAddress.anyIPv4, _serverPort);
     _server = server;
     server.listen(_handleRequest, onError: (_) {});
     try {
@@ -784,8 +798,28 @@ class LanSyncService {
     return controller.stream;
   }
 
+  /// An already-selected mDNS peer can carry an obsolete port after the
+  /// sender restarts. Look up the same device again before giving up.
+  Future<SyncPeer?> rediscoverPeer(
+    SyncPeer previous, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    await for (final peers in discoverPeers(timeout: timeout)) {
+      for (final peer in peers) {
+        final sameDevice = previous.deviceId.isNotEmpty
+            ? peer.deviceId == previous.deviceId
+            : peer.host == previous.host && peer.name == previous.name;
+        if (sameDevice &&
+            (peer.host != previous.host || peer.port != previous.port)) {
+          return peer;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Fetch the manifest from [peer], authenticating with [pin].
-  /// Returns null on wrong PIN / unreachable host.
+  /// Returns null on a rejected PIN; throws when the host is unreachable.
   Future<SyncManifest?> fetchManifest(SyncPeer peer, String pin) async {
     try {
       final dio = Dio(
@@ -805,6 +839,9 @@ class LanSyncService {
           : res.data;
       if (data is! Map) return null;
       return SyncManifest.fromJson(data.cast<String, dynamic>());
+    } on DioException catch (e) {
+      if (kDebugMode) debugPrint('[LanSync] fetchManifest failed: $e');
+      throw const LanSyncPeerUnavailable();
     } catch (e) {
       if (kDebugMode) debugPrint('[LanSync] fetchManifest failed: $e');
       return null;
