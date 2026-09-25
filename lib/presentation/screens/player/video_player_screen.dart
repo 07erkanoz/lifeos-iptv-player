@@ -61,6 +61,7 @@ class PlayerChannel {
   final int streamId;
   final String name;
   final String url;
+  final String? fallbackUrl;
   final Map<String, String> httpHeaders;
   final String? logo;
   final String? categoryId;
@@ -69,6 +70,7 @@ class PlayerChannel {
     required this.streamId,
     required this.name,
     required this.url,
+    this.fallbackUrl,
     this.httpHeaders = const {},
     this.logo,
     this.categoryId,

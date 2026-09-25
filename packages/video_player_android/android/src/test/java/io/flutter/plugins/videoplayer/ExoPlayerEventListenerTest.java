@@ -105,6 +105,18 @@ public final class ExoPlayerEventListenerTest {
   }
 
   @Test
+  public void onErrorDoesNotForwardCredentialBearingMessage() {
+    eventListener.onPlayerError(
+        new PlaybackException(
+            "https://example.test/live/private-user/private-password/1.ts",
+            new IllegalStateException("private-password"),
+            PlaybackException.ERROR_CODE_DECODING_FAILED));
+
+    verify(mockCallbacks)
+        .onError("VideoError", "ERROR_CODE_DECODING_FAILED:IllegalStateException", null);
+  }
+
+  @Test
   public void onIsPlayingChangedToggled() {
     eventListener.onIsPlayingChanged(true);
     verify(mockCallbacks).onIsPlayingStateUpdate(true);

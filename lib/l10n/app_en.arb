@@ -152,6 +152,8 @@
   "dlnaConnectFailed": "Couldn't reach the TV. Make sure it's on the same Wi-Fi network and powered on.",
   "connectionTimedOut": "Connection timed out",
   "streamLoadFailed": "The stream couldn't load. Please try again.",
+  "streamSourceInvalid": "The source is not sending a playable media stream.",
+  "streamDecoderUnsupported": "This device cannot decode the stream format.",
   "upNextLabel": "Up next: ",
   "aiCallHistory": "AI Call History",
   "recentCalls": "RECENT CALLS",

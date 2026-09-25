@@ -204,6 +204,8 @@
   "dlnaConnectFailed": "No se pudo conectar con la TV. Asegúrate de que esté en la misma red Wi-Fi y encendida.",
   "connectionTimedOut": "Se agotó el tiempo de conexión",
   "streamLoadFailed": "No se pudo cargar el stream. Inténtalo de nuevo.",
+  "streamSourceInvalid": "La fuente no envía un flujo multimedia reproducible.",
+  "streamDecoderUnsupported": "Este dispositivo no puede decodificar el formato del flujo.",
   "upNextLabel": "A continuación: ",
   "aiCallHistory": "Historial de llamadas de IA",
   "recentCalls": "LLAMADAS RECIENTES",

@@ -489,6 +489,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo cargar el stream. Inténtalo de nuevo.';
 
   @override
+  String get streamSourceInvalid =>
+      'La fuente no envía un flujo multimedia reproducible.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Este dispositivo no puede decodificar el formato del flujo.';
+
+  @override
   String get upNextLabel => 'A continuación: ';
 
   @override

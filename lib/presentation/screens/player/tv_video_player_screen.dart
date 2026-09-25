@@ -17,6 +17,7 @@ import 'package:lifeostv/data/repositories/profile_repository.dart'
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/presentation/controllers/tv_playback_config.dart';
+import 'package:lifeostv/presentation/controllers/tv_playback_failure.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/core/playback_signal.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
@@ -51,6 +52,7 @@ import 'package:lifeostv/presentation/widgets/player/tv_player_action_button.dar
 /// selection and Cast/DLNA handoff share this route.
 class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
+  final String? fallbackStreamUrl;
   final Map<String, String> httpHeaders;
   final int streamId;
   final int? accountId;
@@ -75,6 +77,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   const TvVideoPlayerScreen({
     super.key,
     required this.streamUrl,
+    this.fallbackStreamUrl,
     this.httpHeaders = const {},
     required this.streamId,
     this.accountId,
@@ -123,6 +126,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   bool _showControls = true;
   bool _hasPlayed = false;
+  bool _userPaused = false;
   bool _isPaused = false;
   bool _showPauseBadge = false;
   Timer? _pauseBadgeTimer;
@@ -178,6 +182,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   // Current stream for the active playback (changes on live channel switch).
   late String _url;
+  String? _fallbackUrl;
+  bool _fallbackTried = false;
   Map<String, String> _headers = const {};
   late String _title;
   String? _logo;
@@ -220,6 +226,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     DlnaService.instance.stateNotifier.addListener(_onRemoteStateChanged);
     playbackActiveNotifier.value = true;
     _url = widget.streamUrl;
+    _fallbackUrl = widget.fallbackStreamUrl;
     _headers = widget.httpHeaders;
     _title = widget.title;
     _logo = widget.logo;
@@ -316,9 +323,28 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     return safe;
   }
 
-  Future<void> _retireController(VideoPlayerController c) async {
-    await (_controllerWork[c] ?? Future<void>.value());
-    await c.dispose().catchError((Object _) {});
+  Future<void> _retireController(
+    VideoPlayerController c, {
+    bool bounded = false,
+  }) async {
+    // A failed IPTV connection can leave a native command/dispose pending.
+    // Bound retirement so the next channel still opens on the remote.
+    try {
+      final work = _controllerWork[c] ?? Future<void>.value();
+      if (bounded) {
+        await work.timeout(const Duration(seconds: 2));
+      } else {
+        await work;
+      }
+    } catch (_) {}
+    try {
+      final disposal = c.dispose();
+      if (bounded) {
+        await disposal.timeout(const Duration(seconds: 2));
+      } else {
+        await disposal;
+      }
+    } catch (_) {}
   }
 
   @override
@@ -343,14 +369,37 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     }
   }
 
-  void _fail({bool timeout = false}) {
+  void _fail({
+    bool timeout = false,
+    bool allowFallback = true,
+    String? description,
+  }) {
     if (!mounted || _disposed) return;
     _bufferingTimeout?.cancel();
     _bufferingTimeout = null;
     _hideTimer?.cancel();
+    final alternate = _fallbackUrl;
+    if (allowFallback &&
+        _isLive &&
+        !_timeshift &&
+        !_fallbackTried &&
+        alternate != null &&
+        alternate != _url) {
+      _fallbackTried = true;
+      _url = alternate;
+      unawaited(_open(alternate));
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
+    final failure = classifyTvPlaybackFailure(description);
     setState(() {
-      _error = timeout ? l10n.connectionTimedOut : l10n.streamLoadFailed;
+      _error = timeout
+          ? l10n.connectionTimedOut
+          : switch (failure) {
+              TvPlaybackFailure.source => l10n.streamSourceInvalid,
+              TvPlaybackFailure.decoder => l10n.streamDecoderUnsupported,
+              TvPlaybackFailure.other => l10n.streamLoadFailed,
+            };
       _buffering = false;
       _showControls = true;
     });
@@ -381,6 +430,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _pauseBadgeTimer?.cancel();
     _pauseBadgeTimer = null;
     _hasPlayed = false;
+    _userPaused = !autoplay && !_isLive;
     _isPaused = false;
     _showPauseBadge = false;
     _lastUiPositionSecond = -1;
@@ -390,7 +440,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _subtitles = null;
     _subtitleVisible = false;
     old?.removeListener(_onValue);
-    if (old != null) await _retireController(old);
+    if (old != null) await _retireController(old, bounded: true);
     if (!mounted || _disposed || generation != _openGeneration) return;
 
     if (mounted) {
@@ -406,7 +456,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
         live: _isLive && !_timeshift,
       );
     } catch (_) {
-      if (generation == _openGeneration) _fail();
+      if (generation == _openGeneration) _fail(allowFallback: false);
       return;
     }
     if (!mounted || _disposed || generation != _openGeneration) return;
@@ -434,7 +484,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       // Bound init so a stalled connection surfaces an error instead of
       // spinning forever (also the diagnostic signal for UA/redirect/codec
       // problems the user can report).
-      await c.initialize().timeout(const Duration(seconds: 25));
+      await c.initialize().timeout(
+        Duration(seconds: _isLive && !_timeshift ? 15 : 25),
+      );
       if (!mounted ||
           _disposed ||
           generation != _openGeneration ||
@@ -487,10 +539,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       if (_controller == c) {
         c.removeListener(_onValue);
         _controller = null;
-        await _retireController(c);
+        await _retireController(c, bounded: true);
       }
       if (mounted && !_disposed && generation == _openGeneration) {
-        _fail(timeout: e is TimeoutException);
+        _fail(timeout: e is TimeoutException, description: e.toString());
       }
     }
   }
@@ -499,10 +551,13 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final c = _controller;
     if (c == null || !mounted) return;
     final v = c.value;
-    if (v.hasError && _error == null) _fail();
+    if (v.hasError && _error == null) {
+      _fail(description: v.errorDescription);
+    }
+    if (v.hasError || !identical(_controller, c)) return;
     if (!v.isInitialized || _error != null) return;
     if (v.isPlaying) _hasPlayed = true;
-    final paused = _hasPlayed && !v.isPlaying && !_backgrounded;
+    final paused = _hasPlayed && _userPaused && !v.isPlaying && !_backgrounded;
     if (paused != _isPaused) {
       _pauseBadgeTimer?.cancel();
       _pauseBadgeTimer = null;
@@ -604,8 +659,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     if (c.value.isPlaying) {
+      _userPaused = true;
       unawaited(_command(c, c.pause));
     } else {
+      _userPaused = false;
       unawaited(_command(c, c.play));
     }
     _showControlsBriefly();
@@ -643,6 +700,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     unawaited(_saveProgress());
     _channelIndex = idx;
     final ch = chans[idx];
+    _fallbackUrl = ch.fallbackUrl;
+    _fallbackTried = false;
     setState(() {
       _timeshift = false;
       _replayTitle = null;
@@ -992,6 +1051,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _timeshift = false;
       _replayTitle = null;
       _url = widget.streamUrl;
+      _fallbackUrl = widget.fallbackStreamUrl;
+      _fallbackTried = false;
     });
     _open(_url);
     _showControlsBriefly();
@@ -1021,6 +1082,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   void _closePanel({bool showControls = true}) {
     if (!mounted || _panel == null) return;
     setState(() => _panel = null);
+    if (_error != null) {
+      _retryFocus.requestFocus();
+      return;
+    }
     if (showControls) {
       _showControlsBriefly();
       _episodePlayFocus.requestFocus();
@@ -1390,6 +1455,25 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       _showControlsBriefly();
       _episodePlayFocus.requestFocus();
       return KeyEventResult.handled;
+    }
+    // A failed channel focuses Retry. Keep channel and guide navigation
+    // available so one bad source never traps the remote in the player.
+    if (_error != null &&
+        _isLive &&
+        !_timeshift &&
+        widget.channels?.isNotEmpty == true) {
+      if (k == LogicalKeyboardKey.arrowUp ||
+          k == LogicalKeyboardKey.arrowDown) {
+        _channelStep(k == LogicalKeyboardKey.arrowUp ? -1 : 1);
+        return KeyEventResult.handled;
+      }
+      if (k == LogicalKeyboardKey.arrowLeft ||
+          k == LogicalKeyboardKey.arrowRight) {
+        _openPanel(
+          k == LogicalKeyboardKey.arrowLeft ? _TvPanel.channels : _TvPanel.epg,
+        );
+        return KeyEventResult.handled;
+      }
     }
     // Let focused episode buttons handle activation and directional traversal.
     if (!_focusNode.hasPrimaryFocus && (_showControls || _error != null)) {
@@ -1795,7 +1879,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               _buildPauseInfoBadge(pos, dur),
               const SizedBox(height: 12),
             ],
-            // Bottom: progress (VOD) or hint (live)
+            // Bottom: playback progress for seekable content.
             if (_canSeek && dur.inSeconds > 0) ...[
               Row(
                 children: [
@@ -1838,16 +1922,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'OK: oynat/duraklat   ‹ ›: 10sn sar',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
-              ),
-            ] else if (_isLive)
-              const Text(
-                'OK: kontroller   ▲▼: kanal   ◀: liste   ▶: rehber',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
-              ),
+            ],
             const SizedBox(height: 14),
             Row(
               children: [
@@ -2129,6 +2204,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final l10n = AppLocalizations.of(context)!;
     final remaining = duration - position;
     return Align(
+      key: const ValueKey('tv-pause-info'),
       alignment: Alignment.bottomLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),

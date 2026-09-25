@@ -488,6 +488,14 @@ class AppLocalizationsTr extends AppLocalizations {
   String get streamLoadFailed => 'Stream yüklenemedi. Tekrar deneyin.';
 
   @override
+  String get streamSourceInvalid =>
+      'Kaynak oynatılabilir bir medya akışı göndermiyor.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Bu cihaz akışın medya biçimini çözemiyor.';
+
+  @override
   String get upNextLabel => 'Sıradaki: ';
 
   @override

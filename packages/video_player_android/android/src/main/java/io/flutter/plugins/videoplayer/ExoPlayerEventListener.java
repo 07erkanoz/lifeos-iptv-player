@@ -83,7 +83,11 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
       exoPlayer.seekToDefaultPosition();
       exoPlayer.prepare();
     } else {
-      events.onError("VideoError", "Video player had error " + error, null);
+      // Exception messages can contain credential-bearing IPTV URLs. Send only
+      // stable Media3 error identifiers and exception class names to Dart.
+      Throwable cause = error.getCause();
+      String causeName = cause == null ? "Unknown" : cause.getClass().getSimpleName();
+      events.onError("VideoError", error.getErrorCodeName() + ":" + causeName, null);
     }
   }
 

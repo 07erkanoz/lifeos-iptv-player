@@ -16,12 +16,71 @@ class PlaybackUrlResolver {
   )
   loadVodInfo;
 
+  /// Live URL construction has no network lookup. Keep it synchronous so
+  /// opening a large channel list does not await once per row on the UI thread.
+  String resolveLive(
+    Account account,
+    Channel channel, {
+    StreamQuality quality = StreamQuality.auto,
+  }) {
+    if (channel.type != 'live') throw StateError('Not a live channel');
+    if (channel.accountId != 0 && channel.accountId != account.id) {
+      throw StateError('Content belongs to another account');
+    }
+    final stored = channel.streamUrl;
+    if (account.type == 'm3u') {
+      if (stored == null || stored.trim().isEmpty) {
+        throw StateError('Missing playlist media URL');
+      }
+      return stored;
+    }
+    return StreamUrlBuilder.build(
+      account.url,
+      account.username ?? '',
+      account.password ?? '',
+      channel.streamId,
+      channel.type,
+      quality: quality,
+      directUrl: stored,
+      extension: channel.containerExtension,
+    );
+  }
+
+  /// Xtream servers may expose only HLS or only transport-stream for a
+  /// channel. Never invent an alternate URL for a direct M3U source.
+  String? liveFallback(
+    Account account,
+    Channel channel, {
+    StreamQuality quality = StreamQuality.auto,
+  }) {
+    if (account.type != 'xtream' ||
+        channel.type != 'live' ||
+        channel.streamUrl?.trim().isNotEmpty == true) {
+      return null;
+    }
+    if (channel.accountId != 0 && channel.accountId != account.id) {
+      throw StateError('Content belongs to another account');
+    }
+    return StreamUrlBuilder.live(
+      account.url,
+      account.username ?? '',
+      account.password ?? '',
+      channel.streamId,
+      quality: quality == StreamQuality.auto
+          ? StreamQuality.high
+          : StreamQuality.auto,
+    );
+  }
+
   Future<String> resolve(
     Account account,
     Channel channel, {
     StreamQuality quality = StreamQuality.auto,
     Map<String, dynamic>? vodInfo,
   }) async {
+    if (channel.type == 'live') {
+      return resolveLive(account, channel, quality: quality);
+    }
     if (channel.accountId != 0 && channel.accountId != account.id) {
       throw StateError('Content belongs to another account');
     }

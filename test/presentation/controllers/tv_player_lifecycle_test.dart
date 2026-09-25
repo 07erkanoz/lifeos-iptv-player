@@ -54,6 +54,7 @@ class _Video extends VideoPlayerPlatform {
   final paused = <int>[];
   final disposed = <int>[];
   bool initializeImmediately = true;
+  bool stallFirstDispose = false;
   Duration duration = const Duration(minutes: 1);
   @override
   Future<void> init() async {}
@@ -101,6 +102,9 @@ class _Video extends VideoPlayerPlatform {
   @override
   Future<void> dispose(int playerId) async {
     disposed.add(playerId);
+    if (stallFirstDispose && playerId == 0) {
+      await Completer<void>().future;
+    }
   }
 
   @override
@@ -833,6 +837,132 @@ void main() {
     });
     await tester.pump();
     expect(native.played, contains(1));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('failed live source tries TS and still allows channel change', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/1.m3u8',
+        fallbackStreamUrl: 'https://example.invalid/1.ts',
+        streamId: 1,
+        title: 'First',
+        channels: [
+          PlayerChannel(
+            streamId: 1,
+            name: 'First',
+            url: 'https://example.invalid/1.m3u8',
+            fallbackUrl: 'https://example.invalid/1.ts',
+          ),
+          PlayerChannel(
+            streamId: 2,
+            name: 'Second',
+            url: 'https://example.invalid/2.m3u8',
+          ),
+        ],
+      ),
+    );
+    native.events[0]!.addError(
+      PlatformException(code: 'source', message: 'HLS unavailable'),
+    );
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(native.sources.last.uri, 'https://example.invalid/1.ts');
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+
+    native.events[1]!.addError(
+      PlatformException(code: 'source', message: 'TS unavailable'),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(native.sources.last.uri, 'https://example.invalid/2.m3u8');
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('stuck native disposal cannot block the next live channel', (
+    tester,
+  ) async {
+    native.stallFirstDispose = true;
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/1.ts',
+        streamId: 1,
+        title: 'First',
+        channels: [
+          PlayerChannel(
+            streamId: 1,
+            name: 'First',
+            url: 'https://example.invalid/1.ts',
+          ),
+          PlayerChannel(
+            streamId: 2,
+            name: 'Second',
+            url: 'https://example.invalid/2.ts',
+          ),
+        ],
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    expect(native.sources.last.uri, 'https://example.invalid/2.ts');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('seek buffering does not move focus to pause controls', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      player: const TvVideoPlayerScreen(
+        streamUrl: 'https://example.invalid/movie.mp4',
+        streamId: 4,
+        title: 'Movie',
+        type: VideoType.movie,
+      ),
+    );
+    final videoFocus = FocusManager.instance.primaryFocus;
+    native.events[0]!.add(
+      VideoEvent(
+        eventType: VideoEventType.isPlayingStateUpdate,
+        isPlaying: true,
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    native.events[0]!.add(
+      VideoEvent(
+        eventType: VideoEventType.isPlayingStateUpdate,
+        isPlaying: false,
+      ),
+    );
+    native.events[0]!.add(VideoEvent(eventType: VideoEventType.bufferingStart));
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus, videoFocus);
+    expect(find.byKey(const ValueKey('tv-pause-info')), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });

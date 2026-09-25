@@ -489,6 +489,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Stream konnte nicht geladen werden. Bitte erneut versuchen.';
 
   @override
+  String get streamSourceInvalid =>
+      'Die Quelle liefert keinen abspielbaren Medienstream.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Dieses Gerät kann das Streamformat nicht dekodieren.';
+
+  @override
   String get upNextLabel => 'Als Nächstes: ';
 
   @override

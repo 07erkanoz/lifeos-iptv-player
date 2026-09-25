@@ -1022,6 +1022,18 @@ abstract class AppLocalizations {
   /// **'Stream yüklenemedi. Tekrar deneyin.'**
   String get streamLoadFailed;
 
+  /// No description provided for @streamSourceInvalid.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kaynak oynatılabilir bir medya akışı göndermiyor.'**
+  String get streamSourceInvalid;
+
+  /// No description provided for @streamDecoderUnsupported.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu cihaz akışın medya biçimini çözemiyor.'**
+  String get streamDecoderUnsupported;
+
   /// No description provided for @upNextLabel.
   ///
   /// In tr, this message translates to:

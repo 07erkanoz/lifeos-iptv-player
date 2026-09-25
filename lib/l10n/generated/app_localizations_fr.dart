@@ -488,6 +488,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get streamLoadFailed => 'Le flux n\'a pas pu être chargé. Réessayez.';
 
   @override
+  String get streamSourceInvalid =>
+      'La source ne fournit pas de flux multimédia lisible.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Cet appareil ne peut pas décoder le format du flux.';
+
+  @override
   String get upNextLabel => 'À suivre : ';
 
   @override

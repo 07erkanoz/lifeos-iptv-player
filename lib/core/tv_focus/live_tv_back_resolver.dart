@@ -11,7 +11,7 @@
 ///   EPG focused          → focus channel list
 ///   channel list focused → open/focus categories panel
 ///   categories focused   → AppShell takes over (main sidebar)
-///   else                 → AppShell takes over
+///   another content node → open/focus categories panel
 enum LiveTvBackAction {
   /// Currently focused on a program in the EPG timeline → focus the
   /// channel list cell of the same channel. Consumes the press.
@@ -54,6 +54,7 @@ LiveTvBackAction resolveLiveTvBackAction({
     return LiveTvBackAction.focusCategorySidebar;
   }
 
-  // 5. Focus elsewhere → AppShell handles navigation.
-  return LiveTvBackAction.handToShell;
+  // 5. Returning from the player can leave focus on a transient content
+  // node while the list rebuilds. Keep the category layer in the ladder.
+  return LiveTvBackAction.focusCategorySidebar;
 }

@@ -198,6 +198,8 @@
   "dlnaConnectFailed": "TV ile iletişim kurulamadı. Aynı Wi-Fi ağında olduğundan ve TV'nin açık olduğundan emin ol.",
   "connectionTimedOut": "Bağlantı zaman aşımına uğradı",
   "streamLoadFailed": "Stream yüklenemedi. Tekrar deneyin.",
+  "streamSourceInvalid": "Kaynak oynatılabilir bir medya akışı göndermiyor.",
+  "streamDecoderUnsupported": "Bu cihaz akışın medya biçimini çözemiyor.",
   "upNextLabel": "Sıradaki: ",
   "aiCallHistory": "AI Çağrı Geçmişi",
   "recentCalls": "SON ÇAĞRILAR",

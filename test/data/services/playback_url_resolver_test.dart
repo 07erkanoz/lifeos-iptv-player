@@ -124,6 +124,31 @@ void main() {
     expect(calls, 0);
   });
 
+  test('live Xtream exposes a TS alternative without another request', () {
+    final channel = movie().copyWith(type: 'live');
+    expect(
+      resolver.resolveLive(xtream, channel),
+      'https://provider.invalid/live/user/p%23q/42.m3u8',
+    );
+    expect(
+      resolver.liveFallback(xtream, channel),
+      'https://provider.invalid/live/user/p%23q/42.ts',
+    );
+    expect(calls, 0);
+  });
+
+  test('direct M3U channel never invents an alternate stream', () {
+    final m3u = xtream.copyWith(type: 'm3u');
+    final channel = movie(
+      url: 'https://cdn.invalid/live?token=x',
+    ).copyWith(type: 'live');
+    expect(
+      resolver.resolveLive(m3u, channel),
+      'https://cdn.invalid/live?token=x',
+    );
+    expect(resolver.liveFallback(m3u, channel), isNull);
+  });
+
   test(
     'unavailable metadata retains the legacy fallback with escaped credentials',
     () async {

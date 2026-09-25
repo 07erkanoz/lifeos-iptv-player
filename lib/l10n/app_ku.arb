@@ -204,6 +204,8 @@
   "dlnaConnectFailed": "Negihîşt TV. Pê ewle be ku li ser heman tora Wi-Fi ye û vekirî ye.",
   "connectionTimedOut": "Demê girêdanê qediya",
   "streamLoadFailed": "Stream barnekir. Ji kerema xwe dîsa biceribîne.",
+  "streamSourceInvalid": "Çavkanî herikek medyayê ya dikare were lîstin naşîne.",
+  "streamDecoderUnsupported": "Ev amûr nikare formata herikê vekode bike.",
   "upNextLabel": "Ya pêş: ",
   "aiCallHistory": "Dîroka bangên AI",
   "recentCalls": "BANGÊN DAWÎ",

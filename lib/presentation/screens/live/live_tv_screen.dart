@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/tv_focus/live_tv_back_resolver.dart';
+import 'package:lifeostv/core/tv_focus/category_focus.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
@@ -134,6 +135,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   final FocusNode _channelListFocusNode = FocusNode();
   // Focus scope for category sidebar (to receive focus when sidebar opens)
   final FocusScopeNode _categorySidebarScope = FocusScopeNode();
+  final FocusNode _selectedCatFocusNode = FocusNode(
+    debugLabel: 'LiveSelectedCat',
+  );
+  final FocusNode _favCatFocusNode = FocusNode(debugLabel: 'LiveFavCat');
   // Focus scope for the EPG timeline so the back resolver can tell
   // whether focus is currently in the EPG zone vs the channel list.
   final FocusScopeNode _epgFocusScope = FocusScopeNode();
@@ -193,7 +198,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       if (mounted) setState(() => _currentTime = DateTime.now());
     });
 
-    _branchPrimaryCb = _focusChannelList;
+    _branchPrimaryCb = _focusBranchEntry;
 
     // Collapse the category panel when D-pad focus leaves it (TV) —
     // mirrors the main sidebar's collapse-on-blur.
@@ -241,6 +246,16 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       _channelListController.focusCurrentOrFirst();
     } else {
       _channelListFocusNode.requestFocus();
+    }
+  }
+
+  void _focusBranchEntry() {
+    if (!_categoriesCollapsed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_categoriesCollapsed) _focusSidebarItem();
+      });
+    } else {
+      _focusChannelList();
     }
   }
 
@@ -351,6 +366,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     _categoryCollapseTimer?.cancel();
     _categorySidebarScope.removeListener(_onCategoryScopeFocusChange);
     _categorySidebarScope.dispose();
+    _selectedCatFocusNode.dispose();
+    _favCatFocusNode.dispose();
     _epgFocusScope.dispose();
     super.dispose();
   }
@@ -428,21 +445,15 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       _showMobileCategorySheet();
       return;
     }
+    _categoryCollapseTimer?.cancel();
     setState(() => _categoriesCollapsed = !_categoriesCollapsed);
     if (_categoriesCollapsed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _channelListFocusNode.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            FocusManager.instance.primaryFocus?.focusInDirection(
-              TraversalDirection.down,
-            );
-          });
-        }
+        if (mounted) _focusChannelList();
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _categorySidebarScope.requestFocus();
+        if (mounted) _focusSidebarItem();
       });
     }
   }
@@ -900,7 +911,12 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     try {
       final quality = ref.read(settingsProvider).streamQuality;
       final resolver = ref.read(playbackUrlResolverProvider);
-      final url = await resolver.resolve(account, channel, quality: quality);
+      final url = resolver.resolveLive(account, channel, quality: quality);
+      final fallbackUrl = resolver.liveFallback(
+        account,
+        channel,
+        quality: quality,
+      );
       final channels = channelList ?? _getCurrentChannelList() ?? [channel];
       final playerChannels = <PlayerChannel>[];
       for (final ch in channels) {
@@ -910,7 +926,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             PlayerChannel(
               streamId: ch.streamId,
               name: ch.name,
-              url: await resolver.resolve(account, ch, quality: quality),
+              url: resolver.resolveLive(account, ch, quality: quality),
+              fallbackUrl: resolver.liveFallback(account, ch, quality: quality),
               logo: ch.streamIcon,
               categoryId: ch.categoryId,
               httpHeaders: MediaRequest.decode(ch.playbackHeaders),
@@ -930,6 +947,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             streamId: channel.streamId,
             name: channel.name,
             url: url,
+            fallbackUrl: fallbackUrl,
             logo: channel.streamIcon,
             categoryId: channel.categoryId,
             httpHeaders: MediaRequest.decode(channel.playbackHeaders),
@@ -955,6 +973,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         '/player',
         extra: {
           'url': url,
+          'fallbackUrl': fallbackUrl,
           'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
           'streamId': channel.streamId,
           'accountId': account.id,
@@ -966,7 +985,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
           'categoryNames': categoryMap,
         },
       );
-      if (mounted) _focusChannelList();
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _focusChannelList();
+        });
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1190,11 +1213,24 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   /// Open category sidebar (called from channel list left D-pad)
   void _openCategorySidebar() {
+    _categoryCollapseTimer?.cancel();
     if (!_categoriesCollapsed) {
-      _categorySidebarScope.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusSidebarItem();
+      });
       return;
     }
     _toggleCategorySidebar();
+  }
+
+  void _focusSidebarItem({int attemptsLeft = 4}) {
+    if (!mounted || _categoriesCollapsed) return;
+    if (focusMountedCategory(_selectedCatFocusNode, _favCatFocusNode)) return;
+    if (attemptsLeft > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusSidebarItem(attemptsLeft: attemptsLeft - 1);
+      });
+    }
   }
 
   /// Focus the main AppSidebar via [TvFocusRegistry] — the sidebar
@@ -1258,6 +1294,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               // Favorite channels
               _CategoryItem(
                 name: l10n.favoriteChannels,
+                focusNode: _selectedCategoryId == _kFavoritesId
+                    ? _selectedCatFocusNode
+                    : _favCatFocusNode,
                 icon: Icons.favorite,
                 isSelected: _selectedCategoryId == _kFavoritesId,
                 collapsed: false,
@@ -1268,6 +1307,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               // History
               _CategoryItem(
                 name: l10n.watchHistory,
+                focusNode: _selectedCategoryId == _kHistoryId
+                    ? _selectedCatFocusNode
+                    : null,
                 icon: Icons.history,
                 isSelected: _selectedCategoryId == _kHistoryId,
                 collapsed: false,
@@ -1278,6 +1320,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               // All Channels
               _CategoryItem(
                 name: l10n.allChannels,
+                focusNode: _selectedCategoryId == '__all__'
+                    ? _selectedCatFocusNode
+                    : null,
                 icon: Icons.grid_view_rounded,
                 isSelected: _selectedCategoryId == '__all__',
                 collapsed: false,
@@ -1316,6 +1361,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
                         return _CategoryItem(
                           name: cat.name,
+                          focusNode: isSelected ? _selectedCatFocusNode : null,
                           isSelected: isSelected,
                           collapsed: false,
                           onTap: () => _selectCategory(cat.id),
@@ -1837,6 +1883,7 @@ class _FocusableIconButtonState extends State<_FocusableIconButton> {
 
 class _CategoryItem extends StatefulWidget {
   final String name;
+  final FocusNode? focusNode;
   final IconData? icon;
   final bool isSelected;
   final bool collapsed;
@@ -1846,6 +1893,7 @@ class _CategoryItem extends StatefulWidget {
 
   const _CategoryItem({
     required this.name,
+    this.focusNode,
     this.icon,
     required this.isSelected,
     required this.collapsed,
@@ -1868,6 +1916,7 @@ class _CategoryItemState extends State<_CategoryItem> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: Focus(
+        focusNode: widget.focusNode,
         onFocusChange: (f) => setState(() => _isFocused = f),
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {

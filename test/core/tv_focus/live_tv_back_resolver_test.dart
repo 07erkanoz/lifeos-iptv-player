@@ -93,6 +93,18 @@ void main() {
   });
 
   group('resolveLiveTvBackAction — channel list layer', () {
+    test('lost content focus after player return still opens categories', () {
+      expect(
+        resolveLiveTvBackAction(
+          mainSidebarFocused: false,
+          categoriesCollapsed: true,
+          categoryScopeFocused: false,
+          epgFocused: false,
+          channelListFocused: false,
+        ),
+        LiveTvBackAction.focusCategorySidebar,
+      );
+    });
     test('channel list focused + categories open → focusCategorySidebar', () {
       expect(
         resolveLiveTvBackAction(

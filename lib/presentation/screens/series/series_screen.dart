@@ -15,6 +15,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
+import 'package:lifeostv/core/tv_focus/category_focus.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -151,7 +152,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   void initState() {
     super.initState();
     _focusRegistry = ref.read(tvFocusRegistryProvider);
-    _branchPrimaryCb = _focusGrid;
+    _branchPrimaryCb = _focusBranchEntry;
     // Collapse the category panel when D-pad focus leaves it (TV), the
     // same focus-driven way the main sidebar collapses.
     _categorySidebarScope.addListener(_onCategoryScopeFocusChange);
@@ -1056,36 +1057,32 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     });
   }
 
-  /// Focus a concrete, focusable target inside the category sidebar —
-  /// the selected item if its node is live, else the scope as a last
-  /// resort. Focusing the bare scope when it has no focusable child
-  /// orphans focus and freezes D-pad input, which is the "no key works"
-  /// bug.
+  void _focusBranchEntry() {
+    if (!_categoriesCollapsed && _detailChannel == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_categoriesCollapsed) _focusSidebarItem();
+      });
+    } else {
+      _focusGrid();
+    }
+  }
+
+  /// Focus the mounted selected category or the visible Favorites row.
   void _focusSidebarItem({int attemptsLeft = 4}) {
     if (!mounted) return;
-    if (_selectedCatFocusNode.canRequestFocus) {
-      _selectedCatFocusNode.requestFocus();
-      return;
-    }
-    if (_favCatFocusNode.canRequestFocus) {
-      // Selected category scrolled off-screen → land on the always-visible
-      // Favorites row so D-pad works (not the bare scope, which orphans).
-      _favCatFocusNode.requestFocus();
-      return;
-    }
+    if (focusMountedCategory(_selectedCatFocusNode, _favCatFocusNode)) return;
     // Panel just re-expanded — retry over a few frames until the category
     // FocusNodes attach, instead of orphaning focus on the bare scope.
     if (attemptsLeft > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusSidebarItem(attemptsLeft: attemptsLeft - 1);
       });
-    } else {
-      _categorySidebarScope.requestFocus();
     }
   }
 
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
+    _categoryCollapseTimer?.cancel();
     if (!_categoriesCollapsed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusSidebarItem();

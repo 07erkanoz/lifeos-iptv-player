@@ -204,6 +204,8 @@
   "dlnaConnectFailed": "تعذّر الوصول إلى التلفزيون. تأكّد من أنه على نفس شبكة Wi-Fi وقيد التشغيل.",
   "connectionTimedOut": "انتهت مهلة الاتصال",
   "streamLoadFailed": "تعذّر تحميل البث. حاول مرة أخرى.",
+  "streamSourceInvalid": "المصدر لا يرسل بثًا إعلاميًا قابلاً للتشغيل.",
+  "streamDecoderUnsupported": "لا يستطيع هذا الجهاز فك ترميز صيغة البث.",
   "upNextLabel": "التالي: ",
   "aiCallHistory": "سجل استدعاءات الذكاء الاصطناعي",
   "recentCalls": "الاستدعاءات الأخيرة",

@@ -488,6 +488,14 @@ class AppLocalizationsKu extends AppLocalizations {
       'Stream barnekir. Ji kerema xwe dîsa biceribîne.';
 
   @override
+  String get streamSourceInvalid =>
+      'Çavkanî herikek medyayê ya dikare were lîstin naşîne.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Ev amûr nikare formata herikê vekode bike.';
+
+  @override
   String get upNextLabel => 'Ya pêş: ';
 
   @override

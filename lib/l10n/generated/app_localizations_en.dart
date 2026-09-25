@@ -487,6 +487,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get streamLoadFailed => 'The stream couldn\'t load. Please try again.';
 
   @override
+  String get streamSourceInvalid =>
+      'The source is not sending a playable media stream.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'This device cannot decode the stream format.';
+
+  @override
   String get upNextLabel => 'Up next: ';
 
   @override

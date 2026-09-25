@@ -88,6 +88,7 @@ GoRouter router(Ref ref) {
           if (PlatformHelper.isTV) {
             return TvVideoPlayerScreen(
               streamUrl: extras['url'],
+              fallbackStreamUrl: extras['fallbackUrl'] as String?,
               httpHeaders: MediaRequest.sanitize(extras['httpHeaders']),
               streamId: extras['streamId'] as int,
               accountId: extras['accountId'] as int?,

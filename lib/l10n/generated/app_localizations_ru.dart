@@ -489,6 +489,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось загрузить поток. Попробуйте снова.';
 
   @override
+  String get streamSourceInvalid =>
+      'Источник не передаёт воспроизводимый медиапоток.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'Это устройство не может декодировать формат потока.';
+
+  @override
   String get upNextLabel => 'Далее: ';
 
   @override

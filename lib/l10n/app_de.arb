@@ -204,6 +204,8 @@
   "dlnaConnectFailed": "TV nicht erreichbar. Stelle sicher, dass es im selben WLAN und eingeschaltet ist.",
   "connectionTimedOut": "Zeitüberschreitung der Verbindung",
   "streamLoadFailed": "Stream konnte nicht geladen werden. Bitte erneut versuchen.",
+  "streamSourceInvalid": "Die Quelle liefert keinen abspielbaren Medienstream.",
+  "streamDecoderUnsupported": "Dieses Gerät kann das Streamformat nicht dekodieren.",
   "upNextLabel": "Als Nächstes: ",
   "aiCallHistory": "KI-Aufrufverlauf",
   "recentCalls": "LETZTE AUFRUFE",

@@ -13,6 +13,7 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/presentation/widgets/ui/empty_state.dart';
 import 'package:lifeostv/core/tv_focus/grid_screen_back_resolver.dart';
+import 'package:lifeostv/core/tv_focus/category_focus.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_registry.dart';
@@ -117,7 +118,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   void initState() {
     super.initState();
     _focusRegistry = ref.read(tvFocusRegistryProvider);
-    _branchPrimaryCb = _focusGrid;
+    _branchPrimaryCb = _focusBranchEntry;
     // Collapse the category panel when D-pad focus leaves it (TV), the
     // same focus-driven way the main sidebar collapses.
     _categorySidebarScope.addListener(_onCategoryScopeFocusChange);
@@ -644,37 +645,33 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
     });
   }
 
-  /// Focus a concrete, focusable target inside the sidebar — the
-  /// selected item if live, else the scope as a fallback. Focusing the
-  /// bare scope with no focusable child orphans focus → "no key works".
+  void _focusBranchEntry() {
+    if (!_categoriesCollapsed && _detailChannel == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_categoriesCollapsed) _focusSidebarItem();
+      });
+    } else {
+      _focusGrid();
+    }
+  }
+
+  /// Focus the mounted selected category or the visible Favorites row.
   void _focusSidebarItem({int attemptsLeft = 4}) {
     if (!mounted) return;
-    if (_selectedCatFocusNode.canRequestFocus) {
-      _selectedCatFocusNode.requestFocus();
-      return;
-    }
-    if (_favCatFocusNode.canRequestFocus) {
-      // Selected category scrolled off-screen → land on the always-visible
-      // Favorites row so D-pad works (not the bare scope, which orphans).
-      _favCatFocusNode.requestFocus();
-      return;
-    }
+    if (focusMountedCategory(_selectedCatFocusNode, _favCatFocusNode)) return;
     // Panel just re-expanded (it was SizedBox.shrink while collapsed), so
     // the category item FocusNodes aren't attached yet — retry over a few
-    // frames instead of dropping onto the bare scope (which left focus
-    // nowhere: "opens but no focus / needs the down arrow"). Bare scope is
-    // only the last resort.
+    // frames instead of dropping onto the bare scope, which traps the remote.
     if (attemptsLeft > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusSidebarItem(attemptsLeft: attemptsLeft - 1);
       });
-    } else {
-      _categorySidebarScope.requestFocus();
     }
   }
 
   /// Open category sidebar (called from grid left edge D-pad)
   void _openCategorySidebar() {
+    _categoryCollapseTimer?.cancel();
     if (!_categoriesCollapsed) {
       // Already open — focus the selected category item.
       WidgetsBinding.instance.addPostFrameCallback((_) {

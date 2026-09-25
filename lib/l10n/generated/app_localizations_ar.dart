@@ -487,6 +487,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String get streamLoadFailed => 'تعذّر تحميل البث. حاول مرة أخرى.';
 
   @override
+  String get streamSourceInvalid =>
+      'المصدر لا يرسل بثًا إعلاميًا قابلاً للتشغيل.';
+
+  @override
+  String get streamDecoderUnsupported =>
+      'لا يستطيع هذا الجهاز فك ترميز صيغة البث.';
+
+  @override
   String get upNextLabel => 'التالي: ';
 
   @override

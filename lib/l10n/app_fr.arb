@@ -204,6 +204,8 @@
   "dlnaConnectFailed": "Impossible de joindre la TV. Vérifie qu'elle est sur le même Wi-Fi et allumée.",
   "connectionTimedOut": "Délai de connexion dépassé",
   "streamLoadFailed": "Le flux n'a pas pu être chargé. Réessayez.",
+  "streamSourceInvalid": "La source ne fournit pas de flux multimédia lisible.",
+  "streamDecoderUnsupported": "Cet appareil ne peut pas décoder le format du flux.",
   "upNextLabel": "À suivre : ",
   "aiCallHistory": "Historique des appels IA",
   "recentCalls": "APPELS RÉCENTS",
