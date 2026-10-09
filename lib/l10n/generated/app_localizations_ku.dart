@@ -1094,14 +1094,16 @@ class AppLocalizationsKu extends AppLocalizations {
       'Dema çalak be, lîstikvan bişkoja \'Destpêkê Derbas Bike\' di nav rêza nîşankirî de nîşan dide.';
 
   @override
+  String get markIntro => 'Destpêkê nîşan bike';
+
+  @override
   String get markIntroStart => 'Destpêk li vir dest pê dike';
 
   @override
   String get markIntroEnd => 'Destpêk li vir diqede';
 
   @override
-  String get introMarked =>
-      'Destpêk hate tomarkirin. Beşa pêş wê derbasbûnê pêşniyar bike.';
+  String get introMarked => 'Destpêk ji bo vê beşê hat tomarkirin.';
 
   @override
   String get introCleared => 'Nîşana destpêkê hate jêbirin.';
@@ -1645,4 +1647,25 @@ class AppLocalizationsKu extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Bijartî ye. Bi girêdana herêmî ya neşîfrekirî tê şandin. Têketina hesabê cuda tê hilbijartin.';
+
+  @override
+  String get playerPause => 'Rawestîne';
+
+  @override
+  String get playerPreviousEpisode => 'Beşa berê';
+
+  @override
+  String get playerSeekBack => '10 çirkeyan paşve';
+
+  @override
+  String get playerSeekForward => '10 çirkeyan pêşve';
+
+  @override
+  String get playerVolume => 'Asta deng';
+
+  @override
+  String get playerAlwaysOnTop => 'Her dem li pêş';
+
+  @override
+  String get playerProgrammeGuide => 'Rêbera bernameyan';
 }

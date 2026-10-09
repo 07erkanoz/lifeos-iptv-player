@@ -432,9 +432,10 @@
   "skipIntro": "İntroyu Atla",
   "skipIntroSetting": "İntro Atla butonu göster",
   "skipIntroSettingDesc": "Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken 'İntroyu Atla' butonu gösterir.",
+  "markIntro": "İntroyu işaretle",
   "markIntroStart": "İntro burada başlıyor",
   "markIntroEnd": "İntro burada bitiyor",
-  "introMarked": "İntro kaydedildi. Sonraki bölümde atlamayı önerecek.",
+  "introMarked": "İntro bu bölüm için kaydedildi.",
   "introCleared": "İntro işareti silindi.",
   "introMarkInvalid": "Bitiş zamanı başlangıçtan sonra olmalı.",
   "dashboardForYouTitle": "Sana özel",
@@ -639,5 +640,12 @@
   "heroTrailerOnMobile": "Anasayfa fragmanını oynat",
   "heroTrailerOnMobileDesc": "Anasayfadaki büyük afişin arkasında YouTube fragmanını sessiz oynatır. Mobil veride pahalıdır; varsayılan kapalı.",
   "deviceSyncCatSecrets": "API anahtarları ve PIN’ler",
-  "deviceSyncSecretsHint": "İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir."
+  "deviceSyncSecretsHint": "İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir.",
+  "playerPause": "Duraklat",
+  "playerPreviousEpisode": "Önceki bölüm",
+  "playerSeekBack": "10 saniye geri",
+  "playerSeekForward": "10 saniye ileri",
+  "playerVolume": "Ses seviyesi",
+  "playerAlwaysOnTop": "Her zaman üstte",
+  "playerProgrammeGuide": "Program rehberi"
 }

@@ -431,9 +431,10 @@
   "skipIntro": "Destpêkê Derbas Bike",
   "skipIntroSetting": "Bişkoja Destpêk Derbas Bike nîşan bide",
   "skipIntroSettingDesc": "Dema çalak be, lîstikvan bişkoja 'Destpêkê Derbas Bike' di nav rêza nîşankirî de nîşan dide.",
+  "markIntro": "Destpêkê nîşan bike",
   "markIntroStart": "Destpêk li vir dest pê dike",
   "markIntroEnd": "Destpêk li vir diqede",
-  "introMarked": "Destpêk hate tomarkirin. Beşa pêş wê derbasbûnê pêşniyar bike.",
+  "introMarked": "Destpêk ji bo vê beşê hat tomarkirin.",
   "introCleared": "Nîşana destpêkê hate jêbirin.",
   "introMarkInvalid": "Dema dawî divê piştî dema destpêkê be.",
   "dashboardForYouTitle": "Ji bo te",
@@ -638,5 +639,12 @@
   "heroTrailerOnMobile": "Fragmana hero bilîze",
   "heroTrailerOnMobileDesc": "Fragmana YouTube ya bêdeng a li paş hero ya dashboardê otomatîk bilîze. Bi daneya mobîl giran e; bi xwerû girtî ye.",
   "deviceSyncCatSecrets": "Mifteyên API û PIN",
-  "deviceSyncSecretsHint": "Bijartî ye. Bi girêdana herêmî ya neşîfrekirî tê şandin. Têketina hesabê cuda tê hilbijartin."
+  "deviceSyncSecretsHint": "Bijartî ye. Bi girêdana herêmî ya neşîfrekirî tê şandin. Têketina hesabê cuda tê hilbijartin.",
+  "playerPause": "Rawestîne",
+  "playerPreviousEpisode": "Beşa berê",
+  "playerSeekBack": "10 çirkeyan paşve",
+  "playerSeekForward": "10 çirkeyan pêşve",
+  "playerVolume": "Asta deng",
+  "playerAlwaysOnTop": "Her dem li pêş",
+  "playerProgrammeGuide": "Rêbera bernameyan"
 }

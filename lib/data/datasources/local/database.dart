@@ -109,7 +109,7 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
       super(executor);
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration =>
@@ -302,6 +302,31 @@ class AppDatabase extends _$AppDatabase with AccountQueries {
             )) {
               await m.addColumn(channels, channels.containerExtension);
             }
+          }
+          final introColumns = await customSelect(
+            'PRAGMA table_info(intro_markers)',
+          ).get();
+          if (from < 30 &&
+              !introColumns.any((r) => r.data['name'] == 'episode_id')) {
+            // Drift rebuilds the primary key while preserving existing markers.
+            // The migration is covered by the v29→v30 data preservation test.
+            await m.alterTable(
+              // ignore: experimental_member_use
+              TableMigration(
+                introMarkers,
+                newColumns: [
+                  introMarkers.season,
+                  introMarkers.episodeId,
+                  introMarkers.source,
+                  introMarkers.confidence,
+                  introMarkers.isDeleted,
+                ],
+                columnTransformer: {
+                  introMarkers.source: const Constant('legacy'),
+                  introMarkers.confidence: const Constant(0.0),
+                },
+              ),
+            );
           }
         },
         beforeOpen: (details) async {

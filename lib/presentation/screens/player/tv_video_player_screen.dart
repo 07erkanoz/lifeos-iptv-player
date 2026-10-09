@@ -1,3 +1,6 @@
+import 'package:lifeostv/presentation/controllers/intro_range.dart';
+import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
 import 'package:lifeostv/utils/stream_url_builder.dart';
 import 'package:lifeostv/data/services/subtitle_track_matcher.dart';
 import 'package:lifeostv/presentation/controllers/tv_subtitle_controller.dart';
@@ -67,6 +70,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
   final Duration? startPosition;
   final int? parentStreamId;
   final bool saveSeriesSummary;
+  final EpisodePlaylist? episodePlaylist;
   final VoidCallback? onNextEpisode;
   final VoidCallback? onPrevEpisode;
   final String? nextEpisodeTitle;
@@ -92,6 +96,7 @@ class TvVideoPlayerScreen extends ConsumerStatefulWidget {
     this.startPosition,
     this.parentStreamId,
     this.saveSeriesSummary = true,
+    this.episodePlaylist,
     this.onNextEpisode,
     this.onPrevEpisode,
     this.nextEpisodeTitle,
@@ -109,8 +114,42 @@ enum _TvPanel { channels, epg }
 
 class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     with WidgetsBindingObserver {
+  EpisodeNavigator? _episodes;
+  int get _episodeId => _episodes?.current.streamId ?? widget.streamId;
+  String? get _episodePlot => _episodes?.current.plot ?? widget.plot;
+  String? get _episodeGenre => _episodes?.current.genre ?? widget.genre;
+  String? get _episodeYear => _episodes?.current.year ?? widget.year;
+  double? get _episodeRating => _episodes?.current.rating ?? widget.rating;
+  String? get _nextEpisodeTitle =>
+      _episodes == null ? widget.nextEpisodeTitle : _episodes!.next?.title;
+  VoidCallback? get _nextEpisodeAction => _remoteActive
+      ? null
+      : _episodes == null
+      ? widget.onNextEpisode
+      : _episodes!.next == null
+      ? null
+      : () => _changeEpisode(1);
+  VoidCallback? get _previousEpisodeAction => _remoteActive
+      ? null
+      : _episodes == null
+      ? widget.onPrevEpisode
+      : _episodes!.previous == null
+      ? null
+      : () => _changeEpisode(-1);
+  String? get _previousEpisodeTitle => _episodes == null
+      ? widget.previousEpisodeTitle
+      : _episodes!.previous?.title;
+
   late final PlayerRepository _progressRepository;
+  StreamSubscription<IntroMarker?>? _introSubscription;
+  IntroRange? _introRange;
+  bool _showSkipIntro = false;
+  final _introFocus = FocusNode(debugLabel: 'TvSkipIntro');
+  int get _introSeason => _episodes?.current.season ?? 0;
+
   bool _switchingEpisode = false;
+  DateTime? _lastLegacyEpisodeAction;
+  bool _completionHandled = false;
   final _episodePlayFocus = FocusNode();
   final _retryFocus = FocusNode(debugLabel: 'TvRetry');
   final _castFocus = FocusNode(debugLabel: 'TvCast');
@@ -201,6 +240,8 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.episodePlaylist != null)
+      _episodes = EpisodeNavigator(widget.episodePlaylist!);
     final profileId =
         ref.read(activeProfileIdProvider).value ??
         ref.read(sharedPreferencesProvider).getInt('active_profile_id') ??
@@ -233,7 +274,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     final channels = widget.channels;
     final requestedIndex = widget.currentChannelIndex;
     final matchingIndex =
-        channels?.indexWhere((c) => c.streamId == widget.streamId) ?? -1;
+        channels?.indexWhere((c) => c.streamId == _episodeId) ?? -1;
     _channelIndex =
         requestedIndex != null &&
             requestedIndex >= 0 &&
@@ -264,6 +305,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       onError: () {},
     );
     WakelockPlus.enable();
+    _watchIntro();
     _open(_url, startAt: widget.startPosition);
     _saveTimer = Timer.periodic(
       const Duration(seconds: 15),
@@ -280,6 +322,9 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   @override
   void dispose() {
+    _episodes?.close();
+    _introSubscription?.cancel();
+    _introFocus.dispose();
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     CastService.instance.stateNotifier.removeListener(_onRemoteStateChanged);
@@ -429,6 +474,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     _bufferingTimeout = null;
     _pauseBadgeTimer?.cancel();
     _pauseBadgeTimer = null;
+    _completionHandled = false;
     _hasPlayed = false;
     _userPaused = !autoplay && !_isLive;
     _isPaused = false;
@@ -496,7 +542,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       var resume = startAt;
       if (!_isLive && resume == null) {
         final saved = await _progressRepository.getProgress(
-          widget.streamId,
+          _episodeId,
           widget.type.name,
         );
         if (!mounted ||
@@ -556,7 +602,21 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
     }
     if (v.hasError || !identical(_controller, c)) return;
     if (!v.isInitialized || _error != null) return;
+    final showIntro =
+        ref.read(settingsProvider).showSkipIntroButton &&
+        (_introRange?.visibleAt(v.position, v.duration) ?? false);
+    if (_showSkipIntro != showIntro) setState(() => _showSkipIntro = showIntro);
     if (v.isPlaying) _hasPlayed = true;
+    if (!_isLive && v.isCompleted && !_completionHandled) {
+      _completionHandled = true;
+      unawaited(_saveProgress());
+      if (ref.read(settingsProvider).autoNextEpisode &&
+          _nextEpisodeAction != null &&
+          !_remoteActive) {
+        _nextEpisodeAction!();
+      }
+    }
+
     final paused = _hasPlayed && _userPaused && !v.isPlaying && !_backgrounded;
     if (paused != _isPaused) {
       _pauseBadgeTimer?.cancel();
@@ -749,7 +809,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               _channelIndex >= 0 &&
               _channelIndex < channels.length
           ? channels[_channelIndex].streamId
-          : widget.streamId;
+          : _episodeId;
       final repo = _progressRepository;
       if (widget.type == VideoType.series) {
         await repo.saveEpisodeProgress(
@@ -914,9 +974,154 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
 
   Future<void> _switchEpisode(VoidCallback? callback) async {
     if (callback == null || _switchingEpisode) return;
+    if (_episodes != null) {
+      callback();
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastLegacyEpisodeAction != null &&
+        now.difference(_lastLegacyEpisodeAction!) <
+            const Duration(milliseconds: 450))
+      return;
+    _lastLegacyEpisodeAction = now;
     _switchingEpisode = true;
-    await _saveProgress();
-    if (mounted && !_disposed) callback();
+    try {
+      await _saveProgress();
+      if (mounted && !_disposed) callback();
+    } finally {
+      _switchingEpisode = false;
+    }
+  }
+
+  Future<void> _changeEpisode(int delta) async {
+    final navigator = _episodes;
+    if (navigator == null || _disposed || _remoteActive) return;
+    try {
+      await navigator.move(
+        delta,
+        save: _saveProgress,
+        open: (episode) async {
+          if (!mounted || _disposed) return;
+          setState(() {
+            _url = episode.url;
+            _headers = episode.headers;
+            _title = episode.title;
+            _fallbackUrl = null;
+            _fallbackTried = false;
+          });
+          _watchIntro();
+          await _open(_url);
+        },
+      );
+    } catch (_) {
+      if (!_disposed) _fail(allowFallback: false);
+    }
+  }
+
+  void _watchIntro() {
+    _introSubscription?.cancel();
+    _introRange = null;
+    _showSkipIntro = false;
+    final seriesId = widget.parentStreamId;
+    if (widget.type != VideoType.series || seriesId == null) return;
+    final episodeId = _episodeId;
+    _introSubscription = IntroMarkerRepository(_sessionDb)
+        .watchMarker(seriesId, season: _introSeason, episodeId: episodeId)
+        .listen((marker) {
+          if (!mounted || _disposed || episodeId != _episodeId) return;
+          setState(() => _introRange = IntroRange.fromMarker(marker));
+          _onValue();
+        });
+  }
+
+  Future<void> _skipIntro() async {
+    final range = _introRange;
+    final value = _controller?.value;
+    if (range == null ||
+        value == null ||
+        !range.visibleAt(value.position, value.duration))
+      return;
+    await _seek.commit(Duration(milliseconds: range.endMs));
+    if (!mounted || _disposed) return;
+    setState(() => _showSkipIntro = false);
+    _episodePlayFocus.requestFocus();
+  }
+
+  Future<void> _markIntro() async {
+    final seriesId = widget.parentStreamId;
+    if (seriesId == null || _controller?.value.isInitialized != true) return;
+    final episodeId = _episodeId;
+    final season = _introSeason;
+    final l10n = AppLocalizations.of(context)!;
+    int? start;
+    _modalOpen = true;
+    _hideTimer?.cancel();
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, update) => AlertDialog(
+            title: Text(l10n.markIntro),
+            content: Text(
+              start == null ? l10n.markIntroStart : l10n.markIntroEnd,
+            ),
+            actions: [
+              TextButton(
+                autofocus: true,
+                onPressed: () => update(() {
+                  start = _controller?.value.position.inMilliseconds;
+                }),
+                child: Text(l10n.markIntroStart),
+              ),
+              TextButton(
+                onPressed: start == null
+                    ? null
+                    : () async {
+                        final value = _controller?.value;
+                        if (value == null || episodeId != _episodeId) return;
+                        try {
+                          await IntroMarkerRepository(_sessionDb).setMarker(
+                            seriesId,
+                            season: season,
+                            episodeId: episodeId,
+                            introStartMs: start!,
+                            introEndMs: value.position.inMilliseconds,
+                            durationMs: value.duration.inMilliseconds,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        } on ArgumentError {
+                          if (ctx.mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(l10n.introMarkInvalid)),
+                            );
+                        }
+                      },
+                child: Text(l10n.markIntroEnd),
+              ),
+              if (_introRange != null)
+                TextButton(
+                  onPressed: () async {
+                    await IntroMarkerRepository(_sessionDb).clearMarker(
+                      seriesId,
+                      season: season,
+                      episodeId: episodeId,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: Text(l10n.introCleared),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.close),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      _modalOpen = false;
+      if (mounted && !_disposed) _episodePlayFocus.requestFocus();
+    }
   }
 
   void _watchEpg() {
@@ -1429,14 +1634,13 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
       if (mounted) Navigator.of(context).pop();
       return KeyEventResult.handled;
     }
-    if (k == LogicalKeyboardKey.mediaTrackNext &&
-        widget.onNextEpisode != null) {
-      _switchEpisode(widget.onNextEpisode);
+    if (k == LogicalKeyboardKey.mediaTrackNext && _nextEpisodeAction != null) {
+      _switchEpisode(_nextEpisodeAction);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.mediaTrackPrevious &&
-        widget.onPrevEpisode != null) {
-      _switchEpisode(widget.onPrevEpisode);
+        _previousEpisodeAction != null) {
+      _switchEpisode(_previousEpisodeAction);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.mediaPlayPause ||
@@ -1711,7 +1915,7 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                         widget.channels ??
                         [
                           PlayerChannel(
-                            streamId: widget.streamId,
+                            streamId: _episodeId,
                             name: _title,
                             url: _url,
                             httpHeaders: _headers,
@@ -1879,6 +2083,16 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               _buildPauseInfoBadge(pos, dur),
               const SizedBox(height: 12),
             ],
+            if (_showSkipIntro)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FilledButton.icon(
+                  focusNode: _introFocus,
+                  onPressed: _skipIntro,
+                  icon: const Icon(Icons.skip_next),
+                  label: Text(AppLocalizations.of(context)!.skipIntro),
+                ),
+              ),
             // Bottom: playback progress for seekable content.
             if (_canSeek && dur.inSeconds > 0) ...[
               Row(
@@ -1924,111 +2138,125 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
               ),
             ],
             const SizedBox(height: 14),
-            Row(
-              children: [
-                if (widget.onPrevEpisode != null)
-                  _actionButton(
-                    key: const ValueKey('previous-episode'),
-                    icon: Icons.skip_previous,
-                    label: widget.previousEpisodeTitle,
-                    onPressed: () => _switchEpisode(widget.onPrevEpisode),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  if (widget.type == VideoType.series &&
+                      widget.parentStreamId != null)
+                    _actionButton(
+                      icon: Icons.bookmark_add_outlined,
+                      label: AppLocalizations.of(context)!.markIntro,
+                      onPressed: _markIntro,
+                    ),
+                  if (_previousEpisodeAction != null)
+                    _actionButton(
+                      key: const ValueKey('previous-episode'),
+                      icon: Icons.skip_previous,
+                      label: _previousEpisodeTitle,
+                      onPressed: () => _switchEpisode(_previousEpisodeAction),
+                    ),
+                  CallbackShortcuts(
+                    bindings: {
+                      const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                          _castFocus.requestFocus(),
+                      const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                          _audioFocus.requestFocus(),
+                    },
+                    child: _actionButton(
+                      key: const ValueKey('episode-play-pause'),
+                      icon: playing ? Icons.pause : Icons.play_arrow,
+                      label: AppLocalizations.of(context)!.play,
+                      focusNode: _episodePlayFocus,
+                      primary: true,
+                      onPressed: _togglePlay,
+                    ),
                   ),
-                CallbackShortcuts(
-                  bindings: {
-                    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-                        _castFocus.requestFocus(),
-                    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-                        _audioFocus.requestFocus(),
-                  },
-                  child: _actionButton(
-                    key: const ValueKey('episode-play-pause'),
-                    icon: playing ? Icons.pause : Icons.play_arrow,
-                    label: AppLocalizations.of(context)!.play,
-                    focusNode: _episodePlayFocus,
-                    primary: true,
-                    onPressed: _togglePlay,
-                  ),
-                ),
-                if (_canSeek && !_remoteActive) ...[
-                  _actionButton(
-                    key: const ValueKey('tv-rewind'),
-                    icon: Icons.replay_10,
-                    onPressed: () => _seekBy(-10),
-                  ),
-                  _actionButton(
-                    key: const ValueKey('tv-forward'),
-                    icon: Icons.forward_10,
-                    onPressed: () => _seekBy(10),
-                  ),
+                  if (_canSeek && !_remoteActive) ...[
+                    _actionButton(
+                      key: const ValueKey('tv-rewind'),
+                      icon: Icons.replay_10,
+                      onPressed: () => _seekBy(-10),
+                    ),
+                    _actionButton(
+                      key: const ValueKey('tv-forward'),
+                      icon: Icons.forward_10,
+                      onPressed: () => _seekBy(10),
+                    ),
+                  ],
+                  if (_nextEpisodeAction != null)
+                    _actionButton(
+                      key: const ValueKey('next-episode'),
+                      icon: Icons.skip_next,
+                      focusNode: _nextEpisodeFocus,
+                      label:
+                          _nextEpisodeTitle ??
+                          AppLocalizations.of(context)!.nextEpisode,
+                      onPressed: () => _switchEpisode(_nextEpisodeAction),
+                    ),
+                  const SizedBox(width: 24),
+                  if (!_remoteActive) ...[
+                    _actionButton(
+                      key: const ValueKey('tv-audio-tracks'),
+                      icon: Icons.audiotrack,
+                      label: AppLocalizations.of(context)!.audioTrack,
+                      focusNode: _audioFocus,
+                      onPressed: v?.isInitialized == true
+                          ? _chooseAudioTrack
+                          : null,
+                    ),
+                    _actionButton(
+                      key: const ValueKey('tv-subtitles'),
+                      icon: Icons.subtitles_outlined,
+                      label: AppLocalizations.of(context)!.subtitle,
+                      focusNode: _subtitleFocus,
+                      onPressed: v?.isInitialized == true
+                          ? _chooseSubtitles
+                          : null,
+                    ),
+                    _actionButton(
+                      key: const ValueKey('tv-quality'),
+                      icon: Icons.high_quality_outlined,
+                      label: AppLocalizations.of(context)!.streamQuality,
+                      focusNode: _qualityFocus,
+                      onPressed: v?.isInitialized == true
+                          ? _chooseQuality
+                          : null,
+                    ),
+                    if (!_isLive)
+                      _actionButton(
+                        key: const ValueKey('tv-speed'),
+                        icon: Icons.speed,
+                        label: AppLocalizations.of(context)!.playbackSpeed,
+                        focusNode: _speedFocus,
+                        onPressed: v?.isInitialized == true
+                            ? _chooseSpeed
+                            : null,
+                      ),
+                    if (_isLive)
+                      _actionButton(
+                        key: const ValueKey('tv-channel-list'),
+                        icon: Icons.list,
+                        label: AppLocalizations.of(context)!.channelList,
+                        onPressed: () => _openPanel(_TvPanel.channels),
+                      ),
+                    if (_timeshift)
+                      _actionButton(
+                        key: const ValueKey('tv-return-live'),
+                        icon: Icons.live_tv,
+                        label: AppLocalizations.of(context)!.liveTV,
+                        onPressed: _returnToLive,
+                      ),
+                    if (_isLive)
+                      _actionButton(
+                        key: const ValueKey('tv-program-guide'),
+                        icon: Icons.calendar_month,
+                        label: AppLocalizations.of(context)!.programGuide,
+                        onPressed: () => _openPanel(_TvPanel.epg),
+                      ),
+                  ],
                 ],
-                if (widget.onNextEpisode != null)
-                  _actionButton(
-                    key: const ValueKey('next-episode'),
-                    icon: Icons.skip_next,
-                    focusNode: _nextEpisodeFocus,
-                    label:
-                        widget.nextEpisodeTitle ??
-                        AppLocalizations.of(context)!.nextEpisode,
-                    onPressed: () => _switchEpisode(widget.onNextEpisode),
-                  ),
-                const Spacer(),
-                if (!_remoteActive) ...[
-                  _actionButton(
-                    key: const ValueKey('tv-audio-tracks'),
-                    icon: Icons.audiotrack,
-                    label: AppLocalizations.of(context)!.audioTrack,
-                    focusNode: _audioFocus,
-                    onPressed: v?.isInitialized == true
-                        ? _chooseAudioTrack
-                        : null,
-                  ),
-                  _actionButton(
-                    key: const ValueKey('tv-subtitles'),
-                    icon: Icons.subtitles_outlined,
-                    label: AppLocalizations.of(context)!.subtitle,
-                    focusNode: _subtitleFocus,
-                    onPressed: v?.isInitialized == true
-                        ? _chooseSubtitles
-                        : null,
-                  ),
-                  _actionButton(
-                    key: const ValueKey('tv-quality'),
-                    icon: Icons.high_quality_outlined,
-                    label: AppLocalizations.of(context)!.streamQuality,
-                    focusNode: _qualityFocus,
-                    onPressed: v?.isInitialized == true ? _chooseQuality : null,
-                  ),
-                  if (!_isLive)
-                    _actionButton(
-                      key: const ValueKey('tv-speed'),
-                      icon: Icons.speed,
-                      label: AppLocalizations.of(context)!.playbackSpeed,
-                      focusNode: _speedFocus,
-                      onPressed: v?.isInitialized == true ? _chooseSpeed : null,
-                    ),
-                  if (_isLive)
-                    _actionButton(
-                      key: const ValueKey('tv-channel-list'),
-                      icon: Icons.list,
-                      label: AppLocalizations.of(context)!.channelList,
-                      onPressed: () => _openPanel(_TvPanel.channels),
-                    ),
-                  if (_timeshift)
-                    _actionButton(
-                      key: const ValueKey('tv-return-live'),
-                      icon: Icons.live_tv,
-                      label: AppLocalizations.of(context)!.liveTV,
-                      onPressed: _returnToLive,
-                    ),
-                  if (_isLive)
-                    _actionButton(
-                      key: const ValueKey('tv-program-guide'),
-                      icon: Icons.calendar_month,
-                      label: AppLocalizations.of(context)!.programGuide,
-                      onPressed: () => _openPanel(_TvPanel.epg),
-                    ),
-                ],
-              ],
+              ),
             ),
           ],
         ),
@@ -2247,16 +2475,16 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (widget.year != null ||
-                        widget.rating != null ||
-                        widget.genre != null) ...[
+                    if (_episodeYear != null ||
+                        _episodeRating != null ||
+                        _episodeGenre != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         [
-                          widget.year,
-                          if (widget.rating != null && widget.rating! > 0)
-                            '★ ${widget.rating!.toStringAsFixed(1)}',
-                          widget.genre,
+                          _episodeYear,
+                          if (_episodeRating != null && _episodeRating! > 0)
+                            '★ ${_episodeRating!.toStringAsFixed(1)}',
+                          _episodeGenre,
                         ].whereType<String>().join('  ·  '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -2266,10 +2494,10 @@ class _TvVideoPlayerScreenState extends ConsumerState<TvVideoPlayerScreen>
                         ),
                       ),
                     ],
-                    if (widget.plot != null && widget.plot!.isNotEmpty) ...[
+                    if (_episodePlot != null && _episodePlot!.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
-                        widget.plot!,
+                        _episodePlot!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

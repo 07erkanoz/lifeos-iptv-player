@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/services/ai_operation.dart';
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -11,7 +13,6 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/models/search_intent.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
@@ -46,6 +47,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   );
   Timer? _debounce;
   int _searchRequestId = 0;
+  AiOperation? _searchOperation, _suggestOperation;
 
   /// Separate debouncer for the AI auto-suggest pipeline. Fires
   /// faster than the main search (300 ms vs 400 ms) so chips appear
@@ -111,7 +113,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _searchOperation?.cancel();
     _debounce?.cancel();
+    _suggestOperation?.cancel();
     _suggestDebounce?.cancel();
     _controller.dispose();
     _textFocus.dispose();
@@ -125,6 +129,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// lets the user pivot to a more specific query without thinking
   /// of the phrasing.
   void _scheduleSuggest(String query) {
+    _suggestOperation?.cancel();
     _suggestDebounce?.cancel();
     final requestId = ++_suggestRequestId;
     final trimmed = query.trim();
@@ -144,12 +149,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
     setState(() => _loadingSuggestions = true);
     _suggestDebounce = Timer(const Duration(milliseconds: 300), () async {
-      final lang = ref.read(settingsProvider).language.name == 'system'
-          ? 'tr'
-          : ref.read(settingsProvider).language.name;
-      final out = await gemini
-          .suggestSearchRefinements(partialQuery: trimmed, targetLanguage: lang)
-          .timeout(const Duration(seconds: 8), onTimeout: () => null);
+      final lang = ref.read(resolvedLocaleProvider).languageCode;
+      final operation = AiOperation();
+      _suggestOperation = operation;
+      final out = await operation.withDeadline(
+        () => gemini.suggestSearchRefinements(
+          partialQuery: trimmed,
+          targetLanguage: lang,
+        ),
+        const Duration(seconds: 8),
+      );
       if (!mounted || requestId != _suggestRequestId) return;
       setState(() {
         _aiSuggestions = out ?? const [];
@@ -198,6 +207,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onSearchChanged(String query) {
     final requestId = ++_searchRequestId;
+    _searchOperation?.cancel();
     _debounce?.cancel();
     // Kick the AI suggest pipeline in parallel — it has its own
     // debouncer and its own request id, so it doesn't fight the
@@ -284,11 +294,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // stay on screen.
       if (gemini == null) return;
       final plainAll = [...plain[0], ...plain[1], ...plain[2]];
-      final aiResults = await _runAiSearch(
-        trimmed,
-        requestId,
-        gemini,
-        plainAll,
+      _searchOperation?.cancel();
+      final operation = AiOperation();
+      _searchOperation = operation;
+      final aiResults = await operation.withDeadline(
+        () => _runAiSearch(trimmed, requestId, gemini, plainAll),
+        const Duration(seconds: 20),
       );
       if (!mounted || requestId != _searchRequestId) {
         return;
@@ -355,8 +366,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final repo = ref.read(contentRepositoryProvider);
     final lang = _userLanguageCode();
 
-    Future<R?> withTimeout<R>(Future<R?> f) =>
-        f.timeout(const Duration(seconds: 15), onTimeout: () => null);
+    Future<R?> withTimeout<R>(Future<R?> f) => f;
 
     // Step 1 — parse intent. Independent call so we can already
     // start building the candidate pool while it's in flight.
@@ -509,11 +519,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// resolution rule the other AI surfaces use so Gemini replies in
   /// the language the rest of the app is rendering in.
   String _userLanguageCode() {
-    final appLang = ref.read(settingsProvider).language;
-    if (appLang == AppLanguage.system) {
-      return Localizations.localeOf(context).languageCode;
-    }
-    return appLang.name;
+    return ref.read(resolvedLocaleProvider).languageCode;
   }
 
   void _onResultTap(Channel channel) {

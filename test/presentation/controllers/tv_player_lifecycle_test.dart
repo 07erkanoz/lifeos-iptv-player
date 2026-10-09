@@ -1,3 +1,5 @@
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
+import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
 import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:lifeostv/data/services/epg_request_gate.dart';
 import 'package:lifeostv/presentation/state/epg_request_provider.dart';
@@ -808,6 +810,114 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.mediaTrackNext);
       await tester.pump();
       expect(next, 1);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets(
+    'playlist opens the next source in the same route and keeps old progress identity',
+    (tester) async {
+      final playlist = EpisodePlaylist([
+        const EpisodeSource(
+          streamId: 9001,
+          url: 'https://example.invalid/one.mkv',
+          title: 'S1E1',
+          season: 1,
+          episode: 1,
+        ),
+        const EpisodeSource(
+          streamId: 9002,
+          url: 'https://example.invalid/two.mkv',
+          title: 'S1E2',
+          season: 1,
+          episode: 2,
+        ),
+      ], 0);
+      await mount(
+        tester,
+        player: TvVideoPlayerScreen(
+          streamUrl: playlist.sources.first.url,
+          streamId: 9001,
+          title: 'S1E1',
+          type: VideoType.series,
+          parentStreamId: 90,
+          saveSeriesSummary: false,
+          episodePlaylist: playlist,
+        ),
+      );
+      final originalState = tester.state(find.byType(TvVideoPlayerScreen));
+      native.position = const Duration(seconds: 15);
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.mediaTrackNext);
+      await tester.pump();
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      expect(native.sources.last.uri, 'https://example.invalid/two.mkv');
+      expect(
+        tester.state(find.byType(TvVideoPlayerScreen)),
+        same(originalState),
+      );
+      final progress = await tester.runAsync(
+        () => (db.select(
+          db.playbackProgress,
+        )..where((t) => t.streamId.equals(9001))).getSingleOrNull(),
+      );
+      expect(progress?.position, 15000);
+      expect(find.text('S1E2'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets(
+    'TV skip intro uses the current episode marker and restores play focus',
+    (tester) async {
+      await IntroMarkerRepository(db).setMarker(
+        90,
+        season: 1,
+        episodeId: 9001,
+        introStartMs: 1000,
+        introEndMs: 10000,
+      );
+      final playlist = EpisodePlaylist([
+        const EpisodeSource(
+          streamId: 9001,
+          url: 'https://example.invalid/one.mkv',
+          title: 'S1E1',
+          season: 1,
+          episode: 1,
+        ),
+      ], 0);
+      await mount(
+        tester,
+        player: TvVideoPlayerScreen(
+          streamUrl: playlist.sources.first.url,
+          streamId: 9001,
+          title: 'S1E1',
+          type: VideoType.series,
+          parentStreamId: 90,
+          episodePlaylist: playlist,
+          saveSeriesSummary: false,
+        ),
+      );
+      native.position = const Duration(seconds: 3);
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+      expect(find.text('Skip Intro'), findsOneWidget);
+      await tester.tap(find.text('Skip Intro'));
+      await tester.pump();
+      expect(native.sought, contains(const Duration(seconds: 10)));
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 1));
     },

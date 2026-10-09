@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/services/ai_operation.dart';
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/presentation/widgets/profile/profile_pin_prompt.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -124,6 +126,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   bool _waitingForAi = false;
+  AiOperation? _activeOperation;
 
   /// Navigation an agent tool requested (play / open detail). Deferred
   /// until the agent loop finishes — running it mid-loop would pop the
@@ -138,6 +141,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
 
   @override
   void dispose() {
+    ++_turnGeneration;
+    _activeOperation?.cancel();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -147,14 +152,30 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// message and kick off the Gemini call. Multi-turn: the entire
   /// `_messages` list is forwarded as conversation history, so the
   /// model retains memory of earlier turns within this sheet.
+  final _agentSession = GeminiAgentSession();
+  (int?, Object?)? _agentIdentity;
+  int _turnGeneration = 0;
+
   Future<void> _send(String rawText) async {
     final text = rawText.trim();
     if (text.isEmpty || _waitingForAi) return;
 
+    _activeOperation?.cancel();
+    final operation = AiOperation();
+    _activeOperation = operation;
+    final generation = ++_turnGeneration;
+    _pendingAgentNav = null;
     final turnAccount = ref.read(currentAccountProvider).value?.id;
     final turnProfile = ref.read(activeProfileIdProvider);
+    final identity = (turnAccount, turnProfile);
+    if (_agentIdentity != identity) {
+      _agentSession.clear();
+      _agentIdentity = identity;
+    }
     bool isCurrent() =>
         mounted &&
+        generation == _turnGeneration &&
+        AiOperation.current?.cancelled != true &&
         ref.read(currentAccountProvider).value?.id == turnAccount &&
         ref.read(activeProfileIdProvider) == turnProfile;
     void abandon() {
@@ -225,6 +246,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // user-facing response shape is unchanged.
     final instrumentation = ref.read(aiInstrumentationProvider);
     var response = await instrumentation.record<TonightResponse>(
+      operation: operation,
       feature: 'chat',
       model: AiModelPolicy.chat,
       candidateCount: queryMatches.length + ctx.librarySample.length,
@@ -233,9 +255,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       // so give it more headroom than the single-shot path used.
       timeout: const Duration(seconds: 60),
       run: () {
-        final lang = ref.read(settingsProvider).language.name == 'system'
-            ? 'tr'
-            : ref.read(settingsProvider).language.name;
+        final lang = ref.read(resolvedLocaleProvider).languageCode;
         final episodeCtx = ref.read(chatEpisodeContextProvider);
         // Compact context blob the agent sees on turn 1. The model can
         // also call searchLibrary to pull in anything beyond this slice.
@@ -264,6 +284,8 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           if (episodeCtx != null) 'currentEpisode': episodeCtx.toPromptJson(),
         };
         return gemini.runAgent(
+          session: _agentSession,
+          allowReminders: PlatformHelper.isMobile,
           conversation: _messages
               .map((m) => (fromUser: m.fromUser, text: m.text))
               .toList(),
@@ -271,9 +293,10 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           targetLanguage: lang,
           onToolCall: (name, args) async {
             if (!isCurrent()) {
-              return {'ok': false, 'error': 'account/profile changed'};
+              AiOperation.current?.cancel('context_changed');
+              throw const AiRequestException('context_changed');
             }
-            return _agentToolCall(name, args);
+            return _agentToolCall(name, args, isCurrent);
           },
         );
       },
@@ -287,22 +310,26 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
     // fall back to the plain recommendation call so the chat still
     // answers instead of showing "couldn't reach the assistant".
     if (response == null) {
-      final lang = ref.read(settingsProvider).language.name == 'system'
-          ? 'tr'
-          : ref.read(settingsProvider).language.name;
-      response = await gemini.recommendForTonight(
-        conversation: _messages
-            .map((m) => (fromUser: m.fromUser, text: m.text))
-            .toList(),
-        recentlyWatched: ctx.recentlyWatched,
-        favorites: ctx.favorites,
-        librarySample: ctx.librarySample,
-        queryMatches: queryMatches,
-        recentAdditions: ctx.recentAdditions,
-        categoryOverview: categoryOverview,
-        targetLanguage: lang,
-        tasteProfile: tasteProfile.toPromptJson(),
-        currentEpisode: ref.read(chatEpisodeContextProvider)?.toPromptJson(),
+      _pendingAgentNav = null;
+      final lang = ref.read(resolvedLocaleProvider).languageCode;
+      final fallbackOperation = AiOperation();
+      _activeOperation = fallbackOperation;
+      response = await fallbackOperation.withDeadline(
+        () => gemini.recommendForTonight(
+          conversation: _messages
+              .map((m) => (fromUser: m.fromUser, text: m.text))
+              .toList(),
+          recentlyWatched: ctx.recentlyWatched,
+          favorites: ctx.favorites,
+          librarySample: ctx.librarySample,
+          queryMatches: queryMatches,
+          recentAdditions: ctx.recentAdditions,
+          categoryOverview: categoryOverview,
+          targetLanguage: lang,
+          tasteProfile: tasteProfile.toPromptJson(),
+          currentEpisode: ref.read(chatEpisodeContextProvider)?.toPromptJson(),
+        ),
+        const Duration(seconds: 20),
       );
     }
 
@@ -323,10 +350,13 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
       // Without this, AI picks from queryMatches were dropped as
       // "hallucinated" because the card widget only searched the
       // standard pools.
-      final resolved = <int, Channel>{};
+      final resolved = <(String?, int), Channel>{};
       for (final rec in response.recommendations) {
-        final channel = await contentRepo.getVisibleChannel(rec.streamId);
-        if (channel != null) resolved[rec.streamId] = channel;
+        final channel = await contentRepo.getVisibleChannel(
+          rec.streamId,
+          type: rec.type,
+        );
+        if (channel != null) resolved[rec.key] = channel;
       }
       if (!isCurrent()) {
         abandon();
@@ -341,7 +371,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
                   ? response.message
                   : (response.recommendations.isEmpty ? l10n.aiNoMatches : ''),
               recommendations: response.recommendations
-                  .where((r) => resolved.containsKey(r.streamId))
+                  .where((r) => resolved.containsKey(r.key))
                   .toList(),
               resolvedChannels: resolved,
               followUps: response.followUps,
@@ -363,11 +393,22 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   Future<Map<String, dynamic>> _agentToolCall(
     String name,
     Map<String, dynamic> args,
+    bool Function() isCurrent,
   ) async {
+    AiOperation.current?.checkActive();
     final content = ref.read(contentRepositoryProvider);
     Future<Channel?> resolve(int id) =>
         content.getVisibleChannel(id, type: args['type']?.toString());
 
+    void checkCurrent() {
+      AiOperation.current?.checkActive();
+      if (!isCurrent()) {
+        AiOperation.current?.cancel('context_changed');
+        throw const AiRequestException('context_changed');
+      }
+    }
+
+    checkCurrent();
     switch (name) {
       case 'searchLibrary':
         final q = (args['query'] ?? '').toString();
@@ -459,6 +500,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final type = args['type']?.toString();
         if (id == null || type == null) return {'ok': false};
         final ch = await resolve(id);
+        checkCurrent();
         if (ch == null) return {'ok': false, 'error': 'not available'};
         await ref
             .read(favoritesRepositoryProvider)
@@ -469,6 +511,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final id = (args['streamId'] as num?)?.toInt();
         final type = args['type']?.toString();
         if (id == null || type == null) return {'ok': false};
+        checkCurrent();
         await ref.read(favoritesRepositoryProvider).removeFavorite(id, type);
         return {'ok': true};
 
@@ -486,6 +529,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
           return {'ok': false, 'error': 'profile switch cancelled'};
         }
         _pendingAgentNav = null;
+        checkCurrent();
         await repo.setActiveProfile(match.first.id);
         ref.invalidate(activeProfileIdProvider);
         ref.invalidate(activeProfileProvider);
@@ -495,6 +539,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final id = (args['streamId'] as num?)?.toInt();
         if (id == null) return {'ok': false};
         final ch = await resolve(id);
+        checkCurrent();
         if (ch == null) return {'ok': false, 'error': 'not found'};
         _pendingAgentNav = () => _playChannel(ch);
         return {'ok': true, 'title': ch.name};
@@ -503,6 +548,7 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
         final id = (args['streamId'] as num?)?.toInt();
         if (id == null) return {'ok': false};
         final ch = await resolve(id);
+        checkCurrent();
         if (ch == null) return {'ok': false, 'error': 'not found'};
         _pendingAgentNav = () => _openDetailChannel(ch);
         return {'ok': true, 'title': ch.name};
@@ -1123,8 +1169,9 @@ class _TonightChatSheetState extends ConsumerState<TonightChatSheet> {
   /// Falls back to a direct DB query as a last resort so play and
   /// details survive even on legacy message objects that didn't get
   /// the resolved map populated.
-  Future<Channel?> _resolveChannel(TonightRecommendation rec) =>
-      ref.read(contentRepositoryProvider).getVisibleChannel(rec.streamId);
+  Future<Channel?> _resolveChannel(TonightRecommendation rec) => ref
+      .read(contentRepositoryProvider)
+      .getVisibleChannel(rec.streamId, type: rec.type);
 
   VideoType _videoTypeFromString(String type) {
     switch (type) {
@@ -1192,7 +1239,7 @@ class _MessageBubble extends StatelessWidget {
             for (final rec in message.recommendations)
               _RecCard(
                 rec: rec,
-                resolved: message.resolvedChannels[rec.streamId],
+                resolved: message.resolvedChannels[rec.key],
                 onPlay: onPlay,
                 onOpenDetails: onOpenDetails,
               ),

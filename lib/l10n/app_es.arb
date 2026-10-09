@@ -431,9 +431,10 @@
   "skipIntro": "Saltar Intro",
   "skipIntroSetting": "Mostrar botón Saltar Intro",
   "skipIntroSettingDesc": "Cuando está activo, el reproductor muestra un botón 'Saltar Intro' durante el rango marcado.",
+  "markIntro": "Marcar introducción",
   "markIntroStart": "El intro empieza aquí",
   "markIntroEnd": "El intro termina aquí",
-  "introMarked": "Intro guardado. El siguiente episodio te ofrecerá saltarlo.",
+  "introMarked": "Introducción guardada para este episodio.",
   "introCleared": "Marca de intro eliminada.",
   "introMarkInvalid": "El fin debe ser posterior al inicio.",
   "dashboardForYouTitle": "Para ti",
@@ -638,5 +639,12 @@
   "heroTrailerOnMobile": "Reproducir tráiler del hero",
   "heroTrailerOnMobileDesc": "Reproduce automáticamente el tráiler de YouTube sin sonido detrás del hero del panel. Costoso con datos móviles; desactivado por defecto.",
   "deviceSyncCatSecrets": "Claves API y PIN",
-  "deviceSyncSecretsHint": "Opcional. Se envían por una conexión local sin cifrar. El acceso a la cuenta se selecciona por separado."
+  "deviceSyncSecretsHint": "Opcional. Se envían por una conexión local sin cifrar. El acceso a la cuenta se selecciona por separado.",
+  "playerPause": "Pausar",
+  "playerPreviousEpisode": "Episodio anterior",
+  "playerSeekBack": "Retroceder 10 segundos",
+  "playerSeekForward": "Avanzar 10 segundos",
+  "playerVolume": "Volumen",
+  "playerAlwaysOnTop": "Siempre visible",
+  "playerProgrammeGuide": "Guía de programas"
 }

@@ -4843,6 +4843,28 @@ class $IntroMarkersTable extends IntroMarkers
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seasonMeta = const VerificationMeta('season');
+  @override
+  late final GeneratedColumn<int> season = GeneratedColumn<int>(
+    'season',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _episodeIdMeta = const VerificationMeta(
+    'episodeId',
+  );
+  @override
+  late final GeneratedColumn<int> episodeId = GeneratedColumn<int>(
+    'episode_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _introStartMsMeta = const VerificationMeta(
     'introStartMs',
   );
@@ -4865,6 +4887,43 @@ class $IntroMarkersTable extends IntroMarkers
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('manual'),
+  );
+  static const VerificationMeta _confidenceMeta = const VerificationMeta(
+    'confidence',
+  );
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+    'confidence',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -4881,8 +4940,13 @@ class $IntroMarkersTable extends IntroMarkers
   List<GeneratedColumn> get $columns => [
     accountId,
     seriesId,
+    season,
+    episodeId,
     introStartMs,
     introEndMs,
+    source,
+    confidence,
+    isDeleted,
     updatedAt,
   ];
   @override
@@ -4911,6 +4975,18 @@ class $IntroMarkersTable extends IntroMarkers
     } else if (isInserting) {
       context.missing(_seriesIdMeta);
     }
+    if (data.containsKey('season')) {
+      context.handle(
+        _seasonMeta,
+        season.isAcceptableOrUnknown(data['season']!, _seasonMeta),
+      );
+    }
+    if (data.containsKey('episode_id')) {
+      context.handle(
+        _episodeIdMeta,
+        episodeId.isAcceptableOrUnknown(data['episode_id']!, _episodeIdMeta),
+      );
+    }
     if (data.containsKey('intro_start_ms')) {
       context.handle(
         _introStartMsMeta,
@@ -4933,6 +5009,24 @@ class $IntroMarkersTable extends IntroMarkers
     } else if (isInserting) {
       context.missing(_introEndMsMeta);
     }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+        _confidenceMeta,
+        confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -4943,7 +5037,12 @@ class $IntroMarkersTable extends IntroMarkers
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {seriesId, accountId};
+  Set<GeneratedColumn> get $primaryKey => {
+    seriesId,
+    accountId,
+    season,
+    episodeId,
+  };
   @override
   IntroMarker map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -4956,6 +5055,14 @@ class $IntroMarkersTable extends IntroMarkers
         DriftSqlType.int,
         data['${effectivePrefix}series_id'],
       )!,
+      season: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season'],
+      )!,
+      episodeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}episode_id'],
+      )!,
       introStartMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}intro_start_ms'],
@@ -4963,6 +5070,18 @@ class $IntroMarkersTable extends IntroMarkers
       introEndMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}intro_end_ms'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      confidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}confidence'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
       )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -4979,19 +5098,25 @@ class $IntroMarkersTable extends IntroMarkers
 
 class IntroMarker extends DataClass implements Insertable<IntroMarker> {
   final int accountId;
-
-  /// References [Channels.streamId] for the *parent series*, not an
-  /// individual episode. Comes from `widget.parentStreamId` in the
-  /// player route.
   final int seriesId;
+  final int season;
+  final int episodeId;
   final int introStartMs;
   final int introEndMs;
+  final String source;
+  final double confidence;
+  final bool isDeleted;
   final DateTime updatedAt;
   const IntroMarker({
     required this.accountId,
     required this.seriesId,
+    required this.season,
+    required this.episodeId,
     required this.introStartMs,
     required this.introEndMs,
+    required this.source,
+    required this.confidence,
+    required this.isDeleted,
     required this.updatedAt,
   });
   @override
@@ -4999,8 +5124,13 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
     final map = <String, Expression>{};
     map['account_id'] = Variable<int>(accountId);
     map['series_id'] = Variable<int>(seriesId);
+    map['season'] = Variable<int>(season);
+    map['episode_id'] = Variable<int>(episodeId);
     map['intro_start_ms'] = Variable<int>(introStartMs);
     map['intro_end_ms'] = Variable<int>(introEndMs);
+    map['source'] = Variable<String>(source);
+    map['confidence'] = Variable<double>(confidence);
+    map['is_deleted'] = Variable<bool>(isDeleted);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -5009,8 +5139,13 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
     return IntroMarkersCompanion(
       accountId: Value(accountId),
       seriesId: Value(seriesId),
+      season: Value(season),
+      episodeId: Value(episodeId),
       introStartMs: Value(introStartMs),
       introEndMs: Value(introEndMs),
+      source: Value(source),
+      confidence: Value(confidence),
+      isDeleted: Value(isDeleted),
       updatedAt: Value(updatedAt),
     );
   }
@@ -5023,8 +5158,13 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
     return IntroMarker(
       accountId: serializer.fromJson<int>(json['accountId']),
       seriesId: serializer.fromJson<int>(json['seriesId']),
+      season: serializer.fromJson<int>(json['season']),
+      episodeId: serializer.fromJson<int>(json['episodeId']),
       introStartMs: serializer.fromJson<int>(json['introStartMs']),
       introEndMs: serializer.fromJson<int>(json['introEndMs']),
+      source: serializer.fromJson<String>(json['source']),
+      confidence: serializer.fromJson<double>(json['confidence']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -5034,8 +5174,13 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
     return <String, dynamic>{
       'accountId': serializer.toJson<int>(accountId),
       'seriesId': serializer.toJson<int>(seriesId),
+      'season': serializer.toJson<int>(season),
+      'episodeId': serializer.toJson<int>(episodeId),
       'introStartMs': serializer.toJson<int>(introStartMs),
       'introEndMs': serializer.toJson<int>(introEndMs),
+      'source': serializer.toJson<String>(source),
+      'confidence': serializer.toJson<double>(confidence),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -5043,26 +5188,43 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
   IntroMarker copyWith({
     int? accountId,
     int? seriesId,
+    int? season,
+    int? episodeId,
     int? introStartMs,
     int? introEndMs,
+    String? source,
+    double? confidence,
+    bool? isDeleted,
     DateTime? updatedAt,
   }) => IntroMarker(
     accountId: accountId ?? this.accountId,
     seriesId: seriesId ?? this.seriesId,
+    season: season ?? this.season,
+    episodeId: episodeId ?? this.episodeId,
     introStartMs: introStartMs ?? this.introStartMs,
     introEndMs: introEndMs ?? this.introEndMs,
+    source: source ?? this.source,
+    confidence: confidence ?? this.confidence,
+    isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   IntroMarker copyWithCompanion(IntroMarkersCompanion data) {
     return IntroMarker(
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
       seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      season: data.season.present ? data.season.value : this.season,
+      episodeId: data.episodeId.present ? data.episodeId.value : this.episodeId,
       introStartMs: data.introStartMs.present
           ? data.introStartMs.value
           : this.introStartMs,
       introEndMs: data.introEndMs.present
           ? data.introEndMs.value
           : this.introEndMs,
+      source: data.source.present ? data.source.value : this.source,
+      confidence: data.confidence.present
+          ? data.confidence.value
+          : this.confidence,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -5072,47 +5234,82 @@ class IntroMarker extends DataClass implements Insertable<IntroMarker> {
     return (StringBuffer('IntroMarker(')
           ..write('accountId: $accountId, ')
           ..write('seriesId: $seriesId, ')
+          ..write('season: $season, ')
+          ..write('episodeId: $episodeId, ')
           ..write('introStartMs: $introStartMs, ')
           ..write('introEndMs: $introEndMs, ')
+          ..write('source: $source, ')
+          ..write('confidence: $confidence, ')
+          ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(accountId, seriesId, introStartMs, introEndMs, updatedAt);
+  int get hashCode => Object.hash(
+    accountId,
+    seriesId,
+    season,
+    episodeId,
+    introStartMs,
+    introEndMs,
+    source,
+    confidence,
+    isDeleted,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is IntroMarker &&
           other.accountId == this.accountId &&
           other.seriesId == this.seriesId &&
+          other.season == this.season &&
+          other.episodeId == this.episodeId &&
           other.introStartMs == this.introStartMs &&
           other.introEndMs == this.introEndMs &&
+          other.source == this.source &&
+          other.confidence == this.confidence &&
+          other.isDeleted == this.isDeleted &&
           other.updatedAt == this.updatedAt);
 }
 
 class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
   final Value<int> accountId;
   final Value<int> seriesId;
+  final Value<int> season;
+  final Value<int> episodeId;
   final Value<int> introStartMs;
   final Value<int> introEndMs;
+  final Value<String> source;
+  final Value<double> confidence;
+  final Value<bool> isDeleted;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const IntroMarkersCompanion({
     this.accountId = const Value.absent(),
     this.seriesId = const Value.absent(),
+    this.season = const Value.absent(),
+    this.episodeId = const Value.absent(),
     this.introStartMs = const Value.absent(),
     this.introEndMs = const Value.absent(),
+    this.source = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   IntroMarkersCompanion.insert({
     this.accountId = const Value.absent(),
     required int seriesId,
+    this.season = const Value.absent(),
+    this.episodeId = const Value.absent(),
     required int introStartMs,
     required int introEndMs,
+    this.source = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : seriesId = Value(seriesId),
@@ -5121,16 +5318,26 @@ class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
   static Insertable<IntroMarker> custom({
     Expression<int>? accountId,
     Expression<int>? seriesId,
+    Expression<int>? season,
+    Expression<int>? episodeId,
     Expression<int>? introStartMs,
     Expression<int>? introEndMs,
+    Expression<String>? source,
+    Expression<double>? confidence,
+    Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (accountId != null) 'account_id': accountId,
       if (seriesId != null) 'series_id': seriesId,
+      if (season != null) 'season': season,
+      if (episodeId != null) 'episode_id': episodeId,
       if (introStartMs != null) 'intro_start_ms': introStartMs,
       if (introEndMs != null) 'intro_end_ms': introEndMs,
+      if (source != null) 'source': source,
+      if (confidence != null) 'confidence': confidence,
+      if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -5139,16 +5346,26 @@ class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
   IntroMarkersCompanion copyWith({
     Value<int>? accountId,
     Value<int>? seriesId,
+    Value<int>? season,
+    Value<int>? episodeId,
     Value<int>? introStartMs,
     Value<int>? introEndMs,
+    Value<String>? source,
+    Value<double>? confidence,
+    Value<bool>? isDeleted,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
     return IntroMarkersCompanion(
       accountId: accountId ?? this.accountId,
       seriesId: seriesId ?? this.seriesId,
+      season: season ?? this.season,
+      episodeId: episodeId ?? this.episodeId,
       introStartMs: introStartMs ?? this.introStartMs,
       introEndMs: introEndMs ?? this.introEndMs,
+      source: source ?? this.source,
+      confidence: confidence ?? this.confidence,
+      isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -5163,11 +5380,26 @@ class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
     if (seriesId.present) {
       map['series_id'] = Variable<int>(seriesId.value);
     }
+    if (season.present) {
+      map['season'] = Variable<int>(season.value);
+    }
+    if (episodeId.present) {
+      map['episode_id'] = Variable<int>(episodeId.value);
+    }
     if (introStartMs.present) {
       map['intro_start_ms'] = Variable<int>(introStartMs.value);
     }
     if (introEndMs.present) {
       map['intro_end_ms'] = Variable<int>(introEndMs.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
@@ -5183,8 +5415,13 @@ class IntroMarkersCompanion extends UpdateCompanion<IntroMarker> {
     return (StringBuffer('IntroMarkersCompanion(')
           ..write('accountId: $accountId, ')
           ..write('seriesId: $seriesId, ')
+          ..write('season: $season, ')
+          ..write('episodeId: $episodeId, ')
           ..write('introStartMs: $introStartMs, ')
           ..write('introEndMs: $introEndMs, ')
+          ..write('source: $source, ')
+          ..write('confidence: $confidence, ')
+          ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -13414,8 +13651,13 @@ typedef $$IntroMarkersTableCreateCompanionBuilder =
     IntroMarkersCompanion Function({
       Value<int> accountId,
       required int seriesId,
+      Value<int> season,
+      Value<int> episodeId,
       required int introStartMs,
       required int introEndMs,
+      Value<String> source,
+      Value<double> confidence,
+      Value<bool> isDeleted,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -13423,8 +13665,13 @@ typedef $$IntroMarkersTableUpdateCompanionBuilder =
     IntroMarkersCompanion Function({
       Value<int> accountId,
       Value<int> seriesId,
+      Value<int> season,
+      Value<int> episodeId,
       Value<int> introStartMs,
       Value<int> introEndMs,
+      Value<String> source,
+      Value<double> confidence,
+      Value<bool> isDeleted,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -13448,6 +13695,16 @@ class $$IntroMarkersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get season => $composableBuilder(
+    column: $table.season,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get episodeId => $composableBuilder(
+    column: $table.episodeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get introStartMs => $composableBuilder(
     column: $table.introStartMs,
     builder: (column) => ColumnFilters(column),
@@ -13455,6 +13712,21 @@ class $$IntroMarkersTableFilterComposer
 
   ColumnFilters<int> get introEndMs => $composableBuilder(
     column: $table.introEndMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13483,6 +13755,16 @@ class $$IntroMarkersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get season => $composableBuilder(
+    column: $table.season,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get episodeId => $composableBuilder(
+    column: $table.episodeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get introStartMs => $composableBuilder(
     column: $table.introStartMs,
     builder: (column) => ColumnOrderings(column),
@@ -13490,6 +13772,21 @@ class $$IntroMarkersTableOrderingComposer
 
   ColumnOrderings<int> get introEndMs => $composableBuilder(
     column: $table.introEndMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -13514,6 +13811,12 @@ class $$IntroMarkersTableAnnotationComposer
   GeneratedColumn<int> get seriesId =>
       $composableBuilder(column: $table.seriesId, builder: (column) => column);
 
+  GeneratedColumn<int> get season =>
+      $composableBuilder(column: $table.season, builder: (column) => column);
+
+  GeneratedColumn<int> get episodeId =>
+      $composableBuilder(column: $table.episodeId, builder: (column) => column);
+
   GeneratedColumn<int> get introStartMs => $composableBuilder(
     column: $table.introStartMs,
     builder: (column) => column,
@@ -13523,6 +13826,17 @@ class $$IntroMarkersTableAnnotationComposer
     column: $table.introEndMs,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -13561,15 +13875,25 @@ class $$IntroMarkersTableTableManager
               ({
                 Value<int> accountId = const Value.absent(),
                 Value<int> seriesId = const Value.absent(),
+                Value<int> season = const Value.absent(),
+                Value<int> episodeId = const Value.absent(),
                 Value<int> introStartMs = const Value.absent(),
                 Value<int> introEndMs = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<double> confidence = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IntroMarkersCompanion(
                 accountId: accountId,
                 seriesId: seriesId,
+                season: season,
+                episodeId: episodeId,
                 introStartMs: introStartMs,
                 introEndMs: introEndMs,
+                source: source,
+                confidence: confidence,
+                isDeleted: isDeleted,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -13577,15 +13901,25 @@ class $$IntroMarkersTableTableManager
               ({
                 Value<int> accountId = const Value.absent(),
                 required int seriesId,
+                Value<int> season = const Value.absent(),
+                Value<int> episodeId = const Value.absent(),
                 required int introStartMs,
                 required int introEndMs,
+                Value<String> source = const Value.absent(),
+                Value<double> confidence = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => IntroMarkersCompanion.insert(
                 accountId: accountId,
                 seriesId: seriesId,
+                season: season,
+                episodeId: episodeId,
                 introStartMs: introStartMs,
                 introEndMs: introEndMs,
+                source: source,
+                confidence: confidence,
+                isDeleted: isDeleted,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),

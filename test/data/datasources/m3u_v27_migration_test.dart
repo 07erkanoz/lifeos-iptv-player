@@ -37,7 +37,7 @@ void main() {
         expect(
           (await upgraded.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          29,
+          upgraded.schemaVersion,
         );
       },
     );

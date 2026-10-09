@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-09",
+  "baseline_commit": "3b5839572faf99a4684e9fa6e0cd90fbb6115f0d",
+  "flutter": "3.47.2",
+  "dart": "3.13.2",
+  "tests_passed": 518,
+  "analyze": {
+    "scope": [
+      "lib",
+      "test",
+      "tool"
+    ],
+    "errors": 0,
+    "warnings": 0,
+    "infos": 90
+  },
+  "local_builds": [
+    "linux release",
+    "android release"
+  ],
+  "physical_device_validation": false,
+  "apple_build_executed": false,
+  "github_actions_state": "disabled_manually",
+  "distribution_executed": false,
+  "lan_encryption_changed": false,
+  "log_normalization": "Trailing whitespace removed only",
+  "artifacts": [
+    {
+      "path": "/home/erkanoz/projeler/iptv/lifeos-iptv-player/build/app/outputs/flutter-apk/app-release.apk",
+      "bytes": 125916069,
+      "sha256": "2ea03d1defaf014bceddb1761b36fd55d5aa600f8c700be5f80024cd01a89db3"
+    },
+    {
+      "path": "/home/erkanoz/projeler/iptv/lifeos-iptv-player/build/linux/x64/release/bundle/lifeostv",
+      "bytes": 24680,
+      "sha256": "a3f5c68a7fc71d9a16e77eca0a483e9995c8ae826ba493b0eaf66a98c3374e5d"
+    },
+    {
+      "path": "/home/erkanoz/projeler/iptv/lifeos-iptv-player/build/linux/x64/release/bundle/lib/libapp.so",
+      "bytes": 14336904,
+      "sha256": "7670f29fe82aa776684da94184110be7dc439054b7207d1df54b2cdb62733ef7"
+    }
+  ]
+}

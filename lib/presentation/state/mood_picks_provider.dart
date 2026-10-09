@@ -1,3 +1,5 @@
+import 'package:lifeostv/data/repositories/profile_repository.dart';
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +11,6 @@ import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/presentation/state/personalized_picks_provider.dart'
     show PersonalizedPickCard;
-import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 /// Mood chips the user can tap to inject a vibe into the rail.
 ///
@@ -20,28 +21,23 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 enum MoodChip {
   relax(
     key: 'relax',
-    englishVibe:
-        'calm, low-stakes, comforting; the user wants to unwind',
+    englishVibe: 'calm, low-stakes, comforting; the user wants to unwind',
   ),
   thrill(
     key: 'thrill',
-    englishVibe:
-        'high-stakes tension, fast pace, action or thriller',
+    englishVibe: 'high-stakes tension, fast pace, action or thriller',
   ),
   laugh(
     key: 'laugh',
-    englishVibe:
-        'pure comedy / feel-good; the user wants to laugh',
+    englishVibe: 'pure comedy / feel-good; the user wants to laugh',
   ),
   think(
     key: 'think',
-    englishVibe:
-        'thought-provoking, slow-burn, ambitious storytelling',
+    englishVibe: 'thought-provoking, slow-burn, ambitious storytelling',
   ),
   nostalgia(
     key: 'nostalgia',
-    englishVibe:
-        'nostalgic, classic, pre-2010 favourites or remakes of them',
+    englishVibe: 'nostalgic, classic, pre-2010 favourites or remakes of them',
   ),
   surprise(
     key: 'surprise',
@@ -71,8 +67,7 @@ class _SelectedMoodNotifier extends Notifier<MoodChip?> {
   void clear() => state = null;
 }
 
-final selectedMoodProvider =
-    NotifierProvider<_SelectedMoodNotifier, MoodChip?>(
+final selectedMoodProvider = NotifierProvider<_SelectedMoodNotifier, MoodChip?>(
   _SelectedMoodNotifier.new,
 );
 
@@ -83,7 +78,8 @@ final selectedMoodProvider =
 /// (so tapping Heyecan → Gülmek → Heyecan again doesn't fire 3 AI
 /// calls — the second Heyecan tap returns instantly). Reset when
 /// the provider is invalidated or the app restarts.
-final _moodSessionCache = <MoodChip, List<PersonalizedPickCard>>{};
+final _moodSessionCache =
+    <(int, int, String, MoodChip), List<PersonalizedPickCard>>{};
 
 /// Future provider for the active mood rail. Returns null when no
 /// mood is selected (the rail hides itself). Returns an empty list
@@ -91,33 +87,36 @@ final _moodSessionCache = <MoodChip, List<PersonalizedPickCard>>{};
 /// ordered by mood fit.
 ///
 /// In-memory session cache keyed by mood, see [_moodSessionCache].
-final moodPicksProvider =
-    FutureProvider<List<PersonalizedPickCard>?>((ref) async {
+final moodPicksProvider = FutureProvider<List<PersonalizedPickCard>?>((
+  ref,
+) async {
   final mood = ref.watch(selectedMoodProvider);
   if (mood == null) return null;
 
+  final lang = ref.watch(resolvedLocaleProvider).languageCode;
+  final db = ref.watch(appDatabaseProvider);
+  final profileId = ref.watch(activeProfileIdProvider).value ?? 1;
+  final gemini = ref.watch(geminiServiceProvider);
+  if (gemini == null) return null;
+  final cacheKey = (db.accountScope ?? 0, profileId, lang, mood);
+  if (_moodSessionCache.length > 64) _moodSessionCache.clear();
+
   // Session cache — instant return when the user re-taps a mood
   // they already saw earlier in this session.
-  final cached = _moodSessionCache[mood];
+  final cached = _moodSessionCache[cacheKey];
   if (cached != null && cached.isNotEmpty) {
     debugPrint('[mood] session cache hit for ${mood.key}');
     return cached;
   }
 
-  final gemini = ref.watch(geminiServiceProvider);
-  if (gemini == null) return null;
-
   final contentRepo = ref.watch(contentRepositoryProvider);
-  final db = ref.watch(appDatabaseProvider);
 
   // Same taste signals as the "Sana Özel" rail — the mood
   // overrides genre but the AI still wants context for tone +
   // production quality preferences. Repository helpers JOIN with
   // categories so the AI sees the actual genre signal.
-  final historySignals =
-      await contentRepo.tasteSignalsFromHistory(limit: 15);
-  final favSignals =
-      await contentRepo.tasteSignalsFromFavorites(limit: 15);
+  final historySignals = await contentRepo.tasteSignalsFromHistory(limit: 15);
+  final favSignals = await contentRepo.tasteSignalsFromFavorites(limit: 15);
 
   // Slightly smaller pool than "Sana Özel" — mood is laser-focused
   // so the AI doesn't need 450 candidates.
@@ -138,10 +137,6 @@ final moodPicksProvider =
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
 
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
-
   // Shared taste profile — same one Sana Özel / hero use. Mood AI
   // still gets it so it can tie-break between equally mood-fitting
   // candidates using the user's actor / director affinities.
@@ -153,22 +148,22 @@ final moodPicksProvider =
   final instrumentation = ref.read(aiInstrumentationProvider);
   final picks = await instrumentation
       .record<List<({int streamId, String reason})>>(
-    feature: 'recommendForMood:${mood.key}',
-    model: AiModelPolicy.dashboardRanking,
-    candidateCount: sample.length,
-    outputCountOf: (p) => p.length,
-    timeout: const Duration(seconds: 25),
-    run: () => gemini.recommendForMood(
-      moodKey: mood.key,
-      moodLabel: mood.key,
-      moodDescription: mood.englishVibe,
-      recentlyWatched: historySignals,
-      favorites: favSignals,
-      librarySample: librarySample,
-      targetLanguage: lang,
-      tasteProfile: tasteProfile.toPromptJson(),
-    ),
-  );
+        feature: 'recommendForMood:${mood.key}',
+        model: AiModelPolicy.dashboardRanking,
+        candidateCount: sample.length,
+        outputCountOf: (p) => p.length,
+        timeout: const Duration(seconds: 25),
+        run: () => gemini.recommendForMood(
+          moodKey: mood.key,
+          moodLabel: mood.key,
+          moodDescription: mood.englishVibe,
+          recentlyWatched: historySignals,
+          favorites: favSignals,
+          librarySample: librarySample,
+          targetLanguage: lang,
+          tasteProfile: tasteProfile.toPromptJson(),
+        ),
+      );
 
   // AI failed or returned empty → fall back to a genre-themed
   // direct DB query so the rail never goes empty for a mood the
@@ -179,10 +174,12 @@ final moodPicksProvider =
   // "all-sample top-rated" would surface action titles for a
   // "laugh" request — the bug the user just reported.
   if (picks == null || picks.isEmpty) {
-    debugPrint('[mood] AI returned empty for ${mood.key}, '
-        'querying DB for genre match');
+    debugPrint(
+      '[mood] AI returned empty for ${mood.key}, '
+      'querying DB for genre match',
+    );
     final fb = await _dbGenreFallback(mood, db);
-    if (fb.isNotEmpty) _moodSessionCache[mood] = fb;
+    if (fb.isNotEmpty) _moodSessionCache[cacheKey] = fb;
     return fb;
   }
 
@@ -190,23 +187,27 @@ final moodPicksProvider =
   // (streamId, type) — not streamId alone — so we key by both to
   // avoid losing a movie when a series shares the same numeric id.
   final ids = picks.map((p) => p.streamId).toList();
-  final rows = await (db.select(db.channels)
-        ..where((t) => t.streamId.isIn(ids)))
-      .get();
+  final rows = await (db.select(
+    db.channels,
+  )..where((t) => t.streamId.isIn(ids))).get();
   final byId = <int, Channel>{};
   for (final c in rows) {
     // Prefer the first row we encounter; subsequent type collisions
     // are rare in Xtream catalogues and dedupe will catch them.
     byId.putIfAbsent(c.streamId, () => c);
   }
-  debugPrint('[mood] ${mood.key}: AI picks=${picks.length}, '
-      'db-resolved=${byId.length}');
+  debugPrint(
+    '[mood] ${mood.key}: AI picks=${picks.length}, '
+    'db-resolved=${byId.length}',
+  );
 
   String normTitle(String raw) {
     var s = raw.toLowerCase().trim();
     s = s.replaceAll(RegExp(r'\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*'), ' ');
     s = s.replaceAll(
-        RegExp(r'\b(4k|uhd|hd|fhd|sd|2160p|1080p|720p|480p)\b'), ' ');
+      RegExp(r'\b(4k|uhd|hd|fhd|sd|2160p|1080p|720p|480p)\b'),
+      ' ',
+    );
     s = s.replaceAll('&', ' and ');
     s = s.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -242,13 +243,15 @@ final moodPicksProvider =
   // resolve+dedupe pass. Still better to show *something* than a
   // "no good match" panel for a mood the user explicitly asked for.
   if (out.isEmpty) {
-    debugPrint('[mood] ${mood.key}: all picks dropped, '
-        'falling back to DB genre match');
+    debugPrint(
+      '[mood] ${mood.key}: all picks dropped, '
+      'falling back to DB genre match',
+    );
     final fb = await _dbGenreFallback(mood, db);
-    if (fb.isNotEmpty) _moodSessionCache[mood] = fb;
+    if (fb.isNotEmpty) _moodSessionCache[cacheKey] = fb;
     return fb;
   }
-  _moodSessionCache[mood] = out;
+  _moodSessionCache[cacheKey] = out;
   return out;
 });
 
@@ -259,28 +262,81 @@ final moodPicksProvider =
 /// so the same map works against catalogues in either language.
 const Map<String, List<String>> _moodGenreKeywords = {
   'relax': [
-    'family', 'aile', 'romance', 'romantik', 'romantic',
-    'feel-good', 'feelgood', 'animation', 'animasyon',
-    'kids', 'çocuk', 'cocuk',
+    'family',
+    'aile',
+    'romance',
+    'romantik',
+    'romantic',
+    'feel-good',
+    'feelgood',
+    'animation',
+    'animasyon',
+    'kids',
+    'çocuk',
+    'cocuk',
   ],
   'thrill': [
-    'action', 'aksiyon', 'thriller', 'gerilim', 'crime', 'suç', 'suc',
-    'mystery', 'gizem', 'adventure', 'macera', 'spy', 'casus',
-    'heist', 'soygun',
+    'action',
+    'aksiyon',
+    'thriller',
+    'gerilim',
+    'crime',
+    'suç',
+    'suc',
+    'mystery',
+    'gizem',
+    'adventure',
+    'macera',
+    'spy',
+    'casus',
+    'heist',
+    'soygun',
   ],
   'laugh': [
-    'comedy', 'komedi', 'sitcom', 'humor', 'humour', 'mizah',
-    'romantic comedy', 'romkom', 'satire', 'satir',
-    'parody', 'parodi', 'stand-up', 'standup', 'standup-komedi',
+    'comedy',
+    'komedi',
+    'sitcom',
+    'humor',
+    'humour',
+    'mizah',
+    'romantic comedy',
+    'romkom',
+    'satire',
+    'satir',
+    'parody',
+    'parodi',
+    'stand-up',
+    'standup',
+    'standup-komedi',
   ],
   'think': [
-    'drama', 'mystery', 'gizem', 'sci-fi', 'science fiction',
-    'bilim kurgu', 'documentary', 'belgesel', 'biography',
-    'biyografi', 'history', 'tarih', 'philosophical', 'felsefi',
+    'drama',
+    'mystery',
+    'gizem',
+    'sci-fi',
+    'science fiction',
+    'bilim kurgu',
+    'documentary',
+    'belgesel',
+    'biography',
+    'biyografi',
+    'history',
+    'tarih',
+    'philosophical',
+    'felsefi',
   ],
   'nostalgia': [
-    'classic', 'klasik', 'romance', 'romantik', 'romantic',
-    'drama', 'family', 'aile', 'musical', 'müzikal', 'muzikal',
+    'classic',
+    'klasik',
+    'romance',
+    'romantik',
+    'romantic',
+    'drama',
+    'family',
+    'aile',
+    'musical',
+    'müzikal',
+    'muzikal',
   ],
   'surprise': [
     // No genre filter — pure variety. Returns a shuffled slice of
@@ -303,23 +359,27 @@ const Map<String, List<String>> _moodGenreKeywords = {
 /// in that case we return the top-rated 10 VOD items globally,
 /// because surprise is supposed to be unpredictable variety.
 Future<List<PersonalizedPickCard>> _dbGenreFallback(
-    MoodChip mood, AppDatabase db) async {
+  MoodChip mood,
+  AppDatabase db,
+) async {
   final kws = _moodGenreKeywords[mood.key] ?? const [];
 
   // Pull VOD joined with its category. Hidden categories filtered
   // out the same way the rest of the search does.
-  final rows = await (db.select(db.channels).join([
-    db.accountLeftJoin(
-      db.categories,
-      db.categories.id.equalsExp(db.channels.categoryId) &
-          db.categories.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..where((db.channels.type.equals('movie') |
-                db.channels.type.equals('series')) &
-            (db.categories.isHidden.equals(false) |
-                db.categories.isHidden.isNull())))
-      .get();
+  final rows =
+      await (db.select(db.channels).join([
+            db.accountLeftJoin(
+              db.categories,
+              db.categories.id.equalsExp(db.channels.categoryId) &
+                  db.categories.type.equalsExp(db.channels.type),
+            ),
+          ])..where(
+            (db.channels.type.equals('movie') |
+                    db.channels.type.equals('series')) &
+                (db.categories.isHidden.equals(false) |
+                    db.categories.isHidden.isNull()),
+          ))
+          .get();
   if (rows.isEmpty) return const [];
 
   // Each row → (channel, categoryName). Some channels may have
@@ -345,7 +405,8 @@ Future<List<PersonalizedPickCard>> _dbGenreFallback(
   }
 
   Iterable<({Channel channel, String categoryName})> pool = pairs.where(
-      (p) => !isAdult(p.categoryName, p.channel.name));
+    (p) => !isAdult(p.categoryName, p.channel.name),
+  );
   if (kws.isNotEmpty) {
     pool = pool.where((p) {
       // Match against EITHER the genre column OR the category
@@ -362,8 +423,9 @@ Future<List<PersonalizedPickCard>> _dbGenreFallback(
   }
   final filtered = pool.toList();
   debugPrint(
-      '[mood] DB fallback ${mood.key}: ${filtered.length} matches '
-      'across genre + category name');
+    '[mood] DB fallback ${mood.key}: ${filtered.length} matches '
+    'across genre + category name',
+  );
 
   // Hard rule: if we can't find at least 3 matches we return EMPTY
   // instead of falling through to wrong-genre top-rated. Showing
@@ -374,9 +436,7 @@ Future<List<PersonalizedPickCard>> _dbGenreFallback(
   }
 
   // Rank by rating desc so the dud-floor is decent.
-  final ranked = filtered
-      .map((p) => p.channel)
-      .toList()
+  final ranked = filtered.map((p) => p.channel).toList()
     ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
 
   // Same two-key dedupe (title + poster) as the AI path so multi-

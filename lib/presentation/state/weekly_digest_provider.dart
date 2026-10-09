@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,8 +36,8 @@ class WeeklyDigest {
 ///
 /// Computed once per app session; the banner widget handles dismiss
 /// state by writing the timestamp back into AppSettings.
-final weeklyDigestProvider =
-    FutureProvider<WeeklyDigest?>((ref) async {
+final weeklyDigestProvider = FutureProvider<WeeklyDigest?>((ref) async {
+  final lang = ref.watch(resolvedLocaleProvider).languageCode;
   final gemini = ref.watch(geminiServiceProvider);
   if (gemini == null) return null;
 
@@ -54,10 +55,11 @@ final weeklyDigestProvider =
   // (Unix timestamp as text). We can't push the comparison into the
   // SQL where-clause because the column is text, so we fetch a
   // bounded slice and rank in Dart.
-  final allVod = await (db.select(db.channels)
-        ..where((t) => t.type.equals('movie') | t.type.equals('series'))
-        ..limit(2000))
-      .get();
+  final allVod =
+      await (db.select(db.channels)
+            ..where((t) => t.type.equals('movie') | t.type.equals('series'))
+            ..limit(2000))
+          .get();
   if (allVod.isEmpty) return null;
 
   int parseAdded(Channel c) {
@@ -74,7 +76,7 @@ final weeklyDigestProvider =
     ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
   final sevenDaysAgoEpoch =
       DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch ~/
-          1000;
+      1000;
   var recentRows = sorted
       .where((c) => parseAdded(c) >= sevenDaysAgoEpoch)
       .toList();
@@ -87,12 +89,8 @@ final weeklyDigestProvider =
   // Fingerprint over the ids of the chosen recent slice + language.
   // The slice changes when new content arrives, so the fingerprint
   // auto-invalidates next week without us having to track it.
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
   final recentIds = recentRows.map((c) => c.streamId).toList()..sort();
-  final fpBlob =
-      'digest-v1|lang=$lang|r=${recentIds.take(50).join(",")}';
+  final fpBlob = 'digest-v1|lang=$lang|r=${recentIds.take(50).join(",")}';
   final sourceHash = AiRailCacheRepository.fingerprint(fpBlob);
 
   // 3-day TTL — the rail is supposed to feel weekly but we want it
@@ -123,7 +121,10 @@ final weeklyDigestProvider =
       if (channels.isNotEmpty) {
         debugPrint('[digest] cache hit ($sourceHash)');
         return WeeklyDigest(
-            headline: headline, channels: channels, reasons: reasons);
+          headline: headline,
+          channels: channels,
+          reasons: reasons,
+        );
       }
     }
   }
@@ -132,10 +133,8 @@ final weeklyDigestProvider =
   // Rich taste signals via repository helpers — these JOIN with
   // categories so the AI sees the actual catalog genre labels.
   final contentRepo = ref.watch(contentRepositoryProvider);
-  final favSignals =
-      await contentRepo.tasteSignalsFromFavorites(limit: 12);
-  final historySignals =
-      await contentRepo.tasteSignalsFromHistory(limit: 12);
+  final favSignals = await contentRepo.tasteSignalsFromFavorites(limit: 12);
+  final historySignals = await contentRepo.tasteSignalsFromHistory(limit: 12);
 
   String escape(String? s) =>
       (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
@@ -154,21 +153,21 @@ final weeklyDigestProvider =
   final tasteProfile = await ref.watch(tasteProfileProvider.future);
 
   final instrumentation = ref.read(aiInstrumentationProvider);
-  final result = await instrumentation.record<
-      ({String headline, List<({int streamId, String reason})> picks})>(
-    feature: 'weeklyDigest',
-    model: AiModelPolicy.dashboardRanking,
-    candidateCount: recentRows.length,
-    outputCountOf: (r) => r.picks.length,
-    timeout: const Duration(seconds: 20),
-    run: () => gemini.weeklyDigest(
-      recentAdditions: recentAdditions,
-      favorites: favSignals,
-      recentlyWatched: historySignals,
-      targetLanguage: lang,
-      tasteProfile: tasteProfile.toPromptJson(),
-    ),
-  );
+  final result = await instrumentation
+      .record<({String headline, List<({int streamId, String reason})> picks})>(
+        feature: 'weeklyDigest',
+        model: AiModelPolicy.dashboardRanking,
+        candidateCount: recentRows.length,
+        outputCountOf: (r) => r.picks.length,
+        timeout: const Duration(seconds: 20),
+        run: () => gemini.weeklyDigest(
+          recentAdditions: recentAdditions,
+          favorites: favSignals,
+          recentlyWatched: historySignals,
+          targetLanguage: lang,
+          tasteProfile: tasteProfile.toPromptJson(),
+        ),
+      );
 
   if (result == null) return null;
 
@@ -191,8 +190,7 @@ final weeklyDigestProvider =
     payload: {
       'headline': result.headline,
       'ids': channels.map((c) => c.streamId).toList(),
-      'reasons':
-          reasons.map((k, v) => MapEntry(k.toString(), v)),
+      'reasons': reasons.map((k, v) => MapEntry(k.toString(), v)),
     },
   );
   debugPrint('[digest] cached ${channels.length} picks under $sourceHash');

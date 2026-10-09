@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -8,12 +9,12 @@ import 'package:lifeostv/data/repositories/ai_feedback_repository.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/personalized_picks_repository.dart';
 import 'package:lifeostv/data/repositories/taste_profile_repository.dart';
-import 'package:lifeostv/data/repositories/profile_repository.dart' show activeProfileIdProvider;
+import 'package:lifeostv/data/repositories/profile_repository.dart'
+    show activeProfileIdProvider;
 import 'package:lifeostv/data/services/ai_instrumentation_service.dart';
 import 'package:lifeostv/data/services/ai_model_policy.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
-import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 /// One personalised pick resolved to a real channel row, paired with
 /// its AI-supplied reason.
@@ -21,10 +22,7 @@ class PersonalizedPickCard {
   final Channel channel;
   final String reason;
 
-  const PersonalizedPickCard({
-    required this.channel,
-    required this.reason,
-  });
+  const PersonalizedPickCard({required this.channel, required this.reason});
 }
 
 /// Bumped each time the user taps the rail's refresh button. The
@@ -46,8 +44,8 @@ class _PersonalizedPicksRefreshSeed extends Notifier<int> {
 /// the rail in the first frame instead of flashing the shimmer
 /// for the duration of the async cache lookup + Channel resolve
 /// chain (~100-300 ms even on a warm Drift cache hit).
-String _personalizedSnapshotKey(int accountId, int profileId) =>
-    'personalized_picks_snapshot_v2_${accountId}_$profileId';
+String _personalizedSnapshotKey(int accountId, int profileId, String locale) =>
+    'personalized_picks_snapshot_v3_${accountId}_${profileId}_$locale';
 
 /// Synchronous fallback provider for the rail.
 ///
@@ -62,50 +60,59 @@ String _personalizedSnapshotKey(int accountId, int profileId) =>
 ///     hide-when-no-key behaviour),
 ///   * the snapshot was never written, or
 ///   * the snapshot fails to parse.
-final personalizedPicksSnapshotProvider =
-    Provider<List<PersonalizedPickCard>?>((ref) {
-  // Mirror the async provider's no-key gate so the snapshot doesn't
-  // briefly flash for users who later removed their key.
-  final gemini = ref.watch(geminiServiceProvider);
-  if (gemini == null) return null;
-  final prefs = ref.watch(sharedPreferencesProvider);
-  final raw = prefs.getString(_personalizedSnapshotKey(
-      ref.watch(appDatabaseProvider).accountScope ?? 0,
-      ref.watch(activeProfileIdProvider).value ??
-          ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ?? 1));
-  if (raw == null) return null;
-  try {
-    final decoded = jsonDecode(raw);
-    if (decoded is! List) return null;
-    final out = <PersonalizedPickCard>[];
-    for (final item in decoded) {
-      if (item is! Map<String, dynamic>) continue;
-      final streamId = (item['streamId'] as num?)?.toInt();
-      final name = item['name']?.toString();
-      final type = item['type']?.toString();
-      if (streamId == null || name == null || type == null) continue;
-      // Construct a *minimal* Channel object — enough to render the
-      // tile and route the onTap callback. Other fields default to
-      // null; downstream consumers (detail page) re-fetch the full
-      // row by (streamId, type) from Drift.
-      final channel = Channel(accountId: ref.read(appDatabaseProvider).accountScope ?? 0,
-        streamId: streamId,
-        name: name,
-        type: type,
-        categoryId: '',
-        streamIcon: item['streamIcon'] as String?,
-      );
-      out.add(PersonalizedPickCard(
-        channel: channel,
-        reason: item['reason']?.toString() ?? '',
-      ));
+final personalizedPicksSnapshotProvider = Provider<List<PersonalizedPickCard>?>(
+  (ref) {
+    // Mirror the async provider's no-key gate so the snapshot doesn't
+    // briefly flash for users who later removed their key.
+    final gemini = ref.watch(geminiServiceProvider);
+    if (gemini == null) return null;
+    final prefs = ref.watch(sharedPreferencesProvider);
+    final raw = prefs.getString(
+      _personalizedSnapshotKey(
+        ref.watch(appDatabaseProvider).accountScope ?? 0,
+        ref.watch(activeProfileIdProvider).value ??
+            ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ??
+            1,
+        ref.watch(resolvedLocaleProvider).languageCode,
+      ),
+    );
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      final out = <PersonalizedPickCard>[];
+      for (final item in decoded) {
+        if (item is! Map<String, dynamic>) continue;
+        final streamId = (item['streamId'] as num?)?.toInt();
+        final name = item['name']?.toString();
+        final type = item['type']?.toString();
+        if (streamId == null || name == null || type == null) continue;
+        // Construct a *minimal* Channel object — enough to render the
+        // tile and route the onTap callback. Other fields default to
+        // null; downstream consumers (detail page) re-fetch the full
+        // row by (streamId, type) from Drift.
+        final channel = Channel(
+          accountId: ref.read(appDatabaseProvider).accountScope ?? 0,
+          streamId: streamId,
+          name: name,
+          type: type,
+          categoryId: '',
+          streamIcon: item['streamIcon'] as String?,
+        );
+        out.add(
+          PersonalizedPickCard(
+            channel: channel,
+            reason: item['reason']?.toString() ?? '',
+          ),
+        );
+      }
+      return out.isEmpty ? null : out;
+    } catch (e) {
+      debugPrint('[snapshot] decode failed: $e');
+      return null;
     }
-    return out.isEmpty ? null : out;
-  } catch (e) {
-    debugPrint('[snapshot] decode failed: $e');
-    return null;
-  }
-});
+  },
+);
 
 /// Persist the resolved rail snapshot for the next cold start.
 /// Called by the async provider after every successful resolve so
@@ -128,8 +135,14 @@ Future<void> _savePersonalizedSnapshot(
         },
     ]);
     if (cards.isNotEmpty) {
-      await prefs.setString(_personalizedSnapshotKey(cards.first.channel.accountId,
-          profileId), json);
+      await prefs.setString(
+        _personalizedSnapshotKey(
+          cards.first.channel.accountId,
+          profileId,
+          ref.read(resolvedLocaleProvider).languageCode,
+        ),
+        json,
+      );
     }
   } catch (_) {
     // Snapshot write is best-effort; failure just means the next
@@ -139,8 +152,8 @@ Future<void> _savePersonalizedSnapshot(
 
 final personalizedPicksRefreshSeedProvider =
     NotifierProvider<_PersonalizedPicksRefreshSeed, int>(
-  _PersonalizedPicksRefreshSeed.new,
-);
+      _PersonalizedPicksRefreshSeed.new,
+    );
 
 /// Future provider for the "Sana Özel" dashboard rail.
 ///
@@ -167,16 +180,20 @@ final personalizedPicksRefreshSeedProvider =
 ///      stale, so the rail doesn't blink empty on transient
 ///      errors. Pure cache failures (never been populated) just
 ///      return null.
-final personalizedPicksProvider =
-    FutureProvider<List<PersonalizedPickCard>?>((ref) async {
+final personalizedPicksProvider = FutureProvider<List<PersonalizedPickCard>?>((
+  ref,
+) async {
+  final lang = ref.watch(resolvedLocaleProvider).languageCode;
   final gemini = ref.watch(geminiServiceProvider);
   if (gemini == null) return null; // No key → no rail.
 
   final cacheRepo = ref.watch(personalizedPicksRepositoryProvider);
   final contentRepo = ref.watch(contentRepositoryProvider);
   final db = ref.watch(appDatabaseProvider);
-  final profileId = ref.watch(activeProfileIdProvider).value ??
-      ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ?? 1;
+  final profileId =
+      ref.watch(activeProfileIdProvider).value ??
+      ref.watch(sharedPreferencesProvider).getInt('active_profile_id') ??
+      1;
   // Watch the dislike list — when the user disikes a title in any
   // surface, this stream fires and the provider re-runs so the
   // dismissed item disappears from the rail without a manual
@@ -195,10 +212,8 @@ final personalizedPicksProvider =
   // mostly NULL on Xtream catalogues. We pull more favourites
   // than history because favourites are the stronger signal and
   // we want the AI to see the full saved-for-later pattern.
-  final historySignals =
-      await contentRepo.tasteSignalsFromHistory(limit: 25);
-  final favSignals =
-      await contentRepo.tasteSignalsFromFavorites(limit: 25);
+  final historySignals = await contentRepo.tasteSignalsFromHistory(limit: 25);
+  final favSignals = await contentRepo.tasteSignalsFromFavorites(limit: 25);
 
   // Channel-row lookups still needed for the background-refresh
   // fingerprint + the resolver. We pull the IDs from the signal
@@ -211,10 +226,9 @@ final personalizedPicksProvider =
       .map((m) => (m['id'] as num?)?.toInt())
       .whereType<int>()
       .toList();
-  final channelRows = await (db.select(db.channels)
-        ..where((t) =>
-            t.streamId.isIn({...historyIds, ...favoriteIds})))
-      .get();
+  final channelRows = await (db.select(
+    db.channels,
+  )..where((t) => t.streamId.isIn({...historyIds, ...favoriteIds}))).get();
   final byId = {for (final c in channelRows) c.streamId: c};
   final history = [
     for (final id in historyIds)
@@ -252,20 +266,20 @@ final personalizedPicksProvider =
     // the stale row immediately and kick off a background refresh
     // so the next open lands the fresh data without blocking the
     // user behind a 5-15 s shimmer.
-    final stale = await cacheRepo.lookupLatest(
-      maxAge: const Duration(days: 7),
-    );
+    final stale = await cacheRepo.lookupLatest(maxAge: const Duration(days: 7));
     if (stale != null && stale.isNotEmpty) {
       debugPrint('[picks] stale cache hit (1-7d), refreshing in bg');
-      Future.microtask(() => _refreshInBackground(
-            ref: ref,
-            gemini: gemini,
-            contentRepo: contentRepo,
-            cacheRepo: cacheRepo,
-            historySignals: historySignals,
-            favSignals: favSignals,
-            sourceHash: sourceHash,
-          ));
+      Future.microtask(
+        () => _refreshInBackground(
+          ref: ref,
+          gemini: gemini,
+          contentRepo: contentRepo,
+          cacheRepo: cacheRepo,
+          historySignals: historySignals,
+          favSignals: favSignals,
+          sourceHash: sourceHash,
+        ),
+      );
       return _resolveAndSnapshot(stale, db, ref, profileId);
     }
   }
@@ -290,14 +304,14 @@ final personalizedPicksProvider =
   final moreLikeIds = await feedbackRepo.getMoreLikeStreamIds();
   final dislikedRows = dislikedIds.isEmpty
       ? const <Channel>[]
-      : await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(dislikedIds.toList())))
-          .get();
+      : await (db.select(
+          db.channels,
+        )..where((t) => t.streamId.isIn(dislikedIds.toList()))).get();
   final moreLikeRows = moreLikeIds.isEmpty
       ? const <Channel>[]
-      : await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(moreLikeIds.toList())))
-          .get();
+      : await (db.select(
+          db.channels,
+        )..where((t) => t.streamId.isIn(moreLikeIds.toList()))).get();
   // Strip disliked ids from the sample before the AI sees them.
   final filteredSample = dislikedIds.isEmpty
       ? sample
@@ -308,14 +322,13 @@ final personalizedPicksProvider =
   String escape(String? s) =>
       (s ?? '').replaceAll('|', ' ').replaceAll('\n', ' ').trim();
   Map<String, dynamic> compactSignal(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-        if (c.director != null && c.director!.isNotEmpty)
-          'director': c.director,
-      };
+    'id': c.streamId,
+    'title': c.name,
+    'type': c.type,
+    if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+    if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+    if (c.director != null && c.director!.isNotEmpty) 'director': c.director,
+  };
   final libraryRows = <String>[
     'id|title|type|year|genre|director|cast|rating',
     for (final c in filteredSample.take(450))
@@ -324,10 +337,6 @@ final personalizedPicksProvider =
   final librarySample = [
     {'_format': 'pipe-separated rows', '_rows': libraryRows},
   ];
-
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
 
   // Hard 20-second cap on the AI call. Without this, a hung
   // Gemini would leave the provider in an indefinite loading
@@ -342,24 +351,24 @@ final personalizedPicksProvider =
   // ranked candidates.
   final tasteProfile = await ref.read(tasteProfileProvider.future);
   final instrumentation = ref.read(aiInstrumentationProvider);
-  final picks = await instrumentation.record<
-      List<({int streamId, String reason})>>(
-    feature: 'recommendForYou',
-    model: AiModelPolicy.dashboardRanking,
-    candidateCount: filteredSample.length,
-    outputCountOf: (p) => p.length,
-    timeout: const Duration(seconds: 20),
-    run: () => gemini.recommendForYou(
-      recentlyWatched: historySignals,
-      favorites: favSignals,
-      librarySample: librarySample,
-      targetLanguage: lang,
-      varietySeed: refreshSeed,
-      moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
-      avoidTitles: dislikedRows.map(compactSignal).toList(),
-      tasteProfile: tasteProfile.toPromptJson(),
-    ),
-  );
+  final picks = await instrumentation
+      .record<List<({int streamId, String reason})>>(
+        feature: 'recommendForYou',
+        model: AiModelPolicy.dashboardRanking,
+        candidateCount: filteredSample.length,
+        outputCountOf: (p) => p.length,
+        timeout: const Duration(seconds: 20),
+        run: () => gemini.recommendForYou(
+          recentlyWatched: historySignals,
+          favorites: favSignals,
+          librarySample: librarySample,
+          targetLanguage: lang,
+          varietySeed: refreshSeed,
+          moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
+          avoidTitles: dislikedRows.map(compactSignal).toList(),
+          tasteProfile: tasteProfile.toPromptJson(),
+        ),
+      );
 
   if (picks != null && picks.isNotEmpty) {
     await cacheRepo.store(sourceHash: sourceHash, picks: picks);
@@ -408,8 +417,10 @@ final personalizedPicksProvider =
         .toList(),
   );
   unawaited(_savePersonalizedSnapshot(ref, lastResort, profileId));
-  debugPrint('[picks] AI unavailable, seeded ${lastResort.length} '
-      'top-rated fallback cards into cache + snapshot');
+  debugPrint(
+    '[picks] AI unavailable, seeded ${lastResort.length} '
+    'top-rated fallback cards into cache + snapshot',
+  );
   return lastResort;
 });
 
@@ -447,9 +458,7 @@ Future<void> _refreshInBackground({
     final librarySample = [
       {'_format': 'pipe-separated rows', '_rows': libraryRows},
     ];
-    final lang = ref.read(settingsProvider).language.name == 'system'
-        ? 'tr'
-        : ref.read(settingsProvider).language.name;
+    final lang = ref.read(resolvedLocaleProvider).languageCode;
     final picks = await gemini
         .recommendForYou(
           recentlyWatched: historySignals,
@@ -483,7 +492,9 @@ String _normaliseTitle(String raw) {
   // Strip trailing year markers, language tags, quality tags.
   s = s.replaceAll(RegExp(r'\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*'), ' ');
   s = s.replaceAll(
-      RegExp(r'\b(4k|uhd|hd|fhd|sd|2160p|1080p|720p|480p)\b'), ' ');
+    RegExp(r'\b(4k|uhd|hd|fhd|sd|2160p|1080p|720p|480p)\b'),
+    ' ',
+  );
   // & → and so variants collapse.
   s = s.replaceAll('&', ' and ');
   // Strip everything that isn't a letter/digit/space.
@@ -557,8 +568,10 @@ Future<List<PersonalizedPickCard>> _resolveAndSnapshot(
       ? picks
       : picks.where((p) => !disliked.contains(p.streamId)).toList();
   if (filteredPicks.length < picks.length) {
-    debugPrint('[picks] filtered ${picks.length - filteredPicks.length} '
-        'disliked items from cached rail');
+    debugPrint(
+      '[picks] filtered ${picks.length - filteredPicks.length} '
+      'disliked items from cached rail',
+    );
   }
   final resolved = await _resolve(filteredPicks, db);
   if (resolved.isNotEmpty) {
@@ -577,9 +590,9 @@ Future<List<PersonalizedPickCard>> _resolve(
 ) async {
   if (picks.isEmpty) return const [];
   final ids = picks.map((p) => p.streamId).toList();
-  final rows = await (db.select(db.channels)
-        ..where((t) => t.streamId.isIn(ids)))
-      .get();
+  final rows = await (db.select(
+    db.channels,
+  )..where((t) => t.streamId.isIn(ids))).get();
   final byId = {for (final c in rows) c.streamId: c};
   final out = <PersonalizedPickCard>[];
   final seen = <String>{};

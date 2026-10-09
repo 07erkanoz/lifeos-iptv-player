@@ -1098,14 +1098,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Cuando está activo, el reproductor muestra un botón \'Saltar Intro\' durante el rango marcado.';
 
   @override
+  String get markIntro => 'Marcar introducción';
+
+  @override
   String get markIntroStart => 'El intro empieza aquí';
 
   @override
   String get markIntroEnd => 'El intro termina aquí';
 
   @override
-  String get introMarked =>
-      'Intro guardado. El siguiente episodio te ofrecerá saltarlo.';
+  String get introMarked => 'Introducción guardada para este episodio.';
 
   @override
   String get introCleared => 'Marca de intro eliminada.';
@@ -1651,4 +1653,25 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Opcional. Se envían por una conexión local sin cifrar. El acceso a la cuenta se selecciona por separado.';
+
+  @override
+  String get playerPause => 'Pausar';
+
+  @override
+  String get playerPreviousEpisode => 'Episodio anterior';
+
+  @override
+  String get playerSeekBack => 'Retroceder 10 segundos';
+
+  @override
+  String get playerSeekForward => 'Avanzar 10 segundos';
+
+  @override
+  String get playerVolume => 'Volumen';
+
+  @override
+  String get playerAlwaysOnTop => 'Siempre visible';
+
+  @override
+  String get playerProgrammeGuide => 'Guía de programas';
 }

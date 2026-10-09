@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/services/ai_operation.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -62,6 +63,7 @@ class NotificationService {
   }) async {
     if (!(Platform.isAndroid || Platform.isIOS)) return false;
     if (!await requestPermission()) return false;
+    AiOperation.current?.checkActive();
     final when = tz.TZDateTime.from(
       DateTime.fromMillisecondsSinceEpoch(whenEpochMs),
       tz.UTC,

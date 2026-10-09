@@ -51,7 +51,7 @@ void main() {
             .data
             .values
             .single,
-        29,
+        db.schemaVersion,
       );
     },
   );

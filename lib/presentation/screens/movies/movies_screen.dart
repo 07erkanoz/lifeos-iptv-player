@@ -74,6 +74,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   Channel? _detailChannel;
   Map<String, dynamic>? _vodInfo;
   bool _loadingDetail = false;
+  int _detailRequest = 0;
   bool _detailInitialFocusPending = false;
 
   // Memoised "similar" rail. _selectSimilarContent is an O(N) main-isolate
@@ -277,6 +278,14 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _openDetail(Channel ch) async {
+    final request = ++_detailRequest;
+    final accountId = ref.read(currentAccountProvider).value?.id;
+    bool isCurrent() =>
+        mounted &&
+        request == _detailRequest &&
+        _detailChannel?.streamId == ch.streamId &&
+        _detailChannel?.accountId == ch.accountId &&
+        ref.read(currentAccountProvider).value?.id == accountId;
     _detailInitialFocusPending = true;
     // Push the detail's primary action as the active overlay focus
     // target. While present this takes precedence over the grid in
@@ -335,7 +344,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           if (ch.streamIcon != null) 'movie_image': ch.streamIcon,
         },
       };
-      if (mounted) {
+      if (isCurrent()) {
         setState(() {
           _vodInfo = basicInfo;
           _loadingDetail = false;
@@ -352,7 +361,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         account.password ?? '',
         ch.streamId,
       );
-      if (mounted) {
+      if (isCurrent()) {
         setState(() {
           _vodInfo = info;
           _loadingDetail = false;
@@ -361,7 +370,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         _cacheMetadata(ch, info);
       }
     } catch (_) {
-      if (mounted) {
+      if (isCurrent()) {
         setState(() => _loadingDetail = false);
         _focusDetailWhenReady();
       }
@@ -370,6 +379,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
 
   /// Silently refresh detail from API and update cache (no loading indicator)
   void _refreshDetailInBackground(Channel ch) async {
+    final request = _detailRequest;
     final account = ref.read(currentAccountProvider).value;
     if (account == null || account.type == 'm3u') return;
     final api = ref.read(xtreamApiServiceProvider);
@@ -380,7 +390,12 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
         account.password ?? '',
         ch.streamId,
       );
-      if (mounted && _detailChannel?.streamId == ch.streamId && info != null) {
+      if (mounted &&
+          request == _detailRequest &&
+          ref.read(currentAccountProvider).value?.id == account.id &&
+          _detailChannel?.accountId == ch.accountId &&
+          _detailChannel?.streamId == ch.streamId &&
+          info != null) {
         setState(() => _vodInfo = info);
         _cacheMetadata(ch, info);
       }
@@ -819,6 +834,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
   }
 
   void _closeDetail() {
+    ++_detailRequest;
     _detailInitialFocusPending = false;
     _similarCacheKey = null;
     _similarCache = const [];

@@ -1,0 +1,25 @@
+{
+  "note": "Synthetic Linux host test, 10000 vectors, 768 dimensions. Timer gaps are not video frames. RSS includes test process and SQLite fixtures; this is not an isolated peak-RAM measurement.",
+  "samples": [
+    {
+      "kind": "semantic-ranking",
+      "rows": 60,
+      "bytes": 0,
+      "mode": "full-main",
+      "wallMs": 128.217,
+      "maxMainTimerGapMs": 129.437,
+      "ticks": 7,
+      "processRssMiB": 355.03515625
+    },
+    {
+      "kind": "semantic-ranking",
+      "rows": 60,
+      "bytes": 0,
+      "mode": "paged-worker",
+      "wallMs": 179.915,
+      "maxMainTimerGapMs": 33.045,
+      "ticks": 21,
+      "processRssMiB": 369.7109375
+    }
+  ]
+}

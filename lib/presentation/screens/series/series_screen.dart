@@ -1,3 +1,5 @@
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/services/series_episode.dart';
 import 'package:lifeostv/presentation/state/m3u_series_provider.dart';
@@ -28,7 +30,6 @@ import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/favorites_repository.dart';
 import 'package:lifeostv/data/repositories/player_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/presentation/screens/player/video_player_screen.dart';
 import 'package:lifeostv/presentation/widgets/ai/cast_deep_dive_sheet.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
@@ -601,11 +602,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   /// Gemini's reply matches whatever the rest of the app is
   /// rendering in.
   String _userLanguageCode() {
-    final appLang = ref.read(settingsProvider).language;
-    if (appLang == AppLanguage.system) {
-      return Localizations.localeOf(context).languageCode;
-    }
-    return appLang.name;
+    return ref.read(resolvedLocaleProvider).languageCode;
   }
 
   /// Fire-and-forget batch fetch of AI-generated mini-recaps for
@@ -824,50 +821,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       fullTitle = parts.join(' • ');
     }
 
-    // Find next episode info — skip the "next" link entirely if the
-    // candidate episode has no parseable id (corrupted Xtream JSON)
-    // rather than pushing /player with a bogus id that yields 404.
-    String? nextEpTitle;
-    VoidCallback? onNextEp;
-    if (currentIdx >= 0 && currentIdx < allEpisodes.length - 1) {
-      final nextEp = allEpisodes[currentIdx + 1];
-      final nextId = _episodeIdOf(nextEp);
-      if (nextId != -1) {
-        final nextExt = nextEp['container_extension']?.toString() ?? 'mp4';
-        final nextNum = nextEp['episode_num']?.toString() ?? '';
-        final nextSeason = nextEp['_season']?.toString() ?? '';
-        nextEpTitle = 'S${nextSeason}E$nextNum ${nextEp['title'] ?? ''}';
-        onNextEp = () async {
-          // Pop current player, then wait briefly so its native media_kit
-          // resources (SurfaceTexture, decoder) are fully released before
-          // the next Player is created. Pushing immediately on Android can
-          // leave two live Players contending for GPU/decoder slots.
-          if (context.canPop()) context.pop();
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (!mounted || request != _detailRequest) return;
-          _playEpisode(nextId, nextExt);
-        };
-      }
-    }
-
-    // Find previous episode callback — same guard.
-    VoidCallback? onPrevEp;
-    String? previousEpTitle;
-    if (currentIdx > 0) {
-      final prevEp = allEpisodes[currentIdx - 1];
-      final prevId = _episodeIdOf(prevEp);
-      previousEpTitle =
-          'S${prevEp['_season']}E${prevEp['episode_num']} ${prevEp['title'] ?? ''}';
-      if (prevId != -1) {
-        final prevExt = prevEp['container_extension']?.toString() ?? 'mp4';
-        onPrevEp = () async {
-          if (context.canPop()) context.pop();
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (!mounted || request != _detailRequest) return;
-          _playEpisode(prevId, prevExt);
-        };
-      }
-    }
+    final playlist = EpisodePlaylist([
+      for (final episode in allEpisodes)
+        EpisodeSource.fromProvider(
+          episode,
+          url: seriesEpisodeUrl(acc, episode),
+          seriesTitle: seriesName,
+          plot: info?['plot']?.toString() ?? _detailChannel?.plot,
+          genre: info?['genre']?.toString() ?? _detailChannel?.genre,
+          year:
+              info?['releaseDate']?.toString().split('-').firstOrNull ??
+              _detailChannel?.year,
+          rating: ratingVal,
+        ),
+    ], currentIdx);
 
     await context.push(
       '/player',
@@ -895,10 +862,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         'director': info?['director'] ?? _detailChannel?.director,
         'cast': info?['cast'] ?? _detailChannel?.cast,
         'rating': ratingVal,
-        'nextEpisodeTitle': nextEpTitle,
-        'onNextEpisode': onNextEp,
-        'onPrevEpisode': onPrevEp,
-        'previousEpisodeTitle': previousEpTitle,
+        'episodePlaylist': playlist,
       },
     );
 

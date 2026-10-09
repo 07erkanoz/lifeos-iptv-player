@@ -1,0 +1,27 @@
+00:00 +0: loading /tmp/lifeos-catalog_benchmark_test.dart
+00:00 +0: /tmp/lifeos-catalog_benchmark_test.dart: 10k catalogue exact and typo search responsiveness
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///tmp/lifeos-catalog_benchmark_test.dart:19:21)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:00 +0: /tmp/lifeos-embedding_benchmark_test.dart: 10k x 768 semantic vectors with bounded worker ranking
+{"note":"Synthetic Linux host test, 10000 vectors, 768 dimensions. Timer gaps are not video frames. RSS includes test process and SQLite fixtures; this is not an isolated peak-RAM measurement.","samples":[{"kind":"semantic-ranking","rows":60,"bytes":0,"mode":"full-main","wallMs":128.217,"maxMainTimerGapMs":129.437,"ticks":7,"processRssMiB":355.03515625},{"kind":"semantic-ranking","rows":60,"bytes":0,"mode":"paged-worker","wallMs":179.915,"maxMainTimerGapMs":33.045,"ticks":21,"processRssMiB":369.7109375}]}
+00:00 +1: /tmp/lifeos-catalog_benchmark_test.dart: 10k catalogue exact and typo search responsiveness
+{"note":"Synthetic 10000-row Linux host fixture. NativeDatabase.memory runs SQLite in the test isolate; production DB uses a worker. Timer gaps are not frame times. Full-main comparison has equal catalogue coverage; old 6000-row fallback omitted target.","samples":[{"kind":"full-catalogue-fuzzy","rows":1,"bytes":0,"mode":"full-main","wallMs":187.389,"maxMainTimerGapMs":184.114,"ticks":7,"processRssMiB":274.5546875},{"kind":"interstellar","rows":1,"bytes":0,"mode":"paged-worker-unindexed","wallMs":622.133,"maxMainTimerGapMs":35.04,"ticks":57,"processRssMiB":281.921875},{"kind":"intersttellar","rows":1,"bytes":0,"mode":"paged-worker-unindexed","wallMs":1047.389,"maxMainTimerGapMs":24.252,"ticks":103,"processRssMiB":283.57421875},{"kind":"interstellar","rows":1,"bytes":0,"mode":"indexed-worker","wallMs":5.049,"maxMainTimerGapMs":11.154,"ticks":6,"processRssMiB":286.82421875}]}
+00:05 +2: All tests passed!

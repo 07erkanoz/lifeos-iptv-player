@@ -286,7 +286,7 @@ void main() {
       final json = await BackupService(
         a,
       ).exportToJson(); // Scoped caller must export all accounts.
-      expect(jsonDecode(json)['version'], 4);
+      expect(jsonDecode(json)['version'], 5);
       await BackupService(root).importFromJson(json);
       expect((await a.select(a.favorites).getSingle()).name, 'A');
       expect((await b.select(b.favorites).getSingle()).name, 'B');

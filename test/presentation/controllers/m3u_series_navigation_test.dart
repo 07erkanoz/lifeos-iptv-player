@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_provider.dart';
 import 'package:lifeostv/core/tv_focus/tv_focus_branches.dart';
 import 'package:dio/dio.dart';
@@ -158,12 +159,21 @@ void main() {
       expect(playback?['startPosition'], const Duration(seconds: 30));
       expect(playback?['saveSeriesSummary'], false);
       expect(playback?['url'], 'https://example.invalid/1001.mp4?token=exact');
-      (playback!['onNextEpisode'] as VoidCallback)();
-      await tester.pumpAndSettle(const Duration(milliseconds: 300));
-      expect(playback?['streamId'], 1002);
-      expect(playback?['url'], 'https://example.invalid/1002.mp4?token=exact');
-      expect(playback?['onNextEpisode'], isNull);
-      expect(playback?['onPrevEpisode'], isNotNull);
+      final playlist = playback!['episodePlaylist'] as EpisodePlaylist;
+      final navigator = EpisodeNavigator(playlist);
+      expect(navigator.current.streamId, 1001);
+      await navigator.move(
+        1,
+        save: () async {},
+        open: (episode) async {
+          expect(episode.streamId, 1002);
+          expect(episode.url, 'https://example.invalid/1002.mp4?token=exact');
+        },
+      );
+      expect(navigator.next, isNull);
+      expect(navigator.previous?.streamId, 1001);
+      // The series supplies a playlist once; navigation stays in this route.
+      expect(playback?['streamId'], 1001);
       router.pop();
       for (var i = 0; i < 4; i++) {
         await tester.runAsync(

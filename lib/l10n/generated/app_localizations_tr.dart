@@ -1092,14 +1092,16 @@ class AppLocalizationsTr extends AppLocalizations {
       'Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken \'İntroyu Atla\' butonu gösterir.';
 
   @override
+  String get markIntro => 'İntroyu işaretle';
+
+  @override
   String get markIntroStart => 'İntro burada başlıyor';
 
   @override
   String get markIntroEnd => 'İntro burada bitiyor';
 
   @override
-  String get introMarked =>
-      'İntro kaydedildi. Sonraki bölümde atlamayı önerecek.';
+  String get introMarked => 'İntro bu bölüm için kaydedildi.';
 
   @override
   String get introCleared => 'İntro işareti silindi.';
@@ -1643,4 +1645,25 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir.';
+
+  @override
+  String get playerPause => 'Duraklat';
+
+  @override
+  String get playerPreviousEpisode => 'Önceki bölüm';
+
+  @override
+  String get playerSeekBack => '10 saniye geri';
+
+  @override
+  String get playerSeekForward => '10 saniye ileri';
+
+  @override
+  String get playerVolume => 'Ses seviyesi';
+
+  @override
+  String get playerAlwaysOnTop => 'Her zaman üstte';
+
+  @override
+  String get playerProgrammeGuide => 'Program rehberi';
 }

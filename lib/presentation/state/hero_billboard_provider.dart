@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,8 +35,8 @@ class HeroBillboard {
 /// per app session. The hero doesn't need to refresh aggressively;
 /// most users restart the app multiple times a week, and the
 /// underlying library state changes much slower than the rail.
-final heroBillboardProvider =
-    FutureProvider<HeroBillboard?>((ref) async {
+final heroBillboardProvider = FutureProvider<HeroBillboard?>((ref) async {
+  final lang = ref.watch(resolvedLocaleProvider).languageCode;
   final gemini = ref.watch(geminiServiceProvider);
   if (gemini == null) return null;
 
@@ -52,47 +53,52 @@ final heroBillboardProvider =
   // before deciding whether we need the heavy sample + AI work. If
   // the fingerprint matches and cache is fresh, we skip everything
   // below and return cached picks directly.
-  final histIds = await (db.select(db.playbackProgress)
-        ..where((t) => t.position.isBiggerThanValue(0))
-        ..orderBy([
-          (t) => OrderingTerm(
-              expression: t.updatedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final favIds = await (db.select(db.favorites)
-        ..orderBy([
-          (t) => OrderingTerm(
-              expression: t.addedAt, mode: OrderingMode.desc),
-        ])
-        ..limit(10))
-      .get();
-  final lang = ref.read(settingsProvider).language.name == 'system'
-      ? 'tr'
-      : ref.read(settingsProvider).language.name;
+  final histIds =
+      await (db.select(db.playbackProgress)
+            ..where((t) => t.position.isBiggerThanValue(0))
+            ..orderBy([
+              (t) => OrderingTerm(
+                expression: t.updatedAt,
+                mode: OrderingMode.desc,
+              ),
+            ])
+            ..limit(10))
+          .get();
+  final favIds =
+      await (db.select(db.favorites)
+            ..orderBy([
+              (t) =>
+                  OrderingTerm(expression: t.addedAt, mode: OrderingMode.desc),
+            ])
+            ..limit(10))
+          .get();
   final timeOfDay = _bucketOfDay(DateTime.now());
 
   // Cheap probe: max `added` timestamp across VOD. Folded into the
   // fingerprint so any new content landing in the catalogue auto-
   // invalidates the cached hero — we WANT the hero to react to new
   // items, that's the whole point of the recent-additions prompt.
-  final newest = await (db.selectOnly(db.channels)
-        ..addColumns([db.channels.added])
-        ..where(db.channels.type.equals('movie') |
-            db.channels.type.equals('series'))
-        ..orderBy([
-          OrderingTerm(
-              expression: db.channels.added, mode: OrderingMode.desc),
-        ])
-        ..limit(1))
-      .map((row) => row.read(db.channels.added) ?? '')
-      .getSingleOrNull();
+  final newest =
+      await (db.selectOnly(db.channels)
+            ..addColumns([db.channels.added])
+            ..where(
+              db.channels.type.equals('movie') |
+                  db.channels.type.equals('series'),
+            )
+            ..orderBy([
+              OrderingTerm(
+                expression: db.channels.added,
+                mode: OrderingMode.desc,
+              ),
+            ])
+            ..limit(1))
+          .map((row) => row.read(db.channels.added) ?? '')
+          .getSingleOrNull();
 
   // Pull feedback ids early so they can join the fingerprint —
   // toggling a dislike / moreLike anywhere in the app invalidates
   // the cached hero on the next paint.
-  final feedbackRepoEarly =
-      ref.read(aiFeedbackRepositoryProvider);
+  final feedbackRepoEarly = ref.read(aiFeedbackRepositoryProvider);
   final dislikedIdsForKey =
       (await feedbackRepoEarly.getDislikedStreamIds()).toList()..sort();
   final moreLikeIdsForKey =
@@ -102,7 +108,8 @@ final heroBillboardProvider =
   // fingerprint. Bumped to hero-v3 so old v2 cache rows get a clean
   // recompute the first time this build runs (they don't know about
   // disliked / moreLike yet).
-  final fpBlob = 'hero-v3|lang=$lang|tod=$timeOfDay'
+  final fpBlob =
+      'hero-v3|lang=$lang|tod=$timeOfDay'
       '|n=${newest ?? ""}'
       '|h=${(histIds.map((r) => r.streamId).toList()..sort()).join(",")}'
       '|f=${(favIds.map((r) => r.streamId).toList()..sort()).join(",")}'
@@ -122,9 +129,9 @@ final heroBillboardProvider =
     final taglineMap =
         (cached['taglines'] as Map?)?.cast<String, String>() ?? const {};
     if (ids.isNotEmpty) {
-      final rows = await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(ids)))
-          .get();
+      final rows = await (db.select(
+        db.channels,
+      )..where((t) => t.streamId.isIn(ids))).get();
       final byId = <int, Channel>{};
       for (final c in rows) {
         byId.putIfAbsent(c.streamId, () => c);
@@ -138,8 +145,10 @@ final heroBillboardProvider =
         taglines[id] = taglineMap[id.toString()] ?? '';
       }
       if (channels.isNotEmpty) {
-        debugPrint('[hero] cache hit ($sourceHash), '
-            '${channels.length} channels resolved');
+        debugPrint(
+          '[hero] cache hit ($sourceHash), '
+          '${channels.length} channels resolved',
+        );
         return HeroBillboard(channels: channels, taglines: taglines);
       }
     }
@@ -151,10 +160,8 @@ final heroBillboardProvider =
   // categories so the per-item map includes the catalog category
   // label, which is the only place the genre actually lives on this
   // user's Xtream feed.
-  final historySignals =
-      await contentRepo.tasteSignalsFromHistory(limit: 12);
-  final favSignals =
-      await contentRepo.tasteSignalsFromFavorites(limit: 12);
+  final historySignals = await contentRepo.tasteSignalsFromHistory(limit: 12);
+  final favSignals = await contentRepo.tasteSignalsFromFavorites(limit: 12);
 
   // ── Feedback signals ──────────────────────────────────────────────
   // Pull the user's global dislike + moreLike lists. The hero
@@ -166,51 +173,60 @@ final heroBillboardProvider =
   final moreLikeIds = await feedbackRepo.getMoreLikeStreamIds();
   final dislikedRows = dislikedIds.isEmpty
       ? const <Channel>[]
-      : await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(dislikedIds.toList())))
-          .get();
+      : await (db.select(
+          db.channels,
+        )..where((t) => t.streamId.isIn(dislikedIds.toList()))).get();
   final moreLikeRows = moreLikeIds.isEmpty
       ? const <Channel>[]
-      : await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(moreLikeIds.toList())))
-          .get();
+      : await (db.select(
+          db.channels,
+        )..where((t) => t.streamId.isIn(moreLikeIds.toList()))).get();
 
   // ── Recent additions pool ─────────────────────────────────────────
   // The hero's primary job is to surface what's new in the catalogue.
   // Pull the freshest VOD by the Xtream `added` timestamp (text-typed
-  // Unix epoch, so we can't push the order into SQL — sort in Dart
-  // after a bounded fetch). Filter for items that have a backdrop or
+  // Unix epoch, ordered numerically in SQL before applying the limit). Filter for items that have a backdrop or
   // at least a poster so the hero panel doesn't render broken.
   // Join categories + filter isHidden so a category the user hid in
   // account settings never leaks into the hero billboard.
-  final allVodRows = await (db.select(db.channels).join([
-    db.accountInnerJoin(
-      db.categories,
-      db.categories.id.equalsExp(db.channels.categoryId) &
-          db.categories.type.equalsExp(db.channels.type),
-    ),
-  ])
-        ..where((db.channels.type.equals('movie') |
-                db.channels.type.equals('series')) &
-            db.categories.isHidden.equals(false) &
-            (ref.read(settingsProvider).autoHideAdult
-                ? _heroNotAdult(db.categories)
-                : const Constant(true)))
-        ..limit(2000))
-      .get();
+  final allVodRows =
+      await (db.select(db.channels).join([
+              db.accountInnerJoin(
+                db.categories,
+                db.categories.id.equalsExp(db.channels.categoryId) &
+                    db.categories.type.equalsExp(db.channels.type),
+              ),
+            ])
+            ..where(
+              (db.channels.type.equals('movie') |
+                      db.channels.type.equals('series')) &
+                  db.categories.isHidden.equals(false) &
+                  (ref.read(settingsProvider).autoHideAdult
+                      ? _heroNotAdult(db.categories)
+                      : const Constant(true)),
+            )
+            ..orderBy([
+              OrderingTerm(
+                expression: db.channels.added.cast<int>(),
+                mode: OrderingMode.desc,
+              ),
+            ])
+            ..limit(2000))
+          .get();
   final allVod = allVodRows.map((r) => r.readTable(db.channels)).toList();
-  int parseAdded(Channel c) =>
-      int.tryParse(c.added?.trim() ?? '') ?? 0;
+  int parseAdded(Channel c) => int.tryParse(c.added?.trim() ?? '') ?? 0;
   final sortedByAdded = allVod.toList()
     ..sort((a, b) => parseAdded(b).compareTo(parseAdded(a)));
   // Strip disliked items from the recent-additions pool BEFORE the
   // AI sees them — a disliked title can never reach the hero again,
   // regardless of how fresh it is.
   final recentWithArt = sortedByAdded
-      .where((c) =>
-          !dislikedIds.contains(c.streamId) &&
-          ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
-              (c.streamIcon != null && c.streamIcon!.isNotEmpty)))
+      .where(
+        (c) =>
+            !dislikedIds.contains(c.streamId) &&
+            ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
+                (c.streamIcon != null && c.streamIcon!.isNotEmpty)),
+      )
       .take(80)
       .toList();
 
@@ -223,10 +239,12 @@ final heroBillboardProvider =
     livePerType: 0,
   );
   final withBackdrop = sample
-      .where((c) =>
-          !dislikedIds.contains(c.streamId) &&
-          ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
-              (c.streamIcon != null && c.streamIcon!.isNotEmpty)))
+      .where(
+        (c) =>
+            !dislikedIds.contains(c.streamId) &&
+            ((c.backdropPath != null && c.backdropPath!.isNotEmpty) ||
+                (c.streamIcon != null && c.streamIcon!.isNotEmpty)),
+      )
       .toList();
   // Same dislike filter on the rare fallback path too — if the
   // backdrop net shrank to under 50 items, we expand to the full
@@ -247,10 +265,7 @@ final heroBillboardProvider =
       : [
           {
             '_format': 'pipe-separated rows, newest-first',
-            '_rows': [
-              header,
-              for (final c in recentWithArt) rowOf(c),
-            ],
+            '_rows': [header, for (final c in recentWithArt) rowOf(c)],
           },
         ];
 
@@ -272,14 +287,13 @@ final heroBillboardProvider =
   // Compact feedback signal maps for the AI prompt — same shape as
   // the "Sana Özel" rail uses so the model gets consistent context.
   Map<String, dynamic> compactSignal(Channel c) => {
-        'id': c.streamId,
-        'title': c.name,
-        'type': c.type,
-        if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
-        if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
-        if (c.director != null && c.director!.isNotEmpty)
-          'director': c.director,
-      };
+    'id': c.streamId,
+    'title': c.name,
+    'type': c.type,
+    if (c.year != null && c.year!.isNotEmpty) 'year': c.year,
+    if (c.genre != null && c.genre!.isNotEmpty) 'genre': c.genre,
+    if (c.director != null && c.director!.isNotEmpty) 'director': c.director,
+  };
 
   // Pull the unified taste profile — same one Sana Özel uses. Reads
   // off the shared provider so the four-query aggregation runs once
@@ -289,31 +303,31 @@ final heroBillboardProvider =
   final instrumentation = ref.read(aiInstrumentationProvider);
   final picks = await instrumentation
       .record<List<({int streamId, String tagline})>>(
-    feature: 'generateHeroBillboard',
-    model: AiModelPolicy.dashboardRanking,
-    candidateCount: recentWithArt.length + pool.length,
-    outputCountOf: (p) => p.length,
-    timeout: const Duration(seconds: 20),
-    run: () => gemini.generateHeroBillboard(
-      recentlyWatched: historySignals,
-      favorites: favSignals,
-      recentAdditions: recentAdditionsPayload,
-      librarySample: librarySample,
-      timeOfDay: timeOfDay,
-      targetLanguage: lang,
-      moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
-      avoidTitles: dislikedRows.map(compactSignal).toList(),
-      tasteProfile: tasteProfile.toPromptJson(),
-    ),
-  );
+        feature: 'generateHeroBillboard',
+        model: AiModelPolicy.dashboardRanking,
+        candidateCount: recentWithArt.length + pool.length,
+        outputCountOf: (p) => p.length,
+        timeout: const Duration(seconds: 20),
+        run: () => gemini.generateHeroBillboard(
+          recentlyWatched: historySignals,
+          favorites: favSignals,
+          recentAdditions: recentAdditionsPayload,
+          librarySample: librarySample,
+          timeOfDay: timeOfDay,
+          targetLanguage: lang,
+          moreLikeAnchors: moreLikeRows.map(compactSignal).toList(),
+          avoidTitles: dislikedRows.map(compactSignal).toList(),
+          tasteProfile: tasteProfile.toPromptJson(),
+        ),
+      );
 
   if (picks == null || picks.isEmpty) return null;
 
   // Resolve to Channel rows in the order AI picked them.
   final ids = picks.map((p) => p.streamId).toList();
-  final rows = await (db.select(db.channels)
-        ..where((t) => t.streamId.isIn(ids)))
-      .get();
+  final rows = await (db.select(
+    db.channels,
+  )..where((t) => t.streamId.isIn(ids))).get();
   final byId = {for (final c in rows) c.streamId: c};
   final ordered = <Channel>[];
   final taglines = <int, String>{};
@@ -335,8 +349,7 @@ final heroBillboardProvider =
     sourceHash: sourceHash,
     payload: {
       'ids': ordered.map((c) => c.streamId).toList(),
-      'taglines':
-          taglines.map((k, v) => MapEntry(k.toString(), v)),
+      'taglines': taglines.map((k, v) => MapEntry(k.toString(), v)),
     },
   );
   debugPrint('[hero] cached ${ordered.length} picks under $sourceHash');
@@ -356,8 +369,18 @@ String _bucketOfDay(DateTime now) {
 /// filter so the hero billboard honours the "18+/XXX gizle" setting.
 Expression<bool> _heroNotAdult($CategoriesTable c) {
   const patterns = [
-    'xxx', 'adult', 'erotic', 'erotik', 'porn', '+18', '18+',
-    'dorcel', 'brazzers', 'hardcore', 'yetişkin', 'yetiskin',
+    'xxx',
+    'adult',
+    'erotic',
+    'erotik',
+    'porn',
+    '+18',
+    '18+',
+    'dorcel',
+    'brazzers',
+    'hardcore',
+    'yetişkin',
+    'yetiskin',
   ];
   Expression<bool> e = const Constant(true);
   for (final p in patterns) {

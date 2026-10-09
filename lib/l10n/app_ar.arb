@@ -431,9 +431,10 @@
   "skipIntro": "تخطي المقدمة",
   "skipIntroSetting": "إظهار زر تخطي المقدمة",
   "skipIntroSettingDesc": "عند التفعيل، يعرض المشغل زر 'تخطي المقدمة' أثناء النطاق المحدد.",
+  "markIntro": "تحديد المقدمة",
   "markIntroStart": "تبدأ المقدمة هنا",
   "markIntroEnd": "تنتهي المقدمة هنا",
-  "introMarked": "تم حفظ المقدمة. ستقترح الحلقة التالية تخطيها.",
+  "introMarked": "تم حفظ المقدمة لهذه الحلقة.",
   "introCleared": "تم مسح علامة المقدمة.",
   "introMarkInvalid": "يجب أن يكون وقت النهاية بعد وقت البداية.",
   "dashboardForYouTitle": "لك",
@@ -638,5 +639,12 @@
   "heroTrailerOnMobile": "تشغيل مقطع البطل",
   "heroTrailerOnMobileDesc": "تشغيل مقطع YouTube الصامت خلف بطل لوحة التحكم تلقائيًا. يستهلك بيانات الجوال؛ متوقف افتراضيًا.",
   "deviceSyncCatSecrets": "مفاتيح API ورموز PIN",
-  "deviceSyncSecretsHint": "اختياري. تُرسل عبر اتصال محلي غير مشفر. تُحدد بيانات الحساب بشكل منفصل."
+  "deviceSyncSecretsHint": "اختياري. تُرسل عبر اتصال محلي غير مشفر. تُحدد بيانات الحساب بشكل منفصل.",
+  "playerPause": "إيقاف مؤقت",
+  "playerPreviousEpisode": "الحلقة السابقة",
+  "playerSeekBack": "رجوع 10 ثوانٍ",
+  "playerSeekForward": "تقديم 10 ثوانٍ",
+  "playerVolume": "مستوى الصوت",
+  "playerAlwaysOnTop": "دائمًا في المقدمة",
+  "playerProgrammeGuide": "دليل البرامج"
 }

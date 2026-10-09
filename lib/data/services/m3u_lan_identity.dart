@@ -44,5 +44,26 @@ Map<String, dynamic> remapM3uLanPayload(
     }
     out[key] = mapped;
   }
+  final markers = payload['introMarkers'];
+  if (markers is List) {
+    out['introMarkers'] = <Map<String, dynamic>>[];
+    for (final raw in markers) {
+      if (raw is! Map) continue;
+      final series = remote[('series', raw['seriesId'])];
+      final episode = raw['episodeId'] == 0
+          ? 0
+          : remote[('series', raw['episodeId'])];
+      if (series == null || episode == null) {
+        if (requireAll)
+          throw const FormatException('Unmatched M3U intro identity');
+        continue;
+      }
+      (out['introMarkers'] as List).add({
+        ...Map<String, dynamic>.from(raw),
+        'seriesId': series,
+        'episodeId': episode,
+      });
+    }
+  }
   return out;
 }

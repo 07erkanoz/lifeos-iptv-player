@@ -1,5 +1,7 @@
 # LifeOS TV — Yayın öncesi inceleme
 
+**Düzeltme takibi:** F03 sonrası uygulanan değişiklikler ve kalan cihaz testleri [9 Ekim düzeltme raporunda](F03_SONRASI_DUZELTMELER_2026-10-09.md). Aşağıdaki inceleme düzeltme öncesi bulguları korur.
+
 Tarih: 9 Ekim 2026. İncelenen sürüm: **1.13.6+2087**, commit **9df7d033318ab7e7236e6b0f4aa878a4038960a9**. İnceleme Linux bilgisayarında Flutter 3.47.2 / Dart 3.13.2 ile yapıldı. Kaynak kod, yerel paket değişiklikleri, dağıtım ayarları, mevcut testler ve aşağıdaki sentetik kontroller değerlendirildi.
 
 **Değerlendirme: mevcut sürüm bütün hedef platformlarda son kullanıcıya yayınlanmaya hazır olarak onaylanamaz.** Testler geçiyor; buna rağmen bölüm geçişi, Android TV özellik eşitliği, Gemini geçişi, Kürtçe dil altyapısı ve macOS izin/dağıtım ayarlarında somut eksikler var. Mevcut testlerin geçmesi bu kullanıcı akışlarının doğrulandığı anlamına gelmiyor.

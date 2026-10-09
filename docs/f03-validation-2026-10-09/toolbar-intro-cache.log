@@ -1,0 +1,57 @@
+00:00 +0: loading /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart
+00:00 +0: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart: persistent AI cache isolates account, profile and language
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart:10:47)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart:17:10)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:00 +1: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:00 +2: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:01 +3: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:01 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:01 +5: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:01 +6: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:02 +6: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/intro_marker_sync_test.dart: LAN snapshot preserves scoped markers and prevents stale resurrection
+[LanSync] merged: favAdded=0 progAdded=0 enrichAdded=0 catApplied=0
+00:02 +7: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:02 +8: /tmp/lifeos_toolbar_preview_test.dart: render responsive toolbar previews
+00:02 +9: /tmp/lifeos_toolbar_preview_test.dart: render responsive toolbar previews
+00:02 +10: /tmp/lifeos_toolbar_preview_test.dart: render responsive toolbar previews
+00:02 +11: /tmp/lifeos_toolbar_preview_test.dart: render responsive toolbar previews
+00:02 +12: /tmp/lifeos_toolbar_preview_test.dart: render responsive toolbar previews
+00:03 +13: All tests passed!

@@ -56,4 +56,4 @@ final class PersonalizedPicksRepositoryProvider
 }
 
 String _$personalizedPicksRepositoryHash() =>
-    r'e3ba58e49b9953bce5c8e561a1666212ed319341';
+    r'24a2e0df36f141d6c7cec62689b3af65fffb1233';

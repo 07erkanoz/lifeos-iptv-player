@@ -1097,14 +1097,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Quand activé, le lecteur affiche un bouton \'Passer le générique\' pendant la plage marquée.';
 
   @override
+  String get markIntro => 'Marquer le générique';
+
+  @override
   String get markIntroStart => 'Le générique commence ici';
 
   @override
   String get markIntroEnd => 'Le générique se termine ici';
 
   @override
-  String get introMarked =>
-      'Générique enregistré. L\'épisode suivant proposera de le sauter.';
+  String get introMarked => 'Générique enregistré pour cet épisode.';
 
   @override
   String get introCleared => 'Marqueur de générique effacé.';
@@ -1658,4 +1660,25 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Facultatif. Envoi sur une connexion locale non chiffrée. Les identifiants du compte sont sélectionnés séparément.';
+
+  @override
+  String get playerPause => 'Pause';
+
+  @override
+  String get playerPreviousEpisode => 'Épisode précédent';
+
+  @override
+  String get playerSeekBack => 'Reculer de 10 secondes';
+
+  @override
+  String get playerSeekForward => 'Avancer de 10 secondes';
+
+  @override
+  String get playerVolume => 'Volume';
+
+  @override
+  String get playerAlwaysOnTop => 'Toujours au premier plan';
+
+  @override
+  String get playerProgrammeGuide => 'Guide des programmes';
 }

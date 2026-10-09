@@ -1,3 +1,5 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
+import 'package:lifeostv/l10n/framework_locale_delegates.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -28,7 +30,6 @@ import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart'
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_overlay.dart';
 import 'package:lifeostv/presentation/widgets/player/pip_state.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/utils/platform_utils.dart';
 
@@ -385,6 +386,11 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   }
 
   @override
+  void didChangeLocales(List<Locale>? locales) {
+    ref.invalidate(resolvedLocaleProvider);
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Android restores the system bars whenever the app comes back
     // from the background (or a phone call, or recents). Without this
@@ -406,9 +412,7 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
     final router = ref.watch(routerProvider);
 
     final themeMode = settings.themeMode;
-    final locale = settings.language != AppLanguage.system
-        ? Locale(settings.language.name)
-        : null;
+    final locale = ref.watch(resolvedLocaleProvider);
 
     // Apply mobile fullscreen mode every time the setting flips.
     // Mobile-only: on desktop / TV the SystemUiOverlay enum is a
@@ -455,24 +459,16 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       },
       localizationsDelegates: const [
         AppLocalizations.delegate,
+        KurdishMaterialFallback(),
+        KurdishCupertinoFallback(),
+        KurdishWidgetsFallback(),
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('tr'),
-        Locale('de'),
-        Locale('fr'),
-        Locale('es'),
-        Locale('ar'),
-        Locale('ru'),
-        Locale('ku'),
-      ],
+      supportedLocales: appSupportedLocales,
       locale: locale,
-      themeMode: themeMode == AppThemeMode.dark
-          ? ThemeMode.dark
-          : ThemeMode.light,
+      themeMode: resolveAppTheme(themeMode),
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
     );

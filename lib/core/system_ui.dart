@@ -1,3 +1,4 @@
+import 'package:lifeostv/core/playback_signal.dart';
 import 'package:flutter/services.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 
@@ -23,7 +24,16 @@ import 'package:lifeostv/core/platform_helper.dart';
 /// hardcoding `edgeToEdge`.
 void applyMobileSystemUiMode({required bool fullscreen}) {
   if (!PlatformHelper.isMobile) return;
-  if (fullscreen) {
+  if (PlatformHelper.isIOS) {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: fullscreen || playbackActiveNotifier.value
+          ? []
+          : SystemUiOverlay.values,
+    );
+    return;
+  }
+  if (fullscreen || playbackActiveNotifier.value) {
     // `immersiveSticky` is the only mode that reliably hides the
     // status bar across OEM skins. The earlier `manual + [bottom]`
     // (hide status bar, keep the nav bar) was silently ignored on

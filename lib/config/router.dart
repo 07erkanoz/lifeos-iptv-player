@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:go_router/go_router.dart';
@@ -103,6 +104,7 @@ GoRouter router(Ref ref) {
               startPosition: extras['startPosition'] as Duration?,
               parentStreamId: extras['parentStreamId'] as int?,
               saveSeriesSummary: extras['saveSeriesSummary'] as bool? ?? true,
+              episodePlaylist: extras['episodePlaylist'] as EpisodePlaylist?,
               onNextEpisode: extras['onNextEpisode'] as VoidCallback?,
               onPrevEpisode: extras['onPrevEpisode'] as VoidCallback?,
               nextEpisodeTitle: extras['nextEpisodeTitle'] as String?,
@@ -124,6 +126,7 @@ GoRouter router(Ref ref) {
             programStart: extras['programStart'],
             programEnd: extras['programEnd'],
             nextEpisodeTitle: extras['nextEpisodeTitle'],
+            episodePlaylist: extras['episodePlaylist'] as EpisodePlaylist?,
             onNextEpisode: extras['onNextEpisode'],
             onPrevEpisode: extras['onPrevEpisode'],
             plot: extras['plot'] as String?,

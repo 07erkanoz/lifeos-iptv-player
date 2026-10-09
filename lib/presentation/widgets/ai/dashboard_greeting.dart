@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +21,7 @@ class DashboardGreeting extends ConsumerStatefulWidget {
   const DashboardGreeting({super.key});
 
   @override
-  ConsumerState<DashboardGreeting> createState() =>
-      _DashboardGreetingState();
+  ConsumerState<DashboardGreeting> createState() => _DashboardGreetingState();
 }
 
 class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
@@ -48,22 +48,26 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
     // Resume target: most recent unfinished playback row.
     String? resumeTitle;
     try {
-      final recentRow = await (db.select(db.channels).join([
-        db.accountInnerJoin(
-          db.playbackProgress,
-          db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-              db.playbackProgress.type.equalsExp(db.channels.type),
-        ),
-      ])
-            ..where(db.playbackProgress.position.isBiggerThanValue(0))
-            ..where(db.playbackProgress.isFinished.equals(false))
-            ..orderBy([
-              OrderingTerm(
-                  expression: db.playbackProgress.updatedAt,
-                  mode: OrderingMode.desc),
-            ])
-            ..limit(1))
-          .getSingleOrNull();
+      final recentRow =
+          await (db.select(db.channels).join([
+                  db.accountInnerJoin(
+                    db.playbackProgress,
+                    db.playbackProgress.streamId.equalsExp(
+                          db.channels.streamId,
+                        ) &
+                        db.playbackProgress.type.equalsExp(db.channels.type),
+                  ),
+                ])
+                ..where(db.playbackProgress.position.isBiggerThanValue(0))
+                ..where(db.playbackProgress.isFinished.equals(false))
+                ..orderBy([
+                  OrderingTerm(
+                    expression: db.playbackProgress.updatedAt,
+                    mode: OrderingMode.desc,
+                  ),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
       if (recentRow != null) {
         resumeTitle = recentRow.readTable(db.channels).name;
       }
@@ -72,20 +76,24 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
     // Recent titles for pattern detection (last 5 distinct touched).
     final recentTitles = <String>[];
     try {
-      final rows = await (db.select(db.channels).join([
-        db.accountInnerJoin(
-          db.playbackProgress,
-          db.playbackProgress.streamId.equalsExp(db.channels.streamId) &
-              db.playbackProgress.type.equalsExp(db.channels.type),
-        ),
-      ])
-            ..orderBy([
-              OrderingTerm(
-                  expression: db.playbackProgress.updatedAt,
-                  mode: OrderingMode.desc),
-            ])
-            ..limit(5))
-          .get();
+      final rows =
+          await (db.select(db.channels).join([
+                  db.accountInnerJoin(
+                    db.playbackProgress,
+                    db.playbackProgress.streamId.equalsExp(
+                          db.channels.streamId,
+                        ) &
+                        db.playbackProgress.type.equalsExp(db.channels.type),
+                  ),
+                ])
+                ..orderBy([
+                  OrderingTerm(
+                    expression: db.playbackProgress.updatedAt,
+                    mode: OrderingMode.desc,
+                  ),
+                ])
+                ..limit(5))
+              .get();
       for (final row in rows) {
         final name = row.readTable(db.channels).name;
         if (!recentTitles.contains(name)) recentTitles.add(name);
@@ -97,9 +105,7 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
     final now = DateTime.now();
     final timeOfDay = _timeBucket(now.hour);
     final dayOfWeek = _dayNameTr(now.weekday);
-    final lang = ref.read(settingsProvider).language.name == 'system'
-        ? 'tr'
-        : ref.read(settingsProvider).language.name;
+    final lang = ref.read(resolvedLocaleProvider).languageCode;
 
     final greeting = await gemini.dashboardGreeting(
       timeOfDay: timeOfDay,
@@ -156,24 +162,25 @@ class _DashboardGreetingState extends ConsumerState<DashboardGreeting> {
         decoration: BoxDecoration(
           color: AppColors.primary.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(10),
-          border:
-              Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
         ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          const Icon(Icons.auto_awesome,
-              color: AppColors.primary, size: 16),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _text!,
-              style: TextStyle(
-                color: isDark ? AppColors.textDark : AppColors.textLight,
-                fontSize: 13,
-                height: 1.4,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.auto_awesome, color: AppColors.primary, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _text!,
+                style: TextStyle(
+                  color: isDark ? AppColors.textDark : AppColors.textLight,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }

@@ -1,0 +1,788 @@
+00:00 +0: loading /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart
+00:00 +0: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: UI and AI resolve system locale using the same supported language
+00:00 +1: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +2: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +3: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +5: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +6: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +7: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +8: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +9: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +10: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +11: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +12: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +13: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +14: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +15: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +16: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +17: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +18: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +19: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +20: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +21: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +22: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +23: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +24: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +25: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +26: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +27: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +28: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +29: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: en: app and framework delegates load together
+00:00 +30: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: tr: app and framework delegates load together
+00:00 +31: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: de: app and framework delegates load together
+00:00 +32: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: fr: app and framework delegates load together
+00:00 +33: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: es: app and framework delegates load together
+00:00 +34: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: ar: app and framework delegates load together
+00:00 +35: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: ru: app and framework delegates load together
+00:00 +36: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/l10n/locale_resolution_test.dart: ku: app and framework delegates load together
+00:00 +37: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels recent is a no-op (returns input order, fresh list)
+00:00 +38: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels rating sorts descending; null rating sinks to bottom
+00:00 +39: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels name sorts case-insensitively (Turkish letters not normalized)
+00:00 +40: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/sort_mode_test.dart: sortChannels empty list stays empty for every mode
+00:00 +41: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres returns the union of all genres, alphabetically
+00:00 +42: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres handles comma, slash AND pipe separators uniformly
+00:00 +43: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres skips null / empty / whitespace-only genre strings
+00:00 +44: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres limit caps the result count
+00:00 +45: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: extractGenres empty input → empty result
+00:00 +46: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre null genre is the All-pass-through, returns a fresh list
+00:00 +47: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre empty string is also pass-through
+00:00 +48: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches the requested genre token (comma-separated)
+00:00 +49: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches across slash separator
+00:00 +50: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre matches across pipe separator
+00:00 +51: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre case-insensitive match
+00:00 +52: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre substring is NOT enough — must be a full token
+00:00 +53: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/genre_filter_test.dart: filterByGenre null / empty channel.genre never matches a real query
+00:01 +54: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl appends "trailer" and URL-encodes the query
+00:01 +55: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl includes year when present
+00:01 +56: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl omits year segment when null/empty
+00:01 +57: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: youtubeSearchTrailerUrl encodes Turkish characters and spaces
+00:01 +58: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel returns null for live channels (no trailer concept)
+00:01 +59: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel uses canonical URL when channel.youtubeTrailer is a full URL
+00:01 +60: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel expands bare 11-char video id into a watch URL
+00:01 +61: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel falls back to YouTube search when trailer field is empty / sentinel
+00:01 +62: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel falls back to search when trailer field is null
+00:01 +63: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/utils/youtube_trailer_test.dart: trailerUrlForChannel non-11-char non-URL strings (rare malformed values) fall back to search
+00:01 +64: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_subtitle_controller_test.dart: subtitle controls preserve native session and manifest identity
+00:01 +65: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_subtitle_controller_test.dart: missing or ambiguous native session never yields a usable controller
+00:01 +66: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/intro_range_test.dart: skip appears only inside a bounded interval within this media duration
+00:01 +67: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/intro_range_test.dart: legacy and low-confidence guesses never become skip instructions
+00:01 +68: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/intro_range_test.dart: explicit chapter boundaries are used; ordinary chapters are not inferred
+00:01 +69: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: fullscreen toggle waits for native completion before the next toggle
+00:01 +70: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: AppKit completion event gates the next fullscreen transition
+00:02 +71: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: external fullscreen events update the control state
+00:02 +72: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: PiP lowers the minimum and restores geometry, fullscreen and pinning
+00:02 +73: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: maximized PiP session restores its normal bounds before maximizing
+00:02 +74: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: PiP pinning does not overwrite the previous unpinned preference
+00:02 +75: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: failed shrink rolls back minimum size and original window state
+00:02 +76: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: close queued during PiP entry restores before the next session starts
+00:02 +77: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: route disposal cancels PiP entry before its queued callback runs
+00:02 +78: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: route disposal during native PiP transition restores the window
+00:02 +79: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_window_controller_test.dart: external pin changes are read before toggling
+00:04 +80: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native subtitle menu can turn subtitles off and restore D-pad focus
+00:04 +81: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native subtitle menu can turn subtitles off and restore D-pad focus
+00:05 +82: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native subtitle menu can turn subtitles off and restore D-pad focus
+00:05 +83: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/m3u_series_navigation_test.dart: M3U detail resumes an episode and navigates to next season with direct URL
+00:06 +84: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/m3u_series_navigation_test.dart: M3U detail resumes an episode and navigates to next season with direct URL
+00:06 +85: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/m3u_series_navigation_test.dart: M3U detail resumes an episode and navigates to next season with direct URL
+00:06 +86: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:06 +87: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:06 +88: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:06 +89: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:06 +90: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:06 +91: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/series_lazy_focus_test.dart: large season is lazy and remote navigation crosses the first build window
+00:07 +92: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:07 +93: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:07 +94: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:07 +95: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:07 +96: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +97: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +98: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +99: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +100: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +100: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/sync_provider_test.dart: initial failure does not launch a hidden full fallback or provider retry
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      ContentRepository.forAccount (package:lifeostv/data/repositories/content_repository.dart:38:9)
+#10     initialSyncProvider.<anonymous closure> (package:lifeostv/presentation/state/auth_provider.dart:35:55)
+<asynchronous suspension>
+#11     ElementWithFuture.handleFuture.<anonymous closure>.<anonymous closure> (package:riverpod/src/core/element.dart:220:17)
+<asynchronous suspension>
+#12     ElementWithFuture.handleFuture.<anonymous closure>.<anonymous closure> (package:riverpod/src/core/element.dart:225:29)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:08 +101: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +102: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +103: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +104: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +105: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +106: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +107: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:08 +108: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:09 +109: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:09 +110: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:09 +111: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:09 +112: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +113: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +114: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +115: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +116: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +117: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +118: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +119: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +120: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +121: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +122: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +123: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +124: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +125: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +126: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +127: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +128: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +129: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:10 +130: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:11 +131: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:11 +132: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:11 +133: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV catch-up replays a past programme and returns to the original live URL
+00:11 +134: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/player/tv_player_action_button_test.dart: D-pad moves between TV controls and Select activates them
+00:11 +135: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: omitted channel index resolves the requested channel identity
+00:11 +136: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: paused VOD keeps controls and shows the content card
+00:11 +137: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: failed trailer has a visible retry target and can close
+00:11 +138: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: failed trailer has a visible retry target and can close
+00:11 +139: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: failed trailer has a visible retry target and can close
+00:12 +139: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/datasources/intro_v30_migration_test.dart: v29 series markers are preserved without trusting an episode-wide guess
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/datasources/intro_v30_migration_test.dart:36:31)
+<asynchronous suspension>
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:12 +140: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/widgets/content/expanded_trailer_dialog_test.dart: failed trailer has a visible retry target and can close
+00:12 +141: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +142: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +143: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +144: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +145: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +146: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +147: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +148: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +149: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +150: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +151: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +152: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +153: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +154: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +155: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +156: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +157: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:12 +158: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +159: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +160: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +161: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +162: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +163: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +164: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +165: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +166: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +167: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +168: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +169: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +170: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +171: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +172: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +173: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:13 +174: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:14 +175: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: M3U catch-up template replays EPG and returns to live
+00:14 +176: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/embedding_source_transaction_test.dart: changed or deleted source rejects stale responses while current typed row commits
+00:14 +177: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/embedding_source_transaction_test.dart: changed or deleted source rejects stale responses while current typed row commits
+00:14 +178: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/embedding_source_transaction_test.dart: changed or deleted source rejects stale responses while current typed row commits
+00:14 +179: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/embedding_source_transaction_test.dart: changed or deleted source rejects stale responses while current typed row commits
+00:14 +180: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native playback receives provider headers and clean URL
+00:14 +181: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native playback receives provider headers and clean URL
+00:14 +182: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/provider_address_test.dart: M3U conversion requires verified Xtream capability: false
+00:14 +183: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/provider_address_test.dart: M3U conversion requires verified Xtream capability: false
+00:14 +184: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: movie D-pad reaches audio selection and restores audio focus
+00:14 +184: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/provider_address_test.dart: M3U conversion requires verified Xtream capability: true
+[Auth] _saveAccountInfo failed: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:14 +185: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: movie D-pad reaches audio selection and restores audio focus
+00:14 +186: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: movie D-pad reaches audio selection and restores audio focus
+00:14 +187: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: live streams without duration create history under the current channel
+00:14 +188: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV episode controls support D-pad and prevent double navigation
+00:14 +189: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: playlist opens the next source in the same route and keeps old progress identity
+00:14 +189: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart: AI resolution rejects ambiguous, hidden, adult and foreign content
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart:17:25)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:14 +190: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: playlist opens the next source in the same route and keeps old progress identity
+00:14 +191: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart: AI resolution rejects ambiguous, hidden, adult and foreign content
+00:14 +192: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart: AI resolution rejects ambiguous, hidden, adult and foreign content
+00:14 +193: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart: AI resolution rejects ambiguous, hidden, adult and foreign content
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/visible_content_test.dart:17:25)
+<asynchronous suspension>
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:15 +194: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +195: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +196: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +197: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +198: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +199: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV skip intro uses the current episode marker and restores play focus
+00:15 +200: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/catalog_search_test.dart: unindexed and fuzzy targets beyond old 6000 cap remain searchable
+00:15 +201: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/repositories/catalog_search_test.dart: unindexed and fuzzy targets beyond old 6000 cap remain searchable
+00:15 +202: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +203: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +204: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +205: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +206: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +207: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +208: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +208: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart: VOD sync persists provider container and direct URL (progress=false)
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      SyncService._bound (package:lifeostv/data/services/sync_service.dart:56:9)
+#10     SyncService.syncAllWithProgress (package:lifeostv/data/services/sync_service.dart:118:14)
+#11     SyncService.syncAll (package:lifeostv/data/services/sync_service.dart:111:44)
+#12     main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart:31:25)
+#13     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#14     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#15     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:15 +209: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +210: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +211: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +212: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +213: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: failed live source tries TS and still allows channel change
+00:15 +213: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart: VOD sync persists provider container and direct URL (progress=true)
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart:15:32)
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      SyncService._bound (package:lifeostv/data/services/sync_service.dart:56:9)
+#10     SyncService.syncAllWithProgress (package:lifeostv/data/services/sync_service.dart:118:14)
+#11     main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart:29:25)
+#12     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#13     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#14     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:15 +214: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/vod_sync_url_test.dart: VOD sync persists provider container and direct URL (progress=true)
+00:15 +215: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: stuck native disposal cannot block the next live channel
+00:16 +216: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: seek buffering does not move focus to pause controls
+00:16 +217: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: backgrounding during initialization cannot start playback
+00:16 +217: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart: persistent AI cache isolates account, profile and language
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart:10:47)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart:17:10)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:16 +218: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/personalized_cache_scope_test.dart: persistent AI cache isolates account, profile and language
+00:16 +219: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +220: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +221: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +222: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +223: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +224: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: native errors never render credential-bearing messages
+00:16 +225: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: old backup references recover only unambiguous legacy hashes
+00:16 +226: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +227: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +228: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +229: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +230: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/api_cache_test.dart: SWR — getStale / fetchWithCache getStale returns data with isStale=true after TTL elapses
+00:16 +231: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV Cast sheet closes with Back and restores Cast focus
+00:16 +232: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV Cast sheet closes with Back and restores Cast focus
+00:16 +233: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/tv_player_lifecycle_test.dart: TV Cast sheet closes with Back and restores Cast focus
+00:16 +234: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +235: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +236: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +237: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +238: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +239: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +240: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +241: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +242: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:16 +243: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +244: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +245: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +246: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +247: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +248: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +249: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +250: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +251: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +252: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +253: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +254: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +255: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +256: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +257: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +258: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +259: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +260: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +261: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +262: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +263: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +264: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +265: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +266: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +267: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +268: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +269: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +270: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:17 +271: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +272: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +273: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +274: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +275: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +276: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +277: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +278: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +279: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +280: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +281: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +282: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +283: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +284: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +285: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +286: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +287: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +288: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +289: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +290: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +291: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +292: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:18 +293: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +294: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +295: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +296: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +297: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +298: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +299: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +300: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +301: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +302: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +303: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +304: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +305: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +306: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +307: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +308: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +309: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/m3u_identity_test.dart: 100k entries have no loss and reorder/rename retains all IDs
+00:19 +310: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +311: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +312: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +313: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +314: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +315: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +316: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +317: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +318: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +319: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +320: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:19 +321: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +321: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/backup_service_test.dart: v2 round trip preserves two accounts and three independent profiles
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/backup_service_test.dart:155:34)
+<asynchronous suspension>
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:20 +322: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +323: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +324: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +325: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +326: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +327: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +328: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +329: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +330: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +331: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +332: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +333: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +334: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +335: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +336: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +337: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +338: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +339: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +340: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +341: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +342: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +343: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +344: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +345: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +346: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +347: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +348: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +349: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +350: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +351: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +352: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +353: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +354: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +354: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/backup_service_test.dart: startup recovers preferences after a terminated DB transaction
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/backup_service_test.dart:438:36)
+<asynchronous suspension>
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10764:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/backup_service_test.dart:465:36)
+<asynchronous suspension>
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:20 +355: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +356: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +357: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +357: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/intro_marker_sync_test.dart: LAN snapshot preserves scoped markers and prevents stale resurrection
+[LanSync] merged: favAdded=0 progAdded=0 enrichAdded=0 catApplied=0
+00:20 +358: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +359: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +360: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +361: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +362: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +363: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:20 +364: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +365: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +366: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +367: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +368: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +369: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +370: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +371: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +372: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +373: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +374: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +375: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +376: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +377: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +378: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +379: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +380: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +381: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +382: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +383: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +384: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +384: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/lan_snapshot_test.dart: manual pairing is reachable on the server port
+[LanSync] broadcast failed: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:21 +385: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +385: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/lan_snapshot_test.dart: unreachable sender is distinct from a rejected PIN
+[LanSync] fetchManifest failed: DioException [connection error]: The connection errored: Connection refused This indicates an error which most likely cannot be solved by the library.
+Error: SocketException: Connection refused (OS Error: Connection refused, errno = 111), address = 127.0.0.1, port = 55806
+00:21 +386: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:21 +387: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +388: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +389: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +389: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/lan_snapshot_test.dart: old automatic peer cannot inject a missing Gemini key
+[LanSync] merged: favAdded=0 progAdded=0 enrichAdded=0 catApplied=0
+00:22 +390: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +391: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +392: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +393: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +394: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +395: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +396: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +397: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +398: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +399: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +400: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +400: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/ai_background_quality_test.dart: typed validation rejects invented, duplicate and low-confidence metadata
+[enrich] batch 1: +1 (1 skipped) total 1
+00:22 +401: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +402: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +403: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +404: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +405: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +406: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +407: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:22 +408: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +409: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +410: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +411: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +412: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +413: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +414: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +415: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +416: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +417: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +418: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +419: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +420: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +421: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +422: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +423: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +424: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +425: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +426: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +427: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +428: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +429: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +430: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +431: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +432: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +433: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +434: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:23 +435: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +436: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +437: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +438: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +439: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +440: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +441: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +442: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +443: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +444: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +445: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +446: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +447: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +448: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +449: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +450: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +451: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +452: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +453: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +454: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +455: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +456: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +457: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +458: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +459: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +460: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +461: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +462: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +463: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +464: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +465: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +466: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +467: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:24 +468: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +469: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +470: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +471: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +472: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +473: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +474: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +475: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +476: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +477: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +478: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +479: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +480: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +481: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +482: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +483: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +484: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +485: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +486: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +487: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +488: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +489: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +490: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +491: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +492: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +493: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +494: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +495: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +496: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +497: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +498: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +499: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +500: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:25 +501: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: 100k M3U sync has no SQLite variable overflow and prunes stale chunks
+00:29 +502: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: EPG replacement failure restores old programs; invalid dates never erase them
+00:29 +503: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: network failure is not done or fresh (progress=true)
+00:29 +504: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: network failure is not done or fresh (progress=false)
+00:29 +505: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: login, manual and automatic full refresh share one actual job
+00:29 +506: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: all waiters receive failure and a later explicit retry works
+00:29 +507: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: full update preserves enriched fields and category visibility
+00:29 +508: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: malformed row cannot partially rewrite or prune a type
+00:29 +509: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: empty replacement of a previously populated type stays due
+00:29 +510: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: a failure in the second SQL chunk rolls back the first chunk
+00:29 +511: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: late response after cancellation cannot write
+00:29 +512: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: late response after deadline cannot write
+00:29 +513: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: M3U login and manual sync share one load and mark only tier 3
+00:29 +514: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: M3U SQL failure rolls back categories and channels together
+00:29 +515: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: late M3U parse after cancellation cannot replace data
+00:29 +516: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: failed episode lookup leaves tier 4 due
+00:29 +517: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: episode tracking is independent for two profiles watching same series
+00:29 +518: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/data/services/sync_reliability_test.dart: (tearDownAll)
+00:29 +518: All tests passed!

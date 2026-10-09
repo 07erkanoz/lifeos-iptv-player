@@ -1096,14 +1096,16 @@ class AppLocalizationsRu extends AppLocalizations {
       'Когда включено, плеер показывает кнопку \'Пропустить заставку\' внутри отмеченного диапазона.';
 
   @override
+  String get markIntro => 'Отметить заставку';
+
+  @override
   String get markIntroStart => 'Заставка начинается здесь';
 
   @override
   String get markIntroEnd => 'Заставка заканчивается здесь';
 
   @override
-  String get introMarked =>
-      'Заставка сохранена. Следующая серия предложит её пропустить.';
+  String get introMarked => 'Заставка сохранена для этой серии.';
 
   @override
   String get introCleared => 'Метка заставки удалена.';
@@ -1648,4 +1650,25 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Необязательно. Передаются по незашифрованному локальному соединению. Данные входа выбираются отдельно.';
+
+  @override
+  String get playerPause => 'Пауза';
+
+  @override
+  String get playerPreviousEpisode => 'Предыдущая серия';
+
+  @override
+  String get playerSeekBack => 'Назад на 10 секунд';
+
+  @override
+  String get playerSeekForward => 'Вперёд на 10 секунд';
+
+  @override
+  String get playerVolume => 'Громкость';
+
+  @override
+  String get playerAlwaysOnTop => 'Поверх всех окон';
+
+  @override
+  String get playerProgrammeGuide => 'Программа передач';
 }

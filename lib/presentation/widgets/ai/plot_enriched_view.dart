@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +6,6 @@ import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/plot_ai_cache_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -101,11 +101,7 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
   /// Mirrors how the subtitle plumbing resolves user language so the
   /// AI's reply matches the rest of the UI's localization.
   String _userLanguageCode() {
-    final appLang = ref.read(settingsProvider).language;
-    if (appLang == AppLanguage.system) {
-      return Localizations.localeOf(context).languageCode;
-    }
-    return appLang.name;
+    return ref.read(resolvedLocaleProvider).languageCode;
   }
 
   Future<void> _enrich(PlotEnrichMode mode) async {
@@ -222,10 +218,11 @@ class _PlotEnrichedViewState extends ConsumerState<PlotEnrichedView> {
           child: displayText.isEmpty
               ? const SizedBox.shrink()
               : RichText(
-                  key: ValueKey('plot-${widget.channel.streamId}-$isShowingEnriched'),
+                  key: ValueKey(
+                    'plot-${widget.channel.streamId}-$isShowingEnriched',
+                  ),
                   maxLines: widget.maxLines,
-                  overflow:
-                      widget.overflow ?? TextOverflow.clip,
+                  overflow: widget.overflow ?? TextOverflow.clip,
                   text: TextSpan(
                     style: widget.textStyle,
                     children: [
@@ -316,23 +313,28 @@ class _ActionRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     if (loading) {
-      return Row(mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-              strokeWidth: 1.5, color: AppColors.primary),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          l10n.aiPlotEnriching,
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppColors.primary,
+            ),
           ),
-        ),
-      ]);
+          const SizedBox(width: 8),
+          Text(
+            l10n.aiPlotEnriching,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      );
     }
 
     final links = <Widget>[];
@@ -346,8 +348,9 @@ class _ActionRow extends StatelessWidget {
       links.add(_InlineLink(label: l10n.aiPlotFillIn, onTap: onFillIn));
     }
     if (showDetailedInfo) {
-      links.add(_InlineLink(
-          label: l10n.aiPlotDetailedInfo, onTap: onDetailedInfo));
+      links.add(
+        _InlineLink(label: l10n.aiPlotDetailedInfo, onTap: onDetailedInfo),
+      );
     }
     if (showRevert) {
       links.add(_InlineLink(label: l10n.aiPlotShowOriginal, onTap: onRevert));
@@ -355,14 +358,16 @@ class _ActionRow extends StatelessWidget {
     if (failed) {
       // Inline error — gentle. User can tap any of the visible links
       // again to retry.
-      links.add(Text(
-        l10n.aiPlotError,
-        style: const TextStyle(
-          color: AppColors.warning,
-          fontSize: 12,
-          fontStyle: FontStyle.italic,
+      links.add(
+        Text(
+          l10n.aiPlotError,
+          style: const TextStyle(
+            color: AppColors.warning,
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+          ),
         ),
-      ));
+      );
     }
 
     if (links.isEmpty) return const SizedBox.shrink();
@@ -417,8 +422,7 @@ class _InlineLinkState extends State<_InlineLink> {
           // without it the 12 sp italic text rendered as a ~16 dp
           // strip, well below Material's 44 dp guideline.
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 4, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
               color: _focused
                   ? AppColors.primary.withValues(alpha: 0.15)
@@ -431,8 +435,7 @@ class _InlineLinkState extends State<_InlineLink> {
                 color: AppColors.primary,
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
-                decoration:
-                    isActive ? TextDecoration.underline : null,
+                decoration: isActive ? TextDecoration.underline : null,
                 decorationColor: AppColors.primary,
               ),
             ),

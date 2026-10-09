@@ -1,3 +1,5 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
+import 'package:lifeostv/data/repositories/profile_repository.dart';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -13,7 +15,7 @@ typedef PersonalizedPick = ({int streamId, String reason});
 
 /// Persistent cache for the dashboard "Sana Özel" rail.
 ///
-/// Singleton table — one row keyed by id=0. The dashboard reads
+/// One row per account/profile/language cache identity. The dashboard reads
 /// this on every build and decides whether to refresh based on
 /// age and a source-state fingerprint.
 ///
@@ -25,13 +27,14 @@ typedef PersonalizedPick = ({int streamId, String reason});
 class PersonalizedPicksRepository {
   final AppDatabase _db;
 
-  PersonalizedPicksRepository(this._db);
+  final int cacheId;
+  PersonalizedPicksRepository(this._db, {this.cacheId = 0});
 
   /// Bumped whenever the system prompt or response budget in
   /// [GeminiService.recommendForYou] changes — old cache rows
   /// produced under a previous prompt become stale automatically
   /// because the version is folded into [fingerprint].
-  static const _promptVersion = 'v1';
+  static const _promptVersion = 'v2-gemini-3.8';
 
   /// Read the cached picks. Returns `null` when the row doesn't
   /// exist, is older than [ttl], or its source fingerprint no
@@ -40,10 +43,11 @@ class PersonalizedPicksRepository {
     required String sourceHash,
     Duration ttl = const Duration(hours: 12),
   }) async {
-    final row = await (_db.select(_db.personalizedPicksCache)
-          ..where((t) => t.id.equals(0))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.personalizedPicksCache)
+              ..where((t) => t.id.equals(cacheId))
+              ..limit(1))
+            .getSingleOrNull();
     if (row == null) return null;
     if (row.sourceHash != sourceHash) return null;
     if (DateTime.now().difference(row.generatedAt) > ttl) return null;
@@ -64,26 +68,29 @@ class PersonalizedPicksRepository {
   Future<List<PersonalizedPick>?> lookupLatest({
     Duration maxAge = const Duration(days: 14),
   }) async {
-    final row = await (_db.select(_db.personalizedPicksCache)
-          ..where((t) => t.id.equals(0))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.personalizedPicksCache)
+              ..where((t) => t.id.equals(cacheId))
+              ..limit(1))
+            .getSingleOrNull();
     if (row == null) return null;
     if (DateTime.now().difference(row.generatedAt) > maxAge) return null;
     return _decodePicks(row.picksJson);
   }
 
-  /// Upsert the singleton row.
+  /// Upsert this profile/language row.
   Future<void> store({
     required String sourceHash,
     required List<PersonalizedPick> picks,
   }) async {
-    final encoded = jsonEncode(picks
-        .map((p) => {'streamId': p.streamId, 'reason': p.reason})
-        .toList());
-    await _db.into(_db.personalizedPicksCache).insert(
+    final encoded = jsonEncode(
+      picks.map((p) => {'streamId': p.streamId, 'reason': p.reason}).toList(),
+    );
+    await _db
+        .into(_db.personalizedPicksCache)
+        .insert(
           PersonalizedPicksCacheCompanion.insert(
-            id: 0,
+            id: cacheId,
             picksJson: encoded,
             sourceHash: sourceHash,
             generatedAt: Value(DateTime.now()),
@@ -95,9 +102,9 @@ class PersonalizedPicksRepository {
   /// Drop the cache. Hook for future "refresh" UI; auto-invalidation
   /// via hash + TTL already handles the common case.
   Future<void> clear() async {
-    await (_db.delete(_db.personalizedPicksCache)
-          ..where((t) => t.id.equals(0)))
-        .go();
+    await (_db.delete(
+      _db.personalizedPicksCache,
+    )..where((t) => t.id.equals(cacheId))).go();
   }
 
   /// Fingerprint of (recently watched ids + favourite ids + feedback
@@ -118,7 +125,8 @@ class PersonalizedPicksRepository {
     final f = favoriteIds.toList()..sort();
     final d = dislikedIds.toList()..sort();
     final m = moreLikeIds.toList()..sort();
-    final blob = '$_promptVersion'
+    final blob =
+        '$_promptVersion'
         '|r=${r.join(",")}'
         '|f=${f.join(",")}'
         '|d=${d.join(",")}'
@@ -163,5 +171,13 @@ class PersonalizedPicksRepository {
 
 @riverpod
 PersonalizedPicksRepository personalizedPicksRepository(Ref ref) {
-  return PersonalizedPicksRepository(ref.watch(appDatabaseProvider));
+  final profile = ref.watch(activeProfileIdProvider).value ?? 1;
+  final locale = ref.watch(resolvedLocaleProvider);
+  final languageIndex = appSupportedLocales.indexWhere(
+    (l) => l.languageCode == locale.languageCode,
+  );
+  return PersonalizedPicksRepository(
+    ref.watch(appDatabaseProvider),
+    cacheId: profile * 100 + languageIndex + 1,
+  );
 }

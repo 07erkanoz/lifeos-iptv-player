@@ -1,3 +1,8 @@
+import 'package:lifeostv/presentation/widgets/player/responsive_player_toolbar.dart';
+import 'package:lifeostv/presentation/controllers/audio_interruption_policy.dart';
+import 'dart:convert';
+import 'package:lifeostv/presentation/controllers/intro_range.dart';
+import 'package:lifeostv/presentation/controllers/episode_playlist.dart';
 import 'package:lifeostv/data/services/media_request.dart';
 import 'package:lifeostv/data/repositories/profile_repository.dart'
     show activeProfileIdProvider;
@@ -13,7 +18,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:lifeostv/presentation/controllers/playback_session.dart';
@@ -91,6 +95,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final DateTime? programStart;
   final DateTime? programEnd;
   final String? nextEpisodeTitle;
+  final EpisodePlaylist? episodePlaylist;
   final VoidCallback? onNextEpisode;
   final VoidCallback? onPrevEpisode;
   final String? plot;
@@ -105,9 +110,8 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int? parentStreamId;
   final bool saveSeriesSummary;
 
-  /// Default intro length (seconds) used when no precise marker has
-  /// been recorded for this series. Wired in by the router from
-  /// AppSettings; 90 s if unset.
+  /// Legacy route compatibility only. Skip requires verified marker or chapter
+  /// evidence; this value is never used to infer an intro.
   final int introDefaultSeconds;
 
   /// Channel list for live TV channel switching (D-pad up/down)
@@ -131,6 +135,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.programStart,
     this.programEnd,
     this.nextEpisodeTitle,
+    this.episodePlaylist,
     this.onNextEpisode,
     this.onPrevEpisode,
     this.plot,
@@ -158,6 +163,29 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  EpisodeNavigator? _episodes;
+  int get _episodeId => _episodes?.current.streamId ?? widget.streamId;
+  String? get _episodePlot => _episodes?.current.plot ?? widget.plot;
+  String? get _episodeGenre => _episodes?.current.genre ?? widget.genre;
+  String? get _episodeYear => _episodes?.current.year ?? widget.year;
+  double? get _episodeRating => _episodes?.current.rating ?? widget.rating;
+  String? get _nextEpisodeTitle =>
+      _episodes == null ? widget.nextEpisodeTitle : _episodes!.next?.title;
+  VoidCallback? get _nextEpisodeAction => _casting
+      ? null
+      : _episodes == null
+      ? widget.onNextEpisode
+      : _episodes!.next == null
+      ? null
+      : () => _changeEpisode(1);
+  VoidCallback? get _previousEpisodeAction => _casting
+      ? null
+      : _episodes == null
+      ? widget.onPrevEpisode
+      : _episodes!.previous == null
+      ? null
+      : () => _changeEpisode(-1);
+
   late final PlayerRepository _progressRepository;
   late final IntroMarkerRepository _introRepository;
   late final ContentRepository _sessionContentRepository;
@@ -301,13 +329,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   // Series intro skip (only set for VideoType.series with a parentStreamId).
   //
-  // The marker is sourced from Drift (`introMarkers` table, keyed by parent
-  // series id), with a one-shot migration of the legacy
-  // `series_intro_<sid>` SharedPreferences key on first read.
-  //
-  // Visibility window: `pos` falls between `_introStartMs` and
-  // `_introEndMs`. If only the legacy single-int key existed, that's
-  // mapped to `(0, stored*1000)` so existing users keep their behaviour.
+  // Verified markers are scoped to account, series, season and episode.
   bool _showSkipIntro = false;
   int? _introStartMs;
   int? _introEndMs;
@@ -320,9 +342,41 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Lifecycle
   // =========================================================================
 
+  StreamSubscription<dynamic>? _audioEventSub;
+  final _audioInterruptions = AudioInterruptionPolicy();
+
+  Future<void> _onAudioEvent(dynamic event) async {
+    if (!_alive || event is! Map || _casting) return;
+    if (event['kind'] == 'began') {
+      _audioInterruptions.begin(
+        playing: _player.state.playing,
+        source: _openGeneration,
+        foreground: !_backgrounded,
+      );
+      await _player.pause();
+    } else if (event['kind'] == 'ended') {
+      if (_audioInterruptions.end(
+        shouldResume: event['shouldResume'] == true,
+        source: _openGeneration,
+        foreground: !_backgrounded,
+      ))
+        await _player.play();
+    } else if (event['kind'] == 'unplugged') {
+      _audioInterruptions.revokeResume();
+      await _player.pause();
+    }
+  }
+
+  Future<void> _userPlayPause() async {
+    _audioInterruptions.revokeResume();
+    await _player.playOrPause();
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.episodePlaylist != null)
+      _episodes = EpisodeNavigator(widget.episodePlaylist!);
     final profileId =
         ref.read(activeProfileIdProvider).value ??
         ref.read(sharedPreferencesProvider).getInt('active_profile_id') ??
@@ -353,7 +407,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Hide status bar & navigation bar on mobile (immersive mode)
     if (isMobilePlatform) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      applyMobileSystemUiMode(fullscreen: true);
     }
 
     // Keep the screen awake while the player is on — so users don't have
@@ -411,6 +465,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _controlsAnim.value = 1.0;
 
     _initPlayer();
+    if (Platform.isIOS) {
+      _audioEventSub = const EventChannel('com.lifeostv.lifeostv/audio_events')
+          .receiveBroadcastStream()
+          .listen(
+            (event) =>
+                unawaited(_onAudioEvent(event).catchError((Object _) {})),
+            onError: (Object _) {},
+          );
+    }
 
     if (widget.type == VideoType.live) {
       _startLiveProgress();
@@ -445,12 +508,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _backgrounded = true;
+      _audioInterruptions.revokeResume();
       unawaited(_player.pause().catchError((Object _) {}));
     }
   }
 
   @override
   void dispose() {
+    _episodes?.close();
+    _audioEventSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _disposing = true;
     CastService.instance.stateNotifier.removeListener(_onRemoteCastChanged);
@@ -467,6 +533,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _setPlayerActive(false);
 
     _saveProgress();
+    playbackActiveNotifier.value = false;
     // Restore the APP-level system UI mode on mobile. The player used
     // immersiveSticky while video was on screen; on the way out we must
     // honour the user's fullscreen toggle rather than unconditionally
@@ -511,93 +578,54 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     super.dispose();
   }
 
-  /// Subscribe to this series' intro marker from Drift and, on first
-  /// run, migrate any legacy `series_intro_<sid>` SharedPreferences
-  /// key into the new table so users who already taught the v0
-  /// implementation don't lose their setting.
+  int get _introSeason => _episodes?.current.season ?? 0;
+  IntroRange? _chapterIntro;
+  bool _chaptersChecked = false;
   Future<void> _loadIntroDuration() async {
+    await _introMarkerSub?.cancel();
+    _introMarkerSub = null;
     final sid = widget.parentStreamId;
-    if (sid == null) {
-      debugPrint('[intro] no parentStreamId, skipping');
-      return;
-    }
-    debugPrint('[intro] loading marker for seriesId=$sid');
-
-    // One-shot migration: read the legacy single-int "intro length in
-    // seconds" key, write it back as a `(0, stored*1000)` range, then
-    // delete the legacy key so the migration only happens once.
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!_alive) return;
-      final legacyKey = 'series_intro_${widget.accountId ?? 0}_$sid';
-      final legacy = prefs.getInt(legacyKey);
-      if (legacy != null && legacy > 0) {
-        debugPrint('[intro] migrating legacy key=$legacyKey value=${legacy}s');
-        await _introRepository.setMarker(
-          sid,
-          introStartMs: 0,
-          introEndMs: legacy * 1000,
-        );
-        await prefs.remove(legacyKey);
-      }
-    } catch (e) {
-      debugPrint('[intro] legacy migration failed: $e');
-    }
-
-    if (!_alive) return;
-
-    // Eager initial read so the position listener has values to compare
-    // against from the first frame — relying on `watchSingleOrNull`'s
-    // initial emission was racing the player's first position events
-    // on devices where Drift's stream wakes a tick later than the
-    // media_kit player.
-    try {
-      final initial = await _introRepository.getMarker(sid);
-      if (initial != null && mounted && !_disposing) {
-        debugPrint(
-          '[intro] initial marker loaded: '
-          'start=${initial.introStartMs} end=${initial.introEndMs}',
-        );
-        setState(() {
-          _introStartMs = initial.introStartMs;
-          _introEndMs = initial.introEndMs;
+    if (sid == null || !_alive) return;
+    final episodeId = _episodeId;
+    final season = _introSeason;
+    _introMarkerSub = _introRepository
+        .watchMarker(sid, season: season, episodeId: episodeId)
+        .listen((marker) {
+          if (!_alive || _episodeId != episodeId || _introSeason != season)
+            return;
+          final range = IntroRange.fromMarker(marker);
+          setState(() {
+            _introStartMs = range?.startMs;
+            _introEndMs = range?.endMs;
+            _showSkipIntro = false;
+          });
         });
-      } else {
-        debugPrint('[intro] no marker in DB for seriesId=$sid');
-      }
-    } catch (e) {
-      debugPrint('[intro] initial getMarker failed: $e');
-    }
-
-    if (!_alive) return;
-
-    // Live subscription to the marker. The marking UI writes to the
-    // same table, so this picks up edits without an extra reload.
-    _introMarkerSub = _introRepository.watchMarker(sid).listen((m) {
-      if (!mounted || _disposing) return;
-      debugPrint(
-        '[intro] marker stream emitted: '
-        'start=${m?.introStartMs} end=${m?.introEndMs}',
-      );
-      setState(() {
-        _introStartMs = m?.introStartMs;
-        _introEndMs = m?.introEndMs;
-      });
-    });
   }
 
-  /// Skip past the intro:
-  ///   * If the user has marked a precise range, seek to
-  ///     `introEndMs`.
-  ///   * Otherwise (default-window mode) seek to
-  ///     `introDefaultSeconds * 1000` ms — the same target the
-  ///     visibility window uses, so tapping while the button is
-  ///     showing always lands past the configured intro length.
+  Future<void> _readChapterIntro(Duration duration) async {
+    final generation = _openGeneration;
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      final raw = await native.getProperty('chapter-list');
+      if (!_alive || generation != _openGeneration) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final range = IntroRange.fromChapters(decoded, duration);
+      if (range != null) setState(() => _chapterIntro = range);
+    } catch (_) {
+      /* Missing chapter metadata is normal. */
+    }
+  }
+
+  /// Seek to the verified marker/chapter boundary for this media source.
   Future<void> _skipIntroNow() async {
-    final target = _introEndMs ?? widget.introDefaultSeconds * 1000;
-    await _seek.commit(Duration(milliseconds: target));
-    if (!_alive) return;
-    setState(() => _showSkipIntro = false);
+    final range = _introStartMs != null && _introEndMs != null
+        ? IntroRange(_introStartMs!, _introEndMs!)
+        : _chapterIntro;
+    if (range == null || !range.visibleAt(_rawPos, _dur)) return;
+    await _seek.commit(Duration(milliseconds: range.endMs));
+    if (_alive) setState(() => _showSkipIntro = false);
   }
 
   /// Two-step marking flow:
@@ -608,8 +636,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   ///    capture that as `introEndMs`, validate `end > start`, and
   ///    persist via the repository. The active subscription picks
   ///    the new row up automatically so the Skip button works on
-  ///    the next episode (or even right after marking the same
-  ///    episode, if it loops).
+  ///    this episode, including after seeking backwards.
   ///
   /// Also exposes "Mevcut işareti temizle" when a marker exists, so
   /// users who mis-marked can start over without leaving the player.
@@ -618,6 +645,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     if (sid == null) return;
     final l10n = AppLocalizations.of(context)!;
     final repo = _introRepository;
+    final episodeId = _episodeId;
+    final season = _introSeason;
+    final generation = _openGeneration;
     final messenger = ScaffoldMessenger.of(context);
 
     // Capture an *initial* snapshot of the pending start. The dialog
@@ -703,6 +733,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       isSelected: false,
                       autofocus: false,
                       onTap: () async {
+                        if (!_alive || generation != _openGeneration) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          return;
+                        }
                         final start = pendingStartMs;
                         final end = _rawPos.inMilliseconds;
                         debugPrint(
@@ -726,6 +760,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             sid,
                             introStartMs: start,
                             introEndMs: end,
+                            season: season,
+                            episodeId: episodeId,
+                            durationMs: _dur.inMilliseconds,
                           );
                           debugPrint('[intro] setMarker succeeded');
                         } catch (e) {
@@ -755,7 +792,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                         isSelected: false,
                         autofocus: false,
                         onTap: () async {
-                          await repo.clearMarker(sid);
+                          await repo.clearMarker(
+                            sid,
+                            season: season,
+                            episodeId: episodeId,
+                          );
                           if (!ctx.mounted) return;
                           Navigator.pop(ctx);
                           messenger.showSnackBar(
@@ -796,11 +837,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               const Icon(Icons.skip_next, color: Colors.white, size: 18),
               const SizedBox(width: 6),
               Text(
-                // Use the precise marker's end if the user recorded
-                // one for this series; otherwise the default-window
-                // target. The label always reads "Skip Intro
-                // (→m:ss)" so the user knows where playback lands.
-                '${l10n.skipIntroLabel} (→${_fmt(Duration(milliseconds: _introEndMs ?? widget.introDefaultSeconds * 1000))})',
+                '${l10n.skipIntroLabel} (→${_fmt(Duration(milliseconds: _introEndMs ?? _chapterIntro?.endMs ?? 0))})',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -1002,6 +1039,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     setState(() {
       _currentUrl = url;
       _autoTrackApplied = false;
+      _chapterIntro = null;
+      _chaptersChecked = false;
       _playbackFailed = false;
       _showBufferingError = false;
       _isBuffering = true;
@@ -1077,7 +1116,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           _saveProgress();
         }
         if (widget.type == VideoType.series &&
-            widget.onNextEpisode != null &&
+            _nextEpisodeAction != null &&
             ref.read(settingsProvider).autoNextEpisode &&
             _dur.inSeconds > 0) {
           final remaining = _dur.inSeconds - p.inSeconds;
@@ -1088,39 +1127,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _startNextCountdown();
           }
         }
-        // ── Skip-intro visibility ──────────────────────────────────
-        //
-        // Two-tier behaviour (Netflix-style):
-        //
-        //   1. **Default window** — for ANY series episode, show the
-        //      "Skip Intro" button during the first
-        //      `introSkipDefaultSeconds` of playback. Works with zero
-        //      user setup. Default 90 s matches the cadence of
-        //      typical episode openings.
-        //
-        //   2. **Per-series override** — if the user has used the
-        //      bookmark dialog to record a precise range for this
-        //      series, that range takes precedence over the default
-        //      window. Useful for series with unusually long
-        //      ("Game of Thrones") or off-front ("episode 1 has
-        //      cold-open before intro") openings.
-        //
-        // Either way the rail relies only on the in-memory state
-        // (`_introStartMs/_introEndMs` populated from Drift +
-        // `widget.introDefaultSeconds`), so it doesn't matter if the
-        // Drift watch hasn't fired yet — the default window kicks in
-        // from the first position event.
         if (widget.type == VideoType.series && widget.parentStreamId != null) {
-          final hasMarker = _introStartMs != null && _introEndMs != null;
-          final bool shouldShow;
-          if (hasMarker) {
-            shouldShow =
-                p.inMilliseconds >= _introStartMs! &&
-                p.inMilliseconds <= _introEndMs!;
-          } else {
-            shouldShow = p.inMilliseconds < widget.introDefaultSeconds * 1000;
-          }
-          if (shouldShow != _showSkipIntro && mounted && !_disposing) {
+          final range = _introStartMs != null && _introEndMs != null
+              ? IntroRange(_introStartMs!, _introEndMs!)
+              : _chapterIntro;
+          final shouldShow = range?.visibleAt(p, _dur) ?? false;
+          if (_showSkipIntro != shouldShow && _alive) {
             setState(() => _showSkipIntro = shouldShow);
           }
         }
@@ -1147,7 +1159,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _subs.add(
       _player.stream.duration.listen((d) {
-        if (mounted && !_disposing) setState(() => _dur = d);
+        if (mounted && !_disposing) {
+          setState(() => _dur = d);
+          if (!_chaptersChecked &&
+              d > Duration.zero &&
+              widget.type == VideoType.series) {
+            _chaptersChecked = true;
+            unawaited(_readChapterIntro(d));
+          }
+        }
       }),
     );
 
@@ -1355,7 +1375,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _checkSavedProgress() async {
     final generation = _openGeneration;
     try {
-      final sid = widget.streamId;
+      final sid = _episodeId;
       final p = await _progressRepository.getProgress(sid, widget.type.name);
       if (p != null &&
           !p.isFinished &&
@@ -1421,7 +1441,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final durationMs = _dur.inMilliseconds;
     if (posMs <= 0) return;
     try {
-      final sid = widget.streamId;
+      final sid = _episodeId;
       final repo = _progressRepository;
       if (widget.type == VideoType.series) {
         await repo.saveEpisodeProgress(
@@ -1492,6 +1512,44 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     });
   }
 
+  Future<void> _changeEpisode(int delta) async {
+    final navigator = _episodes;
+    if (navigator == null || !_alive || _casting) return;
+    try {
+      await navigator.move(
+        delta,
+        save: () async {
+          await _saveProgress();
+          if (_alive) await _player.stop();
+          // Clear old timestamps before the navigator publishes the new identity.
+          _rawPos = Duration.zero;
+          _pos = Duration.zero;
+          _dur = Duration.zero;
+        },
+        open: (episode) async {
+          if (!_alive) return;
+          _nextTimer?.cancel();
+          setState(() {
+            _nextTriggered = false;
+            _showNextOverlay = false;
+            _savedInitialProgress = false;
+            _currentTitle = episode.title;
+            _currentHeaders = episode.headers;
+            _showSkipIntro = false;
+            _introStartMs = null;
+            _introEndMs = null;
+          });
+          await _loadIntroDuration();
+          if (!_alive) return;
+          final opened = await _openMedia(episode.url);
+          if (opened && _alive) await _checkSavedProgress();
+        },
+      );
+    } catch (_) {
+      if (_alive) _onPlaybackError();
+    }
+  }
+
   void _triggerNext() {
     if (_nextTriggered) return;
     _nextTriggered = true;
@@ -1501,7 +1559,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _onSleepTimerFired();
       return;
     }
-    widget.onNextEpisode?.call();
+    _nextEpisodeAction?.call();
   }
 
   void _cancelNext() {
@@ -1601,7 +1659,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _channelIndex < channels.length) {
       return channels[_channelIndex].streamId;
     }
-    return widget.streamId;
+    return _episodeId;
   }
 
   // =========================================================================
@@ -1662,7 +1720,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _reassertImmersive() {
     if (!isMobilePlatform) return;
     if (!Platform.isAndroid) return;
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    applyMobileSystemUiMode(fullscreen: true);
   }
 
   // =========================================================================
@@ -1753,7 +1811,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Play / Pause (select/enter on video area, or space)
     if (k == LogicalKeyboardKey.space ||
         k == LogicalKeyboardKey.mediaPlayPause) {
-      _player.playOrPause();
+      unawaited(_userPlayPause());
       return KeyEventResult.handled;
     }
 
@@ -1762,7 +1820,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // user can navigate from the now-focused play button.
     if ((k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) &&
         !_showControls) {
-      _player.playOrPause();
+      unawaited(_userPlayPause());
       _showControlsBriefly();
       _playPauseFocusNode.requestFocus();
       return KeyEventResult.handled;
@@ -2858,7 +2916,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             ),
           );
         }
-      } on DlnaPlaybackVerificationException catch (e) {
+      } on DlnaPlaybackVerificationException {
         // TV accepted the SOAP commands but never moved to PLAYING —
         // most common cause: DMR / Smart View / Screen Share toggle on
         // the TV is off, or the TV doesn't accept the source MIME.
@@ -2870,11 +2928,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         await _player.play();
         messenger.showSnackBar(
           SnackBar(
-            content: Text(
-              'TV oynatmayı başlatamadı (${e.lastState ?? "yanıt yok"}). '
-              'TV ayarlarından "DMR / Smart View / DLNA" özelliğinin '
-              'açık olduğundan emin ol ve tekrar dene.',
-            ),
+            content: Text(l10n.dlnaConnectFailed),
             backgroundColor: Colors.red.shade800,
             duration: const Duration(seconds: 6),
           ),
@@ -3025,7 +3079,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             onHover: (_) => _showControlsBriefly(),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _isPaused ? () => _player.playOrPause() : _toggleControls,
+              onTap: _isPaused ? _userPlayPause : _toggleControls,
               onDoubleTap: isDesktopPlatform ? _toggleFullscreen : null,
               // Mobile VOD: double-tap left/right halves → seek -10/+10.
               onDoubleTapDown:
@@ -3253,7 +3307,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               // Pause info badge (shows after 2s delay, VOD only — Netflix style)
                               if (_showPauseBadge &&
                                   widget.type != VideoType.live)
-                                _buildPauseInfoBadge(l10n),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    child: _buildPauseInfoBadge(l10n),
+                                  ),
+                                ),
                               if (_showPauseBadge &&
                                   widget.type != VideoType.live)
                                 const SizedBox(height: 12),
@@ -3278,10 +3336,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   // -- Next episode overlay ----------------------------------
                   if (!_isInPipMode &&
                       widget.type == VideoType.series &&
-                      widget.nextEpisodeTitle != null &&
+                      _nextEpisodeTitle != null &&
                       _showNextOverlay)
                     Positioned(
-                      bottom: 110,
+                      bottom: _floatingControlBottom,
                       right: 24,
                       child: _buildNextOverlay(l10n),
                     ),
@@ -3293,7 +3351,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                       !_showNextOverlay &&
                       ref.watch(settingsProvider).showSkipIntroButton)
                     Positioned(
-                      bottom: 110,
+                      bottom: _floatingControlBottom,
                       right: 24,
                       child: _buildSkipIntroButton(),
                     ),
@@ -3365,10 +3423,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               if (mounted && !_disposing) {
                                 setState(() => _showSubtitleSearch = false);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'OpenSubtitles API key gerekli — Ayarlar > Altyazı',
-                                    ),
+                                  SnackBar(
+                                    content: Text(l10n.opensubtitlesApiKeyDesc),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -3377,8 +3433,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             return const SizedBox.shrink();
                           }
                           return SubtitleSearchOverlay(
-                            title: widget.title,
-                            year: widget.year,
+                            title: _currentTitle,
+                            year: _episodeYear,
                             preferredLanguage:
                                 settings.subtitlePreferredLanguage,
                             service: service,
@@ -3422,6 +3478,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // Back
             _DpadIconBtn(
               icon: Icons.arrow_back,
+              label: l10n.back,
               onTap: () {
                 _saveProgress();
                 Navigator.of(context).pop();
@@ -3482,6 +3539,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // Sleep timer button — shows active countdown in tooltip.
             _DpadIconBtn(
               icon: _sleepTimerIcon(),
+              label: l10n.sleepTimer,
               onTap: _showSleepTimerPicker,
               tint: _isSleepTimerActive ? AppColors.primary : null,
             ),
@@ -3515,38 +3573,42 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               const SizedBox(width: 8),
             ],
 
-            // Type badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _typeBadgeColor(),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.type == VideoType.live) ...[
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
+            // Keep the title and playback controls reachable on narrow phones.
+            if (MediaQuery.sizeOf(context).width >= 500)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _typeBadgeColor(),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.type == VideoType.live) ...[
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      _typeBadgeLabel(l10n),
+                      style: const TextStyle(
                         color: Colors.white,
-                        shape: BoxShape.circle,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
                       ),
                     ),
-                    const SizedBox(width: 4),
                   ],
-                  Text(
-                    _typeBadgeLabel(l10n),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -3575,10 +3637,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Widget _buildPauseInfoBadge(AppLocalizations l10n) {
     final remaining = _dur - _pos;
     final hasMetadata =
-        widget.plot != null ||
-        widget.genre != null ||
-        widget.year != null ||
-        widget.rating != null;
+        _episodePlot != null ||
+        _episodeGenre != null ||
+        _episodeYear != null ||
+        _episodeRating != null;
 
     return Align(
       alignment: Alignment.bottomLeft,
@@ -3659,9 +3721,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           if (hasMetadata)
                             Row(
                               children: [
-                                if (widget.year != null)
+                                if (_episodeYear != null)
                                   Text(
-                                    widget.year!,
+                                    _episodeYear!,
                                     style: TextStyle(
                                       color: Colors.white.withValues(
                                         alpha: 0.5,
@@ -3669,9 +3731,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                       fontSize: 12,
                                     ),
                                   ),
-                                if (widget.rating != null &&
-                                    widget.rating! > 0) ...[
-                                  if (widget.year != null)
+                                if (_episodeRating != null &&
+                                    _episodeRating! > 0) ...[
+                                  if (_episodeYear != null)
                                     const SizedBox(width: 10),
                                   const Icon(
                                     Icons.star,
@@ -3680,7 +3742,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    widget.rating!.toStringAsFixed(1),
+                                    _episodeRating!.toStringAsFixed(1),
                                     style: TextStyle(
                                       color: Colors.white.withValues(
                                         alpha: 0.5,
@@ -3689,11 +3751,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                     ),
                                   ),
                                 ],
-                                if (widget.genre != null) ...[
+                                if (_episodeGenre != null) ...[
                                   const SizedBox(width: 10),
                                   Flexible(
                                     child: Text(
-                                      widget.genre!,
+                                      _episodeGenre!,
                                       style: TextStyle(
                                         color: Colors.white.withValues(
                                           alpha: 0.5,
@@ -3709,11 +3771,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             ),
 
                           // Plot (2-line clamp)
-                          if (widget.plot != null &&
-                              widget.plot!.isNotEmpty) ...[
+                          if (_episodePlot != null &&
+                              _episodePlot!.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
-                              widget.plot!,
+                              _episodePlot!,
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.45),
                                 fontSize: 12,
@@ -3773,245 +3835,188 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //  Bottom bar - UNIFIED with direct audio/subtitle/speed buttons
   // =========================================================================
 
-  Widget _buildBottomBar(AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+  double get _floatingControlBottom {
+    if (!_showControls && !_isPaused) return 40;
+    final width = MediaQuery.sizeOf(context).width;
+    return width < 350
+        ? 224
+        : width < 650
+        ? 180
+        : 110;
+  }
+
+  Widget _buildBottomBar(AppLocalizations l10n) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // -- Progress --
           widget.type == VideoType.live
               ? _buildLiveProgressBar()
               : _buildVodProgressBar(),
           const SizedBox(height: 10),
-
-          // -- Button row --
-          Row(
-            children: [
-              // Play/Pause button (focusable)
-              _DpadIconBtn(
+          ResponsivePlayerToolbar(
+            touch: isMobilePlatform,
+            actions: [
+              PlayerToolbarAction(
+                id: 'play',
                 icon: _isPaused ? Icons.play_arrow : Icons.pause,
-                onTap: () => _player.playOrPause(),
-                isPrimary: true,
-                size: 28,
+                label: _isPaused ? l10n.play : l10n.playerPause,
+                onPressed: _userPlayPause,
+                primary: true,
                 focusNode: _playPauseFocusNode,
               ),
-              const SizedBox(width: 12),
-
-              // Previous episode (series only)
               if (widget.type == VideoType.series &&
-                  widget.onPrevEpisode != null) ...[
-                _DpadIconBtn(
+                  _previousEpisodeAction != null)
+                PlayerToolbarAction(
+                  id: 'previous',
                   icon: Icons.skip_previous,
-                  onTap: widget.onPrevEpisode!,
+                  label: l10n.playerPreviousEpisode,
+                  onPressed: _previousEpisodeAction,
                 ),
-                const SizedBox(width: 8),
-              ],
-
-              // Seek backward
               if (widget.type != VideoType.live) ...[
-                _DpadIconBtn(
+                PlayerToolbarAction(
+                  id: 'seek-back',
                   icon: Icons.replay_10,
-                  onTap: () {
+                  label: l10n.playerSeekBack,
+                  onPressed: () {
                     _nudgeSeek(-10);
                     _showControlsBriefly();
                   },
                 ),
-                const SizedBox(width: 8),
-
-                // Seek forward
-                _DpadIconBtn(
+                PlayerToolbarAction(
+                  id: 'seek-forward',
                   icon: Icons.forward_10,
-                  onTap: () {
+                  label: l10n.playerSeekForward,
+                  onPressed: () {
                     _nudgeSeek(10);
                     _showControlsBriefly();
                   },
                 ),
               ],
-
-              // Next episode (series only)
-              if (widget.type == VideoType.series &&
-                  widget.onNextEpisode != null) ...[
-                const SizedBox(width: 8),
-                _DpadIconBtn(icon: Icons.skip_next, onTap: _triggerNext),
-              ],
-
-              // Action buttons grouped into a horizontally
-              // scrollable strip on the right. Portrait phones
-              // can't fit 10+ buttons in one row — without scroll
-              // the last ones got clipped behind the screen edge
-              // and were impossible to reach. SingleChildScrollView
-              // with reverse:false + Expanded gives the strip the
-              // full remaining width and lets the user pan.
-              const SizedBox(width: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  reverse: false,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ─── Direct action buttons (D-pad accessible) ───
-
-                      // Audio track button
-                      _DpadIconBtn(
-                        icon: Icons.audiotrack,
-                        label: l10n.audioTrack,
-                        onTap: () => _showTrackPicker('audio'),
-                      ),
-                      const SizedBox(width: 6),
-
-                      // Quality / bitrate selector. Only rendered when the
-                      // stream actually exposes multiple video tracks (HLS
-                      // ABR ladders typically do, progressive single-file
-                      // VOD doesn't). Hiding the button when there's nothing
-                      // to pick avoids a dead control on the overlay.
-                      if (_player.state.tracks.video
-                              .where((t) => t.id != 'no')
-                              .length >
-                          1) ...[
-                        _DpadIconBtn(
-                          icon: Icons.high_quality_outlined,
-                          label: l10n.streamQuality,
-                          onTap: _showQualityPicker,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // Subtitle button
-                      _DpadIconBtn(
-                        icon: Icons.subtitles_outlined,
-                        label: l10n.subtitle,
-                        onTap: () => _showTrackPicker('subtitle'),
-                      ),
-                      const SizedBox(width: 6),
-
-                      // Online subtitle search (VOD only, and only when an
-                      // OpenSubtitles API key is configured — otherwise the
-                      // button just popped a snackbar telling the user to go
-                      // configure it, which read like an "error" out of
-                      // nowhere).
-                      if (widget.type != VideoType.live &&
-                          (ref.watch(settingsProvider).opensubtitlesApiKey ??
-                                  '')
-                              .isNotEmpty) ...[
-                        _DpadIconBtn(
-                          icon: Icons.closed_caption_outlined,
-                          onTap: () => setState(
-                            () => _showSubtitleSearch = !_showSubtitleSearch,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // Speed button (only for VOD)
-                      if (widget.type != VideoType.live) ...[
-                        _DpadIconBtn(
-                          icon: Icons.speed,
-                          onTap: _showSpeedPicker,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // Stream stats (codec / resolution / bitrate / dropped frames)
-                      _DpadIconBtn(
-                        icon: Icons.info_outline,
-                        onTap: _showStreamStatsDialog,
-                      ),
-                      const SizedBox(width: 6),
-
-                      // Video fit / zoom toggle — cycles contain → cover →
-                      // fill. Lets the user blow up streams whose declared
-                      // aspect ratio leaves the picture small with black bars.
-                      _DpadIconBtn(
-                        icon: _fitIcon(
-                          ref.watch(settingsProvider).videoFitMode,
-                        ),
-                        label: l10n.videoFit,
-                        onTap: _cycleVideoFit,
-                      ),
-                      const SizedBox(width: 6),
-
-                      // Channel list button (live TV only)
-                      if (widget.type == VideoType.live &&
-                          widget.channels != null &&
-                          widget.channels!.isNotEmpty) ...[
-                        _DpadIconBtn(
-                          icon: Icons.list,
-                          onTap: () => setState(
-                            () => _showChannelList = !_showChannelList,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // EPG guide button (live TV only)
-                      if (widget.type == VideoType.live) ...[
-                        _DpadIconBtn(
-                          icon: Icons.calendar_month,
-                          onTap: () =>
-                              setState(() => _showEpgGuide = !_showEpgGuide),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // Chromecast button (mobile only — desktop uses HDMI)
-                      if (Platform.isAndroid || Platform.isIOS) ...[
-                        CastButton(
-                          onCastStarted: _onCastStarted,
-                          onCastStopped: _onCastStopped,
-                        ),
-                        const SizedBox(width: 2),
-                      ],
-
-                      // Volume button
-                      _DpadIconBtn(
-                        icon: _volume == 0
-                            ? Icons.volume_off
-                            : _volume < 50
-                            ? Icons.volume_down
-                            : Icons.volume_up,
-                        onTap: () {
-                          // Toggle mute on click
-                          _player.setVolume(_volume > 0 ? 0 : 100);
-                        },
-                      ),
-
-                      // Always on top toggle (desktop only)
-                      if (Platform.isWindows ||
-                          Platform.isLinux ||
-                          Platform.isMacOS) ...[
-                        const SizedBox(width: 6),
-                        _DpadIconBtn(
-                          icon: _isAlwaysOnTop
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined,
-                          onTap: _toggleAlwaysOnTop,
-                        ),
-                      ],
-
-                      // Fullscreen toggle (desktop only)
-                      if (Platform.isWindows ||
-                          Platform.isLinux ||
-                          Platform.isMacOS) ...[
-                        const SizedBox(width: 6),
-                        _DpadIconBtn(
-                          icon: _isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                          onTap: _toggleFullscreen,
-                        ),
-                      ],
-                    ], // end inner Row
+              if (widget.type == VideoType.series && _nextEpisodeAction != null)
+                PlayerToolbarAction(
+                  id: 'next',
+                  icon: Icons.skip_next,
+                  label: l10n.nextEpisode,
+                  onPressed: _triggerNext,
+                ),
+              PlayerToolbarAction(
+                id: 'audio',
+                icon: Icons.audiotrack,
+                label: l10n.audioTrack,
+                showLabel: true,
+                onPressed: () => _showTrackPicker('audio'),
+              ),
+              if (_player.state.tracks.video.where((t) => t.id != 'no').length >
+                  1)
+                PlayerToolbarAction(
+                  id: 'quality',
+                  icon: Icons.high_quality_outlined,
+                  label: l10n.streamQuality,
+                  showLabel: true,
+                  onPressed: _showQualityPicker,
+                ),
+              PlayerToolbarAction(
+                id: 'subtitles',
+                icon: Icons.subtitles_outlined,
+                label: l10n.subtitle,
+                showLabel: true,
+                onPressed: () => _showTrackPicker('subtitle'),
+              ),
+              if (widget.type != VideoType.live &&
+                  (ref.watch(settingsProvider).opensubtitlesApiKey ?? '')
+                      .isNotEmpty)
+                PlayerToolbarAction(
+                  id: 'subtitle-search',
+                  icon: Icons.closed_caption_outlined,
+                  label: l10n.subtitleSearchInfo,
+                  onPressed: () => setState(
+                    () => _showSubtitleSearch = !_showSubtitleSearch,
                   ),
                 ),
-              ), // end Expanded SingleChildScrollView
-            ], // end outer Row
+              if (widget.type != VideoType.live)
+                PlayerToolbarAction(
+                  id: 'speed',
+                  icon: Icons.speed,
+                  label: l10n.playbackSpeed,
+                  onPressed: _showSpeedPicker,
+                ),
+              PlayerToolbarAction(
+                id: 'stats',
+                icon: Icons.info_outline,
+                label: l10n.streamStats,
+                onPressed: _showStreamStatsDialog,
+              ),
+              PlayerToolbarAction(
+                id: 'fit',
+                icon: _fitIcon(ref.watch(settingsProvider).videoFitMode),
+                label: l10n.videoFit,
+                showLabel: true,
+                onPressed: _cycleVideoFit,
+              ),
+              if (widget.type == VideoType.live &&
+                  widget.channels?.isNotEmpty == true)
+                PlayerToolbarAction(
+                  id: 'channels',
+                  icon: Icons.list,
+                  label: l10n.channelList,
+                  onPressed: () =>
+                      setState(() => _showChannelList = !_showChannelList),
+                ),
+              if (widget.type == VideoType.live)
+                PlayerToolbarAction(
+                  id: 'epg',
+                  icon: Icons.calendar_month,
+                  label: l10n.playerProgrammeGuide,
+                  onPressed: () =>
+                      setState(() => _showEpgGuide = !_showEpgGuide),
+                ),
+              if (Platform.isAndroid || Platform.isIOS)
+                PlayerToolbarAction(
+                  id: 'cast',
+                  label: 'Cast',
+                  child: CastButton(
+                    onCastStarted: _onCastStarted,
+                    onCastStopped: _onCastStopped,
+                  ),
+                ),
+              PlayerToolbarAction(
+                id: 'volume',
+                icon: _volume == 0
+                    ? Icons.volume_off
+                    : _volume < 50
+                    ? Icons.volume_down
+                    : Icons.volume_up,
+                label: l10n.playerVolume,
+                onPressed: () => _player.setVolume(_volume > 0 ? 0 : 100),
+              ),
+              if (isDesktopPlatform) ...[
+                PlayerToolbarAction(
+                  id: 'pin',
+                  icon: _isAlwaysOnTop
+                      ? Icons.push_pin
+                      : Icons.push_pin_outlined,
+                  label: l10n.playerAlwaysOnTop,
+                  tint: _isAlwaysOnTop ? AppColors.primary : null,
+                  onPressed: _toggleAlwaysOnTop,
+                ),
+                PlayerToolbarAction(
+                  id: 'fullscreen',
+                  icon: _isFullscreen
+                      ? Icons.fullscreen_exit
+                      : Icons.fullscreen,
+                  label: l10n.fullscreenMode,
+                  onPressed: _toggleFullscreen,
+                ),
+              ],
+            ],
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 
   // =========================================================================
   //  VOD progress bar
@@ -4477,7 +4482,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            widget.nextEpisodeTitle!,
+            _nextEpisodeTitle!,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -4596,108 +4601,69 @@ class _CastingBanner extends StatelessWidget {
 // ===========================================================================
 
 class _DpadIconBtn extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? label;
-  final bool isPrimary;
-  final double size;
-  final FocusNode? focusNode;
-  final Color? tint;
-
   const _DpadIconBtn({
     required this.icon,
     required this.onTap,
     this.label,
-    this.isPrimary = false,
-    this.size = 22,
-    this.focusNode,
     this.tint,
   });
-
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? label;
+  final Color? tint;
   @override
   State<_DpadIconBtn> createState() => _DpadIconBtnState();
 }
 
 class _DpadIconBtnState extends State<_DpadIconBtn> {
-  bool _isFocused = false;
-  bool _isHovered = false;
-
+  bool _isFocused = false, _isHovered = false;
   @override
-  Widget build(BuildContext context) {
-    final isActive = _isFocused || _isHovered;
-
-    return Focus(
-      focusNode: widget.focusNode,
-      onFocusChange: (f) => setState(() => _isFocused = f),
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.label != null ? 12 : 10,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: widget.isPrimary
-                  ? (isActive
-                        ? AppColors.primary.withValues(alpha: 0.9)
-                        : AppColors.primary)
-                  : (isActive
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : Colors.white.withValues(alpha: 0.08)),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: _isFocused ? AppColors.primary : Colors.transparent,
-                width: _isFocused ? 2 : 0,
-              ),
-              boxShadow: widget.isPrimary
-                  ? [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  widget.icon,
-                  color: widget.tint ?? Colors.white,
-                  size: widget.size,
+  Widget build(BuildContext context) => Tooltip(
+    message: widget.label ?? '',
+    child: Semantics(
+      button: true,
+      label: widget.label,
+      child: Focus(
+        onFocusChange: (focused) => setState(() => _isFocused = focused),
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(
+                  alpha: _isFocused || _isHovered ? 0.2 : 0.08,
                 ),
-                if (widget.label != null) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.label!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _isFocused ? AppColors.primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                widget.icon,
+                color: widget.tint ?? Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 // ===========================================================================

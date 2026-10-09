@@ -393,9 +393,10 @@
   "skipIntro": "Skip Intro",
   "skipIntroSetting": "Show Skip-Intro button",
   "skipIntroSettingDesc": "When enabled, the player shows a 'Skip Intro' button while playback is within a series' marked intro range.",
+  "markIntro": "Mark intro",
   "markIntroStart": "Intro starts here",
   "markIntroEnd": "Intro ends here",
-  "introMarked": "Intro saved. The next episode will offer to skip it.",
+  "introMarked": "Intro saved for this episode.",
   "introCleared": "Intro marker cleared.",
   "introMarkInvalid": "End time must be after start time.",
   "dashboardForYouTitle": "For you",
@@ -600,5 +601,12 @@
   "heroTrailerOnMobile": "Play hero trailer",
   "heroTrailerOnMobileDesc": "Autoplay the muted YouTube trailer behind the dashboard hero. Costly on mobile data; off by default.",
   "deviceSyncCatSecrets": "API keys and PINs",
-  "deviceSyncSecretsHint": "Optional. Sent over an unencrypted local connection. Account login is selected separately."
+  "deviceSyncSecretsHint": "Optional. Sent over an unencrypted local connection. Account login is selected separately.",
+  "playerPause": "Pause",
+  "playerPreviousEpisode": "Previous episode",
+  "playerSeekBack": "Back 10 seconds",
+  "playerSeekForward": "Forward 10 seconds",
+  "playerVolume": "Volume",
+  "playerAlwaysOnTop": "Always on top",
+  "playerProgrammeGuide": "Programme guide"
 }

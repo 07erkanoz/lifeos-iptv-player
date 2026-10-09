@@ -28,5 +28,12 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LifeOS TV uses your local network to discover casting devices and pair your LifeOS TV devices.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_googlecast._tcp</string>
+		<string>_lifeostv-sync._tcp</string>
+	</array>
 </dict>
 </plist>

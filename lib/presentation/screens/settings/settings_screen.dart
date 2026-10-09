@@ -3044,7 +3044,9 @@ class _DataSection extends ConsumerWidget {
       // it (the trap the v1.1 builds fell into).
       final path = await ref
           .read(backupServiceProvider)
-          .exportToUserPickedFile();
+          .exportToUserPickedFile(
+            dialogTitle: AppLocalizations.of(context)!.backupNow,
+          );
       if (!context.mounted) return;
       if (path == null) {
         // User dismissed the picker. No-op snack to avoid the

@@ -472,16 +472,17 @@ class SearchHistory extends Table with AccountScopedTable {
 }
 
 class IntroMarkers extends Table with AccountScopedTable {
-  /// References [Channels.streamId] for the *parent series*, not an
-  /// individual episode. Comes from `widget.parentStreamId` in the
-  /// player route.
   IntColumn get seriesId => integer()();
+  IntColumn get season => integer().withDefault(const Constant(0))();
+  IntColumn get episodeId => integer().withDefault(const Constant(0))();
   IntColumn get introStartMs => integer()();
   IntColumn get introEndMs => integer()();
+  TextColumn get source => text().withDefault(const Constant('manual'))();
+  RealColumn get confidence => real().withDefault(const Constant(1.0))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-
   @override
-  Set<Column> get primaryKey => {seriesId, accountId};
+  Set<Column> get primaryKey => {seriesId, accountId, season, episodeId};
 }
 
 /// Soft-delete log for LAN sync. When the user removes a favourite we

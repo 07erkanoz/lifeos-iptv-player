@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:lifeostv/data/datasources/local/database.dart';
 
 /// One AI-picked title in a "what should I watch?" response.
@@ -13,6 +14,8 @@ class TonightRecommendation {
   /// removed mid-call), the UI silently drops the recommendation
   /// rather than showing a broken card.
   final int streamId;
+  final String? type;
+  (String?, int) get key => (type, streamId);
 
   /// One- or two-sentence justification in the user's language.
   /// Rendered under the title on the card. Already trimmed.
@@ -20,6 +23,7 @@ class TonightRecommendation {
 
   const TonightRecommendation({
     required this.streamId,
+    this.type,
     required this.reason,
   });
 
@@ -40,7 +44,10 @@ class TonightRecommendation {
     if (sid == null || sid <= 0) return null;
     final reason = json['reason']?.toString().trim() ?? '';
     if (reason.isEmpty) return null;
-    return TonightRecommendation(streamId: sid, reason: reason);
+    final type = json['type']?.toString();
+    if (type != null && !{'movie', 'series', 'live'}.contains(type))
+      return null;
+    return TonightRecommendation(streamId: sid, type: type, reason: reason);
   }
 }
 
@@ -121,7 +128,7 @@ class ChatMessage {
   /// query-search results, causing cards to silently drop as
   /// "hallucinated ids" when the AI legitimately recommended items
   /// from outside the standard top-rated sample).
-  final Map<int, Channel> resolvedChannels;
+  final Map<(String?, int), Channel> resolvedChannels;
 
   /// AI-proposed follow-up suggestion chips for the next user turn.
   /// Rendered under the bubble; tapping one re-uses it as the next
@@ -135,4 +142,29 @@ class ChatMessage {
     this.resolvedChannels = const {},
     this.followUps = const [],
   });
+}
+
+/// Exact API parts, including thought signatures and function responses, survive
+/// between user turns. Scoped to an open chat and cleared on identity changes.
+class GeminiAgentSession {
+  List<Map<String, dynamic>> contents = [];
+  List<Map<String, dynamic>> snapshot() =>
+      (jsonDecode(jsonEncode(contents)) as List).cast<Map<String, dynamic>>();
+  void replace(List<Map<String, dynamic>> value) {
+    // Trim only at complete user-turn boundaries, preserving tool signatures
+    // and responses together. A fresh context is attached to each new turn.
+    final boundaries = [
+      for (var i = 0; i < value.length; i++)
+        if (value[i]['role'] == 'user' &&
+            (value[i]['parts'] as List).any(
+              (p) => p is Map && p['text'] is String,
+            ))
+          i,
+    ];
+    final start = boundaries.length > 8 ? boundaries[boundaries.length - 8] : 0;
+    contents = (jsonDecode(jsonEncode(value.sublist(start))) as List)
+        .cast<Map<String, dynamic>>();
+  }
+
+  void clear() => contents = [];
 }

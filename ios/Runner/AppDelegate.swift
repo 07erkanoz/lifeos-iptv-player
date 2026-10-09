@@ -46,18 +46,20 @@ import AVFoundation
         result(UIDevice.current.model)
 
       case "setPlayerActive":
-        // Toggle the AVAudioSession so audio keeps playing when the user
-        // backgrounds the app. Pairs with UIBackgroundModes=audio in Info.plist.
+        // Configure movie playback and AirPlay. Dart pauses local playback
+        // when backgrounded; this does not imply background video support.
         let args = call.arguments as? [String: Any]
         let active = args?["active"] as? Bool ?? false
-        self?.setBackgroundAudioActive(active)
-        result(nil)
+        do {
+          try self?.setBackgroundAudioActive(active)
+          result(nil)
+        } catch {
+          result(FlutterError(code: "audio_session_failed", message: "Unable to configure audio playback.", details: nil))
+        }
 
       case "enterPipMode":
-        // Real PiP needs to attach AVPictureInPictureController to the
-        // AVPlayerLayer that media_kit_video uses internally — that work is
-        // out of scope for this patch. Acknowledge so the Dart side does not
-        // see MissingPluginException.
+        // The current media_kit renderer is a texture/libmpv surface.
+        // PiP requires a separate iOS integration; Dart hides its button.
         result(false)
 
       default:
@@ -72,21 +74,20 @@ import AVFoundation
     pipEventChannel.setStreamHandler(PipEventStreamHandler { [weak self] sink in
       self?.pipEventSink = sink
     })
+    let audioEvents = FlutterEventChannel(name: "com.lifeostv.lifeostv/audio_events", binaryMessenger: messenger)
+    audioEvents.setStreamHandler(AudioEventStreamHandler())
   }
 
-  private func setBackgroundAudioActive(_ active: Bool) {
+  private func setBackgroundAudioActive(_ active: Bool) throws {
     let session = AVAudioSession.sharedInstance()
-    do {
-      if active {
-        try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
-        try session.setActive(true)
-      } else {
-        try session.setActive(false, options: [.notifyOthersOnDeactivation])
-      }
-    } catch {
-      NSLog("[LifeOsTV] AVAudioSession toggle failed: \(error.localizedDescription)")
+    if active {
+      try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
+      try session.setActive(true)
+    } else {
+      try session.setActive(false, options: [.notifyOthersOnDeactivation])
     }
   }
+
 }
 
 // MARK: - PipEventStreamHandler
@@ -107,4 +108,40 @@ private final class PipEventStreamHandler: NSObject, FlutterStreamHandler {
     setSink(nil)
     return nil
   }
+}
+
+
+private final class AudioEventStreamHandler: NSObject, FlutterStreamHandler {
+  private var observers: [NSObjectProtocol] = []
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    removeObservers()
+    let center = NotificationCenter.default
+    observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
+      guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+      if type == .began {
+        events(["kind": "began"])
+      } else {
+        let options = AVAudioSession.InterruptionOptions(rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
+        events(["kind": "ended", "shouldResume": options.contains(.shouldResume)])
+      }
+    })
+    observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { note in
+      if let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+         reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue {
+        events(["kind": "unplugged"])
+      }
+    })
+    return nil
+  }
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    removeObservers()
+    return nil
+  }
+  private func removeObservers() {
+    for observer in observers { NotificationCenter.default.removeObserver(observer) }
+    observers.removeAll()
+  }
+  deinit { removeObservers() }
 }

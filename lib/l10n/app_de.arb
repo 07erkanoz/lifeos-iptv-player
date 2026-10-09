@@ -431,9 +431,10 @@
   "skipIntro": "Intro überspringen",
   "skipIntroSetting": "Intro-überspringen-Button anzeigen",
   "skipIntroSettingDesc": "Zeigt einen 'Intro überspringen'-Button, wenn die Wiedergabe innerhalb des markierten Intros liegt.",
+  "markIntro": "Intro markieren",
   "markIntroStart": "Intro beginnt hier",
   "markIntroEnd": "Intro endet hier",
-  "introMarked": "Intro gespeichert. Die nächste Folge bietet das Überspringen an.",
+  "introMarked": "Intro für diese Folge gespeichert.",
   "introCleared": "Intro-Markierung entfernt.",
   "introMarkInvalid": "Endzeit muss nach Startzeit liegen.",
   "dashboardForYouTitle": "Für dich",
@@ -638,5 +639,12 @@
   "heroTrailerOnMobile": "Hero-Trailer abspielen",
   "heroTrailerOnMobileDesc": "Stummen YouTube-Trailer hinter dem Dashboard-Hero automatisch abspielen. Kostspielig im Mobilfunknetz; standardmäßig aus.",
   "deviceSyncCatSecrets": "API-Schlüssel und PINs",
-  "deviceSyncSecretsHint": "Optional. Über eine unverschlüsselte lokale Verbindung gesendet. Kontozugang wird separat ausgewählt."
+  "deviceSyncSecretsHint": "Optional. Über eine unverschlüsselte lokale Verbindung gesendet. Kontozugang wird separat ausgewählt.",
+  "playerPause": "Pause",
+  "playerPreviousEpisode": "Vorherige Folge",
+  "playerSeekBack": "10 Sekunden zurück",
+  "playerSeekForward": "10 Sekunden vor",
+  "playerVolume": "Lautstärke",
+  "playerAlwaysOnTop": "Immer im Vordergrund",
+  "playerProgrammeGuide": "Programmführer"
 }

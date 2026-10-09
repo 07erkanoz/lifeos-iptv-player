@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 // `hide Column` so Flutter's widget `Column` resolves below — drift
 // exports a Column type for its DSL that would otherwise shadow it.
@@ -14,7 +15,6 @@ import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/data/services/semantic_search_service.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -88,12 +88,14 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
   /// Returns a null group when the anchor isn't embedded yet or there
   /// aren't at least 2 resolvable neighbours (caller just skips it).
   Future<({SimilarGroup? group, Map<int, Channel> channels})>
-      _embeddingGroup() async {
+  _embeddingGroup() async {
     // Capture l10n before any await so we don't touch context across
     // an async gap.
     final l10n = AppLocalizations.of(context)!;
     try {
-      final hits = await ref.read(semanticSearchServiceProvider).similarTo(
+      final hits = await ref
+          .read(semanticSearchServiceProvider)
+          .similarTo(
             widget.current.streamId,
             widget.current.type,
             k: 14,
@@ -104,21 +106,23 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       }
       final db = ref.read(appDatabaseProvider);
       final ids = hits.map((h) => h.streamId).toList();
-      final rows = await (db.select(db.channels)
-            ..where((t) => t.streamId.isIn(ids)))
-          .get();
+      final rows = await (db.select(
+        db.channels,
+      )..where((t) => t.streamId.isIn(ids))).get();
       final byId = {
         for (final r in rows)
-          if (r.type == widget.current.type) r.streamId: r
+          if (r.type == widget.current.type) r.streamId: r,
       };
       final items = <SimilarItem>[];
       for (final h in hits) {
         if (h.streamId == widget.current.streamId) continue;
         if (byId[h.streamId] == null) continue;
-        items.add(SimilarItem(
-          streamId: h.streamId,
-          reason: l10n.aiSimilarSemanticReason,
-        ));
+        items.add(
+          SimilarItem(
+            streamId: h.streamId,
+            reason: l10n.aiSimilarSemanticReason,
+          ),
+        );
         if (items.length >= 10) break;
       }
       if (items.length < 2) {
@@ -168,10 +172,11 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     // key).
     final cacheRepo = ref.read(aiSimilarCacheRepositoryProvider);
     final db = ref.read(appDatabaseProvider);
-    final favIdsForKey = await (db.select(db.favorites)
-          ..where((t) => t.streamType.equals(widget.current.type)))
-        .get()
-        .then((rows) => rows.map((r) => r.streamId).toList());
+    final favIdsForKey =
+        await (db.select(db.favorites)
+              ..where((t) => t.streamType.equals(widget.current.type)))
+            .get()
+            .then((rows) => rows.map((r) => r.streamId).toList());
     final cacheKey = AiSimilarCacheRepository.fingerprint(
       streamId: widget.current.streamId,
       type: widget.current.type,
@@ -188,8 +193,7 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       // to the live fetch instead of breaking the rail.
       try {
         final groups = cached
-            .map((e) =>
-                SimilarGroup.fromJson(e as Map<String, dynamic>))
+            .map((e) => SimilarGroup.fromJson(e as Map<String, dynamic>))
             .whereType<SimilarGroup>()
             .toList();
         if (groups.isEmpty) throw const FormatException('empty cache');
@@ -197,20 +201,18 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
         // context so the cards have full Channel rows to render.
         // Cheap query; bounded by the existing sampleLibraryForAi
         // caller below would have done it anyway.
-        final sampleByType =
-            await ref.read(contentRepositoryProvider).sampleLibraryForAi(
-                  moviesPerType: widget.current.type == 'movie' ? 500 : 30,
-                  seriesPerType: widget.current.type == 'series' ? 500 : 30,
-                  livePerType: widget.current.type == 'live' ? 80 : 10,
-                );
+        final sampleByType = await ref
+            .read(contentRepositoryProvider)
+            .sampleLibraryForAi(
+              moviesPerType: widget.current.type == 'movie' ? 500 : 30,
+              seriesPerType: widget.current.type == 'series' ? 500 : 30,
+              livePerType: widget.current.type == 'live' ? 80 : 10,
+            );
         if (!mounted) return;
         setState(() {
           _loading = false;
           _failed = false;
-          _groups = [
-            if (emb.group != null) emb.group!,
-            ...groups,
-          ];
+          _groups = [if (emb.group != null) emb.group!, ...groups];
           _channelsById = {
             for (final c in sampleByType) c.streamId: c,
             ...emb.channels,
@@ -256,39 +258,40 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       // Up to 10 favourite items matching the current type. Cheap
       // join, single query, runs in parallel with the sample fetch
       // semantically.
-      final favRows = await (db.select(db.channels).join([
-        db.accountInnerJoin(
-          db.favorites,
-          db.favorites.streamId.equalsExp(db.channels.streamId) &
-              db.favorites.streamType.equalsExp(db.channels.type),
-        ),
-      ])
-            ..where(db.channels.type.equals(widget.current.type))
-            ..orderBy([
-              OrderingTerm(
-                  expression: db.favorites.addedAt,
-                  mode: OrderingMode.desc),
-            ])
-            ..limit(10))
-          .get();
-      favoritesSample.addAll(
-          favRows.map((row) => row.readTable(db.channels)));
+      final favRows =
+          await (db.select(db.channels).join([
+                  db.accountInnerJoin(
+                    db.favorites,
+                    db.favorites.streamId.equalsExp(db.channels.streamId) &
+                        db.favorites.streamType.equalsExp(db.channels.type),
+                  ),
+                ])
+                ..where(db.channels.type.equals(widget.current.type))
+                ..orderBy([
+                  OrderingTerm(
+                    expression: db.favorites.addedAt,
+                    mode: OrderingMode.desc,
+                  ),
+                ])
+                ..limit(10))
+              .get();
+      favoritesSample.addAll(favRows.map((row) => row.readTable(db.channels)));
     } catch (_) {
       // Favourites query failure isn't fatal — drop the taste
       // signal and proceed with item-only matching.
     }
 
     Map<String, dynamic> compact(Channel ch) => {
-          'streamId': ch.streamId,
-          'title': ch.name,
-          'type': ch.type,
-          if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
-          if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
-          if (ch.director != null && ch.director!.isNotEmpty)
-            'director': ch.director,
-          if (ch.cast != null && ch.cast!.isNotEmpty) 'cast': ch.cast,
-          if (ch.rating != null) 'rating': ch.rating,
-        };
+      'streamId': ch.streamId,
+      'title': ch.name,
+      'type': ch.type,
+      if (ch.genre != null && ch.genre!.isNotEmpty) 'genre': ch.genre,
+      if (ch.year != null && ch.year!.isNotEmpty) 'year': ch.year,
+      if (ch.director != null && ch.director!.isNotEmpty)
+        'director': ch.director,
+      if (ch.cast != null && ch.cast!.isNotEmpty) 'cast': ch.cast,
+      if (ch.rating != null) 'rating': ch.rating,
+    };
 
     // Enrichment for the CURRENT item — feeds Gemini the themes/mood
     // it can't read off the raw provider metadata, so axis picks like
@@ -297,8 +300,8 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
         .read(contentEnrichmentRepositoryProvider)
         .lookup(widget.current.streamId, widget.current.type);
 
-    final effGenre = (widget.current.genre != null &&
-            widget.current.genre!.isNotEmpty)
+    final effGenre =
+        (widget.current.genre != null && widget.current.genre!.isNotEmpty)
         ? widget.current.genre
         : curEnrich?.genres;
 
@@ -342,17 +345,11 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
       return;
     }
 
-    final byId = {
-      for (final c in sample) c.streamId: c,
-      ...emb.channels,
-    };
+    final byId = {for (final c in sample) c.streamId: c, ...emb.channels};
     setState(() {
       _loading = false;
       _failed = false;
-      _groups = [
-        if (emb.group != null) emb.group!,
-        ...groups,
-      ];
+      _groups = [if (emb.group != null) emb.group!, ...groups];
       _channelsById = byId;
       _cachedFor = widget.current.streamId;
     });
@@ -369,11 +366,7 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
   }
 
   String _userLanguageCode() {
-    final appLang = ref.read(settingsProvider).language;
-    if (appLang == AppLanguage.system) {
-      return Localizations.localeOf(context).languageCode;
-    }
-    return appLang.name;
+    return ref.read(resolvedLocaleProvider).languageCode;
   }
 
   @override
@@ -382,8 +375,7 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     // On Android TV, AI is fully off (gemini is null) — always use the plain
     // fallback rail so no ✨/AI header or auto-fetch appears here.
     if (!hasAiKey || PlatformHelper.isTV) {
-      return widget.fallbackBuilder?.call(context) ??
-          const SizedBox.shrink();
+      return widget.fallbackBuilder?.call(context) ?? const SizedBox.shrink();
     }
 
     // Lazily kick off the fetch on first build (or when the channel
@@ -414,7 +406,8 @@ class _AiSimilarSectionState extends ConsumerState<AiSimilarSection> {
     // keywords — already a strong recommender on its own. AI is
     // additive when the network cooperates, not a requirement for
     // the rail to be useful.
-    final aiNotReady = _loading || _groups == null || _groups!.isEmpty || _failed;
+    final aiNotReady =
+        _loading || _groups == null || _groups!.isEmpty || _failed;
     if (aiNotReady) {
       final fb = widget.fallbackBuilder?.call(context);
       if (fb != null) return fb;
@@ -478,29 +471,31 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: isDark ? AppColors.textDark : AppColors.textLight,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(width: 10),
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
+            const SizedBox(width: 8),
             Text(
-              subtitle!,
+              title,
               style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(width: 10),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
         const SizedBox(height: 16),
         child,
       ],
@@ -533,39 +528,41 @@ class _AxisGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Container(
-            width: 4,
-            height: 16,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            group.axisLabel,
-            style: TextStyle(
-              color: isDark ? AppColors.textDark : AppColors.textLight,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (group.axisSubtitle != null) ...[
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                '· ${group.axisSubtitle}',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.textSecondaryDark,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 16,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+            const SizedBox(width: 10),
+            Text(
+              group.axisLabel,
+              style: TextStyle(
+                color: isDark ? AppColors.textDark : AppColors.textLight,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (group.axisSubtitle != null) ...[
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '· ${group.axisSubtitle}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
         const SizedBox(height: 10),
         SizedBox(
           height: 230,
@@ -664,53 +661,53 @@ class _SimilarCardState extends State<_SimilarCard> {
                   : null,
             ),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: ch.streamIcon!,
-                        width: 130,
-                        height: 130,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 320,
-                        errorWidget: (_, _, _) => _placeholderPoster(),
-                      )
-                    : _placeholderPoster(),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                ch.name,
-                style: TextStyle(
-                  color: widget.isDark
-                      ? AppColors.textDark
-                      : AppColors.textLight,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: ch.streamIcon!,
+                          width: 130,
+                          height: 130,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 320,
+                          errorWidget: (_, _, _) => _placeholderPoster(),
+                        )
+                      : _placeholderPoster(),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                widget.item.reason,
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 10.5,
-                  fontStyle: FontStyle.italic,
-                  height: 1.3,
+                const SizedBox(height: 6),
+                Text(
+                  ch.name,
+                  style: TextStyle(
+                    color: widget.isDark
+                        ? AppColors.textDark
+                        : AppColors.textLight,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  widget.item.reason,
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 10.5,
+                    fontStyle: FontStyle.italic,
+                    height: 1.3,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _placeholderPoster() {
@@ -718,8 +715,11 @@ class _SimilarCardState extends State<_SimilarCard> {
       width: 130,
       height: 130,
       color: AppColors.surfaceElevatedDark,
-      child: const Icon(Icons.movie_outlined,
-          color: AppColors.textTertiaryDark, size: 36),
+      child: const Icon(
+        Icons.movie_outlined,
+        color: AppColors.textTertiaryDark,
+        size: 36,
+      ),
     );
   }
 }

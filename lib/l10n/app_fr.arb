@@ -431,9 +431,10 @@
   "skipIntro": "Passer le générique",
   "skipIntroSetting": "Afficher le bouton Passer générique",
   "skipIntroSettingDesc": "Quand activé, le lecteur affiche un bouton 'Passer le générique' pendant la plage marquée.",
+  "markIntro": "Marquer le générique",
   "markIntroStart": "Le générique commence ici",
   "markIntroEnd": "Le générique se termine ici",
-  "introMarked": "Générique enregistré. L'épisode suivant proposera de le sauter.",
+  "introMarked": "Générique enregistré pour cet épisode.",
   "introCleared": "Marqueur de générique effacé.",
   "introMarkInvalid": "La fin doit être après le début.",
   "dashboardForYouTitle": "Pour toi",
@@ -638,5 +639,12 @@
   "heroTrailerOnMobile": "Lire la bande-annonce du hero",
   "heroTrailerOnMobileDesc": "Lire automatiquement la bande-annonce YouTube en sourdine derrière le hero du tableau de bord. Coûteux en données mobiles ; désactivé par défaut.",
   "deviceSyncCatSecrets": "Clés API et codes PIN",
-  "deviceSyncSecretsHint": "Facultatif. Envoi sur une connexion locale non chiffrée. Les identifiants du compte sont sélectionnés séparément."
+  "deviceSyncSecretsHint": "Facultatif. Envoi sur une connexion locale non chiffrée. Les identifiants du compte sont sélectionnés séparément.",
+  "playerPause": "Pause",
+  "playerPreviousEpisode": "Épisode précédent",
+  "playerSeekBack": "Reculer de 10 secondes",
+  "playerSeekForward": "Avancer de 10 secondes",
+  "playerVolume": "Volume",
+  "playerAlwaysOnTop": "Toujours au premier plan",
+  "playerProgrammeGuide": "Guide des programmes"
 }

@@ -1094,14 +1094,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'When enabled, the player shows a \'Skip Intro\' button while playback is within a series\' marked intro range.';
 
   @override
+  String get markIntro => 'Mark intro';
+
+  @override
   String get markIntroStart => 'Intro starts here';
 
   @override
   String get markIntroEnd => 'Intro ends here';
 
   @override
-  String get introMarked =>
-      'Intro saved. The next episode will offer to skip it.';
+  String get introMarked => 'Intro saved for this episode.';
 
   @override
   String get introCleared => 'Intro marker cleared.';
@@ -1646,4 +1648,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Optional. Sent over an unencrypted local connection. Account login is selected separately.';
+
+  @override
+  String get playerPause => 'Pause';
+
+  @override
+  String get playerPreviousEpisode => 'Previous episode';
+
+  @override
+  String get playerSeekBack => 'Back 10 seconds';
+
+  @override
+  String get playerSeekForward => 'Forward 10 seconds';
+
+  @override
+  String get playerVolume => 'Volume';
+
+  @override
+  String get playerAlwaysOnTop => 'Always on top';
+
+  @override
+  String get playerProgrammeGuide => 'Programme guide';
 }

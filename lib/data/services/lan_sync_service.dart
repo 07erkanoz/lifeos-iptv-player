@@ -1,3 +1,4 @@
+import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
 import 'lan_transfer_policy.dart';
 import 'lan_pairing_gate.dart';
 import 'm3u_lan_identity.dart';
@@ -592,6 +593,17 @@ class LanSyncService {
         if (type is String && id is int) referenced.add((type, id));
       }
     }
+    final markers = payload['introMarkers'];
+    if (markers is List) {
+      for (final raw in markers) {
+        if (raw is! Map) continue;
+        if (raw['seriesId'] is int)
+          referenced.add(('series', raw['seriesId'] as int));
+        if (raw['episodeId'] is int && raw['episodeId'] > 0) {
+          referenced.add(('series', raw['episodeId'] as int));
+        }
+      }
+    }
     final ids = referenced.map((r) => r.$2).toSet().toList();
     final identities = <Map<String, dynamic>>[];
     for (var i = 0; i < ids.length; i += 500) {
@@ -663,6 +675,9 @@ class LanSyncService {
     }
 
     if (cats.contains(SyncCategory.progress)) {
+      out['introMarkers'] = [
+        for (final m in await _db.select(_db.introMarkers).get()) m.toJson(),
+      ];
       final rows = await _db.select(_db.playbackProgress).get();
       out['progress'] = [
         for (final p in rows)
@@ -1117,6 +1132,15 @@ class LanSyncService {
       });
     }
 
+    if (cats.contains(SyncCategory.progress) &&
+        contentDb != null &&
+        payload['introMarkers'] is List) {
+      await IntroMarkerRepository(contentDb).merge([
+        for (final row in payload['introMarkers'] as List)
+          if (row is Map) Map<String, dynamic>.from(row),
+      ]);
+    }
+
     if (cats.contains(SyncCategory.enrichment) &&
         payload['enrichment'] is List &&
         contentDb != null) {
@@ -1285,6 +1309,9 @@ class LanSyncService {
     final tombstones = await _db.select(_db.syncTombstones).get();
     final catPrefs = await _db.select(_db.categoryPrefs).get();
     return _withM3uIdentities({
+      'introMarkers': [
+        for (final m in await _db.select(_db.introMarkers).get()) m.toJson(),
+      ],
       'v': _payloadVersion,
       'contentAccountKey': await _contentAccountKey(),
       // Delete tombstones so a removal propagates instead of the peer
@@ -1357,6 +1384,13 @@ class LanSyncService {
         snap,
         await _db.select(_db.m3uIdentities).get(),
       );
+    }
+
+    if (snap['introMarkers'] is List) {
+      await IntroMarkerRepository(_db).merge([
+        for (final row in snap['introMarkers'] as List)
+          if (row is Map) Map<String, dynamic>.from(row),
+      ]);
     }
 
     final profiles = await _db.select(_db.profiles).get();

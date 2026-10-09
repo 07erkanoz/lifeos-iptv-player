@@ -1097,14 +1097,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Zeigt einen \'Intro überspringen\'-Button, wenn die Wiedergabe innerhalb des markierten Intros liegt.';
 
   @override
+  String get markIntro => 'Intro markieren';
+
+  @override
   String get markIntroStart => 'Intro beginnt hier';
 
   @override
   String get markIntroEnd => 'Intro endet hier';
 
   @override
-  String get introMarked =>
-      'Intro gespeichert. Die nächste Folge bietet das Überspringen an.';
+  String get introMarked => 'Intro für diese Folge gespeichert.';
 
   @override
   String get introCleared => 'Intro-Markierung entfernt.';
@@ -1656,4 +1658,25 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'Optional. Über eine unverschlüsselte lokale Verbindung gesendet. Kontozugang wird separat ausgewählt.';
+
+  @override
+  String get playerPause => 'Pause';
+
+  @override
+  String get playerPreviousEpisode => 'Vorherige Folge';
+
+  @override
+  String get playerSeekBack => '10 Sekunden zurück';
+
+  @override
+  String get playerSeekForward => '10 Sekunden vor';
+
+  @override
+  String get playerVolume => 'Lautstärke';
+
+  @override
+  String get playerAlwaysOnTop => 'Immer im Vordergrund';
+
+  @override
+  String get playerProgrammeGuide => 'Programmführer';
 }

@@ -1,7 +1,7 @@
+import 'package:lifeostv/data/services/ai_operation.dart';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/core/platform_helper.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
@@ -20,16 +20,118 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 /// always has a graceful fallback (plain SQL search, etc.) and we
 /// don't want a flaky Gemini call to break the search box.
 class GeminiService {
-  /// `gemini-2.5-flash` because:
-  ///   * cheap on the free tier (1500 RPD as of 2026-05)
-  ///   * fast enough to keep search-as-you-type tolerable
-  ///   * structured-output-capable via `responseSchema`
-  static const _model = 'gemini-2.5-flash';
   static const _endpoint =
       'https://generativelanguage.googleapis.com/v1beta/models';
 
   final String _apiKey;
   final Dio _dio;
+
+  final Set<CancelToken> _requests = {};
+  bool _disposed = false;
+
+  void dispose() {
+    _disposed = true;
+    for (final token in _requests.toList()) {
+      if (!token.isCancelled) token.cancel('service_disposed');
+    }
+    _dio.close(force: true);
+  }
+
+  void _noteFailure(String fallback) {
+    final operation = AiOperation.current;
+    if (operation != null) operation.errorCode ??= fallback;
+  }
+
+  static String? readResponseText(List parts) {
+    final texts = [
+      for (final part in parts)
+        if (part is Map && part['thought'] != true && part['text'] is String)
+          part['text'] as String,
+    ];
+    return texts.isEmpty ? null : texts.join();
+  }
+
+  Future<Response<Map<String, dynamic>>> _post(
+    String path, {
+    required Map<String, dynamic> data,
+    Options? options,
+  }) async {
+    if (_disposed) throw const AiRequestException('service_disposed');
+    final operation = AiOperation.current;
+    operation?.checkActive();
+    final token = operation?.cancelToken ?? CancelToken();
+    _requests.add(token);
+    final payload = Map<String, dynamic>.from(data);
+    if (path.endsWith(':generateContent')) {
+      final generation = Map<String, dynamic>.from(
+        payload['generationConfig'] as Map? ?? {},
+      );
+      for (final key in ['temperature', 'topP', 'topK', 'candidateCount']) {
+        generation.remove(key);
+      }
+      generation['thinkingConfig'] = {
+        'thinkingLevel': payload.containsKey('tools') ? 'MEDIUM' : 'LOW',
+      };
+      payload['generationConfig'] = generation;
+    }
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: payload,
+        cancelToken: token,
+        options: (options ?? Options()).copyWith(
+          headers: {...?options?.headers, 'x-goog-api-key': _apiKey},
+          validateStatus: (_) => true,
+        ),
+      );
+      operation?.checkActive();
+      final status = response.statusCode ?? 0;
+      if (status != 200) {
+        final code = status == 429
+            ? 'quota'
+            : status == 401 || status == 403
+            ? 'authentication'
+            : 'http_$status';
+        operation?.errorCode = code;
+        throw AiRequestException(code);
+      }
+      if (path.endsWith(':generateContent')) {
+        final body = response.data;
+        final candidates = body?['candidates'];
+        if (candidates is! List || candidates.isEmpty) {
+          operation?.errorCode = body?['promptFeedback'] != null
+              ? 'blocked'
+              : 'empty_response';
+          throw AiRequestException(operation?.errorCode ?? 'empty_response');
+        }
+        final first = candidates.first;
+        final reason = first is Map ? first['finishReason'] : null;
+        if (reason != null && reason != 'STOP') {
+          final code = reason == 'MAX_TOKENS' ? 'truncated' : 'finish_$reason';
+          operation?.errorCode = code;
+          throw AiRequestException(code);
+        }
+      }
+      return response;
+    } on DioException catch (error) {
+      final code = error.type == DioExceptionType.cancel
+          ? 'cancelled'
+          : [
+              DioExceptionType.connectionTimeout,
+              DioExceptionType.receiveTimeout,
+              DioExceptionType.sendTimeout,
+            ].contains(error.type)
+          ? 'timeout'
+          : 'network';
+      operation?.errorCode ??= code;
+      throw AiRequestException(code);
+    } finally {
+      _requests.remove(token);
+    }
+  }
+
+  Future<T?> withDeadline<T>(Future<T?> Function() action, Duration duration) =>
+      AiOperation().withDeadline(action, duration);
 
   // Session caches — an identical search/suggest within one app run
   // shouldn't re-hit the API (the user backspacing and retyping the
@@ -39,14 +141,16 @@ class GeminiService {
   final Map<String, List<({int streamId, String reason})>> _curateCache = {};
   final Map<String, List<String>> _suggestCache = {};
 
-  GeminiService(this._apiKey)
-    : _dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 15),
-          validateStatus: (_) => true, // we surface non-200 ourselves
-        ),
-      );
+  GeminiService(this._apiKey, {Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 15),
+              validateStatus: (_) => true, // we surface non-200 ourselves
+            ),
+          );
 
   /// Insert into a bounded session cache, evicting the oldest entry
   /// once it's full (insertion order — good enough, this isn't a hot
@@ -75,9 +179,8 @@ class GeminiService {
     if (q.isEmpty || _apiKey.isEmpty) return null;
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.parser}:generateContent',
-        queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
             'parts': [
@@ -94,17 +197,13 @@ class GeminiService {
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _responseSchema,
-            'temperature': 0.0, // deterministic for the same query
             'maxOutputTokens': 256,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] parseSearchQuery status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
 
@@ -121,7 +220,7 @@ class GeminiService {
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       // Tolerate stray prefix/suffix prose — find the outermost
@@ -135,14 +234,14 @@ class GeminiService {
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] JSON decode failed: $e   raw=$jsonStr');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
 
       return SearchIntent.fromJson(decoded);
     } catch (e) {
-      debugPrint('[Gemini] parseSearchQuery failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -162,7 +261,7 @@ class GeminiService {
   /// Cost budget: each call serialises ~50 channels of metadata
   /// (titles, genres, years, ratings) plus the conversation —
   /// roughly 5-8 KB / 1.5-2.5K input tokens. Well inside Gemini
-  /// 2.5 Flash's free-tier daily allowance for personal use.
+  /// the configured model's daily allowance for personal use.
   Future<TonightResponse?> recommendForTonight({
     required List<({bool fromUser, String text})> conversation,
     required List<Channel> recentlyWatched,
@@ -209,12 +308,12 @@ class GeminiService {
 
       // Dedupe queryMatches against librarySample (and itself by id)
       // so the AI doesn't see the same id twice in different buckets.
-      final sampleIds = librarySample.map((c) => c.streamId).toSet();
+      final sampleIds = librarySample.map((c) => (c.type, c.streamId)).toSet();
       final dedupedMatches = <Channel>[];
-      final seenMatchIds = <int>{};
+      final seenMatchIds = <(String, int)>{};
       for (final c in queryMatches) {
-        if (sampleIds.contains(c.streamId)) continue;
-        if (!seenMatchIds.add(c.streamId)) continue;
+        if (sampleIds.contains((c.type, c.streamId))) continue;
+        if (!seenMatchIds.add((c.type, c.streamId))) continue;
         dedupedMatches.add(c);
       }
 
@@ -223,7 +322,7 @@ class GeminiService {
       // count, but it intentionally CAN overlap with queryMatches —
       // the recency label is the signal that matters here.
       final dedupedRecent = recentAdditions
-          .where((c) => !sampleIds.contains(c.streamId))
+          .where((c) => !sampleIds.contains((c.type, c.streamId)))
           .toList();
 
       final contextBlob = <String, dynamic>{
@@ -280,9 +379,8 @@ class GeminiService {
         });
       }
 
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.chat}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -293,7 +391,6 @@ class GeminiService {
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _tonightResponseSchema,
-            'temperature': 0.7, // some warmth in phrasing
             // Bumped to 4096 — listing queries with 10+ Korean dramas
             // each carrying a one-sentence reason can easily blow
             // past 2048 tokens, especially in Turkish where token
@@ -306,9 +403,7 @@ class GeminiService {
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] recommendForTonight status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
 
@@ -322,7 +417,7 @@ class GeminiService {
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       // Same prose-tolerance trick as parseSearchQuery: pull out the
@@ -336,14 +431,14 @@ class GeminiService {
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] recommendForTonight JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
 
       return TonightResponse.fromJson(decoded);
     } catch (e) {
-      debugPrint('[Gemini] recommendForTonight failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -421,7 +516,10 @@ class GeminiService {
             'type': 'OBJECT',
             'properties': {
               'streamId': {'type': 'INTEGER'},
-              'type': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'enum': ['movie', 'series', 'live'],
+              },
             },
             'required': ['streamId', 'type'],
           },
@@ -433,7 +531,10 @@ class GeminiService {
             'type': 'OBJECT',
             'properties': {
               'streamId': {'type': 'INTEGER'},
-              'type': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'enum': ['movie', 'series', 'live'],
+              },
             },
             'required': ['streamId', 'type'],
           },
@@ -445,7 +546,10 @@ class GeminiService {
             'type': 'OBJECT',
             'properties': {
               'streamId': {'type': 'INTEGER'},
-              'type': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'enum': ['movie', 'series', 'live'],
+              },
             },
             'required': ['streamId', 'type'],
           },
@@ -457,7 +561,10 @@ class GeminiService {
             'type': 'OBJECT',
             'properties': {
               'streamId': {'type': 'INTEGER'},
-              'type': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'enum': ['movie', 'series', 'live'],
+              },
             },
             'required': ['streamId', 'type'],
           },
@@ -482,7 +589,10 @@ class GeminiService {
             'type': 'OBJECT',
             'properties': {
               'streamId': {'type': 'INTEGER'},
-              'type': {'type': 'STRING'},
+              'type': {
+                'type': 'STRING',
+                'enum': ['movie', 'series', 'live'],
+              },
               'title': {'type': 'STRING'},
               'epochMs': {'type': 'INTEGER'},
             },
@@ -504,8 +614,13 @@ class GeminiService {
                 'type': 'ARRAY',
                 'items': {
                   'type': 'OBJECT',
+                  'required': ['streamId', 'type', 'reason'],
                   'properties': {
                     'streamId': {'type': 'INTEGER'},
+                    'type': {
+                      'type': 'STRING',
+                      'enum': ['movie', 'series', 'live'],
+                    },
                     'reason': {'type': 'STRING'},
                   },
                 },
@@ -536,29 +651,37 @@ class GeminiService {
     )
     onToolCall,
     int maxRounds = 6,
+    GeminiAgentSession? session,
+    bool allowReminders = true,
   }) async {
     if (_apiKey.isEmpty || conversation.isEmpty) return null;
     try {
-      final contents = <Map<String, dynamic>>[];
-      for (var i = 0; i < conversation.length; i++) {
-        final turn = conversation[i];
-        final isFirstUser = i == 0 && turn.fromUser;
+      final contents = session != null && session.contents.isNotEmpty
+          ? session.snapshot()
+          : <Map<String, dynamic>>[];
+      final turns = contents.isEmpty ? conversation : [conversation.last];
+      for (var i = 0; i < turns.length; i++) {
+        final turn = turns[i];
         contents.add({
           'role': turn.fromUser ? 'user' : 'model',
           'parts': [
             {
-              'text': isFirstUser
+              'text': turn.fromUser && (contents.isEmpty || session != null)
                   ? 'CONTEXT_JSON: $contextJson\n\nUSER: ${turn.text}'
                   : turn.text,
             },
           ],
         });
       }
+      void commitSession() {
+        AiOperation.current?.checkActive();
+        session?.replace(contents);
+      }
 
       for (var round = 0; round < maxRounds; round++) {
-        final res = await _dio.post<Map<String, dynamic>>(
-          '$_endpoint/$_model:generateContent',
-          queryParameters: {'key': _apiKey},
+        AiOperation.current?.checkActive();
+        final res = await _post(
+          '$_endpoint/${AiModelPolicy.chat}:generateContent',
           data: {
             'systemInstruction': {
               'parts': [
@@ -566,15 +689,23 @@ class GeminiService {
               ],
             },
             'contents': contents,
-            'tools': _agentTools,
-            'generationConfig': {'temperature': 0.6, 'maxOutputTokens': 2048},
+            'tools': [
+              for (final tool in _agentTools)
+                {
+                  'functionDeclarations': [
+                    for (final declaration
+                        in tool['functionDeclarations'] as List)
+                      if (allowReminders ||
+                          declaration['name'] != 'setReminder')
+                        declaration,
+                  ],
+                },
+            ],
+            'generationConfig': {'maxOutputTokens': 8192},
           },
         );
         if (res.statusCode != 200) {
-          debugPrint(
-            '[Gemini] runAgent status=${res.statusCode} '
-            'body=${res.data}',
-          );
+          _noteFailure('request_or_parse_failure');
           return null;
         }
         final body = res.data;
@@ -592,7 +723,7 @@ class GeminiService {
           if (p is! Map) continue;
           if (p['functionCall'] is Map) {
             calls.add((p['functionCall'] as Map).cast<String, dynamic>());
-          } else if (p['text'] is String) {
+          } else if (p['thought'] != true && p['text'] is String) {
             textBuf.write(p['text']);
           }
         }
@@ -600,11 +731,14 @@ class GeminiService {
         if (calls.isEmpty) {
           // Plain-text final answer.
           final t = textBuf.toString().trim();
+          contents.add({'role': 'model', 'parts': parts});
+          commitSession();
           return TonightResponse(message: t, recommendations: const []);
         }
 
         // Echo the model's content back, then answer each call.
         contents.add({'role': 'model', 'parts': parts});
+        TonightResponse? terminalResponse;
         final responseParts = <Map<String, dynamic>>[];
         for (final call in calls) {
           final name = (call['name'] ?? '') as String;
@@ -613,26 +747,45 @@ class GeminiService {
               : <String, dynamic>{};
 
           if (name == 'presentRecommendations') {
-            // Terminal: build the final response from the model's args.
-            return TonightResponse.fromJson(args);
+            terminalResponse = TonightResponse.fromJson(args);
+            responseParts.add({
+              'functionResponse': {
+                if (call['id'] != null) 'id': call['id'],
+                'name': name,
+                'response': {'delivered': true},
+              },
+            });
+            continue;
           }
 
           Map<String, dynamic> result;
           try {
+            AiOperation.current?.checkActive();
             result = await onToolCall(name, args);
+            AiOperation.current?.checkActive();
           } catch (e) {
-            result = {'error': e.toString()};
+            AiOperation.current?.checkActive();
+            result = {'error': 'tool_failed'};
           }
           responseParts.add({
-            'functionResponse': {'name': name, 'response': result},
+            'functionResponse': {
+              if (call['id'] != null) 'id': call['id'],
+              'name': name,
+              'response': result,
+            },
           });
         }
-        contents.add({'role': 'function', 'parts': responseParts});
+        contents.add({'role': 'user', 'parts': responseParts});
+        if (terminalResponse != null) {
+          commitSession();
+          return terminalResponse;
+        }
       }
       // Ran out of rounds without a terminal call.
-      return const TonightResponse(message: '', recommendations: []);
+      _noteFailure('round_limit');
+      throw const AiRequestException('round_limit');
     } catch (e) {
-      debugPrint('[Gemini] runAgent failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -785,9 +938,8 @@ need to express low confidence, do it inline with phrasing like
     };
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.longText}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -802,7 +954,6 @@ need to express low confidence, do it inline with phrasing like
             },
           ],
           'generationConfig': {
-            'temperature': mode == PlotEnrichMode.translate ? 0.2 : 0.5,
             // detailedInfo writes 4–6 short paragraphs. Token budget
             // history:
             //   *  900 → first try, Turkish kept getting clipped
@@ -819,15 +970,12 @@ need to express low confidence, do it inline with phrasing like
             // because they're explicitly short-form and a runaway
             // response is more annoying than a truncated one.
             'maxOutputTokens': mode == PlotEnrichMode.detailedInfo ? 4096 : 500,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] enrichPlot status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -840,7 +988,7 @@ need to express low confidence, do it inline with phrasing like
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString().trim();
+      final text = readResponseText(parts)?.trim();
       if (text == null || text.isEmpty) return null;
       // Legacy compatibility — earlier prompt versions instructed
       // the model to reply with "UNKNOWN" for unrecognised titles.
@@ -851,7 +999,7 @@ need to express low confidence, do it inline with phrasing like
       if (text.toUpperCase() == 'UNKNOWN') return null;
       return text;
     } catch (e) {
-      debugPrint('[Gemini] enrichPlot failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -921,9 +1069,8 @@ recap it without inventing details, reply with the single word
     }
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.longText}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -937,18 +1084,12 @@ recap it without inventing details, reply with the single word
               ],
             },
           ],
-          'generationConfig': {
-            'temperature': 0.5,
-            'maxOutputTokens': 900,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
-          },
+          'generationConfig': {'maxOutputTokens': 900},
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] recapSeriesUpTo status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -961,12 +1102,12 @@ recap it without inventing details, reply with the single word
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString().trim();
+      final text = readResponseText(parts)?.trim();
       if (text == null || text.isEmpty) return null;
       if (text.toUpperCase() == 'UNKNOWN') return null;
       return text;
     } catch (e) {
-      debugPrint('[Gemini] recapSeriesUpTo failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1075,9 +1216,8 @@ Return strict JSON matching the response schema.
         '${favorites.isNotEmpty ? "FAVORITES: ${jsonEncode(favorites)}\n" : ""}';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.searchRerank}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -1094,17 +1234,13 @@ Return strict JSON matching the response schema.
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _similarResponseSchema,
-            'temperature': 0.6,
             'maxOutputTokens': 2048,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] findSimilarContent status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -1117,7 +1253,7 @@ Return strict JSON matching the response schema.
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       // Same prose-tolerance trick as other methods.
@@ -1130,7 +1266,7 @@ Return strict JSON matching the response schema.
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] findSimilarContent JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
@@ -1148,7 +1284,7 @@ Return strict JSON matching the response schema.
       }
       return groups;
     } catch (e) {
-      debugPrint('[Gemini] findSimilarContent failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1275,9 +1411,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
         'QUERY: $query\n\nLIBRARY_SAMPLE: ${jsonEncode(librarySample)}';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.searchRerank}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -1294,17 +1429,13 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _curateResponseSchema,
-            'temperature': 0.3,
             'maxOutputTokens': 2048,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] curateLibraryByQuery status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -1317,7 +1448,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       final start = text.indexOf('{');
@@ -1329,7 +1460,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] curateLibraryByQuery JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
@@ -1356,7 +1487,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<string>},…]}.
       _putAiCache(_curateCache, cacheKey, picks);
       return picks;
     } catch (e) {
-      debugPrint('[Gemini] curateLibraryByQuery failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1496,9 +1627,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
         'LIBRARY: ${jsonEncode(librarySample)}$profileHint$moreLikeHint$avoidHint$varietyHint';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.dashboardRanking}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -1517,17 +1647,13 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
             'responseSchema': _curateResponseSchema,
             // Bump warmth on explicit refresh so the sampler explores
             // further from its previous best response.
-            'temperature': varietySeed > 0 ? 0.95 : 0.6,
             'maxOutputTokens': 2048,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] recommendForYou status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -1540,7 +1666,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       final startIdx = text.indexOf('{');
@@ -1552,7 +1678,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] recommendForYou JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
@@ -1578,7 +1704,7 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
       }
       return picks;
     } catch (e) {
-      debugPrint('[Gemini] recommendForYou failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1645,9 +1771,8 @@ Return strict JSON:
         'RECENTLY_WATCHED: ${jsonEncode(recentlyWatched)}$profileHint';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.dashboardRanking}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -1681,9 +1806,7 @@ Return strict JSON:
               },
               'required': ['headline', 'picks'],
             },
-            'temperature': 0.6,
             'maxOutputTokens': 1024,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1723,7 +1846,7 @@ Return strict JSON:
       if (picks.isEmpty) return null;
       return (headline: headline, picks: picks);
     } catch (e) {
-      debugPrint('[Gemini] weeklyDigest failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1770,9 +1893,8 @@ Style rules:
         : '';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.longText}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -1786,11 +1908,7 @@ Style rules:
               ],
             },
           ],
-          'generationConfig': {
-            'temperature': 0.4,
-            'maxOutputTokens': 512,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
-          },
+          'generationConfig': {'maxOutputTokens': 512},
         },
       );
       if (res.statusCode != 200 || res.data == null) return null;
@@ -1802,7 +1920,7 @@ Style rules:
       if (text == null || text.isEmpty) return null;
       return text;
     } catch (e) {
-      debugPrint('[Gemini] actorCareerSummary failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1856,9 +1974,8 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
 ''';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.parser}:generateContent',
-        queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
             'parts': [
@@ -1884,9 +2001,7 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
               },
               'required': ['suggestions'],
             },
-            'temperature': 0.7,
             'maxOutputTokens': 256,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -1919,7 +2034,7 @@ Return strict JSON: {"suggestions":["<str>","<str>",…]}.
       _putAiCache(_suggestCache, cacheKey, out);
       return out;
     } catch (e) {
-      debugPrint('[Gemini] suggestSearchRefinements failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -1996,9 +2111,8 @@ Output strict JSON:
         'TIME_OF_DAY: $timeOfDay';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.dashboardRanking}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -2024,9 +2138,7 @@ Output strict JSON:
               },
               'required': ['order'],
             },
-            'temperature': 0.3, // deterministic-ish — this is a sort
             'maxOutputTokens': 512,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2041,7 +2153,7 @@ Output strict JSON:
       try {
         parsed = jsonDecode(text) as Map<String, dynamic>;
       } catch (e) {
-        debugPrint('[Gemini] rerankContinueWatching JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final raw = parsed['order'];
@@ -2060,14 +2172,12 @@ Output strict JSON:
       final inputIds = items.map((m) => m['streamId'] as int).toSet();
       if (order.toSet().difference(inputIds).isNotEmpty ||
           inputIds.difference(order.toSet()).isNotEmpty) {
-        debugPrint(
-          '[Gemini] rerankContinueWatching: id set mismatch, ignoring',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       return order;
     } catch (e) {
-      debugPrint('[Gemini] rerankContinueWatching failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -2169,9 +2279,8 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
         'LIBRARY_HIGHLIGHTS: ${jsonEncode(librarySample)}$profileHint$moreLikeHint$avoidHint';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.dashboardRanking}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -2204,13 +2313,11 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
               },
               'required': ['billboard'],
             },
-            'temperature': 0.7,
             'maxOutputTokens': 1024,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
-      debugPrint('[Gemini] generateHeroBillboard status=${res.statusCode}');
+      _noteFailure('request_or_parse_failure');
       if (res.statusCode != 200 || res.data == null) return null;
       final candidates = res.data!['candidates'];
       if (candidates is! List || candidates.isEmpty) return null;
@@ -2222,7 +2329,7 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
       try {
         parsed = jsonDecode(text) as Map<String, dynamic>;
       } catch (e) {
-        debugPrint('[Gemini] generateHeroBillboard decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final rawList = parsed['billboard'];
@@ -2246,7 +2353,7 @@ Return strict JSON: {"billboard":[{"streamId":<int>,"tagline":<str>},…]}.
       }
       return picks;
     } catch (e) {
-      debugPrint('[Gemini] generateHeroBillboard failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -2317,9 +2424,8 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
         'LIBRARY: ${jsonEncode(librarySample)}$profileHint';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '$_endpoint/$_model:generateContent',
-        queryParameters: {'key': _apiKey},
+      final res = await _post(
+        '$_endpoint/${AiModelPolicy.dashboardRanking}:generateContent',
         data: {
           'systemInstruction': {
             'parts': [
@@ -2336,15 +2442,11 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _curateResponseSchema,
-            'temperature': 0.8, // mood needs a bit of spice
             'maxOutputTokens': 1536,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
-      debugPrint(
-        '[Gemini] recommendForMood($moodKey) status=${res.statusCode}',
-      );
+      _noteFailure('request_or_parse_failure');
       if (res.statusCode != 200 || res.data == null) return null;
       final candidates = res.data!['candidates'];
       if (candidates is! List || candidates.isEmpty) return null;
@@ -2356,12 +2458,12 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
       try {
         parsed = jsonDecode(text) as Map<String, dynamic>;
       } catch (e) {
-        debugPrint('[Gemini] recommendForMood JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final rawPicks = parsed['picks'];
       if (rawPicks is! List) {
-        debugPrint('[Gemini] recommendForMood: picks not a list');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final picks = <({int streamId, String reason})>[];
@@ -2384,12 +2486,10 @@ Return strict JSON: {"picks":[{"streamId":<int>,"reason":<str>},…]}.
           picks.add((streamId: sid, reason: reason));
         }
       }
-      debugPrint(
-        '[Gemini] recommendForMood($moodKey): parsed ${picks.length} picks',
-      );
+      _noteFailure('request_or_parse_failure');
       return picks;
     } catch (e) {
-      debugPrint('[Gemini] recommendForMood failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -2433,9 +2533,8 @@ emojis, no preamble, no quotes.
     }
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.greeting}:generateContent',
-        queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
             'parts': [
@@ -2450,14 +2549,12 @@ emojis, no preamble, no quotes.
             },
           ],
           'generationConfig': {
-            'temperature': 0.7,
             // "thinking" disabled below — a 1-2 sentence greeting needs
             // no internal reasoning, and it used to burn most of the
             // token budget (clipping Turkish mid-word, "Gibi kaldığ").
             // 1500 stays a generous ceiling for the visible text across
             // all 8 languages (Turkish BPE runs ~2 tokens/syllable).
             'maxOutputTokens': 1500,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
@@ -2472,11 +2569,11 @@ emojis, no preamble, no quotes.
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString().trim();
+      final text = readResponseText(parts)?.trim();
       if (text == null || text.isEmpty) return null;
       return text;
     } catch (e) {
-      debugPrint('[Gemini] dashboardGreeting failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -2542,9 +2639,8 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
         'Episodes: ${eps.join(", ")}';
 
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.episodeSummary}:generateContent',
-        queryParameters: {'key': _apiKey},
         data: {
           'systemInstruction': {
             'parts': [
@@ -2560,19 +2656,15 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
           ],
           'generationConfig': {
             'responseMimeType': 'application/json',
-            'temperature': 0.4,
             // ~50 tokens/episode + JSON overhead. 1500 tokens is
             // enough for a 25-episode season — uncommon but possible.
             'maxOutputTokens': 1500,
-            'thinkingConfig': {'thinkingBudget': 0}, // skip "thinking" — cost
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint(
-          '[Gemini] summarizeEpisodes status=${res.statusCode} body=${res.data}',
-        );
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -2585,7 +2677,7 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
       if (content is! Map<String, dynamic>) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = parts.first['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
 
       final startIdx = text.indexOf('{');
@@ -2597,7 +2689,7 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
       try {
         decoded = jsonDecode(jsonStr);
       } catch (e) {
-        debugPrint('[Gemini] summarizeEpisodes JSON decode failed: $e');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       if (decoded is! Map<String, dynamic>) return null;
@@ -2614,7 +2706,7 @@ Return JSON: {"episodes":{"1":"…","2":"…",…}}.
       }
       return result;
     } catch (e) {
-      debugPrint('[Gemini] summarizeEpisodes failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -2897,9 +2989,13 @@ Respond with JSON only, matching the schema:
           'type': 'OBJECT',
           'properties': {
             'streamId': {'type': 'INTEGER'},
+            'type': {
+              'type': 'STRING',
+              'enum': ['movie', 'series', 'live'],
+            },
             'reason': {'type': 'STRING'},
           },
-          'required': ['streamId', 'reason'],
+          'required': ['streamId', 'type', 'reason'],
         },
       },
       'followUps': {
@@ -2975,9 +3071,8 @@ Respond with JSON only, matching the schema:
           },
       ];
 
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.catalogEnrichment}:generateContent',
-        queryParameters: {'key': _apiKey},
         // A full 18-item structured-JSON answer in Turkish can take
         // longer than the default 15s receive window; a premature
         // timeout would look like a batch "failure" and stall the run.
@@ -2999,14 +3094,13 @@ Respond with JSON only, matching the schema:
           'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': _enrichResponseSchema,
-            'temperature': 0.2,
             'maxOutputTokens': 8192,
           },
         },
       );
 
       if (res.statusCode != 200) {
-        debugPrint('[Gemini] enrichCatalogBatch status=${res.statusCode}');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -3017,7 +3111,7 @@ Respond with JSON only, matching the schema:
       if (content is! Map) return null;
       final parts = content['parts'];
       if (parts is! List || parts.isEmpty) return null;
-      final text = (parts.first as Map)['text']?.toString();
+      final text = readResponseText(parts);
       if (text == null || text.isEmpty) return null;
       final start = text.indexOf('{');
       final end = text.lastIndexOf('}');
@@ -3029,7 +3123,7 @@ Respond with JSON only, matching the schema:
           if (r is Map) r.cast<String, dynamic>(),
       ];
     } catch (e) {
-      debugPrint('[Gemini] enrichCatalogBatch failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -3045,9 +3139,8 @@ Respond with JSON only, matching the schema:
   }) async {
     if (_apiKey.isEmpty || texts.isEmpty) return null;
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
+      final res = await _post(
         '$_endpoint/${AiModelPolicy.embedding}:batchEmbedContents',
-        queryParameters: {'key': _apiKey},
         options: Options(receiveTimeout: const Duration(seconds: 45)),
         data: {
           'requests': [
@@ -3068,7 +3161,7 @@ Respond with JSON only, matching the schema:
         },
       );
       if (res.statusCode != 200) {
-        debugPrint('[Gemini] embedTexts status=${res.statusCode}');
+        _noteFailure('request_or_parse_failure');
         return null;
       }
       final body = res.data;
@@ -3089,7 +3182,7 @@ Respond with JSON only, matching the schema:
             [for (final v in (e['values'] as List)) (v as num).toDouble()],
       ];
     } catch (e) {
-      debugPrint('[Gemini] embedTexts failed: $e');
+      _noteFailure('request_or_parse_failure');
       return null;
     }
   }
@@ -3175,7 +3268,9 @@ final geminiServiceProvider = Provider<GeminiService?>((ref) {
   // gate on this provider — returning null here turns the whole AI
   // subsystem off so weak TV hardware isn't dragged down by it.
   if (PlatformHelper.isTV) return null;
-  final settings = ref.watch(settingsProvider);
-  if (!settings.hasAiKey) return null;
-  return GeminiService(settings.geminiApiKey!.trim());
+  final key = ref.watch(settingsProvider.select((s) => s.geminiApiKey?.trim()));
+  if (key == null || key.isEmpty) return null;
+  final service = GeminiService(key);
+  ref.onDispose(service.dispose);
+  return service;
 });

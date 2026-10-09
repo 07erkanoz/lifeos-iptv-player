@@ -2132,6 +2132,12 @@ abstract class AppLocalizations {
   /// **'Açık olduğunda, oynatıcı işaretlenmiş intro aralığındayken \'İntroyu Atla\' butonu gösterir.'**
   String get skipIntroSettingDesc;
 
+  /// No description provided for @markIntro.
+  ///
+  /// In tr, this message translates to:
+  /// **'İntroyu işaretle'**
+  String get markIntro;
+
   /// No description provided for @markIntroStart.
   ///
   /// In tr, this message translates to:
@@ -2147,7 +2153,7 @@ abstract class AppLocalizations {
   /// No description provided for @introMarked.
   ///
   /// In tr, this message translates to:
-  /// **'İntro kaydedildi. Sonraki bölümde atlamayı önerecek.'**
+  /// **'İntro bu bölüm için kaydedildi.'**
   String get introMarked;
 
   /// No description provided for @introCleared.
@@ -3169,6 +3175,48 @@ abstract class AppLocalizations {
   /// In tr, this message translates to:
   /// **'İsteğe bağlıdır. Şifrelenmemiş yerel bağlantıyla gönderilir. Hesap girişi ayrıca seçilir.'**
   String get deviceSyncSecretsHint;
+
+  /// No description provided for @playerPause.
+  ///
+  /// In tr, this message translates to:
+  /// **'Duraklat'**
+  String get playerPause;
+
+  /// No description provided for @playerPreviousEpisode.
+  ///
+  /// In tr, this message translates to:
+  /// **'Önceki bölüm'**
+  String get playerPreviousEpisode;
+
+  /// No description provided for @playerSeekBack.
+  ///
+  /// In tr, this message translates to:
+  /// **'10 saniye geri'**
+  String get playerSeekBack;
+
+  /// No description provided for @playerSeekForward.
+  ///
+  /// In tr, this message translates to:
+  /// **'10 saniye ileri'**
+  String get playerSeekForward;
+
+  /// No description provided for @playerVolume.
+  ///
+  /// In tr, this message translates to:
+  /// **'Ses seviyesi'**
+  String get playerVolume;
+
+  /// No description provided for @playerAlwaysOnTop.
+  ///
+  /// In tr, this message translates to:
+  /// **'Her zaman üstte'**
+  String get playerAlwaysOnTop;
+
+  /// No description provided for @playerProgrammeGuide.
+  ///
+  /// In tr, this message translates to:
+  /// **'Program rehberi'**
+  String get playerProgrammeGuide;
 }
 
 class _AppLocalizationsDelegate

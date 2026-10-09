@@ -135,7 +135,9 @@ class BackupService {
   /// Uses `file_picker.saveFile` so the same call works on Android,
   /// iOS, and desktop. On Android the SAF picker lets the user pick
   /// any folder they have write access to.
-  Future<String?> exportToUserPickedFile() async {
+  Future<String?> exportToUserPickedFile({
+    String dialogTitle = 'LifeOS TV backup',
+  }) async {
     final json = await exportToJson();
     final ts = DateTime.now()
         .toIso8601String()
@@ -149,7 +151,7 @@ class BackupService {
     // we pass `bytes`; older flow only returns the chosen path and
     // expects us to write. Handle both:
     final picked = await FilePicker.platform.saveFile(
-      dialogTitle: 'LifeOS TV yedeği kaydet',
+      dialogTitle: dialogTitle,
       fileName: suggestedName,
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -162,7 +164,11 @@ class BackupService {
     // file actually exists at the returned path; if not, write it
     // manually.
     final file = File(picked);
-    if (!await file.exists() || await file.length() == 0) {
+    if (Platform.isLinux ||
+        Platform.isWindows ||
+        Platform.isMacOS ||
+        !await file.exists() ||
+        await file.length() == 0) {
       await file.writeAsString(json);
     }
     return picked;

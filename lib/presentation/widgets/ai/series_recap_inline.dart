@@ -1,10 +1,10 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lifeostv/config/theme.dart';
 import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
-import 'package:lifeostv/domain/models/app_settings.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
 
@@ -59,8 +59,7 @@ class SeriesRecapInline extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SeriesRecapInline> createState() =>
-      _SeriesRecapInlineState();
+  ConsumerState<SeriesRecapInline> createState() => _SeriesRecapInlineState();
 }
 
 class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
@@ -85,11 +84,7 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
   }
 
   String _userLanguageCode() {
-    final appLang = ref.read(settingsProvider).language;
-    if (appLang == AppLanguage.system) {
-      return Localizations.localeOf(context).languageCode;
-    }
-    return appLang.name;
+    return ref.read(resolvedLocaleProvider).languageCode;
   }
 
   Future<void> _fetchRecap() async {
@@ -187,26 +182,30 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
         decoration: BoxDecoration(
           color: AppColors.primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.25)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(Icons.history_edu_outlined,
-                  color: AppColors.primary.withValues(alpha: 0.9), size: 16),
-              const SizedBox(width: 8),
-              Text(
-                '${l10n.aiRecapTag} ✨  ${widget.nextEpisodeLabel}',
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
+            Row(
+              children: [
+                Icon(
+                  Icons.history_edu_outlined,
+                  color: AppColors.primary.withValues(alpha: 0.9),
+                  size: 16,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Text(
+                  '${l10n.aiRecapTag} ✨  ${widget.nextEpisodeLabel}',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
             // Auto-expand hint — caller passes a "N gün önce
             // izledin" string when the user is returning to a
             // series they haven't touched in a while, justifying
@@ -226,23 +225,28 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
             ],
             const SizedBox(height: 10),
             if (_loading)
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 1.5, color: AppColors.primary),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.aiPlotEnriching,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-              ])
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.aiPlotEnriching,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              )
             else if (_failed)
               Text(
                 l10n.aiPlotError,
@@ -261,8 +265,7 @@ class _SeriesRecapInlineState extends ConsumerState<SeriesRecapInline> {
               // wheel through it.
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight:
-                      MediaQuery.of(context).size.height * 0.30,
+                  maxHeight: MediaQuery.of(context).size.height * 0.30,
                 ),
                 child: SingleChildScrollView(
                   child: Text(
@@ -323,33 +326,34 @@ class _RecapLinkState extends State<_RecapLink> {
           child: Container(
             // 8 dp vertical padding bumps the touch target on
             // phones past 36 dp without disturbing desktop layout.
-            padding: const EdgeInsets.symmetric(
-                horizontal: 6, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             decoration: BoxDecoration(
               color: _focused
                   ? AppColors.primary.withValues(alpha: 0.18)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(
-                Icons.history_edu_outlined,
-                color: AppColors.primary,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                widget.label,
-                style: TextStyle(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.history_edu_outlined,
                   color: AppColors.primary,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  decoration:
-                      isActive ? TextDecoration.underline : null,
-                  decorationColor: AppColors.primary,
+                  size: 14,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 6),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    decoration: isActive ? TextDecoration.underline : null,
+                    decorationColor: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

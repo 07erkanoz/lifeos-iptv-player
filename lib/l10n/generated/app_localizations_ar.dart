@@ -1093,13 +1093,16 @@ class AppLocalizationsAr extends AppLocalizations {
       'عند التفعيل، يعرض المشغل زر \'تخطي المقدمة\' أثناء النطاق المحدد.';
 
   @override
+  String get markIntro => 'تحديد المقدمة';
+
+  @override
   String get markIntroStart => 'تبدأ المقدمة هنا';
 
   @override
   String get markIntroEnd => 'تنتهي المقدمة هنا';
 
   @override
-  String get introMarked => 'تم حفظ المقدمة. ستقترح الحلقة التالية تخطيها.';
+  String get introMarked => 'تم حفظ المقدمة لهذه الحلقة.';
 
   @override
   String get introCleared => 'تم مسح علامة المقدمة.';
@@ -1640,4 +1643,25 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get deviceSyncSecretsHint =>
       'اختياري. تُرسل عبر اتصال محلي غير مشفر. تُحدد بيانات الحساب بشكل منفصل.';
+
+  @override
+  String get playerPause => 'إيقاف مؤقت';
+
+  @override
+  String get playerPreviousEpisode => 'الحلقة السابقة';
+
+  @override
+  String get playerSeekBack => 'رجوع 10 ثوانٍ';
+
+  @override
+  String get playerSeekForward => 'تقديم 10 ثوانٍ';
+
+  @override
+  String get playerVolume => 'مستوى الصوت';
+
+  @override
+  String get playerAlwaysOnTop => 'دائمًا في المقدمة';
+
+  @override
+  String get playerProgrammeGuide => 'دليل البرامج';
 }

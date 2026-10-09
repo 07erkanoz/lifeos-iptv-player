@@ -1,3 +1,4 @@
+import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:lifeostv/data/datasources/local/database.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/services/gemini_service.dart';
 import 'package:lifeostv/l10n/generated/app_localizations.dart';
-import 'package:lifeostv/presentation/state/settings_provider.dart';
 
 /// Modal bottom sheet that opens when the user taps an actor /
 /// director chip on a detail page.
@@ -62,8 +62,7 @@ class CastDeepDiveSheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<CastDeepDiveSheet> createState() =>
-      _CastDeepDiveSheetState();
+  ConsumerState<CastDeepDiveSheet> createState() => _CastDeepDiveSheetState();
 }
 
 class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
@@ -104,9 +103,7 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
     if (gemini == null) return;
     setState(() => _loadingSummary = true);
     try {
-      final lang = ref.read(settingsProvider).language.name == 'system'
-          ? 'tr'
-          : ref.read(settingsProvider).language.name;
+      final lang = ref.read(resolvedLocaleProvider).languageCode;
       final text = await gemini
           .actorCareerSummary(
             name: widget.name,
@@ -132,12 +129,8 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
     final hasAi = ref.watch(geminiServiceProvider) != null;
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.backgroundDark
-            : AppColors.backgroundLight,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
+        color: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: SafeArea(
         top: false,
@@ -171,8 +164,11 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                         width: 1,
                       ),
                     ),
-                    child: const Icon(Icons.person,
-                        color: AppColors.primary, size: 22),
+                    child: const Icon(
+                      Icons.person,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -196,7 +192,8 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                           _loadingAppearances
                               ? l10n.castSheetLoadingAppearances
                               : l10n.castSheetAppearancesCount(
-                                  _appearances.length),
+                                  _appearances.length,
+                                ),
                           style: TextStyle(
                             color: AppColors.textTertiary(context),
                             fontSize: 12,
@@ -220,40 +217,48 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                 children: [
                   // ── AI career summary ─────────────────────────
                   if (hasAi) ...[
-                    Row(children: [
-                      const Icon(Icons.auto_awesome,
-                          color: AppColors.primary, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        l10n.castSheetAiSummary,
-                        style: TextStyle(
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
                           color: AppColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.4,
+                          size: 14,
                         ),
-                      ),
-                    ]),
-                    const SizedBox(height: 8),
-                    if (_loadingSummary)
-                      Row(children: [
-                        const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
-                          l10n.castSheetAiLoading,
+                          l10n.castSheetAiSummary,
                           style: TextStyle(
-                            color: AppColors.textTertiary(context),
+                            color: AppColors.primary,
                             fontSize: 12,
-                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
                           ),
                         ),
-                      ])
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_loadingSummary)
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.castSheetAiLoading,
+                            style: TextStyle(
+                              color: AppColors.textTertiary(context),
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      )
                     else if (_summary != null)
                       Text(
                         _summary!,
@@ -277,27 +282,33 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                     const SizedBox(height: 20),
                   ],
                   // ── Library appearances grid ──────────────────
-                  Row(children: [
-                    const Icon(Icons.collections_bookmark_outlined,
-                        color: AppColors.primary, size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      l10n.castSheetLibraryAppearances,
-                      style: TextStyle(
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.collections_bookmark_outlined,
                         color: AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
+                        size: 14,
                       ),
-                    ),
-                  ]),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.castSheetLibraryAppearances,
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   if (_loadingAppearances)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
                         child: CircularProgressIndicator(
-                            color: AppColors.primary),
+                          color: AppColors.primary,
+                        ),
                       ),
                     )
                   else if (_appearances.isEmpty)
@@ -329,8 +340,8 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
         final cols = constraints.maxWidth >= 600
             ? 5
             : constraints.maxWidth >= 380
-                ? 4
-                : 3;
+            ? 4
+            : 3;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -354,8 +365,7 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: ch.streamIcon != null &&
-                              ch.streamIcon!.isNotEmpty
+                      child: ch.streamIcon != null && ch.streamIcon!.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: ch.streamIcon!,
                               fit: BoxFit.cover,
@@ -363,14 +373,18 @@ class _CastDeepDiveSheetState extends ConsumerState<CastDeepDiveSheet> {
                               memCacheWidth: 360,
                               errorWidget: (_, _, _) => Container(
                                 color: AppColors.surfaceElevatedDark,
-                                child: const Icon(Icons.movie_outlined,
-                                    color: AppColors.textTertiaryDark),
+                                child: const Icon(
+                                  Icons.movie_outlined,
+                                  color: AppColors.textTertiaryDark,
+                                ),
                               ),
                             )
                           : Container(
                               color: AppColors.surfaceElevatedDark,
-                              child: const Icon(Icons.movie_outlined,
-                                  color: AppColors.textTertiaryDark),
+                              child: const Icon(
+                                Icons.movie_outlined,
+                                color: AppColors.textTertiaryDark,
+                              ),
                             ),
                     ),
                   ),
@@ -428,9 +442,11 @@ class CastChipRow extends StatelessWidget {
         // Strip role-suffix parentheticals (voice, narrator, …).
         .map((s) => s.replaceAll(RegExp(r'\s*\([^)]*\)\s*'), '').trim())
         // Strip "as <Role>" suffixes some catalogues use.
-        .map((s) => s
-            .replaceFirst(RegExp(r'\s+as\s+.*$', caseSensitive: false), '')
-            .trim())
+        .map(
+          (s) => s
+              .replaceFirst(RegExp(r'\s+as\s+.*$', caseSensitive: false), '')
+              .trim(),
+        )
         .where((s) => s.length >= 2)
         .toList();
     // Dedupe preserving order.
@@ -501,8 +517,7 @@ class _CastChipState extends State<_CastChip> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: isActive
                   ? AppColors.primary.withValues(alpha: 0.18)

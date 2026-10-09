@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:lifeostv/data/datasources/local/database.dart';
 
 /// Validates the entire portable document before any persistent data is touched.
-/// Version 4 includes durable M3U identities; v3 added owning account IDs.
+/// Version 5 scopes intro markers to episodes. Version 4 includes durable M3U identities; v3 added owning account IDs.
 /// Versions 1/2 are upgraded using their active legacy catalogue owner.
 /// This also preserves account-keyed EPG preferences without lossy remapping.
 class BackupDocument {
   static const magic = 'lifeos-tv-backup';
-  static const version = 4;
+  static const version = 5;
 
   final Map<String, List<Map<String, dynamic>>> tables;
   final Map<String, dynamic> settings;
@@ -86,6 +86,13 @@ class BackupDocument {
             () {
               final row = <String, dynamic>{
                 if (legacy) ...defaults,
+                if (key == 'introMarkers' && v < 5) ...{
+                  'season': 0,
+                  'episodeId': 0,
+                  'source': 'legacy',
+                  'confidence': 0.0,
+                  'isDeleted': false,
+                },
                 ...Map<String, dynamic>.from(item as Map),
               };
               final scoped = key != 'accounts' && key != 'profiles';
@@ -193,7 +200,11 @@ class BackupDocument {
           'profileId': 1,
         },
       );
-      read('introMarkers', IntroMarker.fromJson, ['seriesId']);
+      read('introMarkers', IntroMarker.fromJson, [
+        'seriesId',
+        'season',
+        'episodeId',
+      ]);
       read('aiFeedback', AiFeedbackData.fromJson, [
         'streamId',
         'type',
@@ -254,6 +265,8 @@ class BackupDocument {
             'newEpisodeCount',
             'introStartMs',
             'introEndMs',
+            'season',
+            'episodeId',
             'useCount',
           ]) {
             final value = row[field];
@@ -261,8 +274,15 @@ class BackupDocument {
               throw FormatException('Invalid $field in ${entry.key}');
             }
           }
+          if (entry.key == 'introMarkers' &&
+              (!(row['confidence'] as num).isFinite ||
+                  (row['confidence'] as num) < 0 ||
+                  (row['confidence'] as num) > 1 ||
+                  !{'manual', 'chapters', 'legacy'}.contains(row['source']))) {
+            throw const FormatException('Invalid intro evidence');
+          }
           if (row.containsKey('introStartMs') &&
-              (row['introEndMs'] as int) < (row['introStartMs'] as int)) {
+              (row['introEndMs'] as int) <= (row['introStartMs'] as int)) {
             throw const FormatException('Invalid intro interval');
           }
         }

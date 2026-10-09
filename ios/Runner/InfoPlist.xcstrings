@@ -1,0 +1,162 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSMicrophoneUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV uses the microphone when you start voice search."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV, sesli aramayı başlattığınızda mikrofonu kullanır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV verwendet das Mikrofon, wenn Sie die Sprachsuche starten."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV utilise le microphone lorsque vous lancez une recherche vocale."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV utiliza el micrófono al iniciar una búsqueda por voz."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يستخدم LifeOS TV الميكروفون عند بدء البحث الصوتي."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV использует микрофон при запуске голосового поиска."
+          }
+        },
+        "ku": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV dema hûn lêgerîna dengî dest pê dikin mîkrofonê bi kar tîne."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV converts your voice search into a search query."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV, sesli aramanızı bir arama sorgusuna dönüştürür."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV wandelt Ihre Sprachsuche in eine Suchanfrage um."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV transforme votre recherche vocale en requête de recherche."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV convierte su búsqueda por voz en una consulta de búsqueda."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يحوّل LifeOS TV بحثك الصوتي إلى استعلام بحث."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV преобразует голосовой поиск в поисковый запрос."
+          }
+        },
+        "ku": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV lêgerîna dengî ya we vediguherîne daxwaza lêgerînê."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV discovers casting devices and pairs your devices on the same Wi-Fi."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV, aynı Wi-Fi ağındaki yayın cihazlarını bulur ve cihazlarınızı eşleştirir."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV findet Übertragungsgeräte und koppelt Ihre Geräte im selben WLAN."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV découvre les appareils de diffusion et associe vos appareils sur le même Wi-Fi."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV descubre dispositivos de transmisión y vincula sus dispositivos en la misma red Wi-Fi."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يكتشف LifeOS TV أجهزة البث ويربط أجهزتك على شبكة Wi-Fi نفسها."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV находит устройства трансляции и связывает ваши устройства в одной сети Wi-Fi."
+          }
+        },
+        "ku": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LifeOS TV amûrên weşanê dibîne û amûrên we li ser heman Wi-Fi girê dide."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
