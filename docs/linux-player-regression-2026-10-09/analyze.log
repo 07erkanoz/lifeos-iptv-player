@@ -1,0 +1,11 @@
+Analyzing 13 items...
+
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/presentation/screens/player/video_player_screen.dart:366:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/presentation/screens/player/video_player_screen.dart:382:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/presentation/screens/player/video_player_screen.dart:598:13 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/presentation/screens/player/video_player_screen.dart:2885:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • tool/linux_audio_lifecycle_smoke.dart:78:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • tool/linux_audio_lifecycle_smoke.dart:84:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • tool/linux_audio_lifecycle_smoke.dart:102:9 • curly_braces_in_flow_control_structures
+
+7 issues found. (ran in 4.8s)

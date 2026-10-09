@@ -1,3 +1,5 @@
+import 'package:lifeostv/core/managed_player.dart';
+import 'package:lifeostv/core/playback_signal.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,11 +156,11 @@ class _PosterCardState extends State<PosterCard> with SingleTickerProviderStateM
       return;
     }
     if (!mounted) return;
-    if (reqId != _trailerRequestId) return;
+    if (reqId != _trailerRequestId || playbackActiveNotifier.value) return;
     if (!(_isHovered || _isFocused)) return;
     if (streamUrl == null) return;
 
-    final player = Player();
+    final player = ManagedPlayer(preview: true);
     final controller = VideoController(player);
     try {
       await player.setVolume(0);

@@ -1,3 +1,5 @@
+import 'package:lifeostv/core/managed_player.dart';
+import 'package:lifeostv/core/playback_signal.dart';
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -229,7 +231,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
         // ticking but each fire is a no-op until the modal closes.
         // Also pause while a hero action button holds D-pad focus, so the
         // title under the user's selection can't silently change.
-        if (_trailerExpanded || _heroActionsFocused) return;
+        if (playbackActiveNotifier.value || _trailerExpanded || _heroActionsFocused) return;
         final newIndex = (_currentIndex + 1) % widget.channels.length;
         setState(() => _currentIndex = newIndex);
         widget.onItemChanged?.call(widget.channels[newIndex]);
@@ -257,6 +259,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
   /// hero change), then falls back to channel.youtubeTrailer (DB
   /// cache from a previous detail-page open).
   void _scheduleTrailer(Channel channel) {
+    if (playbackActiveNotifier.value) return;
     _trailerScheduleTimer?.cancel();
     // ⚠️ Don't dispose the Player here.
     //
@@ -319,7 +322,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
       return;
     }
     if (!mounted) return;
-    if (reqId != _trailerRequestId) return;
+    if (reqId != _trailerRequestId || playbackActiveNotifier.value) return;
     if (streamUrl == null) return;
 
     // Reuse the existing Player instance when we have one — only
@@ -330,7 +333,7 @@ class _HeroBannerState extends ConsumerState<HeroBanner> {
     final Player player;
     final VideoController controller;
     if (freshPlayer) {
-      player = Player();
+      player = ManagedPlayer(preview: true);
       controller = VideoController(player);
     } else {
       player = _trailerPlayer!;
@@ -1144,7 +1147,7 @@ class _TrailerFullscreenViewState extends State<_TrailerFullscreenView> {
   @override
   void initState() {
     super.initState();
-    _player = Player();
+    _player = ManagedPlayer();
     _controller = VideoController(_player);
     _bootstrap();
   }

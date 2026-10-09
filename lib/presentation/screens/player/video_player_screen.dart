@@ -1,3 +1,6 @@
+import 'package:lifeostv/core/managed_player.dart';
+import 'package:lifeostv/core/media_resource_registry.dart';
+import 'package:lifeostv/presentation/widgets/player/player_controls_layout.dart';
 import 'package:lifeostv/presentation/widgets/player/responsive_player_toolbar.dart';
 import 'package:lifeostv/presentation/controllers/audio_interruption_policy.dart';
 import 'dart:convert';
@@ -974,7 +977,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _initPlayer() {
     final settings = ref.read(settingsProvider);
 
-    _player = Player(
+    _player = ManagedPlayer(
       configuration: const PlayerConfiguration(bufferSize: 32 * 1024 * 1024),
     );
     _controller = VideoController(
@@ -998,6 +1001,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       },
       disposePlayer: _player.dispose,
     );
+    mediaResourceRegistry.register(_player, () async {
+      await _saveProgress();
+      await _session.close();
+    });
     _seek = PlaybackSeekController(
       position: () => _rawPos,
       duration: () => _dur,
@@ -1160,7 +1167,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _subs.add(
       _player.stream.duration.listen((d) {
         if (mounted && !_disposing) {
-          setState(() => _dur = d);
+          if (_dur != d) setState(() => _dur = d);
           if (!_chaptersChecked &&
               d > Duration.zero &&
               widget.type == VideoType.series) {
@@ -1221,7 +1228,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _subs.add(
       _player.stream.volume.listen((v) {
-        if (mounted && !_disposing) setState(() => _volume = v);
+        if (mounted && !_disposing && _volume != v) setState(() => _volume = v);
       }),
     );
 
@@ -3300,28 +3307,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               stops: [0.0, 0.2, 0.65, 1.0],
                             ),
                           ),
-                          child: Column(
-                            children: [
-                              _buildTopBar(l10n),
-                              const Spacer(),
-                              // Pause info badge (shows after 2s delay, VOD only — Netflix style)
-                              if (_showPauseBadge &&
-                                  widget.type != VideoType.live)
-                                Flexible(
-                                  child: SingleChildScrollView(
-                                    child: _buildPauseInfoBadge(l10n),
-                                  ),
-                                ),
-                              if (_showPauseBadge &&
-                                  widget.type != VideoType.live)
-                                const SizedBox(height: 12),
-                              // Bottom bar wrapped in Focus to detect when buttons are focused
-                              Focus(
-                                skipTraversal: true,
-                                onFocusChange: _onControlsFocusChange,
-                                child: _buildBottomBar(l10n),
-                              ),
-                            ],
+                          child: PlayerControlsLayout(
+                            topBar: _buildTopBar(l10n),
+                            infoPanel:
+                                _showPauseBadge && widget.type != VideoType.live
+                                ? _buildPauseInfoBadge(l10n)
+                                : null,
+                            bottomBar: Focus(
+                              skipTraversal: true,
+                              onFocusChange: _onControlsFocusChange,
+                              child: _buildBottomBar(l10n),
+                            ),
                           ),
                         ),
                       ),

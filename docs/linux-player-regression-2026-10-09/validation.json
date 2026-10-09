@@ -1,0 +1,11 @@
+{
+  "targeted_tests_passed": 15,
+  "analysis_errors": 0,
+  "analysis_warnings": 0,
+  "analysis_infos": 7,
+  "native_debug_fixture_passed": true,
+  "linux_release_built": true,
+  "actual_provider_audio_verification": "user_reports_audio_still_stutters",
+  "github_actions_run": false,
+  "actual_provider_pause_layout_verification": "not_confirmed"
+}

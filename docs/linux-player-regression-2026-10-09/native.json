@@ -1,0 +1,12 @@
+{
+  "previewAudioIds": [
+    "no",
+    "no"
+  ],
+  "previewsPaused": true,
+  "advanceMs": 6000,
+  "audioSampleRate": "48000",
+  "reopenPlaying": true,
+  "playersDisposed": true,
+  "passed": true
+}

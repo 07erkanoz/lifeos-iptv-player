@@ -1,0 +1,17 @@
+00:00 +0: loading /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/media_resource_registry_test.dart
+00:00 +0: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/media_resource_registry_test.dart: shutdown waits for active and already disposing media before exit
+00:00 +1: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/media_resource_registry_test.dart: repeated close coalesces and late player creation is rejected
+00:00 +2: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/media_resource_registry_test.dart: failed cleanup does not authorize engine exit
+00:01 +3: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +5: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +6: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +7: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +8: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +9: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +10: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:01 +11: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/player_controls_layout_test.dart: pause panel cannot lift footer at any tested window height
+00:02 +12: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: all controls remain visible across desktop and phone widths
+00:02 +13: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: resize preserves the focused control and keyboard activation
+00:02 +14: /home/erkanoz/projeler/iptv/lifeos-iptv-player/test/presentation/controllers/responsive_player_toolbar_test.dart: Arabic direction and enlarged text do not clip buttons
+00:02 +15: All tests passed!

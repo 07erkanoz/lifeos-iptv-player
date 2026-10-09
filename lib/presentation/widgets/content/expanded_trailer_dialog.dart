@@ -1,3 +1,4 @@
+import 'package:lifeostv/core/managed_player.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -155,7 +156,7 @@ class _ExpandedTrailerDialogState extends State<_ExpandedTrailerDialog> {
           }
         });
       } else {
-        final player = Player();
+        final player = ManagedPlayer();
         _mediaPlayer = player;
         _mediaController = VideoController(player);
         _errorSubscription = player.stream.error.listen((_) {

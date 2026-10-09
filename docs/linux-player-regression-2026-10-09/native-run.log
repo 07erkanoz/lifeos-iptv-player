@@ -1,0 +1,32 @@
+
+(com.lifeostv.lifeostv:89866): Atk-CRITICAL **: 17:57:25.720: atk_socket_embed: assertion 'plug_id != NULL' failed
+[IMPORTANT:flutter/shell/platform/embedder/embedder_surface_gl_impeller.cc(126)] Using the Impeller rendering backend (OpenGLESSDF).
+The Dart VM service is listening on http://127.0.0.1:42229/lzyjIGxpiDk=/
+package:media_kit_libs_linux registered.
+media_kit: NativeReferenceHolder: Allocated 93882453492000
+Cannot load libcuda.so.1
+media_kit: VideoOutput: H/W rendering with isolated EGL context.
+Cannot load libcuda.so.1
+media_kit: VideoOutput: H/W rendering with isolated EGL context.
+Cannot load libcuda.so.1
+media_kit: VideoOutput: H/W rendering with isolated EGL context.
+VideoOutput.Resize
+{handle: 93882439499424, id: 93882457167856, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 93882457167856
+VideoOutput.Resize
+{handle: 93882457253024, id: 139980704814896, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 139980704814896
+VideoOutput.Resize
+{handle: 93882465794336, id: 93882454614288, rect: {left: 0, top: 0, width: 1, height: 1}}
+NativeVideoController: Texture ID: 93882454614288
+VideoOutput.Resize
+{handle: 93882439499424, id: 93882457167856, rect: {left: 0, top: 0, width: 640, height: 360}}
+VideoOutput.Resize
+{handle: 93882457253024, id: 139980704814896, rect: {left: 0, top: 0, width: 640, height: 360}}
+VideoOutput.Resize
+{handle: 93882465794336, id: 93882454614288, rect: {left: 0, top: 0, width: 640, height: 360}}
+embedder.cc (2615): 'FlutterEngineRemoveView' returned 'kInvalidArguments'. Remove view info was invalid. The implicit view cannot be removed.
+
+** (com.lifeostv.lifeostv:89866): WARNING **: 17:57:38.815: Attempted to set message handler on an FlBinaryMessenger without an engine
+
+** (com.lifeostv.lifeostv:89866): WARNING **: 17:57:38.815: Attempted to set message handler on an FlBinaryMessenger without an engine

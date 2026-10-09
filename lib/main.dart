@@ -1,3 +1,4 @@
+import 'package:lifeostv/core/desktop_media_shutdown.dart';
 import 'package:lifeostv/presentation/state/locale_provider.dart';
 import 'package:lifeostv/l10n/framework_locale_delegates.dart';
 import 'dart:async';
@@ -76,6 +77,7 @@ void main() async {
   // Desktop window setup (Windows/Linux/macOS)
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();
+    await windowManager.setPreventClose(true);
 
     final windowOptions = WindowOptions(
       size: Size(1280, 720),
@@ -489,6 +491,7 @@ class _DesktopWindowFrameState extends State<_DesktopWindowFrame>
   static const double _desktopCornerRadius = 14;
   bool _isFullScreen = false;
   bool _isMaximized = false;
+  final _mediaShutdown = DesktopMediaShutdown();
 
   bool get _shouldRoundCorners =>
       isDesktopPlatform && !_isFullScreen && !_isMaximized;
@@ -498,6 +501,7 @@ class _DesktopWindowFrameState extends State<_DesktopWindowFrame>
     super.initState();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.addListener(this);
+      windowManager.addListener(_mediaShutdown);
       _syncWindowState();
     }
   }
@@ -506,6 +510,7 @@ class _DesktopWindowFrameState extends State<_DesktopWindowFrame>
   void dispose() {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.removeListener(this);
+      windowManager.removeListener(_mediaShutdown);
     }
     super.dispose();
   }

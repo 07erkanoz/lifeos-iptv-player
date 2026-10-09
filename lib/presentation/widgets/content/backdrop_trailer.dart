@@ -1,3 +1,5 @@
+import 'package:lifeostv/core/managed_player.dart';
+import 'package:lifeostv/core/playback_signal.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -144,9 +146,9 @@ class _BackdropTrailerState extends State<BackdropTrailer> {
     } catch (_) {
       return;
     }
-    if (!mounted || reqId != _requestId || streamUrl == null) return;
+    if (!mounted || reqId != _requestId || streamUrl == null || playbackActiveNotifier.value) return;
 
-    final player = Player();
+    final player = ManagedPlayer(preview: widget.muted);
     final controller = VideoController(player);
     try {
       await player.setVolume(widget.muted ? 0 : 100);
