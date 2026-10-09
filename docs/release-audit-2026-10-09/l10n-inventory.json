@@ -1,0 +1,66 @@
+[
+  {
+    "file": "lib/l10n/app_ar.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 5
+  },
+  {
+    "file": "lib/l10n/app_de.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 18
+  },
+  {
+    "file": "lib/l10n/app_en.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 510
+  },
+  {
+    "file": "lib/l10n/app_es.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 15
+  },
+  {
+    "file": "lib/l10n/app_fr.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 15
+  },
+  {
+    "file": "lib/l10n/app_ku.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 7
+  },
+  {
+    "file": "lib/l10n/app_ru.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 6
+  },
+  {
+    "file": "lib/l10n/app_tr.arb",
+    "keys": 510,
+    "missing": [],
+    "extra": [],
+    "placeholderMismatches": [],
+    "equalEnglishCount": 10
+  }
+]

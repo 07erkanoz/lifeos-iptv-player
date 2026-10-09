@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-09",
+  "commit": "9df7d033318ab7e7236e6b0f4aa878a4038960a9",
+  "version": "1.13.6+2087",
+  "flutter": "3.47.2",
+  "dart": "3.13.2",
+  "productionTestsPassed": 482,
+  "auditTestsPassed": 6,
+  "analyzerInfos": 73,
+  "productionEdits": false,
+  "findings": {
+    "P0": 1,
+    "P1": 11,
+    "P2": 8
+  },
+  "realDeviceValidationThisAudit": [],
+  "workflowState": "disabled_manually"
+}

@@ -1,0 +1,45 @@
+{
+  "note": "Synthetic 10000-row Linux host fixture. NativeDatabase.memory runs SQLite in the test isolate; production DB uses a worker. Timer gaps are not frame times. Full-main comparison has equal catalogue coverage; old 6000-row fallback omitted target.",
+  "samples": [
+    {
+      "kind": "full-catalogue-fuzzy",
+      "rows": 1,
+      "bytes": 0,
+      "mode": "full-main",
+      "wallMs": 207.003,
+      "maxMainTimerGapMs": 203.247,
+      "ticks": 7,
+      "processRssMiB": 276.16015625
+    },
+    {
+      "kind": "interstellar",
+      "rows": 1,
+      "bytes": 0,
+      "mode": "paged-worker-unindexed",
+      "wallMs": 613.525,
+      "maxMainTimerGapMs": 25.891,
+      "ticks": 53,
+      "processRssMiB": 282.14453125
+    },
+    {
+      "kind": "intersttellar",
+      "rows": 1,
+      "bytes": 0,
+      "mode": "paged-worker-unindexed",
+      "wallMs": 1100.287,
+      "maxMainTimerGapMs": 36.974,
+      "ticks": 107,
+      "processRssMiB": 280.328125
+    },
+    {
+      "kind": "interstellar",
+      "rows": 1,
+      "bytes": 0,
+      "mode": "indexed-worker",
+      "wallMs": 4.817,
+      "maxMainTimerGapMs": 11.099,
+      "ticks": 6,
+      "processRssMiB": 284.01171875
+    }
+  ]
+}

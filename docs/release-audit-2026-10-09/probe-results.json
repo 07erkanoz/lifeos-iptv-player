@@ -1,0 +1,73 @@
+{
+  "locales": [
+    {
+      "code": "en",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "tr",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "de",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "fr",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "es",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "ar",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "ru",
+      "app": true,
+      "material": true,
+      "cupertino": true,
+      "widgets": true
+    },
+    {
+      "code": "ku",
+      "app": true,
+      "material": false,
+      "cupertino": false,
+      "widgets": false
+    }
+  ],
+  "aiIdCollision": {
+    "untyped": "null",
+    "typed": "movie",
+    "recommendationStoresType": false
+  },
+  "introBounds": {
+    "acceptedStartMs": -1000,
+    "acceptedEndMs": -5000
+  },
+  "timeoutCancellation": {
+    "result": null,
+    "underlyingWorkCompleted": true
+  }
+}

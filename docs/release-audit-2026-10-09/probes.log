@@ -1,0 +1,86 @@
+00:00 +0: loading /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart
+00:00 +0: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart: Check app and framework locale coverage
+00:00 +1: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart: Ambiguous catalogue IDs cannot resolve untyped AI recommendations
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10527:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart:44:21)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:00 +2: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart: Intro repository accepts inverted and negative timeline bounds
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10527:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart:56:28)
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:00 +3: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart: Instrumentation timeout does not cancel underlying work
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10527:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase.forTesting (package:lifeostv/data/datasources/local/database.dart:109:7)
+#6      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart:66:28)
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:00 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/audit_probe_test.dart: (tearDownAll)
+00:00 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/catalog_benchmark_test.dart: 10k catalogue exact and typo search responsiveness
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:lifeostv/data/datasources/local/database.g.dart:10527:36)
+#4      new _AppDatabase&_$AppDatabase&AccountQueries (package:lifeostv/data/datasources/local/database.dart)
+#5      new AppDatabase._scoped (package:lifeostv/data/datasources/local/database.dart:90:7)
+#6      AppDatabase.forAccount.<anonymous closure> (package:lifeostv/data/datasources/local/database.dart:84:59)
+#7      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#8      AppDatabase.forAccount (package:lifeostv/data/datasources/local/database.dart:84:25)
+#9      main.<anonymous closure> (file:///home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/catalog_benchmark_test.dart:19:21)
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:01 +4: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/embedding_benchmark_test.dart: 10k x 768 semantic vectors with bounded worker ranking
+{"note":"Synthetic Linux host test, 10000 vectors, 768 dimensions. Timer gaps are not video frames. RSS includes test process and SQLite fixtures; this is not an isolated peak-RAM measurement.","samples":[{"kind":"semantic-ranking","rows":60,"bytes":0,"mode":"full-main","wallMs":132.112,"maxMainTimerGapMs":133.377,"ticks":7,"processRssMiB":360.3828125},{"kind":"semantic-ranking","rows":60,"bytes":0,"mode":"paged-worker","wallMs":135.445,"maxMainTimerGapMs":11.92,"ticks":19,"processRssMiB":377.625}]}
+00:01 +5: /home/erkanoz/projeler/iptv/lifeos-iptv-player/docs/release-audit-2026-10-09/catalog_benchmark_test.dart: 10k catalogue exact and typo search responsiveness
+{"note":"Synthetic 10000-row Linux host fixture. NativeDatabase.memory runs SQLite in the test isolate; production DB uses a worker. Timer gaps are not frame times. Full-main comparison has equal catalogue coverage; old 6000-row fallback omitted target.","samples":[{"kind":"full-catalogue-fuzzy","rows":1,"bytes":0,"mode":"full-main","wallMs":207.003,"maxMainTimerGapMs":203.247,"ticks":7,"processRssMiB":276.16015625},{"kind":"interstellar","rows":1,"bytes":0,"mode":"paged-worker-unindexed","wallMs":613.525,"maxMainTimerGapMs":25.891,"ticks":53,"processRssMiB":282.14453125},{"kind":"intersttellar","rows":1,"bytes":0,"mode":"paged-worker-unindexed","wallMs":1100.287,"maxMainTimerGapMs":36.974,"ticks":107,"processRssMiB":280.328125},{"kind":"interstellar","rows":1,"bytes":0,"mode":"indexed-worker","wallMs":4.817,"maxMainTimerGapMs":11.099,"ticks":6,"processRssMiB":284.01171875}]}
+00:06 +6: All tests passed!
