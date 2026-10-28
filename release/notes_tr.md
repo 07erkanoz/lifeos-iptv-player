@@ -1,0 +1,5 @@
+- Windows için kurulum programı eklendi; Linux paketi kurulum betiğiyle geliyor.
+- Oynatıcı denetimleri masaüstünde ve telefonda kesilmeden, odağı kaybetmeden yerleşiyor.
+- Duraklatma denetimleri yerinde kalıyor; oynatıcıdan çıkınca görüntü kaynakları bırakılıyor.
+- Bölüm değiştirirken oynatıcıdan çıkılmıyor; jenerik atlama işaretleri denetleniyor.
+- Sistem dili ve teması her ekranda aynı uygulanıyor.

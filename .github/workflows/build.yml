@@ -1,243 +1,191 @@
-name: Build & Release
+# Builds LifeOS TV for Windows, Linux and Android. A v tag publishes it: a
+# GitHub release with the three packages, and the same packages on
+# lifeos.com.tr/iptv (tool/release/send_to_site.sh). Run by hand, it only
+# builds, and the packages stay as the run's artifacts.
+name: Derle ve yayımla
 
 on:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.7'
 
 jobs:
-  # ─── Unit tests — gate every other job ────────────────────────
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      build: ${{ steps.read.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: read
+        run: |
+          version="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+).*/\1/p' pubspec.yaml)"
+          build="$(sed -nE 's/^version:[[:space:]]*[0-9.]+\+([0-9]+).*/\1/p' pubspec.yaml)"
+          test -n "$version" && test -n "$build"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            case "$GITHUB_REF_NAME" in
+              "v$version"|"v$version-$build") ;;
+              *) echo "::error::Etiket $GITHUB_REF_NAME, pubspec.yaml'daki v$version ile uyuşmuyor."; exit 1 ;;
+            esac
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test
 
-      - name: flutter pub get
-        run: flutter pub get
-
-      - name: flutter analyze
-        # Historical audit probes are documentation; analyze production and tests.
-        run: flutter analyze lib test tool --no-pub --no-fatal-infos
-
-      - name: flutter test
-        run: flutter test --reporter=compact
-
-  # ─── Linux .deb ───────────────────────────────────────────────
-  build-linux:
-    needs: test
-    runs-on: ubuntu-latest
+  windows:
+    needs: [version, test]
+    runs-on: windows-2022
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev \
-            libmpv-dev mpv \
-            dpkg-dev
-
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Create .deb package
-        run: |
-          APP_NAME="lifeostv"
-          # Debian package version must start with a digit.
-          # For tag runs, use tag version (v1.2.3 -> 1.2.3).
-          # For workflow_dispatch on branches, generate a valid fallback version.
-          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" =~ ^v?[0-9] ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="1.0.0+${GITHUB_RUN_NUMBER:-0}"
-          fi
-          # Keep only Debian-safe characters.
-          VERSION="$(echo "$VERSION" | sed 's/[^0-9A-Za-z.+:~-]/-/g')"
-          # Final guard: ensure version starts with a digit.
-          if [[ ! "$VERSION" =~ ^[0-9] ]]; then
-            VERSION="1.0.0+$VERSION"
-          fi
-          PKG_DIR="${APP_NAME}_${VERSION}_amd64"
-
-          mkdir -p "$PKG_DIR/DEBIAN"
-          mkdir -p "$PKG_DIR/usr/bin"
-          mkdir -p "$PKG_DIR/usr/lib/$APP_NAME"
-          mkdir -p "$PKG_DIR/usr/share/applications"
-          mkdir -p "$PKG_DIR/usr/share/pixmaps"
-
-          # Copy build output
-          cp -r build/linux/x64/release/bundle/* "$PKG_DIR/usr/lib/$APP_NAME/"
-
-          # Launcher script
-          cat > "$PKG_DIR/usr/bin/$APP_NAME" << 'LAUNCHER'
-          #!/bin/bash
-          exec /usr/lib/lifeostv/lifeostv "$@"
-          LAUNCHER
-          chmod +x "$PKG_DIR/usr/bin/$APP_NAME"
-
-          # Desktop entry
-          cat > "$PKG_DIR/usr/share/applications/$APP_NAME.desktop" << DESKTOP
-          [Desktop Entry]
-          Type=Application
-          Name=LifeOS TV
-          Comment=IPTV Player
-          Exec=$APP_NAME
-          Icon=$APP_NAME
-          Terminal=false
-          Categories=AudioVideo;Video;Player;
-          DESKTOP
-
-          # Icon
-          cp assets/app_icon_256.png "$PKG_DIR/usr/share/pixmaps/$APP_NAME.png"
-
-          # Control file
-          cat > "$PKG_DIR/DEBIAN/control" << CONTROL
-          Package: $APP_NAME
-          Version: $VERSION
-          Section: video
-          Priority: optional
-          Architecture: amd64
-          Depends: libgtk-3-0, mpv, libc6
-          Maintainer: erkanoz <erkanoz07@gmail.com>
-          Description: LifeOS IPTV Player
-           Full-featured IPTV player with M3U/Xtream Codes support,
-           OpenSubtitles integration, and multi-platform desktop experience.
-          CONTROL
-
-          dpkg-deb --build "$PKG_DIR"
-          mv "${PKG_DIR}.deb" "LifeosTV-${VERSION}-linux-amd64.deb"
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-deb
-          path: "*.deb"
-
-  # ─── Windows ──────────────────────────────────────────────────
-  build-windows:
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Build Windows
-        run: flutter build windows --release
-
-      - name: Create zip
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release --build-name=${{ needs.version.outputs.version }} --build-number=${{ needs.version.outputs.build }}
+      - name: Kurulum programını oluştur
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          if (-not $version) { $version = "1.0.0" }
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "LifeosTV-$version-windows-x64.zip"
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=${{ needs.version.outputs.version }}" installer\windows\setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
         with:
-          name: windows-zip
-          path: "*.zip"
+          name: windows
+          path: build/installer/LifeOS-TV-*-Windows-x64-Setup.exe
+          if-no-files-found: error
 
-  # ─── Android APK ─────────────────────────────────────────────
-  build-android:
-    needs: test
-    runs-on: ubuntu-latest
+  linux:
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Linux derleme araçları
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+            liblzma-dev imagemagick libmpv-dev
+      - run: flutter pub get
+      - run: flutter build linux --release --build-name=${{ needs.version.outputs.version }} --build-number=${{ needs.version.outputs.build }}
+      - name: Linux paketini oluştur
+        run: bash packaging/linux/make-release.sh
+      - name: Paketten kurulumu dene
+        run: |
+          work="$RUNNER_TEMP/kur"
+          mkdir -p "$work"
+          tar -C "$work" -xzf artifacts/LifeOS-TV-*-Linux-x64.tar.gz
+          . packaging/linux/uygulama.conf
+          XDG_DATA_HOME="$work/data" sh "$work/$PREFIX/kur.sh"
+          test -x "$work/data/$SLUG/$BINARY"
+          grep -q "$work/data/$SLUG/$BINARY" "$work/data/applications/$APP_ID.desktop"
+          test -s "$work/data/icons/hicolor/512x512/apps/$APP_ID.png"
+          XDG_DATA_HOME="$work/data" sh "$work/data/$SLUG/kur.sh" --kaldir
+          test ! -e "$work/data/$SLUG"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: artifacts/LifeOS-TV-*-Linux-x64.tar.gz
+          if-no-files-found: error
 
-      - uses: actions/setup-java@v4
+  android:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2.23.0
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
-
-      - name: Setup Android signing
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          cache: true
+      # The release key and its key.properties are kept in this private
+      # repository (key.md); without them the APK would fall back to debug
+      # signing, which the check below refuses.
+      - run: test -f android/key.properties
+      - run: flutter pub get
+      - run: flutter build apk --release --build-name=${{ needs.version.outputs.version }} --build-number=${{ needs.version.outputs.build }}
+      # A package signed with the debug key could not update the one people
+      # have: it must be the release key's.
+      - name: İmzayı denetle
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_STORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-            printf "storeFile=release.keystore\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n" \
-              "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
-            echo "Android release signing configured."
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "::error::Release tags require all Android signing secrets."
+          apksigner="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk > signer.txt
+          cat signer.txt
+          if grep -q "CN=Android Debug" signer.txt; then
+            echo "::error::APK hata ayıklama anahtarıyla imzalanmış."
             exit 1
-          else
-            echo "Development artifact: debug signing; not a store release."
           fi
-
-      - name: Build APK
-        run: flutter build apk --release
-
-      - name: Rename APK
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-1.0.0}"
-          cp build/app/outputs/flutter-apk/app-release.apk "LifeosTV-${VERSION}-android.apk"
-
-      - name: Upload Android artifact
-        uses: actions/upload-artifact@v4
+          mkdir -p artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk "artifacts/LifeOS-TV-${{ needs.version.outputs.version }}-Android.apk"
+      - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: "*.apk"
+          name: android
+          path: artifacts/LifeOS-TV-*-Android.apk
+          if-no-files-found: error
 
-  # Unsigned Apple builds validate platform integration without publishing.
-  build-apple:
-    needs: test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - name: Build macOS
-        run: flutter build macos --release
-      - name: Build iOS without signing
-        run: flutter build ios --release --no-codesign
-
-  # ─── Release ──────────────────────────────────────────────────
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows, build-android, build-apple]
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [version, windows, linux, android]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 30
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v4
         with:
+          path: dist
           merge-multiple: true
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            *.deb
-            *.zip
-            *.apk
+      - name: version.json
+        env:
+          MIN_SUPPORTED: ''
+        run: |
+          bash tool/release/version_json.sh iptv LifeOS-TV "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.build }}" dist > "$RUNNER_TEMP/version.json"
+          mv "$RUNNER_TEMP/version.json" dist/version.json
+          cat dist/version.json
+      - name: GitHub sürümü
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          cat release/notes_tr.md > "$notes" 2>/dev/null || true
+          gh release create "$GITHUB_REF_NAME" --title "LifeOS TV ${{ needs.version.outputs.version }}" \
+            --notes-file "$notes" dist/LifeOS-TV-*
+      - name: lifeos.com.tr'ye gönder
+        env:
+          DEPLOY_KEY: ${{ secrets.LIFEOS_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LIFEOS_DEPLOY_KNOWN_HOSTS }}
+        run: bash tool/release/send_to_site.sh dist iptv

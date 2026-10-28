@@ -1,0 +1,5 @@
+- A Windows installer is added; the Linux package comes with an install script.
+- Player controls fit on desktop and phone without clipping or losing focus.
+- Pause controls stay in place; video resources are released when the player closes.
+- Changing episodes no longer leaves the player; intro-skip markers are checked.
+- The system language and theme apply the same on every screen.
