@@ -1,7 +1,12 @@
 # Builds LifeOS TV for Windows, Linux and Android. A v tag publishes it: a
 # GitHub release with the three packages, and the same packages on
 # lifeos.com.tr/iptv (tool/release/send_to_site.sh). Run by hand, it only
-# builds, and the packages stay as the run's artifacts.
+# builds them, to check that it still can.
+#
+# The packages travel through a draft of the GitHub release rather than
+# workflow artifacts: the account's artifact storage for private
+# repositories is full. The draft becomes the release once the site has
+# the packages.
 name: Derle ve yayımla
 
 on:
@@ -18,6 +23,8 @@ env:
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.read.outputs.version }}
       build: ${{ steps.read.outputs.build }}
@@ -36,6 +43,14 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build=$build" >> "$GITHUB_OUTPUT"
+      - name: Taslak sürüm
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+              --title "LifeOS TV ${{ steps.read.outputs.version }}" --notes-file release/notes_tr.md
 
   test:
     runs-on: ubuntu-latest
@@ -52,6 +67,8 @@ jobs:
 
   windows:
     needs: [version, test]
+    permissions:
+      contents: write
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
@@ -72,14 +89,17 @@ jobs:
           }
           & $iscc "/DAppVersion=${{ needs.version.outputs.version }}" installer\windows\setup.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: build/installer/LifeOS-TV-*-Windows-x64-Setup.exe
-          if-no-files-found: error
+      - name: Taslak sürüme yükle
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" build/installer/LifeOS-TV-*-Windows-x64-Setup.exe --clobber
 
   linux:
     needs: [version, test]
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -110,14 +130,17 @@ jobs:
           test -s "$work/data/icons/hicolor/512x512/apps/$APP_ID.png"
           XDG_DATA_HOME="$work/data" sh "$work/data/$SLUG/kur.sh" --kaldir
           test ! -e "$work/data/$SLUG"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: artifacts/LifeOS-TV-*-Linux-x64.tar.gz
-          if-no-files-found: error
+      - name: Taslak sürüme yükle
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" artifacts/LifeOS-TV-*-Linux-x64.tar.gz --clobber
 
   android:
     needs: [version, test]
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -150,11 +173,12 @@ jobs:
           fi
           mkdir -p artifacts
           cp build/app/outputs/flutter-apk/app-release.apk "artifacts/LifeOS-TV-${{ needs.version.outputs.version }}-Android.apk"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android
-          path: artifacts/LifeOS-TV-*-Android.apk
-          if-no-files-found: error
+      - name: Taslak sürüme yükle
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" artifacts/LifeOS-TV-*-Android.apk --clobber
 
   publish:
     if: github.ref_type == 'tag'
@@ -165,10 +189,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
+      - name: Taslak sürümden indir
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$GITHUB_REF_NAME" --pattern 'LifeOS-TV-*' --dir dist
       - name: version.json
         env:
           MIN_SUPPORTED: ''
@@ -176,16 +200,12 @@ jobs:
           bash tool/release/version_json.sh iptv LifeOS-TV "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.build }}" dist > "$RUNNER_TEMP/version.json"
           mv "$RUNNER_TEMP/version.json" dist/version.json
           cat dist/version.json
-      - name: GitHub sürümü
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          notes="$RUNNER_TEMP/notes.md"
-          cat release/notes_tr.md > "$notes" 2>/dev/null || true
-          gh release create "$GITHUB_REF_NAME" --title "LifeOS TV ${{ needs.version.outputs.version }}" \
-            --notes-file "$notes" dist/LifeOS-TV-*
       - name: lifeos.com.tr'ye gönder
         env:
           DEPLOY_KEY: ${{ secrets.LIFEOS_DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.LIFEOS_DEPLOY_KNOWN_HOSTS }}
         run: bash tool/release/send_to_site.sh dist iptv
+      - name: Sürümü yayımla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
