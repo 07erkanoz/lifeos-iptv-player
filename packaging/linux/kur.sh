@@ -43,8 +43,14 @@ command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q
 
 echo "$NAME kuruldu: $target"
 echo "Uygulama menüsünden açabilirsiniz."
-if [ -n "${NEEDS_LIB:-}" ] && command -v ldconfig >/dev/null 2>&1 \
-    && ! ldconfig -p 2>/dev/null | grep -q "$NEEDS_LIB"; then
-  echo
-  echo "Uyarı: $NEEDS_LIB bulunamadı. $NEEDS_HINT"
+# Libraries the app needs from the system (NEEDS_LIB, space-separated).
+if [ -n "${NEEDS_LIB:-}" ] && command -v ldconfig >/dev/null 2>&1; then
+  missing=''
+  for lib in $NEEDS_LIB; do
+    ldconfig -p 2>/dev/null | grep -q "$lib" || missing="$missing $lib"
+  done
+  if [ -n "$missing" ]; then
+    echo
+    echo "Uyarı:$missing bulunamadı. $NEEDS_HINT"
+  fi
 fi
