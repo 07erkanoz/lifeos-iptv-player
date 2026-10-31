@@ -12,6 +12,7 @@ import 'package:lifeostv/data/repositories/profile_repository.dart'
 import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 import 'package:lifeostv/presentation/controllers/playback_seek_controller.dart';
 import 'dart:async';
+import 'package:lifeostv/core/mpris.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -436,6 +437,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _channelIndex = widget.currentChannelIndex ?? 0;
     _currentTitle = widget.title;
     _currentLogo = widget.logo;
+    _announceMpris();
     CastService.instance.stateNotifier.addListener(_onRemoteCastChanged);
     _currentUrl = widget.streamUrl;
     _currentHeaders = widget.httpHeaders;
@@ -516,8 +518,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     }
   }
 
+  /// What plays, shown to the desktop (MPRIS, Linux): LifeOS Ada's media and
+  /// the media keys see it and can play, pause and seek it.
+  void _announceMpris() {
+    unawaited(Mpris.instance.attach(
+      title: '${_currentTitle ?? ''}',
+      artUrl: _currentLogo,
+      live: widget.type == VideoType.live,
+      play: () => _player.play(),
+      pause: () => _player.pause(),
+      stop: () => _player.pause(),
+      seek: (to) => _player.seek(to),
+      position: () => _player.state.position,
+      duration: () => _player.state.duration,
+    ));
+  }
+
   @override
   void dispose() {
+    Mpris.instance.detach();
     _episodes?.close();
     _audioEventSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -1181,6 +1200,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _subs.add(
       _player.stream.playing.listen((playing) {
         if (!mounted || _disposing) return;
+        Mpris.instance.playing(playing);
         if (!playing) {
           _controlsAnim.forward();
           // Coalesce into a single rebuild instead of two back-to-back.
@@ -1541,6 +1561,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _showNextOverlay = false;
             _savedInitialProgress = false;
             _currentTitle = episode.title;
+            _announceMpris();
             _currentHeaders = episode.headers;
             _showSkipIntro = false;
             _introStartMs = null;
@@ -1618,6 +1639,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _channelIndex = newIndex;
       _currentTitle = ch.name;
       _currentLogo = ch.logo;
+      _announceMpris();
       _isBuffering = true;
       _showChannelInfo = true;
       _currentProgram = null;

@@ -26,6 +26,10 @@ import 'package:lifeostv/data/services/catalog_embedding_runner.dart';
 import 'package:lifeostv/data/repositories/content_repository.dart';
 import 'package:lifeostv/data/repositories/content_embeddings_repository.dart';
 import 'package:lifeostv/presentation/state/auth_provider.dart';
+import 'package:lifeostv/core/desktop_bridge.dart';
+import 'package:lifeostv/data/services/media_request.dart';
+import 'package:lifeostv/data/services/playback_url_resolver.dart';
+import 'package:lifeostv/presentation/screens/player/video_player_screen.dart' show VideoType;
 import 'package:lifeostv/presentation/widgets/branding/brand_splash.dart';
 import 'package:lifeostv/presentation/widgets/content/live_now_on_air_rail.dart';
 import 'package:lifeostv/presentation/state/settings_provider.dart';
@@ -53,8 +57,14 @@ Future<bool> _detectAndroidTV() async {
   }
 }
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // One copy on the desktop: a second start (LifeOS Ada's "play this") hands
+  // its request to the running one and ends; this copy takes the next ones.
+  if (await DesktopBridge.handOver(args)) exit(0);
+  DesktopBridge.requests.value = PlayRequest.fromArgs(args);
+  unawaited(DesktopBridge.listen());
 
   // Detect Android TV FIRST so heavy, TV-inappropriate init can be skipped.
   final isTV = await _detectAndroidTV();
@@ -185,6 +195,8 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    DesktopBridge.requests.addListener(_playRequested);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _playRequested());
     // Kick the LAN auto-sync once the first frame is up (providers
     // ready, context available).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -405,6 +417,50 @@ class _LifeosAppState extends ConsumerState<LifeosApp>
       _maybeAutoSync();
       _runEnrichPass();
       _maybeSyncEpg();
+    }
+  }
+
+  bool _playing = false;
+
+  /// LifeOS Ada (or the desktop) asked to play one item: once an account is
+  /// ready, the item is found on it and played (a series opens its section).
+  Future<void> _playRequested() async {
+    final request = DesktopBridge.requests.value;
+    if (request == null || _playing) return;
+    _playing = true;
+    try {
+      Account? account;
+      for (var i = 0; i < 60 && account == null; i++) {
+        account = ref.read(currentAccountProvider).value;
+        if (account == null) await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (account == null || !mounted) return;
+      DesktopBridge.requests.value = null;
+      final router = ref.read(routerProvider);
+      final channel = await ref
+          .read(contentRepositoryProvider)
+          .getVisibleChannel(request.streamId, type: request.type);
+      if (channel == null || !mounted) return;
+      if (request.type == 'series') {
+        router.go('/series');
+        return;
+      }
+      final url = await ref.read(playbackUrlResolverProvider).resolve(account, channel);
+      if (!mounted) return;
+      router.push('/player', extra: {
+        'url': url,
+        'httpHeaders': MediaRequest.decode(channel.playbackHeaders),
+        'streamId': channel.streamId,
+        'accountId': channel.accountId,
+        'title': channel.name,
+        'type': request.type == 'movie' ? VideoType.movie : VideoType.live,
+        'logo': channel.streamIcon,
+      });
+    } catch (e) {
+      if (kDebugMode) debugPrint('[DesktopBridge] play failed: $e');
+    } finally {
+      _playing = false;
+      if (DesktopBridge.requests.value != null) unawaited(_playRequested());
     }
   }
 

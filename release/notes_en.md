@@ -1,5 +1,4 @@
-- A Windows installer is added; the Linux package comes with an install script.
-- Player controls fit on desktop and phone without clipping or losing focus.
-- Pause controls stay in place; video resources are released when the player closes.
-- Changing episodes no longer leaves the player; intro-skip markers are checked.
-- The system language and theme apply the same on every screen.
+- Devices find each other again for settings sharing (1.13.8).
+- One LifeOS TV on the desktop: starting it again brings the open one forward.
+- A channel or film opens directly from LifeOS Ada (`lifeos-tv --oynat live:12345`).
+- On Linux the player is announced over MPRIS: LifeOS Ada, KDE's media controls and the media keys can play, pause and seek it.

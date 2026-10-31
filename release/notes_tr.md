@@ -1,5 +1,4 @@
-- Windows için kurulum programı eklendi; Linux paketi kurulum betiğiyle geliyor.
-- Oynatıcı denetimleri masaüstünde ve telefonda kesilmeden, odağı kaybetmeden yerleşiyor.
-- Duraklatma denetimleri yerinde kalıyor; oynatıcıdan çıkınca görüntü kaynakları bırakılıyor.
-- Bölüm değiştirirken oynatıcıdan çıkılmıyor; jenerik atlama işaretleri denetleniyor.
-- Sistem dili ve teması her ekranda aynı uygulanıyor.
+- Cihazlar arası ayar paylaşımında cihazlar artık birbirini buluyor (1.13.8).
+- Masaüstünde tek LifeOS TV: ikinci kez açılınca açık olan öne gelir.
+- LifeOS Ada'dan bir kanal ya da film doğrudan açılır (`lifeos-tv --oynat live:12345`).
+- Linux'ta çalan yayın sisteme bildirilir (MPRIS): LifeOS Ada, KDE'nin medya denetimleri ve medya tuşları oynat, duraklat ve ileri-geri sarabilir.
