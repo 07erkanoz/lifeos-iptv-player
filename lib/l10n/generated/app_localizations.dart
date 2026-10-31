@@ -1976,6 +1976,36 @@ abstract class AppLocalizations {
   /// **'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.'**
   String get deviceSyncResultNone;
 
+  /// No description provided for @deviceSyncManualEntry.
+  ///
+  /// In tr, this message translates to:
+  /// **'IP adresiyle bağlan'**
+  String get deviceSyncManualEntry;
+
+  /// No description provided for @deviceSyncManualHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Gönderen cihazın ekranında yazan adresi gir (ör. 192.168.1.20).'**
+  String get deviceSyncManualHint;
+
+  /// No description provided for @deviceSyncAddressInvalid.
+  ///
+  /// In tr, this message translates to:
+  /// **'Geçerli bir IP adresi gir.'**
+  String get deviceSyncAddressInvalid;
+
+  /// No description provided for @deviceSyncThisAddress.
+  ///
+  /// In tr, this message translates to:
+  /// **'Bu cihazın adresi'**
+  String get deviceSyncThisAddress;
+
+  /// No description provided for @deviceSyncThisAddressHint.
+  ///
+  /// In tr, this message translates to:
+  /// **'Cihaz listede yoksa diğer cihazda \"IP adresiyle bağlan\"ı seçip bu adresi gir.'**
+  String get deviceSyncThisAddressHint;
+
   /// No description provided for @catalogEnrichment.
   ///
   /// In tr, this message translates to:

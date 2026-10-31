@@ -1008,6 +1008,24 @@ class AppLocalizationsKu extends AppLocalizations {
       'Amûrek ji bo hevdemkirinê nehat dîtin. Divê herdu jî vekirî û li ser heman Wi-Fi bin.';
 
   @override
+  String get deviceSyncManualEntry => 'Bi navnîşana IP ve girê bide';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Navnîşana ku li ser amûra şandinê xuya dibe binivîse (mînak 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid =>
+      'Navnîşaneke IP ya derbasdar binivîse.';
+
+  @override
+  String get deviceSyncThisAddress => 'Navnîşana vê amûrê';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Heke ev amûr di lîsteyê de tune be, li ser amûra din \"Bi navnîşana IP ve girê bide\" hilbijêre û vê navnîşanê binivîse.';
+
+  @override
   String get catalogEnrichment => 'Etîketkirina jîr a katalogê';
 
   @override

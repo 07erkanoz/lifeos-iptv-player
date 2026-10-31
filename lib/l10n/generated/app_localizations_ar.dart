@@ -1008,6 +1008,23 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يوجد جهاز للمزامنة. يجب أن يكون كلاهما مفتوحًا وعلى نفس شبكة Wi-Fi.';
 
   @override
+  String get deviceSyncManualEntry => 'الاتصال بعنوان IP';
+
+  @override
+  String get deviceSyncManualHint =>
+      'أدخل العنوان الظاهر على الجهاز المرسل (مثل 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'أدخل عنوان IP صالحًا.';
+
+  @override
+  String get deviceSyncThisAddress => 'عنوان هذا الجهاز';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'إذا لم يظهر هذا الجهاز، اختر \"الاتصال بعنوان IP\" على الجهاز الآخر وأدخل هذا العنوان.';
+
+  @override
   String get catalogEnrichment => 'وسم ذكي للمحتوى';
 
   @override

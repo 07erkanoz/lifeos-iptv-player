@@ -1009,6 +1009,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'No device to sync with. Both must be open and on the same Wi-Fi.';
 
   @override
+  String get deviceSyncManualEntry => 'Connect by IP address';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Enter the address shown on the sending device (e.g. 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Enter a valid IP address.';
+
+  @override
+  String get deviceSyncThisAddress => 'This device\'s address';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'If this device is not listed, choose \"Connect by IP address\" on the other device and enter this address.';
+
+  @override
   String get catalogEnrichment => 'Smart catalogue tagging';
 
   @override

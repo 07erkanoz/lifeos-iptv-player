@@ -54,4 +54,13 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+; Device-to-device sync listens on TCP 48741 and UDP 48742. Windows marks new
+; Wi-Fi networks "Public" and its first-run prompt only allows "Private", so
+; peers often could not reach this PC. An all-users (admin) install allows the app
+; from the local subnet only; a per-user install falls back to that prompt.
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName} LAN sync"""; Flags: runhidden; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{#MyAppName} LAN sync"" dir=in action=allow program=""{app}\{#MyAppExeName}"" enable=yes remoteip=localsubnet profile=any"; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#MyAppName} LAN sync"""; Flags: runhidden; RunOnceId: "LanSyncFirewall"; Check: IsAdminInstallMode

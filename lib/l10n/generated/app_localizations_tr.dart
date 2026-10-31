@@ -1007,6 +1007,23 @@ class AppLocalizationsTr extends AppLocalizations {
       'Eşitlenecek cihaz bulunamadı. İkisi de açık ve aynı Wi-Fi\'da olmalı.';
 
   @override
+  String get deviceSyncManualEntry => 'IP adresiyle bağlan';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Gönderen cihazın ekranında yazan adresi gir (ör. 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Geçerli bir IP adresi gir.';
+
+  @override
+  String get deviceSyncThisAddress => 'Bu cihazın adresi';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Cihaz listede yoksa diğer cihazda \"IP adresiyle bağlan\"ı seçip bu adresi gir.';
+
+  @override
   String get catalogEnrichment => 'Akıllı katalog etiketleme';
 
   @override

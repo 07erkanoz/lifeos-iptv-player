@@ -1012,6 +1012,23 @@ class AppLocalizationsDe extends AppLocalizations {
       'Kein Gerät zum Synchronisieren. Beide müssen geöffnet und im selben WLAN sein.';
 
   @override
+  String get deviceSyncManualEntry => 'Per IP-Adresse verbinden';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Gib die Adresse ein, die am sendenden Gerät angezeigt wird (z. B. 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Gib eine gültige IP-Adresse ein.';
+
+  @override
+  String get deviceSyncThisAddress => 'Adresse dieses Geräts';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Wird dieses Gerät nicht angezeigt, wähle am anderen Gerät \"Per IP-Adresse verbinden\" und gib diese Adresse ein.';
+
+  @override
   String get catalogEnrichment => 'Intelligente Katalog-Verschlagwortung';
 
   @override

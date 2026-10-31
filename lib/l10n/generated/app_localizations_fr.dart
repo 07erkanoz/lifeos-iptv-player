@@ -1011,6 +1011,23 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun appareil à synchroniser. Les deux doivent être ouverts et sur le même Wi-Fi.';
 
   @override
+  String get deviceSyncManualEntry => 'Se connecter par adresse IP';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Saisissez l\'adresse affichée sur l\'appareil émetteur (ex. 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Saisissez une adresse IP valide.';
+
+  @override
+  String get deviceSyncThisAddress => 'Adresse de cet appareil';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Si cet appareil n\'apparaît pas, choisissez \"Se connecter par adresse IP\" sur l\'autre appareil et saisissez cette adresse.';
+
+  @override
   String get catalogEnrichment => 'Étiquetage intelligent du catalogue';
 
   @override

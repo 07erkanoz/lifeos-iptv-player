@@ -1011,6 +1011,23 @@ class AppLocalizationsRu extends AppLocalizations {
       'Нет устройства для синхронизации. Оба должны быть открыты и в одной Wi-Fi.';
 
   @override
+  String get deviceSyncManualEntry => 'Подключиться по IP-адресу';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Введите адрес, показанный на отправляющем устройстве (например, 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Введите корректный IP-адрес.';
+
+  @override
+  String get deviceSyncThisAddress => 'Адрес этого устройства';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Если этого устройства нет в списке, выберите «Подключиться по IP-адресу» на другом устройстве и введите этот адрес.';
+
+  @override
   String get catalogEnrichment => 'Умная разметка каталога';
 
   @override

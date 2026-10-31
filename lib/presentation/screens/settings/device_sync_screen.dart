@@ -11,10 +11,12 @@ import 'package:lifeostv/presentation/state/settings_provider.dart';
 /// Same-network device-to-device transfer screen.
 ///
 /// Two roles, picked on entry:
-///   * SEND    — this device opens an HTTP server + mDNS broadcast and
-///               shows a PIN. Nothing leaves until a peer authenticates.
-///   * RECEIVE — discover senders, type their PIN, choose which data
-///               categories to pull, then apply.
+///   * SEND    — this device opens an HTTP server, announces itself over
+///               UDP + mDNS and shows a PIN and its IP address. Nothing
+///               leaves until a peer authenticates.
+///   * RECEIVE — discover senders (or type a sender's IP address), type
+///               their PIN, choose which data categories to pull, then
+///               apply.
 class DeviceSyncScreen extends ConsumerStatefulWidget {
   /// Start directly in RECEIVE mode (used from first-run onboarding,
   /// where the only sensible action is to pull data into the fresh
@@ -44,8 +46,13 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   // Sending
   String? _pin;
   bool _startingServer = false;
+  List<String> _localIps = const [];
 
   // Receiving
+  /// One discovery run per visit to the device list. Created lazily so a
+  /// rebuild (keyboard, focus, theme) does not restart the search; reset
+  /// to null whenever the list should search again.
+  Stream<List<SyncPeer>>? _peerStream;
   SyncPeer? _selectedPeer;
   SyncManifest? _manifest;
   final _pinController = TextEditingController();
@@ -115,12 +122,14 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
     });
     try {
       final pin = await _svc.startSending();
+      final ips = await _svc.localAddresses();
       if (!mounted || _mode != _Mode.sending) {
         await _svc.stopSending();
         return;
       }
       setState(() {
         _pin = pin;
+        _localIps = ips;
         _startingServer = false;
       });
     } catch (_) {
@@ -147,6 +156,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
   void _resetReceive() {
     setState(() {
       _mode = _Mode.chooser;
+      _peerStream = null;
       _selectedPeer = null;
       _manifest = null;
       _pinController.clear();
@@ -506,6 +516,36 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                     fontSize: 13,
                   ),
                 ),
+                if (_localIps.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    l10n.deviceSyncThisAddress,
+                    style: const TextStyle(
+                      color: AppColors.textSecondaryDark,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final ip in _localIps)
+                    SelectableText(
+                      ip,
+                      style: const TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.deviceSyncThisAddressHint,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textTertiaryDark,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 28),
               TextButton(onPressed: _leaveSendMode, child: Text(l10n.cancel)),
@@ -527,7 +567,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
 
   Widget _buildPeerList(AppLocalizations l10n) {
     return StreamBuilder<List<SyncPeer>>(
-      stream: _svc.discoverPeers(),
+      stream: _peerStream ??= _svc.discoverPeers(),
       builder: (context, snap) {
         final peers = snap.data ?? const <SyncPeer>[];
         final done = snap.connectionState == ConnectionState.done;
@@ -571,7 +611,7 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                         Icons.refresh,
                         color: AppColors.textSecondaryDark,
                       ),
-                      onPressed: () => setState(() {}),
+                      onPressed: () => setState(() => _peerStream = null),
                       tooltip: l10n.castSearchAgain,
                     ),
                 ],
@@ -620,16 +660,49 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
                           Icons.chevron_right,
                           color: AppColors.textSecondaryDark,
                         ),
-                        onTap: () => setState(() => _selectedPeer = p),
+                        onTap: () => setState(() {
+                          _peerStream = null;
+                          _selectedPeer = p;
+                        }),
                       ),
                     );
                   },
                 ),
               ),
+            // Fallback for networks that block multicast/broadcast/mDNS:
+            // type the address shown on the sending device.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _enterAddressManually(l10n),
+                  icon: const Icon(Icons.dialpad),
+                  label: Text(l10n.deviceSyncManualEntry),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _enterAddressManually(AppLocalizations l10n) async {
+    final peer = await showDialog<SyncPeer>(
+      context: context,
+      builder: (_) => const _ManualAddressDialog(),
+    );
+    if (peer == null || !mounted) return;
+    setState(() {
+      _peerStream = null;
+      _error = null;
+      _selectedPeer = peer;
+    });
   }
 
   Widget _buildPinEntry(AppLocalizations l10n) {
@@ -927,6 +1000,78 @@ class _DeviceSyncScreenState extends ConsumerState<DeviceSyncScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Asks for the sender's IP address (optionally `ip:port`). Owns its text
+/// controller so it is disposed with the dialog, after the exit animation.
+class _ManualAddressDialog extends StatefulWidget {
+  const _ManualAddressDialog();
+
+  @override
+  State<_ManualAddressDialog> createState() => _ManualAddressDialogState();
+}
+
+class _ManualAddressDialogState extends State<_ManualAddressDialog> {
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final peer = SyncPeer.fromManualInput(_controller.text);
+    if (peer == null) {
+      setState(
+        () => _error = AppLocalizations.of(context)!.deviceSyncAddressInvalid,
+      );
+      return;
+    }
+    Navigator.of(context).pop(peer);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      backgroundColor: AppColors.surface(context),
+      title: Text(l10n.deviceSyncManualEntry),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.deviceSyncManualHint,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              hintText: '192.168.1.20',
+              errorText: _error,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(onPressed: _submit, child: Text(l10n.deviceSyncConnect)),
+      ],
     );
   }
 }

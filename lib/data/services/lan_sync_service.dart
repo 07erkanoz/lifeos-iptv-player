@@ -1,4 +1,5 @@
 import 'package:lifeostv/data/repositories/intro_marker_repository.dart';
+import 'lan_discovery.dart';
 import 'lan_transfer_policy.dart';
 import 'lan_pairing_gate.dart';
 import 'm3u_lan_identity.dart';
@@ -23,8 +24,9 @@ import 'package:lifeostv/main.dart' show sharedPreferencesProvider;
 /// Same-network device-to-device sync — NO cloud, NO database server.
 ///
 /// One device (the SENDER) opens an HTTP server, advertises
-/// itself over mDNS (`_lifeostv-sync._tcp`) and shows a 6-digit PIN.
-/// The other device (the RECEIVER) discovers it over mDNS, the user
+/// itself over UDP (lan_discovery.dart) and mDNS (`_lifeostv-sync._tcp`)
+/// and shows a 6-digit PIN. The other device (the RECEIVER) discovers it
+/// (or the user types its IP address), the user
 /// types the PIN, then the receiver pulls a JSON snapshot and applies
 /// the categories the user picked (account, favourites, continue-
 /// watching, settings, profiles).
@@ -84,7 +86,25 @@ class SyncPeer {
     this.deviceId = '',
   });
 
-  String get baseUrl => 'http://$host:$port';
+  /// `Uri` brackets IPv6 literals; a plain `http://$host:$port` string
+  /// produced an unparsable URL for the IPv6 addresses Avahi resolves.
+  String get baseUrl => Uri(scheme: 'http', host: host, port: port).toString();
+
+  /// True when [host] is a numeric IPv4 address (the most reachable kind).
+  bool get hasIPv4Host =>
+      InternetAddress.tryParse(host)?.type == InternetAddressType.IPv4;
+
+  /// Parse what a user typed in the "enter address" field:
+  /// `192.168.1.20`, `192.168.1.20:48741` or `[fe80::1]:48741`.
+  static SyncPeer? fromManualInput(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return null;
+    final uri = Uri.tryParse(text.contains('://') ? text : 'http://$text');
+    if (uri == null || uri.host.isEmpty) return null;
+    final port = uri.hasPort ? uri.port : LanSyncService.lanSyncPort;
+    if (port <= 0 || port > 65535) return null;
+    return SyncPeer(name: uri.host, host: uri.host, port: port);
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -215,6 +235,7 @@ class LanSyncService {
   // ── Server state ─────────────────────────────────────────────────────────
   HttpServer? _server;
   BonsoirBroadcast? _broadcast;
+  final LanDiscovery _udp = LanDiscovery();
   final _pairing = LanPairingGate();
   bool _autoWanted = false; // keep server up for token-only auto-sync
 
@@ -340,6 +361,16 @@ class LanSyncService {
     final server = await HttpServer.bind(InternetAddress.anyIPv4, _serverPort);
     _server = server;
     server.listen(_handleRequest, onError: (_) {});
+    // UDP discovery first: it is what most receivers will find us by.
+    try {
+      await _udp.advertise(
+        deviceId: deviceId,
+        name: _deviceName,
+        httpPort: server.port,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[LanSync] UDP advertise failed: $e');
+    }
     try {
       final broadcast = BonsoirBroadcast(
         service: BonsoirService(
@@ -360,6 +391,9 @@ class LanSyncService {
   }
 
   Future<void> _teardownServer() async {
+    try {
+      await _udp.stopAdvertising();
+    } catch (_) {}
     try {
       await _broadcast?.stop();
     } catch (_) {}
@@ -751,6 +785,36 @@ class LanSyncService {
     };
   }
 
+  /// This device's LAN IPv4 addresses, shown on the send screen so the
+  /// other device can type one in when discovery is blocked.
+  Future<List<String>> localAddresses() async {
+    try {
+      final ifaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+      );
+      final out = <String>[];
+      for (final iface in ifaces) {
+        final n = iface.name.toLowerCase();
+        if (n.startsWith('docker') ||
+            n.startsWith('veth') ||
+            n.startsWith('br-') ||
+            n.startsWith('virbr') ||
+            n.contains('vethernet') ||
+            n.contains('vmware') ||
+            n.contains('virtualbox')) {
+          continue;
+        }
+        for (final a in iface.addresses) {
+          if (a.isLoopback || a.isLinkLocal) continue;
+          out.add(a.address);
+        }
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // ── Receiver side: discovery + fetch + import ────────────────────────────
 
   /// Discover senders on the LAN for [timeout]. Re-emits the growing
@@ -759,10 +823,34 @@ class LanSyncService {
     Duration timeout = const Duration(seconds: 8),
   }) {
     final controller = StreamController<List<SyncPeer>>();
-    final found = <SyncPeer>{};
+    // Keyed by device id, so the same device found over UDP (IPv4) and
+    // mDNS (possibly IPv6 or a .local name) is listed once.
+    final found = <String, SyncPeer>{};
     BonsoirDiscovery? discovery;
+    void Function()? stopUdp;
     Timer? stopTimer;
     var cleanupStarted = false;
+
+    void offer(SyncPeer peer) {
+      if (controller.isClosed || cleanupStarted) return;
+      // Never list ourselves — our own broadcast resolves too.
+      if (peer.deviceId.isNotEmpty && peer.deviceId == deviceId) return;
+      final key = peer.deviceId.isNotEmpty
+          ? peer.deviceId
+          : '${peer.host}:${peer.port}';
+      final prev = found[key];
+      if (prev != null) {
+        // Keep an IPv4 endpoint over an IPv6 / hostname one.
+        if (prev.hasIPv4Host && !peer.hasIPv4Host) return;
+        if (prev.host == peer.host &&
+            prev.port == peer.port &&
+            prev.name == peer.name) {
+          return;
+        }
+      }
+      found[key] = peer;
+      controller.add(found.values.toList());
+    }
 
     Future<void> cleanup() async {
       // Closing the controller also invokes onCancel. Stop Avahi only once:
@@ -771,6 +859,8 @@ class LanSyncService {
       if (cleanupStarted) return;
       cleanupStarted = true;
       stopTimer?.cancel();
+      stopUdp?.call();
+      stopUdp = null;
       try {
         await discovery?.stop();
       } catch (_) {}
@@ -779,40 +869,57 @@ class LanSyncService {
 
     controller.onListen = () async {
       controller.add(const []);
+      stopTimer = Timer(timeout, cleanup);
+      // UDP multicast/broadcast discovery (works where mDNS does not).
+      try {
+        final stop = await _udp.search((p) {
+          offer(
+            SyncPeer(
+              name: p.name.isNotEmpty ? p.name : p.host,
+              host: p.host,
+              port: p.port,
+              deviceId: p.id,
+            ),
+          );
+        }, ownId: deviceId);
+        if (cleanupStarted) {
+          stop();
+        } else {
+          stopUdp = stop;
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('[LanSync] UDP discovery failed: $e');
+      }
+      if (cleanupStarted) return;
+      // mDNS, for older LifeOS TV versions that only advertise there.
       try {
         await _ensureNearbyPermission();
-        discovery = BonsoirDiscovery(type: _serviceType);
-        await discovery!.initialize();
-        discovery!.eventStream?.listen((event) {
+        if (cleanupStarted) return;
+        final d = BonsoirDiscovery(type: _serviceType);
+        discovery = d;
+        await d.initialize();
+        d.eventStream?.listen((event) {
           switch (event) {
             case BonsoirDiscoveryServiceFoundEvent():
-              event.service.resolve(discovery!.serviceResolver);
+              event.service.resolve(d.serviceResolver);
               break;
             case BonsoirDiscoveryServiceResolvedEvent():
               final svc = event.service;
               final host = svc.host;
               final port = svc.port;
-              if (host == null || port == 0) break;
+              if (host == null || host.isEmpty || port == 0) break;
               final id = svc.attributes['id'] ?? '';
-              // Never list ourselves — our own broadcast resolves too.
-              if (id.isNotEmpty && id == deviceId) break;
               final name = svc.attributes['device'] ?? svc.name;
-              if (found.add(
-                    SyncPeer(name: name, host: host, port: port, deviceId: id),
-                  ) &&
-                  !controller.isClosed) {
-                controller.add(found.toList());
-              }
+              offer(SyncPeer(name: name, host: host, port: port, deviceId: id));
               break;
             default:
               break;
           }
         });
-        await discovery!.start();
-        stopTimer = Timer(timeout, cleanup);
+        await d.start();
       } catch (e) {
-        if (kDebugMode) debugPrint('[LanSync] discovery failed: $e');
-        await cleanup();
+        // mDNS failing must not end the search: UDP may still find peers.
+        if (kDebugMode) debugPrint('[LanSync] mDNS discovery failed: $e');
       }
     };
     controller.onCancel = cleanup;

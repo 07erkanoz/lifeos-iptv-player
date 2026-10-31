@@ -1013,6 +1013,23 @@ class AppLocalizationsEs extends AppLocalizations {
       'No hay dispositivo para sincronizar. Ambos deben estar abiertos y en la misma Wi-Fi.';
 
   @override
+  String get deviceSyncManualEntry => 'Conectar por dirección IP';
+
+  @override
+  String get deviceSyncManualHint =>
+      'Escribe la dirección que muestra el dispositivo emisor (p. ej. 192.168.1.20).';
+
+  @override
+  String get deviceSyncAddressInvalid => 'Escribe una dirección IP válida.';
+
+  @override
+  String get deviceSyncThisAddress => 'Dirección de este dispositivo';
+
+  @override
+  String get deviceSyncThisAddressHint =>
+      'Si este dispositivo no aparece, elige \"Conectar por dirección IP\" en el otro dispositivo y escribe esta dirección.';
+
+  @override
   String get catalogEnrichment => 'Etiquetado inteligente del catálogo';
 
   @override
